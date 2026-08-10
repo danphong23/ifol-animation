@@ -10,6 +10,7 @@ Tài liệu này theo dõi các tính năng hiện có của lõi GPU, được 
 ## Tính năng đồ họa (Render Graph & Resources) - Đã hoàn thành
 - `[x]` **Resource Handles** (`TextureHandle`, `PipelineHandle`, `MeshHandle`): Đóng gói con trỏ tài nguyên thành chỉ số ID nguyên thủy (u64) nhằm tối ưu bộ nhớ và bảo đảm tính an toàn khi truyền qua Command Bus.
 - `[x]` **Render Graph Data Structure**: Đồ thị có thứ tự chứa các `RenderNode`. Mỗi Node khai báo cấu hình đầu ra (`RenderTarget`) và chuỗi lệnh vẽ (`DrawCommand`).
+- `[x]` **Render Graph Executor (Compiler)**: Bộ biên dịch đồ thị thành luồng lệnh phần cứng `wgpu::CommandEncoder`. Đi kèm `ResourceRegistry` để ánh xạ từ Handle siêu nhẹ ra các thực thể VRAM thực thụ.
 
 ## Quản lý Bộ nhớ (Memory Management) - Đã hoàn thành
 - `[x]` **Uniform Ring Buffer**: Cấp phát động dữ liệu Uniform với cơ chế quay vòng (Wrap-Around). Tự động tính toán Padding theo giới hạn căn lề chuẩn của phần cứng (`min_uniform_buffer_offset_alignment`).
@@ -86,5 +87,29 @@ fn render_frame(engine: &ifol_gpu::api::GpuEngine) {
     let offset = ring.write(engine.queue(), &my_matrix_data).unwrap();
     
     // --> Ném `offset` này vào DrawCommand để GPU dịch con trỏ đọc đúng vị trí
+}
+```
+
+### 4. Biên dịch đồ thị và Thực thi (RenderGraphExecutor)
+
+```rust
+use ifol_gpu::render::{RenderGraphExecutor, ResourceRegistry};
+// ... (Khởi tạo GpuEngine và RenderGraph) ...
+
+fn render_frame(engine: &ifol_gpu::api::GpuEngine, graph: &ifol_gpu::render::RenderGraph) {
+    let executor = RenderGraphExecutor::new();
+    let registry = ResourceRegistry::new();
+    
+    // Đăng ký tài nguyên thật (VRAM) tương ứng với các ID trừu tượng trên đồ thị
+    // registry.textures.insert(TextureHandle(1), texture_view);
+
+    // Dịch đồ thị thành lệnh WGPU và đẩy xuống card màn hình
+    let submission_idx = executor.execute(&engine, &registry, &graph);
+
+    // Chờ GPU vẽ xong hoàn toàn (Thường dùng cho Integration Benchmark hoặc Readback)
+    let _ = engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission_idx),
+        timeout: None,
+    });
 }
 ```
