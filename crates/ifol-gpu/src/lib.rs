@@ -1,5 +1,6 @@
 pub mod api;
 pub mod render;
+pub mod memory;
 
 #[cfg(test)]
 mod tests {

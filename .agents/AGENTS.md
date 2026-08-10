@@ -47,5 +47,6 @@ Sau khi đọc file `00` ở trên, nó sẽ chỉ dẫn bạn đọc tiếp 10 
 - **BẮT BUỘC:** Phải luôn đính kèm một đoạn code mẫu (Snippet) vào mục "Hướng dẫn sử dụng (Usage Examples)" bên trong chính file `FEATURES.md` đó để các Crate bên ngoài biết cách gọi hàm. Việc gom chung Tính năng và Hướng dẫn vào 1 file `FEATURES.md` giúp tài liệu không bị phân mảnh.
 
 ## 5. Quy Tắc Chuyển Giai Đoạn (Git Milestone Rule)
-- Trước khi chuyển sang thực hiện một Giai đoạn (Phase) mới trong Kế hoạch, Agent **BẮT BUỘC** phải kiểm tra xem các thay đổi của Giai đoạn trước đó đã được `commit` lên Git chưa.
-- Nếu chưa, Agent phải chạy lệnh `git add .` và `git commit -m "..."` để lưu lại mốc (Milestone) an toàn trước khi viết code mới. Tuyệt đối không gộp code của 2 Giai đoạn khác nhau vào chung một commit.
+- Việc `commit` code cho một Giai đoạn CHỈ ĐƯỢC THỰC HIỆN KHI NGƯỜI DÙNG XÁC NHẬN (chẳng hạn khi người dùng gõ `proceed` để bắt đầu Giai đoạn tiếp theo).
+- Nếu người dùng chưa xác nhận, tuyệt đối không được tự ý commit, vì họ có thể đang cần kiểm tra và sửa đổi thêm.
+- Ngay khi người dùng `proceed` sang Phase mới, Agent phải dùng terminal để `git add .` và `git commit -m "..."` cho Phase cũ (nếu có thay đổi) trước khi bắt tay vào viết code mới.

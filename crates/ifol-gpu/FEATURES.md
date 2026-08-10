@@ -7,11 +7,13 @@ Tài liệu này theo dõi các tính năng hiện có của lõi GPU, được 
 - `[x]` **Fallback Mechanism**: Tự động lùi về chuẩn đồ họa thấp hơn (ví dụ WebGL2 defaults) nếu cấu hình cao hơn không được phần cứng hỗ trợ.
 - `[x]` **Hardware Capabilities Scanning (`GpuCapabilities`)**: Bọc lại `wgpu::Limits` thành cấu trúc an toàn. Lấy ra được các cực trị phần cứng như `max_texture_dimension_2d`, `max_bind_groups`, `max_uniform_buffer_binding_size`, `max_vertex_buffers`.
 
-## Tính năng đồ họa (Render Graph & Resources) - Đang phát triển
+## Tính năng đồ họa (Render Graph & Resources) - Đã hoàn thành
 - `[x]` **Resource Handles** (`TextureHandle`, `PipelineHandle`, `MeshHandle`): Đóng gói con trỏ tài nguyên thành chỉ số ID nguyên thủy (u64) nhằm tối ưu bộ nhớ và bảo đảm tính an toàn khi truyền qua Command Bus.
 - `[x]` **Render Graph Data Structure**: Đồ thị có thứ tự chứa các `RenderNode`. Mỗi Node khai báo cấu hình đầu ra (`RenderTarget`) và chuỗi lệnh vẽ (`DrawCommand`).
-- `[ ]` Texture & Uniform Cache (LRU, Ring Buffer).
-- `[ ]` Render Graph Execution (Node, SubGraph, Compiler).
+
+## Quản lý Bộ nhớ (Memory Management) - Đã hoàn thành
+- `[x]` **Uniform Ring Buffer**: Cấp phát động dữ liệu Uniform với cơ chế quay vòng (Wrap-Around). Tự động tính toán Padding theo giới hạn căn lề chuẩn của phần cứng (`min_uniform_buffer_offset_alignment`).
+- `[x]` **Texture Cache (Exact-Match Pooling)**: Tái sử dụng Texture qua các Frame bằng cơ chế Cache để tránh liên tục tạo/xóa VRAM, cực kỳ hữu dụng cho các đồ thị render phức tạp.
 
 ## Hướng dẫn sử dụng (Usage Examples)
 
@@ -62,5 +64,27 @@ fn create_graph() {
         });
 
     graph.add_node(shadow_node);
+}
+```
+
+### 3. Cấp phát động Uniform Data (Ring Buffer)
+
+```rust
+use ifol_gpu::memory::UniformRingBuffer;
+// ... (Khởi tạo GpuEngine) ...
+
+fn render_frame(engine: &ifol_gpu::api::GpuEngine) {
+    let alignment = engine.capabilities().min_uniform_buffer_offset_alignment;
+    
+    // Cấp phát 1 buffer 1MB cho toàn bộ object trong Frame
+    let mut ring = UniformRingBuffer::new(engine.device(), 1024 * 1024, alignment);
+    
+    // Ghi dữ liệu ma trận (ví dụ: Matrix 4x4 ~ 64 bytes)
+    let my_matrix_data = [1.0f32; 16]; 
+    
+    // Ghi vào Ring Buffer, Ring sẽ tự động căn lề (Padding) và trả về Dynamic Offset
+    let offset = ring.write(engine.queue(), &my_matrix_data).unwrap();
+    
+    // --> Ném `offset` này vào DrawCommand để GPU dịch con trỏ đọc đúng vị trí
 }
 ```
