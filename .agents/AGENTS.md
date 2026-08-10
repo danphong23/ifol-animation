@@ -38,3 +38,14 @@ Hãy bắt đầu bằng việc đọc tấm bản đồ dẫn đường này tr
 👉 **[.agents/design/00_architecture_overview_and_codebase.md](file:///c:/Users/abc/.AI/Code/ifol-animation/.agents/design/00_architecture_overview_and_codebase.md)**
 
 Sau khi đọc file `00` ở trên, nó sẽ chỉ dẫn bạn đọc tiếp 10 tài liệu còn lại (được chia làm 3 lớp: Core Engine, Application Shell, Ecosystem). **Đừng bỏ sót bất kỳ file nào.** Chỉ khi bạn đã thẩm thấu 100% triết lý của 10 tài liệu này, bạn mới đủ tư cách để đề xuất hoặc sửa đổi mã nguồn.
+
+---
+
+## 4. Kiểm kê tính năng (Feature Tracking & Usage Rule)
+- Mỗi Crate cốt lõi (như `ifol-gpu`, `ifol-ecs`) **BẮT BUỘC** phải có một file `FEATURES.md` đặt ở thư mục gốc của Crate đó.
+- Mỗi khi hoàn thành code xong một tính năng mới (dù nhỏ hay lớn), Agent **PHẢI TỰ ĐỘNG** cập nhật file `FEATURES.md` này.
+- **BẮT BUỘC:** Phải luôn đính kèm một đoạn code mẫu (Snippet) vào mục "Hướng dẫn sử dụng (Usage Examples)" bên trong chính file `FEATURES.md` đó để các Crate bên ngoài biết cách gọi hàm. Việc gom chung Tính năng và Hướng dẫn vào 1 file `FEATURES.md` giúp tài liệu không bị phân mảnh.
+
+## 5. Quy Tắc Chuyển Giai Đoạn (Git Milestone Rule)
+- Trước khi chuyển sang thực hiện một Giai đoạn (Phase) mới trong Kế hoạch, Agent **BẮT BUỘC** phải kiểm tra xem các thay đổi của Giai đoạn trước đó đã được `commit` lên Git chưa.
+- Nếu chưa, Agent phải chạy lệnh `git add .` và `git commit -m "..."` để lưu lại mốc (Milestone) an toàn trước khi viết code mới. Tuyệt đối không gộp code của 2 Giai đoạn khác nhau vào chung một commit.
