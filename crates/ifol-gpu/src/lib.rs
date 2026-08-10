@@ -1,4 +1,5 @@
 pub mod api;
+pub mod render;
 
 #[cfg(test)]
 mod tests {
