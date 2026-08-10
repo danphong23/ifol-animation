@@ -1,7 +1,7 @@
 use thiserror::Error;
 use wgpu::{Backends, DeviceDescriptor, Features, Instance, InstanceDescriptor, Limits, MemoryHints, PowerPreference, RequestAdapterOptions};
 use crate::api::capabilities::GpuCapabilities;
-use crate::api::engine::GpuEngine;
+
 
 #[derive(Error, Debug)]
 pub enum GpuError {
@@ -13,28 +13,40 @@ pub enum GpuError {
     DeviceRequestFailed(#[from] wgpu::RequestDeviceError),
 }
 
-pub struct GpuEngineBuilder {
+pub struct GpuEngineBuilder<'a> {
+    instance: wgpu::Instance,
     backends: Backends,
     power_preference: PowerPreference,
     required_features: Features,
     required_limits: Limits,
+    surface: Option<wgpu::Surface<'a>>,
 }
 
-impl Default for GpuEngineBuilder {
+impl<'a> Default for GpuEngineBuilder<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl GpuEngineBuilder {
+impl<'a> GpuEngineBuilder<'a> {
     pub fn new() -> Self {
         Self {
+            instance: wgpu::Instance::default(),
             backends: Backends::all(),
             power_preference: PowerPreference::HighPerformance,
             required_features: Features::empty(),
-            // Fallback limits that should work almost everywhere (WebGL2 compatible)
             required_limits: Limits::downlevel_webgl2_defaults(),
+            surface: None,
         }
+    }
+
+    pub fn instance(&self) -> &wgpu::Instance {
+        &self.instance
+    }
+
+    pub fn with_surface(mut self, surface: wgpu::Surface<'a>) -> Self {
+        self.surface = Some(surface);
+        self
     }
 
     pub fn with_backends(mut self, backends: Backends) -> Self {
@@ -48,15 +60,14 @@ impl GpuEngineBuilder {
     }
 
     /// Khởi tạo GpuEngine. Quá trình này hoàn toàn không dính dáng đến Cửa sổ (Window/Surface).
-    pub async fn build(self) -> Result<GpuEngine, GpuError> {
+    pub async fn build(self) -> Result<crate::api::engine::GpuEngine<'a>, GpuError> {
         log::info!("Initializing GPU Instance with backends: {:?}", self.backends);
-        let instance = wgpu::Instance::default();
 
         log::info!("Requesting GPU Adapter...");
-        let adapter = instance
+        let adapter = self.instance
             .request_adapter(&RequestAdapterOptions {
                 power_preference: self.power_preference,
-                compatible_surface: None, // Headless by default
+                compatible_surface: self.surface.as_ref(),
                 force_fallback_adapter: false,
                 apply_limit_buckets: false,
             })
@@ -86,6 +97,14 @@ impl GpuEngineBuilder {
             )
             .await?;
 
-        Ok(GpuEngine::new(device, queue, capabilities))
+        let mut surface_config = None;
+        if let Some(surface) = &self.surface {
+            if let Some(config) = surface.get_default_config(&adapter, 1, 1) {
+                surface.configure(&device, &config);
+                surface_config = Some(config);
+            }
+        }
+
+        Ok(crate::api::engine::GpuEngine::new(device, queue, capabilities, self.surface, surface_config))
     }
 }

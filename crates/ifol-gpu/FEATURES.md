@@ -12,6 +12,10 @@ Tài liệu này theo dõi các tính năng hiện có của lõi GPU, được 
 - `[x]` **Render Graph Data Structure**: Đồ thị có thứ tự chứa các `RenderNode`. Mỗi Node khai báo cấu hình đầu ra (`RenderTarget`) và chuỗi lệnh vẽ (`DrawCommand`).
 - `[x]` **Render Graph Executor (Compiler)**: Bộ biên dịch đồ thị thành luồng lệnh phần cứng `wgpu::CommandEncoder`. Đi kèm `ResourceRegistry` để ánh xạ từ Handle siêu nhẹ ra các thực thể VRAM thực thụ.
 
+## Quản lý Cửa sổ & Màn hình (Window & Surface) - Đã hoàn thành
+- `[x]` **Surface Integration**: Hỗ trợ gắn `wgpu::Surface` kết hợp hoàn hảo với `winit 0.30` (theo mô hình `ApplicationHandler`) cho phép render trực tiếp ra cửa sổ hiển thị.
+- `[x]` **Dynamic Surface Resizing**: Tự động cấu hình lại bộ đệm trình bày (Present buffer) của hệ điều hành thông qua hàm `resize_surface` và cơ chế lấy cấu hình tự động của chuẩn WGPU v30.
+
 ## Quản lý Bộ nhớ (Memory Management) - Đã hoàn thành
 - `[x]` **Uniform Ring Buffer**: Cấp phát động dữ liệu Uniform với cơ chế quay vòng (Wrap-Around). Tự động tính toán Padding theo giới hạn căn lề chuẩn của phần cứng (`min_uniform_buffer_offset_alignment`).
 - `[x]` **Texture Cache (Exact-Match Pooling)**: Tái sử dụng Texture qua các Frame bằng cơ chế Cache để tránh liên tục tạo/xóa VRAM, cực kỳ hữu dụng cho các đồ thị render phức tạp.
@@ -111,5 +115,27 @@ fn render_frame(engine: &ifol_gpu::api::GpuEngine, graph: &ifol_gpu::render::Ren
         submission_index: Some(submission_idx),
         timeout: None,
     });
+}
+```
+
+### 5. Render lên cửa sổ (Visual Verification với Winit)
+
+```rust
+use ifol_gpu::api::GpuEngineBuilder;
+
+// Bên trong vòng lặp EventLoop của winit 0.30 (ApplicationHandler)
+fn render_to_window(engine: &ifol_gpu::api::GpuEngine, window: &winit::window::Window) {
+    if let Some(surface) = engine.surface() {
+        // Lấy frame hiện tại từ Surface
+        let frame = match surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(frame) | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+            _ => return, // Bỏ qua nếu out-of-date, lost, timeout...
+        };
+        
+        // ... (Build RenderGraph và Execute tương tự ví dụ 4) ...
+        
+        // Trình diễn Frame lên cửa sổ (wgpu v30 gọi từ Queue)
+        engine.queue().present(frame);
+    }
 }
 ```

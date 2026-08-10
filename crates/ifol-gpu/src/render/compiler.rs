@@ -63,7 +63,7 @@ impl RenderGraphExecutor {
             // Biên dịch (Duyệt) các DrawCommand do ECS gửi xuống
             for cmd in &node.commands {
                 match cmd {
-                    DrawCommand::DrawMesh { mesh, pipeline, bind_groups } => {
+                    DrawCommand::DrawMesh { mesh, pipeline, bind_groups, instance_count } => {
                         if let Some(pipe) = registry.pipelines.get(pipeline) {
                             render_pass.set_pipeline(pipe);
                             
@@ -79,9 +79,9 @@ impl RenderGraphExecutor {
                                 render_pass.set_vertex_buffer(0, vbo.slice(..));
                                 if let Some(ib) = ibo {
                                     render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint16);
-                                    render_pass.draw_indexed(0..*count, 0, 0..1);
+                                    render_pass.draw_indexed(0..*count, 0, 0..*instance_count);
                                 } else {
-                                    render_pass.draw(0..*count, 0..1);
+                                    render_pass.draw(0..*count, 0..*instance_count);
                                 }
                             }
                         }

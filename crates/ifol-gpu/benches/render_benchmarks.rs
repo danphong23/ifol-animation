@@ -1,6 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use ifol_gpu::api::GpuEngineBuilder;
-use ifol_gpu::render::{RenderGraph, RenderNode, RenderTarget, ResourceRegistry, TextureHandle, RenderGraphExecutor};
+use ifol_gpu::render::{RenderGraph, RenderNode, RenderTarget, ResourceRegistry, TextureHandle, RenderGraphExecutor, DrawCommand, MeshHandle, PipelineHandle, BindGroupHandle};
+use std::borrow::Cow;
 
 fn bench_clear_screen(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
@@ -41,5 +42,320 @@ fn bench_clear_screen(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_clear_screen);
+fn bench_single_large_image(c: &mut Criterion) {
+    let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+    let executor = RenderGraphExecutor::new();
+    
+    // 1. Tạo Target Texture
+    let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
+        label: Some("Target"),
+        size: wgpu::Extent3d { width: 1024, height: 1024, depth_or_array_layers: 1 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    let target_view = target_tex.create_view(&wgpu::TextureViewDescriptor::default());
+
+    // 2. Load Shader
+    let shader_src = std::fs::read_to_string("benches/assets/basic_texture.wgsl").unwrap();
+    let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Shader"),
+        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&shader_src)),
+    });
+
+    // 3. Load Image (Khỏi cần parse nội dung thật trong benchmark nếu ta chỉ test tốc độ GPU. 
+    //    Tuy nhiên, để WGPU thao tác VRAM thật, ta phải tạo một texture to)
+    let ai_img_data = std::fs::read("benches/assets/ai_demo_large.png").unwrap();
+    let img = image::load_from_memory(&ai_img_data).unwrap().to_rgba8();
+    let dims = img.dimensions();
+    
+    let texture_size = wgpu::Extent3d {
+        width: dims.0,
+        height: dims.1,
+        depth_or_array_layers: 1,
+    };
+    let src_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
+        size: texture_size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        label: Some("AI Large Image"),
+        view_formats: &[],
+    });
+    engine.queue().write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &src_tex,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        &img,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * dims.0),
+            rows_per_image: Some(dims.1),
+        },
+        texture_size,
+    );
+    let src_view = src_tex.create_view(&wgpu::TextureViewDescriptor::default());
+    let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+
+    // 4. BindGroupLayout & BindGroup
+    let bgl = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    multisampled: false,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+        label: None,
+    });
+    let bg = engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &bgl,
+        entries: &[
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&src_view) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&sampler) },
+        ],
+        label: None,
+    });
+
+    // 5. Pipeline
+    let pipeline_layout = engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[Some(&bgl)],
+        immediate_size: 0,
+    });
+    let pipeline = engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: None,
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            buffers: &[], // Dùng Fullscreen Triangle thủ thuật hoặc Dummy Buffer
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview_mask: None,
+        cache: None,
+    });
+
+    // 6. Đăng ký tài nguyên
+    let mut registry = ResourceRegistry::new();
+    registry.textures.insert(TextureHandle(1), target_view);
+    registry.pipelines.insert(PipelineHandle(1), pipeline);
+    registry.bind_groups.insert(BindGroupHandle(1), bg);
+    
+    // Mesh Dummy (Vẽ 3 đỉnh fullscreen triangle)
+    registry.meshes.insert(MeshHandle(1), (
+        engine.device().create_buffer(&wgpu::BufferDescriptor { size: 4, usage: wgpu::BufferUsages::VERTEX, label: None, mapped_at_creation: false }),
+        None,
+        3
+    ));
+
+    // 7. Graph
+    let mut graph = RenderGraph::new();
+    let mut node = RenderNode::new("LargeImagePass", RenderTarget {
+        color_attachments: vec![TextureHandle(1)],
+        depth_attachment: None,
+    });
+    node.commands.push(DrawCommand::DrawMesh {
+        mesh: MeshHandle(1),
+        pipeline: PipelineHandle(1),
+        bind_groups: vec![BindGroupHandle(1)],
+        instance_count: 1,
+    });
+    graph.add_node(node);
+
+    c.bench_function("bench_single_large_image", |b| {
+        b.iter(|| {
+            let idx = executor.execute(&engine, &registry, &graph);
+            let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
+        })
+    });
+}
+
+fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
+    let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+    let executor = RenderGraphExecutor::new();
+    let mut registry = ResourceRegistry::new();
+    
+    // Đăng ký Pipeline & Dummy Mesh
+    // Trong thực tế, Pipeline này cần Shader đúng, nhưng để test CPU Compiler overhead thì dummy cũng được.
+    registry.pipelines.insert(PipelineHandle(1), engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("Dummy"),
+        layout: Some(&engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[], immediate_size: 0 })),
+        vertex: wgpu::VertexState {
+            module: &engine.device().create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(Cow::Borrowed("@vertex fn vs() -> @builtin(position) vec4<f32> { return vec4(0.0); }")) }),
+            entry_point: Some("vs"),
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &engine.device().create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(Cow::Borrowed("@fragment fn fs() -> @location(0) vec4<f32> { return vec4(1.0); }")) }),
+            entry_point: Some("fs"),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: Default::default(),
+        depth_stencil: None,
+        multisample: Default::default(),
+        multiview_mask: None,
+        cache: None,
+    }));
+    
+    registry.meshes.insert(MeshHandle(1), (
+        engine.device().create_buffer(&wgpu::BufferDescriptor { size: 4, usage: wgpu::BufferUsages::VERTEX, label: None, mapped_at_creation: false }),
+        None,
+        3
+    ));
+
+    let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
+        label: Some("DummyTarget"),
+        size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    let target_view = target_tex.create_view(&wgpu::TextureViewDescriptor::default());
+    registry.textures.insert(TextureHandle(1), target_view);
+
+    let mut graph = RenderGraph::new();
+    let mut node = RenderNode::new("CPU_Stress_Pass", RenderTarget { color_attachments: vec![TextureHandle(1)], depth_attachment: None });
+    
+    // Nhồi 100,000 DrawCommand vào RenderGraph
+    for _ in 0..100_000 {
+        node.commands.push(DrawCommand::DrawMesh {
+            mesh: MeshHandle(1),
+            pipeline: PipelineHandle(1),
+            bind_groups: vec![],
+            instance_count: 1,
+        });
+    }
+    graph.add_node(node);
+
+    c.bench_function("bench_100k_sprites_cpu_stress", |b| {
+        b.iter(|| {
+            let idx = executor.execute(&engine, &registry, &graph);
+            let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
+        })
+    });
+}
+
+fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
+    let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+    let executor = RenderGraphExecutor::new();
+    let mut registry = ResourceRegistry::new();
+    
+    registry.pipelines.insert(PipelineHandle(1), engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("Dummy"),
+        layout: Some(&engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[], immediate_size: 0 })),
+        vertex: wgpu::VertexState {
+            module: &engine.device().create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(Cow::Borrowed("@vertex fn vs() -> @builtin(position) vec4<f32> { return vec4(0.0); }")) }),
+            entry_point: Some("vs"),
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &engine.device().create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(Cow::Borrowed("@fragment fn fs() -> @location(0) vec4<f32> { return vec4(1.0); }")) }),
+            entry_point: Some("fs"),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: Default::default(),
+        depth_stencil: None,
+        multisample: Default::default(),
+        multiview_mask: None,
+        cache: None,
+    }));
+    
+    registry.meshes.insert(MeshHandle(1), (
+        engine.device().create_buffer(&wgpu::BufferDescriptor { size: 4, usage: wgpu::BufferUsages::VERTEX, label: None, mapped_at_creation: false }),
+        None,
+        3
+    ));
+
+    let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
+        label: Some("DummyTarget"),
+        size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    let target_view = target_tex.create_view(&wgpu::TextureViewDescriptor::default());
+    registry.textures.insert(TextureHandle(1), target_view);
+
+    let mut graph = RenderGraph::new();
+    let mut node = RenderNode::new("GPU_Instanced_Pass", RenderTarget { color_attachments: vec![TextureHandle(1)], depth_attachment: None });
+    
+    // Chỉ 1 DrawCommand, nhưng instance_count = 100,000
+    node.commands.push(DrawCommand::DrawMesh {
+        mesh: MeshHandle(1),
+        pipeline: PipelineHandle(1),
+        bind_groups: vec![],
+        instance_count: 100_000,
+    });
+    graph.add_node(node);
+
+    c.bench_function("bench_100k_sprites_gpu_instanced", |b| {
+        b.iter(|| {
+            let idx = executor.execute(&engine, &registry, &graph);
+            let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
+        })
+    });
+}
+
+criterion_group!(benches, bench_clear_screen, bench_single_large_image, bench_100k_sprites_cpu_stress, bench_100k_sprites_gpu_instanced);
 criterion_main!(benches);
