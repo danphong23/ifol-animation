@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/*",
+    "apps/*",
+    "plugins/*"
+]
+
+[workspace.dependencies]
+# Define shared dependencies versions here in the future
