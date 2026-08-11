@@ -15,4 +15,20 @@ impl ResourceRegistry {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn remove_texture(&mut self, handle: &TextureHandle) -> Option<wgpu::TextureView> {
+        self.textures.remove(handle)
+    }
+
+    pub fn remove_pipeline(&mut self, handle: &PipelineHandle) -> Option<wgpu::RenderPipeline> {
+        self.pipelines.remove(handle)
+    }
+
+    pub fn remove_mesh(&mut self, handle: &MeshHandle) -> Option<(wgpu::Buffer, Option<wgpu::Buffer>, u32)> {
+        self.meshes.remove(handle)
+    }
+
+    pub fn remove_bind_group(&mut self, handle: &BindGroupHandle) -> Option<wgpu::BindGroup> {
+        self.bind_groups.remove(handle)
+    }
 }

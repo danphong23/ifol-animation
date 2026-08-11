@@ -189,10 +189,26 @@ fn main() {
     node_10k.commands.push(DrawCommand::DrawMesh { mesh: MeshHandle(1), pipeline: PipelineHandle(3), bind_groups: vec![], instance_count: 10000 });
     graph_10k.add_node(node_10k);
 
+    // --- State Tracking Accuracy Test (Interleaved Pipelines) ---
+    // Test xem Engine có xử lý chính xác khi chuyển đổi Pipeline liên tục không
+    let (target_interleaved_view, target_interleaved_tex) = create_target();
+    registry.textures.insert(TextureHandle(5), target_interleaved_view);
+    
+    let mut graph_interleaved = RenderGraph::new();
+    let mut node_interleaved = RenderNode::new("InterleavedTest", RenderTarget { color_attachments: vec![TextureHandle(5)], depth_attachment: None });
+    // Vẽ đan xen: Pipe 2 (Alpha) -> Pipe 3 (10k/Replace) -> Pipe 2 (Alpha) -> Pipe 3 (10k/Replace)
+    // Cả hai Pipeline đều Không có Depth attachment
+    node_interleaved.commands.push(DrawCommand::DrawMesh { mesh: MeshHandle(1), pipeline: PipelineHandle(2), bind_groups: vec![], instance_count: 1 });
+    node_interleaved.commands.push(DrawCommand::DrawMesh { mesh: MeshHandle(1), pipeline: PipelineHandle(3), bind_groups: vec![], instance_count: 1 });
+    node_interleaved.commands.push(DrawCommand::DrawMesh { mesh: MeshHandle(1), pipeline: PipelineHandle(2), bind_groups: vec![], instance_count: 1 });
+    node_interleaved.commands.push(DrawCommand::DrawMesh { mesh: MeshHandle(1), pipeline: PipelineHandle(3), bind_groups: vec![], instance_count: 1 });
+    graph_interleaved.add_node(node_interleaved);
+
     // Execute
     let _ = executor.execute(&engine, &registry, &graph_z);
     let _ = executor.execute(&engine, &registry, &graph_alpha);
-    let idx_last = executor.execute(&engine, &registry, &graph_10k);
+    let _ = executor.execute(&engine, &registry, &graph_10k);
+    let idx_last = executor.execute(&engine, &registry, &graph_interleaved);
     
     // Đợi GPU chạy xong lệnh cuối cùng
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx_last), timeout: None });
@@ -206,4 +222,5 @@ fn main() {
     save_texture(&engine, &z_target_tex, "z_buffer_test.png");
     save_texture(&engine, &alpha_target_tex, "alpha_test.png");
     save_texture(&engine, &target_10k_tex, "10k_test.png");
+    save_texture(&engine, &target_interleaved_tex, "interleaved_test.png");
 }

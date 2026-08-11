@@ -61,6 +61,9 @@ impl RenderGraphExecutor {
             });
 
             let mut current_pipeline = None;
+            let mut current_mesh = None;
+            let mut current_mesh_data = None; // Cache: (has_index_buffer, count)
+            let mut current_bind_groups = Vec::new();
 
             // Biên dịch (Duyệt) các DrawCommand do ECS gửi xuống
             for cmd in &node.commands {
@@ -77,20 +80,34 @@ impl RenderGraphExecutor {
                         }
                         
                         // Bind Shader Variables (Uniforms, Textures)
-                        for (i, bg_handle) in bind_groups.iter().enumerate() {
-                            if let Some(bg) = registry.bind_groups.get(bg_handle) {
-                                render_pass.set_bind_group(i as u32, bg, &[]);
+                        if current_bind_groups != *bind_groups {
+                            for (i, bg_handle) in bind_groups.iter().enumerate() {
+                                if let Some(bg) = registry.bind_groups.get(bg_handle) {
+                                    render_pass.set_bind_group(i as u32, bg, &[]);
+                                }
                             }
+                            current_bind_groups = bind_groups.clone();
                         }
                         
-                        // Draw Call!
-                        if let Some((vbo, ibo, count)) = registry.meshes.get(mesh) {
-                            render_pass.set_vertex_buffer(0, vbo.slice(..));
-                            if let Some(ib) = ibo {
-                                render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint16);
-                                render_pass.draw_indexed(0..*count, 0, 0..*instance_count);
+                        // Draw Call! Cache Mesh to avoid set_vertex_buffer overhead
+                        if current_mesh != Some(*mesh) {
+                            if let Some((vbo, ibo, count)) = registry.meshes.get(mesh) {
+                                render_pass.set_vertex_buffer(0, vbo.slice(..));
+                                if let Some(ib) = ibo {
+                                    render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint16);
+                                }
+                                current_mesh_data = Some((ibo.is_some(), *count));
+                                current_mesh = Some(*mesh);
                             } else {
-                                render_pass.draw(0..*count, 0..*instance_count);
+                                continue; // Bỏ qua nếu Mesh không tồn tại (Test Garbage Collection)
+                            }
+                        }
+
+                        if let Some((has_ibo, count)) = current_mesh_data {
+                            if has_ibo {
+                                render_pass.draw_indexed(0..count, 0, 0..*instance_count);
+                            } else {
+                                render_pass.draw(0..count, 0..*instance_count);
                             }
                         }
                     }

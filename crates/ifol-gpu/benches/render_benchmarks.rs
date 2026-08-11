@@ -42,6 +42,64 @@ fn bench_clear_screen(c: &mut Criterion) {
     });
 }
 
+fn bench_empty_graph(c: &mut Criterion) {
+    let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+    let executor = RenderGraphExecutor::new();
+    let registry = ResourceRegistry::new();
+    let graph = RenderGraph::new(); // Đồ thị rỗng hoàn toàn, không có Node nào
+
+    c.bench_function("bench_empty_graph", |b| {
+        b.iter(|| {
+            let idx = executor.execute(&engine, &registry, &graph);
+            let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
+        })
+    });
+}
+
+fn bench_complex_graph(c: &mut Criterion) {
+    let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+    let executor = RenderGraphExecutor::new();
+    let mut registry = ResourceRegistry::new();
+
+    let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
+        label: Some("DummyTarget"), size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+        mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb, usage: wgpu::TextureUsages::RENDER_ATTACHMENT, view_formats: &[],
+    });
+    registry.textures.insert(TextureHandle(1), target_tex.create_view(&wgpu::TextureViewDescriptor::default()));
+
+    let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(Cow::Borrowed("@vertex fn vs() -> @builtin(position) vec4<f32> { return vec4(0.0); } @fragment fn fs() -> @location(0) vec4<f32> { return vec4(1.0); }")) });
+    let layout = engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[], immediate_size: 0 });
+
+    let pipeline = engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: None, layout: Some(&layout),
+        vertex: wgpu::VertexState { module: &shader, entry_point: Some("vs"), buffers: &[], compilation_options: Default::default() },
+        fragment: Some(wgpu::FragmentState { module: &shader, entry_point: Some("fs"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: None, write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
+        primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
+    });
+    registry.pipelines.insert(PipelineHandle(1), pipeline.clone());
+    registry.pipelines.insert(PipelineHandle(2), pipeline);
+    registry.meshes.insert(MeshHandle(1), (engine.device().create_buffer(&wgpu::BufferDescriptor { size: 4, usage: wgpu::BufferUsages::VERTEX, label: None, mapped_at_creation: false }), None, 3));
+
+    let mut graph = RenderGraph::new();
+    // 100 Nodes, each has 100 draw commands with alternating pipelines (100 * 100 = 10,000 commands)
+    for i in 0..100 {
+        let mut node = RenderNode::new(format!("Pass_{}", i), RenderTarget { color_attachments: vec![TextureHandle(1)], depth_attachment: None });
+        for j in 0..100 {
+            let pipe = if j % 2 == 0 { PipelineHandle(1) } else { PipelineHandle(2) };
+            node.commands.push(DrawCommand::DrawMesh { mesh: MeshHandle(1), pipeline: pipe, bind_groups: vec![], instance_count: 1 });
+        }
+        graph.add_node(node);
+    }
+
+    c.bench_function("bench_complex_graph_100_nodes", |b| {
+        b.iter(|| {
+            let idx = executor.execute(&engine, &registry, &graph);
+            let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
+        })
+    });
+}
+
 fn bench_single_large_image(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
@@ -499,5 +557,5 @@ fn bench_pipeline_caching(c: &mut Criterion) {
     c.bench_function("bench_pipeline_state_unsorted", |b| { b.iter(|| { let idx = executor.execute(&engine, &registry, &graph_unsorted); let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None }); }) });
 }
 
-criterion_group!(benches, bench_clear_screen, bench_single_large_image, bench_100k_sprites_cpu_stress, bench_100k_sprites_gpu_instanced, bench_z_buffer, bench_alpha_blending, bench_pipeline_caching);
+criterion_group!(benches, bench_clear_screen, bench_empty_graph, bench_complex_graph, bench_single_large_image, bench_100k_sprites_cpu_stress, bench_100k_sprites_gpu_instanced, bench_z_buffer, bench_alpha_blending, bench_pipeline_caching);
 criterion_main!(benches);

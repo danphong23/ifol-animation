@@ -11,9 +11,50 @@ Tài liệu này theo dõi các tính năng hiện có của lõi GPU, được 
 - `[x]` **Resource Handles** (`TextureHandle`, `PipelineHandle`, `MeshHandle`): Đóng gói con trỏ tài nguyên thành chỉ số ID nguyên thủy (u64) nhằm tối ưu bộ nhớ và bảo đảm tính an toàn khi truyền qua Command Bus.
 - `[x]` **Render Graph Data Structure**: Đồ thị có thứ tự chứa các `RenderNode`. Mỗi Node khai báo cấu hình đầu ra (`RenderTarget`) và chuỗi lệnh vẽ (`DrawCommand`).
 - `[x]` **Render Graph Executor (Compiler)**: Bộ biên dịch đồ thị thành luồng lệnh phần cứng `wgpu::CommandEncoder`. Đi kèm `ResourceRegistry` để ánh xạ từ Handle siêu nhẹ ra các thực thể VRAM thực thụ.
-- `[x]` **Render Utility**: Hàm tiện ích đọc ngược ảnh từ VRAM về RAM (`read_texture_to_bytes`) hỗ trợ chụp ảnh màn hình và Snapshot Testing.
+- `[x]` **Render Utility**: Hàm tiện ích đọc ngược ảnh từ VRAM về RAM (`read_texture_to_bytes`, `save_texture_to_file`) hỗ trợ chụp ảnh màn hình và Snapshot Testing.
 
-## Quản lý Cửa sổ & Màn hình (Window & Surface) - Đã hoàn thành
+## Hướng dẫn sử dụng nhanh (Quick Start)
+Để sử dụng `ifol-gpu`, bạn cần thực hiện 3 bước: Khởi tạo Engine, Đăng ký tài nguyên, và Xây dựng Đồ thị vẽ.
+
+```rust
+use ifol_gpu::api::GpuEngineBuilder;
+use ifol_gpu::render::{RenderGraph, RenderNode, RenderTarget, ResourceRegistry, TextureHandle, PipelineHandle, MeshHandle, DrawCommand, RenderGraphExecutor};
+
+// 1. Khởi tạo Engine
+let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+let executor = RenderGraphExecutor::new();
+let mut registry = ResourceRegistry::new();
+
+// 2. Đăng ký tài nguyên (Giả sử bạn đã tạo wgpu::TextureView, RenderPipeline và Buffer)
+registry.textures.insert(TextureHandle(1), my_texture_view);
+registry.pipelines.insert(PipelineHandle(1), my_pipeline);
+registry.meshes.insert(MeshHandle(1), (my_vertex_buffer, None, 3)); // 3 vertices
+
+// 3. Xây dựng đồ thị và Thực thi
+let mut graph = RenderGraph::new();
+let mut node = RenderNode::new("MainPass", RenderTarget {
+    color_attachments: vec![TextureHandle(1)],
+    depth_attachment: None,
+});
+
+node.commands.push(DrawCommand::DrawMesh {
+    mesh: MeshHandle(1),
+    pipeline: PipelineHandle(1),
+    bind_groups: vec![],
+    instance_count: 1,
+});
+
+graph.add_node(node);
+
+// Biên dịch và chạy trên GPU
+let idx = executor.execute(&engine, &registry, &graph);
+engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
+
+// (Tùy chọn) Lưu kết quả ra ảnh
+engine.save_texture_to_file(&my_texture, "output.png").unwrap();
+```
+
+## 2. Quản lý Cửa sổ & Màn hình (Window & Surface) - Đã hoàn thành
 - `[x]` **Surface Integration**: Hỗ trợ gắn `wgpu::Surface` kết hợp hoàn hảo với `winit 0.30` (theo mô hình `ApplicationHandler`) cho phép render trực tiếp ra cửa sổ hiển thị.
 - `[x]` **Dynamic Surface Resizing**: Tự động cấu hình lại bộ đệm trình bày (Present buffer) của hệ điều hành thông qua hàm `resize_surface` và cơ chế lấy cấu hình tự động của chuẩn WGPU v30.
 
