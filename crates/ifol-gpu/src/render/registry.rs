@@ -6,8 +6,8 @@ use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, Texture
 pub struct ResourceRegistry {
     pub textures: HashMap<TextureHandle, wgpu::TextureView>,
     pub pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
-    /// Lưu trữ Mesh (VBO, Option<IBO>, Số lượng Index/Vertex để vẽ)
-    pub meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<wgpu::Buffer>, u32)>, 
+    /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
+    pub meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>, 
     pub bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
 }
 
@@ -24,7 +24,7 @@ impl ResourceRegistry {
         self.pipelines.remove(handle)
     }
 
-    pub fn remove_mesh(&mut self, handle: &MeshHandle) -> Option<(wgpu::Buffer, Option<wgpu::Buffer>, u32)> {
+    pub fn remove_mesh(&mut self, handle: &MeshHandle) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
         self.meshes.remove(handle)
     }
 

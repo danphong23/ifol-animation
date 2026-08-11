@@ -1,92 +1,167 @@
+use std::ops::Range;
 use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, TextureHandle};
 
-#[derive(Debug, Clone)]
-pub enum DrawCommand {
-    DrawMesh {
+/// ═══════════════════════════════════════════════════════════
+/// HÀNH ĐỘNG VẼ (DrawAction)
+/// Ánh xạ trực tiếp sang wgpu::RenderPass::draw* methods
+/// ═══════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DrawAction {
+    /// Vẽ theo hình dáng Mesh có sẵn trong VRAM (Vertex + Index Buffer).
+    /// → Ánh xạ: pass.set_vertex_buffer() + pass.set_index_buffer() + pass.draw_indexed()
+    Indexed {
         mesh: MeshHandle,
-        pipeline: PipelineHandle,
-        bind_groups: Vec<BindGroupHandle>,
-        instance_count: u32,
+        index_range: Range<u32>,
+        instance_range: Range<u32>,
+    },
+
+    /// Vẽ không cần Mesh — Shader tự tạo đỉnh từ vertex_index.
+    /// → Ánh xạ: pass.draw(0..vertex_count, instance_range)
+    Procedural {
+        vertex_count: u32,
+        instance_range: Range<u32>,
     },
 }
 
-#[derive(Debug, Clone)]
-pub struct RenderTarget {
-    pub color_attachments: Vec<TextureHandle>,
-    pub depth_attachment: Option<TextureHandle>,
+/// ═══════════════════════════════════════════════════════════
+/// LỆNH VẼ HOÀN CHỈNH (DrawCommand)
+/// Mỗi lệnh = 1 lần quẹt cọ trên bức tranh
+/// ═══════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DrawCommand {
+    /// Shader quyết định cách tô màu pixel
+    pub pipeline: PipelineHandle,
+
+    /// Danh sách túi dữ liệu: Vec<(Slot_Index, BindGroupHandle, Dynamic_Offsets)>
+    pub bind_groups: Vec<(u32, BindGroupHandle, Vec<u32>)>,
+
+    /// Hành động quẹt cọ cụ thể (Indexed hoặc Procedural)
+    pub action: DrawAction,
 }
 
-#[derive(Debug, Clone)]
-pub struct RenderNode {
-    pub name: String,
-    pub target: RenderTarget,
-    pub commands: Vec<DrawCommand>,
-}
-
-impl RenderNode {
-    pub fn new(name: impl Into<String>, target: RenderTarget) -> Self {
+impl DrawCommand {
+    pub fn new(pipeline: PipelineHandle, action: DrawAction) -> Self {
         Self {
-            name: name.into(),
-            target,
-            commands: Vec::new(),
+            pipeline,
+            bind_groups: Vec::new(),
+            action,
         }
     }
 
-    pub fn with_command(mut self, command: DrawCommand) -> Self {
-        self.commands.push(command);
+    pub fn with_bind_group(mut self, slot: u32, handle: BindGroupHandle, offsets: Vec<u32>) -> Self {
+        self.bind_groups.push((slot, handle, offsets));
         self
     }
 }
 
-#[derive(Debug, Clone, Default)]
+/// ═══════════════════════════════════════════════════════════
+/// ĐÍCH ĐẾN (RenderTarget) — "Bức tranh sẽ in lên đâu?"
+/// ═══════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RenderTarget {
+    /// In thẳng ra cửa sổ hệ điều hành (Swap Chain)
+    Screen,
+
+    /// In ra một tấm ảnh ảo trong VRAM với kích thước chính xác
+    Offscreen {
+        color: TextureHandle,
+        width: u32,
+        height: u32,
+    },
+}
+
+/// ═══════════════════════════════════════════════════════════
+/// NÚT VẼ (RenderNode) — "Một hành động trên bức tranh"
+/// ═══════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone)]
+pub enum RenderNode {
+    /// Nhóm đệ quy (Pre-comp / Group / Camera Post-FX).
+    /// Vẽ graph con ra Offscreen trước, sau đó thực thi commands để in kết quả lên Graph cha.
+    SubGraph {
+        name: String,
+        graph: Box<RenderGraph>,
+        commands: Vec<DrawCommand>,
+        is_dirty: bool,
+    },
+
+    /// Danh sách lệnh vẽ phẳng trên cùng 1 target.
+    DrawBatch {
+        commands: Vec<DrawCommand>,
+        is_dirty: bool,
+    },
+}
+
+impl RenderNode {
+    pub fn new_batch(commands: Vec<DrawCommand>) -> Self {
+        Self::DrawBatch {
+            commands,
+            is_dirty: true,
+        }
+    }
+
+    pub fn new_subgraph(name: impl Into<String>, graph: RenderGraph, commands: Vec<DrawCommand>) -> Self {
+        Self::SubGraph {
+            name: name.into(),
+            graph: Box::new(graph),
+            commands,
+            is_dirty: true,
+        }
+    }
+}
+
+/// ═══════════════════════════════════════════════════════════
+/// ĐỒ THỊ VẼ (RenderGraph) — "Tấm toan chứa các nét cọ"
+/// ═══════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone)]
 pub struct RenderGraph {
+    /// Bức tranh này sẽ được in ra đâu?
+    pub target: RenderTarget,
+
+    /// Xóa phông nền trước khi vẽ (None = vẽ đè lên nội dung cũ)
+    pub clear_color: Option<[f32; 4]>,
+
+    /// [3D-Ready] Depth/Stencil Texture dùng chung cho toàn bộ Graph này
+    pub depth_stencil: Option<TextureHandle>,
+
+    /// Danh sách các nút vẽ. Thứ tự 0 → N = thứ tự vẽ đè
     pub nodes: Vec<RenderNode>,
 }
 
 impl RenderGraph {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(target: RenderTarget) -> Self {
+        Self {
+            target,
+            clear_color: None,
+            depth_stencil: None,
+            nodes: Vec::new(),
+        }
+    }
+
+    pub fn with_clear_color(mut self, color: [f32; 4]) -> Self {
+        self.clear_color = Some(color);
+        self
+    }
+
+    pub fn with_depth_stencil(mut self, handle: TextureHandle) -> Self {
+        self.depth_stencil = Some(handle);
+        self
     }
 
     pub fn add_node(&mut self, node: RenderNode) {
         self.nodes.push(node);
     }
 
-    /// Xuất đồ thị RenderGraph ra định dạng Mermaid (Markdown)
-    pub fn export_mermaid(&self, filepath: &str) -> std::io::Result<()> {
-        use std::io::Write;
-        let mut out = String::new();
-        out.push_str("```mermaid\n");
-        out.push_str("graph TD\n");
-        
-        for (i, node) in self.nodes.iter().enumerate() {
-            let node_id = format!("Node_{}", i);
-            out.push_str(&format!("  {}[\"{}\"]\n", node_id, node.name));
-            
-            // Vẽ các Targets
-            for (j, color) in node.target.color_attachments.iter().enumerate() {
-                out.push_str(&format!("  {} --> {}_Color_{}[Color Target: {}]\n", node_id, node_id, j, color.0));
-            }
-            if let Some(depth) = &node.target.depth_attachment {
-                out.push_str(&format!("  {} --> {}_Depth[Depth Target: {}]\n", node_id, node_id, depth.0));
-            }
-            
-            // Vẽ Commands
-            for (c, cmd) in node.commands.iter().enumerate() {
-                match cmd {
-                    DrawCommand::DrawMesh { mesh, pipeline, instance_count, .. } => {
-                        out.push_str(&format!("  {} -.-> {}_Cmd_{}[Draw Mesh {} | Pipe {} | Inst {}]\n", 
-                            node_id, node_id, c, mesh.0, pipeline.0, instance_count));
-                    }
-                }
-            }
-        }
-        
-        out.push_str("```\n");
-        
-        let mut file = std::fs::File::create(filepath)?;
-        file.write_all(out.as_bytes())?;
-        Ok(())
+    pub fn add_batch(&mut self, commands: Vec<DrawCommand>) {
+        self.nodes.push(RenderNode::new_batch(commands));
+    }
+
+    pub fn add_subgraph(&mut self, name: impl Into<String>, graph: RenderGraph, commands: Vec<DrawCommand>) {
+        self.nodes.push(RenderNode::new_subgraph(name, graph, commands));
     }
 }
 
@@ -96,39 +171,47 @@ mod tests {
 
     #[test]
     fn test_render_graph_nesting() {
-        let mut graph = RenderGraph::new();
+        let mut shadow_graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: TextureHandle(1),
+            width: 2048,
+            height: 2048,
+        })
+        .with_depth_stencil(TextureHandle(2));
 
-        // Pass 1: Shadow Map
-        let shadow_target = RenderTarget {
-            color_attachments: vec![],
-            depth_attachment: Some(TextureHandle(1)),
-        };
-        let shadow_node = RenderNode::new("ShadowPass", shadow_target)
-            .with_command(DrawCommand::DrawMesh {
-                mesh: MeshHandle(10),
-                pipeline: PipelineHandle(1),
-                bind_groups: vec![],
-                instance_count: 1,
-            });
-        
-        // Pass 2: Main Forward Render
-        let main_target = RenderTarget {
-            color_attachments: vec![TextureHandle(2)],
-            depth_attachment: Some(TextureHandle(3)), // Screen depth
-        };
-        let main_node = RenderNode::new("MainPass", main_target)
-            .with_command(DrawCommand::DrawMesh {
+        shadow_graph.add_batch(vec![DrawCommand::new(
+            PipelineHandle(10),
+            DrawAction::Indexed {
                 mesh: MeshHandle(100),
-                pipeline: PipelineHandle(20),
-                bind_groups: vec![BindGroupHandle(2)], // Giả sử bind_group này chứa ShadowMap texture
-                instance_count: 1,
-            });
+                index_range: 0..36,
+                instance_range: 0..1,
+            },
+        )]);
 
-        graph.add_node(shadow_node);
-        graph.add_node(main_node);
+        let mut root_graph = RenderGraph::new(RenderTarget::Screen)
+            .with_clear_color([0.1, 0.1, 0.1, 1.0])
+            .with_depth_stencil(TextureHandle(3));
 
-        assert_eq!(graph.nodes.len(), 2);
-        assert_eq!(graph.nodes[0].name, "ShadowPass");
-        assert_eq!(graph.nodes[1].commands.len(), 1);
+        // SubGraph Shadow Map (không có command in lên màn hình)
+        root_graph.add_subgraph("ShadowPass", shadow_graph, vec![]);
+
+        // DrawBatch chính
+        root_graph.add_batch(vec![DrawCommand::new(
+            PipelineHandle(20),
+            DrawAction::Indexed {
+                mesh: MeshHandle(200),
+                index_range: 0..12,
+                instance_range: 0..1,
+            },
+        )]);
+
+        assert_eq!(root_graph.nodes.len(), 2);
+        match &root_graph.nodes[0] {
+            RenderNode::SubGraph { name, graph, commands, .. } => {
+                assert_eq!(name, "ShadowPass");
+                assert_eq!(graph.nodes.len(), 1);
+                assert!(commands.is_empty());
+            }
+            _ => panic!("Kỳ vọng Node 0 là SubGraph"),
+        }
     }
 }

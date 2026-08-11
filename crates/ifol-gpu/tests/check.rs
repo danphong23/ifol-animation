@@ -1,3 +1,7 @@
-fn main() {
-    let _: wgpu::SurfaceConfiguration = Default::default();
+use ifol_gpu::render::{RenderGraph, RenderTarget};
+
+#[test]
+fn test_render_graph_creation() {
+    let graph = RenderGraph::new(RenderTarget::Screen);
+    assert_eq!(graph.nodes.len(), 0);
 }

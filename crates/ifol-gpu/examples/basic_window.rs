@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
@@ -8,9 +7,9 @@ use winit::{
 };
 use ifol_gpu::api::builder::GpuEngineBuilder;
 use ifol_gpu::api::engine::GpuEngine;
-use ifol_gpu::render::graph::{DrawCommand, RenderGraph, RenderNode, RenderTarget};
+use ifol_gpu::render::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
 use ifol_gpu::render::compiler::RenderGraphExecutor;
-use ifol_gpu::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, TextureHandle};
+use ifol_gpu::render::handle::{BindGroupHandle, PipelineHandle};
 use ifol_gpu::render::registry::ResourceRegistry;
 
 struct App<'a> {
@@ -186,12 +185,6 @@ impl<'a> ApplicationHandler for App<'a> {
         });
         self.registry.pipelines.insert(PipelineHandle(1), pipeline);
 
-        self.registry.meshes.insert(MeshHandle(1), (
-            engine.device().create_buffer(&wgpu::BufferDescriptor { size: 4, usage: wgpu::BufferUsages::VERTEX, label: None, mapped_at_creation: false }),
-            None,
-            3
-        ));
-
         self.engine = Some(engine);
         
         // Yêu cầu vẽ ngay sau khi khởi tạo xong
@@ -221,22 +214,17 @@ impl<'a> ApplicationHandler for App<'a> {
                                 };
                                 let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-                                self.registry.textures.insert(TextureHandle(1), view);
+                                let mut graph = RenderGraph::new(RenderTarget::Screen)
+                                    .with_clear_color([0.1, 0.2, 0.3, 1.0]);
 
-                                let mut graph = RenderGraph::new();
-                                let mut node = RenderNode::new("MainPass", RenderTarget { color_attachments: vec![TextureHandle(1)], depth_attachment: None });
-                                node.commands.push(DrawCommand::DrawMesh {
-                                    mesh: MeshHandle(1),
-                                    pipeline: PipelineHandle(1),
-                                    bind_groups: vec![BindGroupHandle(1)],
-                                    instance_count: 1,
-                                });
-                                graph.add_node(node);
+                                let cmd = DrawCommand::new(
+                                    PipelineHandle(1),
+                                    DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
+                                ).with_bind_group(0, BindGroupHandle(1), vec![]);
 
-                                // Xuất đồ thị ra file để dễ dàng kiểm tra trực quan
-                                let _ = graph.export_mermaid("graph_dump.md");
+                                graph.add_batch(vec![cmd]);
 
-                                let idx = self.executor.execute(engine, &self.registry, &graph);
+                                let idx = self.executor.execute_with_surface(engine, &self.registry, &graph, Some(&view));
                                 let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
                                 engine.queue().present(frame);
                             }
