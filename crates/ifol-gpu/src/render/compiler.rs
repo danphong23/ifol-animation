@@ -60,29 +60,37 @@ impl RenderGraphExecutor {
                 multiview_mask: None,
             });
 
+            let mut current_pipeline = None;
+
             // Biên dịch (Duyệt) các DrawCommand do ECS gửi xuống
             for cmd in &node.commands {
                 match cmd {
                     DrawCommand::DrawMesh { mesh, pipeline, bind_groups, instance_count } => {
-                        if let Some(pipe) = registry.pipelines.get(pipeline) {
-                            render_pass.set_pipeline(pipe);
-                            
-                            // Bind Shader Variables (Uniforms, Textures)
-                            for (i, bg_handle) in bind_groups.iter().enumerate() {
-                                if let Some(bg) = registry.bind_groups.get(bg_handle) {
-                                    render_pass.set_bind_group(i as u32, bg, &[]);
-                                }
+                        // Tối ưu hóa: State Tracking cho Pipeline (Pipeline Caching)
+                        if current_pipeline != Some(*pipeline) {
+                            if let Some(pipe) = registry.pipelines.get(pipeline) {
+                                render_pass.set_pipeline(pipe);
+                                current_pipeline = Some(*pipeline);
+                            } else {
+                                continue; // Bỏ qua lệnh vẽ nếu Pipeline không tồn tại
                             }
-                            
-                            // Draw Call!
-                            if let Some((vbo, ibo, count)) = registry.meshes.get(mesh) {
-                                render_pass.set_vertex_buffer(0, vbo.slice(..));
-                                if let Some(ib) = ibo {
-                                    render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint16);
-                                    render_pass.draw_indexed(0..*count, 0, 0..*instance_count);
-                                } else {
-                                    render_pass.draw(0..*count, 0..*instance_count);
-                                }
+                        }
+                        
+                        // Bind Shader Variables (Uniforms, Textures)
+                        for (i, bg_handle) in bind_groups.iter().enumerate() {
+                            if let Some(bg) = registry.bind_groups.get(bg_handle) {
+                                render_pass.set_bind_group(i as u32, bg, &[]);
+                            }
+                        }
+                        
+                        // Draw Call!
+                        if let Some((vbo, ibo, count)) = registry.meshes.get(mesh) {
+                            render_pass.set_vertex_buffer(0, vbo.slice(..));
+                            if let Some(ib) = ibo {
+                                render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint16);
+                                render_pass.draw_indexed(0..*count, 0, 0..*instance_count);
+                            } else {
+                                render_pass.draw(0..*count, 0..*instance_count);
                             }
                         }
                     }

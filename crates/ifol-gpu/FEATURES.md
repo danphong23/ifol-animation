@@ -11,6 +11,7 @@ Tài liệu này theo dõi các tính năng hiện có của lõi GPU, được 
 - `[x]` **Resource Handles** (`TextureHandle`, `PipelineHandle`, `MeshHandle`): Đóng gói con trỏ tài nguyên thành chỉ số ID nguyên thủy (u64) nhằm tối ưu bộ nhớ và bảo đảm tính an toàn khi truyền qua Command Bus.
 - `[x]` **Render Graph Data Structure**: Đồ thị có thứ tự chứa các `RenderNode`. Mỗi Node khai báo cấu hình đầu ra (`RenderTarget`) và chuỗi lệnh vẽ (`DrawCommand`).
 - `[x]` **Render Graph Executor (Compiler)**: Bộ biên dịch đồ thị thành luồng lệnh phần cứng `wgpu::CommandEncoder`. Đi kèm `ResourceRegistry` để ánh xạ từ Handle siêu nhẹ ra các thực thể VRAM thực thụ.
+- `[x]` **Render Utility**: Hàm tiện ích đọc ngược ảnh từ VRAM về RAM (`read_texture_to_bytes`) hỗ trợ chụp ảnh màn hình và Snapshot Testing.
 
 ## Quản lý Cửa sổ & Màn hình (Window & Surface) - Đã hoàn thành
 - `[x]` **Surface Integration**: Hỗ trợ gắn `wgpu::Surface` kết hợp hoàn hảo với `winit 0.30` (theo mô hình `ApplicationHandler`) cho phép render trực tiếp ra cửa sổ hiển thị.

@@ -41,3 +41,4 @@ Mỗi khi bạn (AI Agent) được yêu cầu tạo một Crate mới hoặc vi
 2.  Viết ngay Unit Test ở dưới cùng file để định nghĩa kết quả mong đợi.
 3.  Viết code logic để vượt qua (Pass) cái Test đó.
 4.  Tự động chạy `cargo test` để chứng minh với User là code của bạn hoạt động đúng.
+5.  **Luật Báo Cáo Trực Quan (Visual Report):** Đối với các bài test có tính chất render hình ảnh (GPU), TRƯỚC KHI thực hiện đo lường hiệu năng (`cargo bench`), bạn **BẮT BUỘC** phải tạo ra một bài test trực quan (ví dụ: `visual_tests.rs`) để xuất kết quả ra file ảnh (PNG). Sau đó, bạn phải nạp các file ảnh này vào một Artifact Báo cáo (Markdown) để User tự dùng mắt đánh giá xem ảnh render có đúng (chính xác) không. Nguyên tắc: *Hiệu suất đứng sau độ chính xác.*
