@@ -1,132 +1,280 @@
-# 01. Kiến trúc Cây Gia Phả & Lệnh Vẽ (Render Graph & Command)
+# 01. Kiến Trúc Render Graph & Lệnh Vẽ (Draw Command)
 
-Tài liệu này định nghĩa cấu trúc dữ liệu cốt lõi của `ifol-gpu`. Thiết kế này tuân thủ nguyên tắc: **Đệ quy vô hạn**, **Thứ tự mảng là tuyệt đối (Z-Index)**, **Định danh qua Handle**, và **Single Submission**.
+Tài liệu này định nghĩa cấu trúc dữ liệu cốt lõi của `ifol-gpu`. Mọi cấu trúc đều **ánh xạ 1:1 với API thật của wgpu** — không có hành vi ngầm định (No Magic).
 
-## 1. Thiết kế Giao tiếp CPU-GPU (Single Submission)
-Đây là bộ mặt của lõi kiến trúc. Để tránh thắt cổ chai "Ping-Pong" giữa CPU và GPU, `ifol-gpu` hoạt động theo nguyên tắc **Single Submission (Gửi 1 lần)**:
-*   Mỗi khung hình, CPU (`ifol-ecs`) sẽ tính toán toán học, gom nhóm Opaque (Đục), Transparent (Trong suốt), và xây dựng toàn bộ đồ thị `RenderGraph`.
-*   GPU Engine duyệt qua `RenderGraph` này, ghi lại MỌI LỆNH VẼ vào một cái giỏ `wgpu::CommandEncoder`.
-*   Chỉ đến cuối cùng, CPU mới ném toàn bộ cái giỏ này xuống GPU (`queue.submit`) MỘT LẦN DUY NHẤT. Dù có vẽ Opaque trước rồi Mờ sau, GPU cũng tự giải quyết trong phần cứng chứ không cần CPU gọi lệnh lần 2.
+---
+
+## 1. Nguyên Tắc Thiết Kế
+
+*   **Single Submission:** Mỗi khung hình, ECS xây toàn bộ đồ thị `RenderGraph` (cây đệ quy). `ifol-gpu` duyệt cây này, ghi MỌI LỆNH VẼ vào `wgpu::CommandEncoder`, rồi gửi xuống GPU (`queue.submit`) **MỘT LẦN DUY NHẤT**.
+*   **GPU Mù Quáng:** `ifol-gpu` không biết ECS, Camera, Video, Layer là gì. Nó chỉ nhận cấu trúc dữ liệu và dịch thẳng ra lệnh wgpu.
+*   **ECS Toàn Quyền:** Mọi quyết định (Pipeline nào, Mesh gì, sắp xếp Đục/Mờ, kích thước Offscreen, Padding Blur) đều do ECS tính toán trước.
 
 ---
 
 ## 2. Hệ Thống Định Danh (Handles)
-GPU Engine không quản lý tài nguyên bằng `String` tự do. Nó cấp phát và quản lý qua các cấu trúc an toàn (Strongly Typed Handles).
+
+GPU Engine quản lý tài nguyên qua các Handle an toàn (số nguyên, O(1) Lookup). Tuyệt đối không dùng `String`.
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PipelineHandle(pub u64); // ID của Shader Code
+pub struct PipelineHandle(pub u64);   // ID của Shader Code đã biên dịch
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TextureHandle(pub u64); // ID của Ảnh/Video/Offscreen trên VRAM
+pub struct TextureHandle(pub u64);    // ID của Ảnh/Video/Offscreen trên VRAM
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BindGroupHandle(pub u64);  // ID của túi dữ liệu (Uniform + Texture + Sampler)
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MeshHandle(pub u64);       // ID của lưới đỉnh (Vertex + Index Buffer) trên VRAM
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BufferHandle(pub u64);     // [Tương lai] ID của Storage Buffer cho Compute Shader
 ```
 
-## 2. Nút Thực Thi (Render Node)
-Bản chất một khung hình (Frame) là một danh sách các Nút. 
-Một Nút có thể là một Lệnh vẽ (Draw) hoặc một Nhánh đệ quy (SubGraph).
+---
+
+## 3. Hành Động Vẽ (Draw Action)
+
+Phần cứng GPU chỉ hỗ trợ đúng 2 kiểu quẹt cọ. Enum này ánh xạ 1:1 sang `wgpu::RenderPass::draw*`.
 
 ```rust
-#[derive(Debug, Clone)]
-pub enum RenderNode {
-    /// Gọi một nhánh đệ quy. Kết quả của SubGraph này sẽ in ra một TextureHandle riêng biệt.
-    SubGraph(Box<RenderGraph>),
-    
-    /// Gọi lệnh chạm cọ (Vẽ ra Target của mảng cha).
-    Draw(DrawCommand),
+use std::ops::Range;
+
+pub enum DrawAction {
+    /// Vẽ theo hình dáng Mesh có sẵn trong VRAM (Vertex + Index Buffer).
+    /// → Ánh xạ: pass.set_vertex_buffer() + pass.set_index_buffer() + pass.draw_indexed()
+    ///
+    /// Dùng khi: Vẽ ảnh lên Quad, vẽ nhân vật 3D, vẽ 10.000 cái lá (Instancing)
+    Indexed {
+        mesh: MeshHandle,              // Lưới đỉnh nào
+        index_range: Range<u32>,       // Phần nào của lưới (thường 0..tổng_index)
+        instance_range: Range<u32>,    // Bao nhiêu bản sao (VD: 0..10000 cho Instancing)
+    },
+
+    /// Vẽ không cần Mesh — Shader tự tạo đỉnh từ vertex_index.
+    /// → Ánh xạ: pass.draw(0..vertex_count, instance_range)
+    ///
+    /// Dùng khi: Full-screen Shader Pass (Blur, Color Grading), UI Quad
+    /// vertex_count = 3 → Shader tạo 1 tam giác khổng lồ bao trọn toàn màn hình
+    Procedural {
+        vertex_count: u32,             // Số đỉnh ảo Shader tự tạo (thường = 3)
+        instance_range: Range<u32>,    // Bao nhiêu bản sao
+    },
 }
 ```
 
-## 3. Lệnh Gọi Vẽ (Draw Command)
+---
+
+## 4. Lệnh Vẽ Hoàn Chỉnh (Draw Command)
+
+Mỗi lệnh = 1 lần quẹt cọ trên bức tranh. Cấu trúc ánh xạ 1:1 với chuỗi gọi hàm wgpu.
 
 ```rust
-#[derive(Debug, Clone)]
 pub struct DrawCommand {
-    /// Shader sẽ dùng để vẽ.
+    /// Bắt buộc: Shader quyết định cách tô màu pixel.
+    /// → Ánh xạ: pass.set_pipeline(&pipeline)
     pub pipeline: PipelineHandle,
-    
-    /// Tham số (Tọa độ, Màu, Opacity). Dữ liệu này sẽ được đổ vào Ring Buffer.
-    pub uniforms: Vec<u8>,
-    
-    /// Vật liệu ảnh/video/kết quả subgraph sẽ nạp vào Shader.
-    pub bind_textures: Vec<TextureHandle>,
-    
-    /// Lưới tọa độ (Mesh/Vertices). Nếu None, tự động dùng hình vuông (Quad 4 đỉnh).
-    pub mesh: Option<MeshHandle>,
-    
-    /// Hỗ trợ Batching (Vẽ N lần một lúc).
-    pub instance_count: u32,
+
+    /// Bắt buộc: Danh sách các túi dữ liệu (Uniform, Texture, Sampler).
+    /// Mỗi phần tử = (khe_cắm, handle, offset_vào_ring_buffer)
+    /// → Ánh xạ: pass.set_bind_group(index, &bg, &offsets)
+    ///
+    /// BindGroup chứa cả Uniform (số liệu) lẫn Texture (ảnh nguồn).
+    /// dynamic_offsets trỏ đúng vị trí trong Uniform Ring Buffer cho từng Entity.
+    pub bind_groups: Vec<(u32, BindGroupHandle, Vec<u32>)>,
+
+    /// Bắt buộc: Hành động quẹt cọ cụ thể (Indexed hoặc Procedural).
+    pub action: DrawAction,
 }
 ```
 
-## 4. Khung Hình/Nhánh Vẽ (Render Graph)
-Không tồn tại khái niệm `RenderPass` cứng nhắc. Thứ tự trước/sau được quyết định hoàn toàn bởi index trong mảng `nodes`.
+**Tại sao cấu trúc này sạch:**
+*   `pipeline` luôn bắt buộc — DrawCommand nào cũng phải có Shader.
+*   `bind_groups` gom chặt `index + handle + offsets` — offset không trôi nổi, gắn đúng vào BindGroup tương ứng.
+*   `action` là Enum rạch ròi — muốn Mesh hay Procedural phải chọn rõ, không có `mesh: Option<>` mập mờ.
+
+---
+
+## 5. Đích Đến (Render Target)
+
+"Bức tranh sẽ được in lên đâu?" — Do `RenderGraph` nắm giữ, không phải Node.
 
 ```rust
-#[derive(Debug, Clone)]
 pub enum RenderTarget {
-    Screen,                                         // In thẳng ra màn hình
-    Offscreen { id: TextureHandle, w: u32, h: u32 },// In ra RAM ảo với kích thước chính xác
-}
+    /// In thẳng ra cửa sổ hệ điều hành (Swap Chain)
+    Screen,
 
-#[derive(Debug, Clone)]
+    /// In ra một tấm ảnh ảo trong VRAM với kích thước chính xác.
+    /// ECS quyết định kích thước (bao gồm Padding mở rộng cho Blur/Glow).
+    Offscreen {
+        color: TextureHandle,       // Texture VRAM sẽ nhận kết quả vẽ
+        width: u32,
+        height: u32,
+    },
+}
+```
+
+---
+
+## 6. Đồ Thị Vẽ (Render Graph)
+
+Một "tấm toan" (Canvas) chứa danh sách các nét cọ. Graph có thể chứa Graph con (Đệ quy vô hạn).
+
+```rust
 pub struct RenderGraph {
-    /// Nhánh này sẽ vẽ kết quả ra đâu?
-    pub target: RenderTarget, 
-    
-    /// Xóa phông nền (Clear Color) trước khi chạy các node.
+    /// Bức tranh này sẽ được in ra đâu?
+    pub target: RenderTarget,
+
+    /// Xóa phông nền trước khi vẽ (None = vẽ đè lên nội dung cũ)
     pub clear_color: Option<[f32; 4]>,
 
-    /// Lõi thực thi. Engine đọc tuần tự từ index 0 -> N. 
-    /// Node ở index 1 luôn vẽ đè lên Node ở index 0.
+    /// [Sẵn sàng 3D] Depth/Stencil Texture dùng chung cho toàn bộ Graph này.
+    /// Vật Đục ghi depth, Vật Mờ chỉ đọc không ghi. Cùng chia sẻ 1 tấm Z-Buffer.
+    /// None = chế độ 2D thuần (không dùng Z-Buffer).
+    pub depth_stencil: Option<TextureHandle>,
+
+    /// Danh sách các nút vẽ. Thứ tự 0 → N = thứ tự vẽ đè lên nhau.
+    /// ECS chịu trách nhiệm sắp xếp (Đục gần→xa trước, Mờ xa→gần sau).
     pub nodes: Vec<RenderNode>,
 }
 ```
 
-## 5. Cơ Chế Lồng Nhau & Thứ Tự Thực Thi (Nesting & Order)
-Sự bối rối thường nằm ở chỗ: *"Khi nào dùng SubGraph, khi nào dùng Draw, và chúng lồng nhau thế nào?"*. Hãy xem nguyên lý sau:
-*   **RenderGraph = Khung vẽ (Canvas).** Mỗi Graph có một đích đến (Target). Mọi Node bên trong nó sẽ vẽ lên cái Target đó.
-*   **RenderNode = Cây cọ (Brush).** Mảng `nodes` là thứ tự quẹt cọ (Từ index 0 đến N).
+---
 
-### Ví dụ: Vẽ Cảnh Có Quả Cầu Phép Thuật
-Giả sử ta cần vẽ: Nhân vật -> Quả cầu phép thuật (phức tạp) -> Hiệu ứng sương mù đè lên cả hai.
+## 7. Nút Vẽ (Render Node)
+
+Mỗi Node là "một hành động" trên bức tranh của Graph cha. Node có 2 dạng: **Vẽ phẳng (DrawBatch)** hoặc **Đệ quy lồng nhau (SubGraph)**.
+
+**Đặc điểm quan trọng:** Cả 2 dạng đều có `commands: Vec<DrawCommand>` — SubGraph chỉ khác ở chỗ nó có thêm một Graph con được vẽ trước.
 
 ```rust
-let frame_chinh = RenderGraph {
-    target: RenderTarget::Screen,
-    nodes: vec![
-        // --- INDEX 0: Cầm cọ vẽ Nhân Vật lên Màn Hình ---
-        RenderNode::Draw(DrawCommand { pipeline: "draw_image", bind_textures: vec![tex_nhan_vat] }),
-        
-        // --- INDEX 1: Ra lệnh vẽ Quả Cầu ---
-        // Tại đây, ta KHÔNG THỂ vẽ quả cầu trực tiếp lên màn hình, vì quả cầu được tạo
-        // từ 2 lớp ánh sáng trộn vào nhau. Nếu trộn thẳng trên màn hình sẽ bị lem màu.
-        // Bắt buộc phải khởi tạo một SubGraph (Khung vẽ phụ).
-        RenderNode::SubGraph(Box::new(RenderGraph {
-            target: RenderTarget::Offscreen(tex_qua_cau_tam), // Vẽ ra 1 cái ảnh ảo trên RAM
-            nodes: vec![
-                RenderNode::Draw(DrawCommand { /* Lõi lửa đỏ */ }),
-                RenderNode::Draw(DrawCommand { /* Hào quang xanh đè lên lõi lửa */ }),
-            ]
-        })),
+pub enum RenderNode {
+    /// Nhóm đệ quy (Pre-comp / Group / Camera Post-FX).
+    ///
+    /// Quy trình thực thi của ifol-gpu:
+    /// 1. Nhảy vào `graph` con, vẽ nó ra Offscreen (target của graph con).
+    /// 2. Quay lại Graph cha, thực thi danh sách `commands` lên target của cha.
+    ///    (ECS đã nhét TextureHandle của Offscreen vào BindGroup trong commands)
+    ///
+    /// Ví dụ: Graph con vẽ nhân vật ra Offscreen. Commands lấy Offscreen đó,
+    /// áp Shader Blur, rồi in lên màn hình chính.
+    ///
+    /// Nếu `commands` rỗng → Graph con chỉ vẽ ra Offscreen mà không in lên cha
+    /// (dùng cho Shadow Map, G-Buffer — chỉ tạo Texture dữ liệu).
+    SubGraph {
+        name: String,
+        graph: Box<RenderGraph>,            // Đồ thị con vẽ ra Offscreen trước
+        commands: Vec<DrawCommand>,         // Danh sách lệnh vẽ kết quả lên Graph cha
+        is_dirty: bool,                     // Cờ báo hiệu cần Record lại Bundle
+        bundle: Option<wgpu::RenderBundle>, // [Tương lai] Cache gói lệnh đã thu âm
+    },
 
-        // --- INDEX 2: Dán Quả Cầu lên Màn Hình ---
-        // Lúc này SubGraph ở Index 1 đã chạy xong. Kết quả của nó đang nằm trong `tex_qua_cau_tam`.
-        // Ta dùng Lệnh Draw để dán cái ảnh đó lên màn hình, đè lên Nhân vật (Index 0).
-        RenderNode::Draw(DrawCommand {
-            pipeline: "draw_blend",
-            bind_textures: vec![tex_qua_cau_tam], // Lấy kết quả của Bước 1 đem ra dùng!
-        }),
-
-        // --- INDEX 3: Vẽ Sương Mù ---
-        RenderNode::Draw(DrawCommand { /* Vẽ sương mù đè lên tất cả */ }),
-    ]
+    /// Danh sách lệnh vẽ phẳng trên cùng 1 target.
+    /// ECS đã sắp xếp sẵn: cùng Pipeline gom lại, Đục/Mờ tách biệt.
+    DrawBatch {
+        commands: Vec<DrawCommand>,         // Danh sách lệnh vẽ
+        is_dirty: bool,                     // Cờ báo hiệu cần Record lại Bundle
+        bundle: Option<wgpu::RenderBundle>, // [Tương lai] Cache gói lệnh đã thu âm
+    },
 }
 ```
 
-**Luồng chạy thực tế của GPU:**
-1. Nó đứng ở `frame_chinh`, thấy Index 0 là lệnh Draw -> Vẽ nhân vật ra màn hình.
-2. Nó thấy Index 1 là `SubGraph` -> Tạm dừng màn hình chính. Nó chui vào SubGraph, thấy có 2 lệnh Draw -> Lần lượt vẽ lửa đỏ, rồi lửa xanh đè lên nhau, in ra cái ảnh ẩn tên là `tex_qua_cau_tam`. Chạy xong, thoát ra.
-3. Nó đi tới Index 2, thấy lệnh Draw -> Lấy cái ảnh `tex_qua_cau_tam` vừa tạo xong dán đè lên màn hình.
-4. Tới Index 3, lấy sương mù dán đè lên tất cả. Màn hình hoàn tất!
+---
 
-**Tóm lại:** Lồng nhau (`SubGraph`) sinh ra khi bạn cần tính toán một cụm hình ảnh phức tạp ở **bên ngoài màn hình chính**, sau đó gom kết quả của cụm đó thành 1 tấm ảnh duy nhất để vẽ tiếp ở Graph Cha. Thứ tự mảng (List) quy định thằng nào vẽ trước, thằng nào vẽ sau (Z-Index).
+## 8. Cơ Chế Đệ Quy & RenderBundle Cache
+
+### 8.1. Quy Trình Biên Dịch (Graph Compiler)
+
+`ifol-gpu` duyệt cây đệ quy theo chiều sâu (Depth-First), đập phẳng thành chuỗi `RenderPass` tuyến tính:
+
+```text
+compile_graph(graph):
+    for node in graph.nodes:
+        match node:
+            SubGraph { graph: inner, commands, .. }:
+                ① compile_graph(inner)           // Đệ quy: vẽ graph con ra Offscreen
+                ② begin_render_pass(graph.target) // Mở phiên vẽ trên target CỦA CHA
+                   for cmd in commands:           // Vẽ kết quả Offscreen lên cha
+                       execute(cmd)
+                   end_render_pass()
+
+            DrawBatch { commands, .. }:
+                ① begin_render_pass(graph.target) // Mở phiên vẽ trên target của graph
+                   for cmd in commands:
+                       execute(cmd)
+                   end_render_pass()
+
+    → Kết quả cuối: 1 wgpu::CommandBuffer → queue.submit() MỘT LẦN
+```
+
+### 8.2. RenderBundle Cache (Triển Khai Tương Lai)
+
+*   **Khi `is_dirty = true`:** `ifol-gpu` mở `RenderBundleEncoder`, thu âm toàn bộ lệnh vẽ bên trong Node đó (hoặc đệ quy thu âm SubGraph), lưu binary vào `bundle`, rồi set `is_dirty = false`.
+*   **Khi `is_dirty = false`:** `ifol-gpu` KHÔNG duyệt vào `commands` nữa. Nó lấy thẳng `bundle` cũ ném vào `CommandEncoder`. Thời gian CPU gần bằng 0.
+*   **Tính Độc Lập:** Nếu đổi màu áo nhân vật trong `SubGraph(Nhân Vật)`, chỉ SubGraph đó bị bật `is_dirty`. `SubGraph(Môi Trường)` và Graph cha vẫn xài Bundle cũ.
+
+### 8.3. Khi Nào `is_dirty = true`?
+
+*   Thêm / Xóa DrawCommand trong Node.
+*   Đổi Pipeline (Shader) của DrawCommand.
+*   Đổi Mesh (Hình dáng) của DrawCommand.
+*   Đổi BindGroup Handle (Nguồn dữ liệu thay đổi cấu trúc).
+
+### 8.4. Khi Nào KHÔNG Dirty?
+
+*   **Thay đổi Transform (Vị trí, Xoay, Phóng to):** Vì Transform nằm trong Uniform Ring Buffer. Bundle chỉ thu âm "con trỏ" chỉ đến Ring Buffer, không thu âm giá trị. Khi vật thể di chuyển, giá trị trong Ring Buffer thay đổi, nhưng Bundle vẫn đúng vì nó vẫn trỏ đúng chỗ.
+*   **Cập nhật nội dung Texture (Video frame mới):** Texture Handle không đổi, chỉ có pixel bên trong VRAM thay đổi (Fast-Update / write_texture).
+
+---
+
+## 9. Ví Dụ Trực Quan: Scene 3D Phức Tạp
+
+Kịch bản: **Nhân vật (Group có Blur) đứng trước Ngôi nhà 3D, có Bóng đổ, có UI đè lên.**
+
+```text
+RootGraph (Target: Screen, Depth: depth_main)
+│
+├── Node 0: SubGraph "Shadow Map"
+│   ├── graph.target = Offscreen(shadow_tex, 2048x2048)
+│   ├── graph.depth_stencil = Some(shadow_depth)
+│   ├── graph.nodes = [DrawBatch(vẽ scene từ góc nhìn Đèn)]
+│   └── commands = []  ← RỖNG: Chỉ tạo Shadow Map, không in lên Screen
+│
+├── Node 1: SubGraph "Nhân Vật (Group Blur)"
+│   ├── graph.target = Offscreen(char_tex, 600x800)
+│   ├── graph.nodes = [DrawBatch(vẽ Tay, Chân, Đầu vào char_tex)]
+│   └── commands = [
+│         DrawCommand(pipe: blur, bind: [char_tex + blur_params], action: Procedural(3))
+│       ]
+│       ↑ Lấy char_tex, áp Blur, vẽ kết quả lên Screen (target của RootGraph)
+│
+├── Node 2: DrawBatch "Vật Đục (Opaque)"
+│   commands = [
+│     DrawCommand(pipe: pbr, bind: [shadow_tex, house_mat], action: Indexed(house_mesh))
+│     DrawCommand(pipe: pbr, bind: [shadow_tex, tree_mat], action: Indexed(tree_mesh, ..., 0..50))
+│   ]
+│   // ECS đã sắp: Gần→Xa, Pipeline giống gom lại. DepthWrite = ON.
+│
+├── Node 3: DrawBatch "Vật Mờ (Transparent)"
+│   commands = [
+│     DrawCommand(pipe: pbr_transparent, bind: [glass_mat], action: Indexed(window_mesh))
+│   ]
+│   // ECS đã sắp: Xa→Gần. DepthTest = ON, DepthWrite = OFF.
+│
+└── Node 4: DrawBatch "UI Layer"
+    commands = [
+      DrawCommand(pipe: ui, bind: [button_tex], action: Procedural(3))
+    ]
+    // DepthTest = OFF. UI luôn vẽ cuối, đè lên tất cả.
+```
+
+**Thứ tự GPU thực thi (đã đập phẳng):**
+1. `RenderPass 1` → Target: `shadow_tex` → Vẽ scene từ góc Đèn
+2. `RenderPass 2` → Target: `char_tex` → Vẽ Tay, Chân, Đầu
+3. `RenderPass 3` → Target: `Screen` → In nhân vật (đã Blur) lên Screen
+4. `RenderPass 4` → Target: `Screen` → Vẽ Nhà + 50 Cây (Opaque)
+5. `RenderPass 5` → Target: `Screen` → Vẽ Cửa Kính (Transparent)
+6. `RenderPass 6` → Target: `Screen` → Vẽ UI
+7. `queue.submit()` → **GỬI 1 LẦN DUY NHẤT**

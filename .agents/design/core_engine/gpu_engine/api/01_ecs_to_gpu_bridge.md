@@ -18,8 +18,12 @@ Giả sử người dùng gắn **nhiều** Material Component (VD: Glow, rồi 
 
 **Tiến trình "Gói Bọc" (Recursive Wrapping):**
 1. ECS lấy mảng Node vẽ Video cơ bản ban đầu (Gọi là `Lõi`).
-2. ECS phát hiện Material 1 (Glow). Nó tạo một `RenderNode::SubGraph` MỚI, ném cái `Lõi` vào bên trong để vẽ ra một `Offscreen Target 1`. Sau đó nó tạo một lệnh Draw xài Shader Glow lên cái Target 1 đó. (Lúc này `Lõi` đã bị bọc lại).
-3. ECS phát hiện Material 2 (Blur). Nó tiếp tục tạo một `RenderNode::SubGraph` MỚI thứ 2, nhét toàn bộ kết quả của Bước 2 vào bên trong để vẽ ra `Offscreen Target 2`. Rồi tạo lệnh Draw xài Shader Blur lên Target 2.
+2. ECS phát hiện Material 1 (Glow). Nó tạo một `RenderNode::SubGraph` MỚI:
+   - `graph` con: chứa `Lõi` (vẽ Video ra `Offscreen Target 1`).
+   - `commands`: chứa `DrawCommand` áp Shader Glow lên `Offscreen Target 1`, rồi vẽ lên target của Graph cha.
+3. ECS phát hiện Material 2 (Blur). Nó tạo tiếp một `SubGraph` MỚI thứ 2:
+   - `graph` con: chứa toàn bộ SubGraph ở Bước 2 (vẽ ra `Offscreen Target 2`).
+   - `commands`: chứa `DrawCommand` áp Shader Blur lên `Offscreen Target 2`.
 4. Cứ thế, Entity có bao nhiêu Material thì cái RenderGraph bị bọc lại bấy nhiêu lớp SubGraph cha. Nhờ đó, hiệu ứng được xếp chồng lên nhau chuẩn xác theo thứ tự Material.
 
 **Ai Quyết Định Kích Thước Của Offscreen Target? (Sự Ngu Ngốc Của GPU)**
@@ -30,7 +34,7 @@ Nhiều người sẽ thắc mắc: *"Nếu chỉ dùng kích thước gốc c�
 *   **GPU Nhắm Mắt Làm Theo:** GPU mù quáng cấp phát một cái ảnh rỗng 600x600, ném cho Shader Blur chạy. Hiệu ứng mờ tràn ra ngoài viền ảnh 50px một cách tuyệt đẹp.
 *   **Dán Lên Màn Hình:** Cuối cùng, kết quả 600x600 này được ném vào lệnh `DrawCommand` chót. Lệnh DrawCommand này chứa một ma trận tọa độ (Uniforms) đã được ECS tính toán sẵn, nhằm thu nhỏ (Scale) và dịch chuyển cái ảnh 600x600 đó về đúng vị trí pixel vật lý mà người dùng đang nhìn thấy trên màn hình Editor.
 
-## 1. Phân Chia Vai Trò Tuyệt Đối
+## 3. Phân Chia Vai Trò Tuyệt Đối
 
 ### A. `ifol-ecs` (The Brain - Kẻ Thông Minh)
 ECS sở hữu toàn bộ logic của phần mềm. Nó phải làm những việc sau trước khi gọi GPU:
@@ -41,7 +45,7 @@ ECS sở hữu toàn bộ logic của phần mềm. Nó phải làm những vi�
 5.  **Sắp xếp (Sorting):** Mảng Đục xếp Gần -> Xa (để tối ưu Early-Z). Mảng Trong xếp Xa -> Gần (để pha trộn Alpha chuẩn).
 6.  **Đóng gói RenderGraph:** Dịch tất cả thông tin trên thành một đồ thị `RenderGraph` (chỉ toàn ID, Handle và mảng lệnh) để ném xuống cho GPU.
 
-## 3. Hệ Thống Camera & Hậu Kỳ (Placeholder Injection)
+## 4. Hệ Thống Camera & Hậu Kỳ (Placeholder Injection)
 Camera trong Engine không chỉ là một cái ma trận View/Projection, mà còn là nơi xử lý đồ họa tổng hợp (Post-processing).
 
 **Cơ chế Nhét Đồ Thị (Placeholder Injection):**

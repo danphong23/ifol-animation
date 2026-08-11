@@ -7,7 +7,7 @@ Tài liệu này đúc kết triết lý tối giản cốt lõi của hệ th�
 ## 1. Triết Lý Thiết Kế Cốt Lõi: Đơn Giản Hóa Tuyệt Đối
 
 1.  **GPU Chỉ Làm Nhiệm Vụ Vẽ (Mù Lòa Logic):** 
-    *   Crate GPU (`ifol-gpu`) là một máy trạng thái vẽ thô phi nghiệp vụ. Nó không biết gì về ECS, Camera, Video, hay Keyframe. Nó chỉ nhận vào một danh sách các lệnh vẽ thô phẳng (`DrawCommand`) chứa VRAM Texture Keys, Vertex data, Uniform parameters và vẽ lên Render Target chỉ định.
+    *   Crate GPU (`ifol-gpu`) là một máy trạng thái vẽ thô phi nghiệp vụ. Nó không biết gì về ECS, Camera, Video, hay Keyframe. Nó chỉ nhận vào một đồ thị đệ quy `RenderGraph` chứa các `DrawCommand` (bao gồm PipelineHandle, BindGroupHandle, và DrawAction) rồi duyệt cây, đập phẳng ra chuỗi `RenderPass` và gửi xuống GPU 1 lần duy nhất.
 2.  **Mọi Logic Gọi Vẽ Nằm Ở ECS (`ifol-ecs`):**
     *   Việc quyết định vẽ cái gì, vẽ như thế nào, vẽ ở đâu hoàn toàn do các System trong ECS điều phối và đóng gói thành chỉ thị vẽ trước khi chuyển cho GPU.
     *   **Render theo đối tượng:** Nếu muốn vẽ trực tiếp 1 Entity (vd: ảnh thô) lên viewport, ECS chỉ cần sinh draw call duy nhất của thực thể đó.
