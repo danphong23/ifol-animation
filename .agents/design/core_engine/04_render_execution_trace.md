@@ -1,93 +1,82 @@
 # Câu Chuyện Thực Thi: Trace 1 Frame Đồ Họa Cấp Thấp
 
-Để thực sự hiểu cách hệ thống hoạt động, tài liệu này mô tả chi tiết từng mili-giây (Trace) những gì xảy ra bên trong `ifol-gpu` khi nó nhận yêu cầu render 1 Frame cực kỳ phức tạp.
-
-## 1. Kịch Bản Khung Hình (The Scenario)
-
-Hãy tưởng tượng bạn đang mở phần mềm ifol-animation, khung hình hiện tại có cấu hình như sau:
-*   **Viewport 1 (Màn hình chính):** Đang nhìn vào một bãi cỏ có **10.000 chiếc lá**, một **màn hình TV đang phát Video**, và một nhân vật được gom nhóm (**Pre-comp**).
-*   **Viewport 2 (Màn hình Preview nhỏ):** Đang soi cận cảnh vào đúng cái nhân vật Pre-comp đó.
-*   **Tình trạng phần cứng:** VRAM (RAM của card đồ họa) đang bị đầy tới nắp. Có một file ảnh `bullet.png` bị xóa mất ngoài ổ cứng (thiếu file).
+Tài liệu này mô tả chi tiết từng bước (Trace) những gì xảy ra bên trong `ifol-gpu` khi nhận yêu cầu render 1 Frame với quy trình 2-Phase Compiler chuẩn.
 
 ---
 
-## 2. Bước 1: ECS Nén Dữ Liệu (Bên ngoài Engine)
+## 1. Kịch Bản Khung Hình (Scenario)
 
-Trước khi GPU Engine bắt tay vào việc, hệ thống ECS (Tài liệu 01 & 03) đã chạy xong Phase cuối cùng và tổng hợp ra một mảng gồm 2 Render Graph đưa cho GPU:
+*   **Viewport 1 (Màn hình chính):** Nhìn vào một bãi cỏ (10.000 chiếc lá instancing), một khung hình Video, và một Nhân vật được gom nhóm (**SubGraph** có Blur).
+*   **Viewport 2 (Preview nhỏ):** Soi cận cảnh đúng Nhân vật đó.
+*   **VRAM:** Đang đầy nắp. Một file ảnh `bullet.png` bị thiếu trên ổ cứng.
+
+---
+
+## 2. Bước 1: ECS Đóng Gói (Bên ngoài GPU)
+
+ECS `RenderSystem` tìm thấy 2 `RenderRequestComponent` đại diện 2 Viewport, tạo 2 phong bì `RenderGraph` gửi xuống `ifol-gpu`:
 
 ```json
 [
-  // Đích đến: Cửa sổ Viewport 1
-  RootGraph_Viewport_1: [
-      SubGraph_Character (Pre-comp), 
-      DrawBatch [DrawCommand (10.000 lá cỏ - ĐÃ ĐƯỢC GỘP)], 
-      DrawBatch [DrawCommand (Khung hình Video)],
-      DrawBatch [DrawCommand (Viên đạn - bị thiếu ảnh)]
-  ],
-  // Đích đến: Cửa sổ Viewport 2
-  RootGraph_Viewport_2: [
-      DrawBatch [DrawCommand (Chỉ vẽ lại kết quả của SubGraph_Character)]
-  ]
+  // Viewport 1
+  RootGraph_Viewport_1 {
+    target: Screen,
+    node_ids: [Node_SubGraph_Char, Node_Batch_Grass, Node_Batch_Video, Node_Batch_Bullet]
+  },
+  // Viewport 2
+  RootGraph_Viewport_2 {
+    target: Offscreen_Preview,
+    node_ids: [Node_SubGraph_Char] // Dùng chung Node_SubGraph_Char từ Pool!
+  }
 ]
 ```
 
-👉 **GPU Engine nhận mảng dữ liệu này.** Từ thời điểm này trở đi, GPU Engine nhắm mắt làm theo mệnh lệnh.
+---
+
+## 3. Bước 2: Đầu Frame (Reset Ring Buffer)
+
+GPU Engine kéo con trỏ `UniformRingBuffer` về `0` (0 cost allocation). Mọi dữ liệu Uniforms của frame cũ bị lờ đi, sẵn sàng bị chép đè.
 
 ---
 
-## 3. Bước 2: Dọn dẹp & Khởi động (Đầu Frame)
+## 4. Bước 3: Biên Dịch Viewport 1 (2-Phase Compiler)
 
-1.  **Reset Ring Buffer:** GPU Engine nắm giữ một cục RAM siêu to (Ví dụ 5MB) chuyên dùng chứa Uniforms. Nó cầm con trỏ (pointer) kéo bùm một phát về vị trí `0`. **(0 cost allocation)**. Toàn bộ rác của frame trước bị lờ đi, sẵn sàng bị ghi đè.
+### PHASE 1: Đệ Quy Xử Lý SubGraph (Bottom-Up)
+*   Compiler duyệt `node_ids` của Viewport 1, phát hiện `Node_SubGraph_Char`.
+*   Compiler **chưa mở RenderPass cho Screen**. Nó đi xin VRAM 1 tấm ảnh `Texture_Char` (600x800).
+*   Nó đệ quy compile `graph` con bên trong SubGraph, mở RenderPass cho `Texture_Char`, vẽ Tay, Chân, Đầu vào đó.
+*   Vẽ xong, `Texture_Char` có chứa ảnh nhân vật hoàn chỉnh. **Phase 1 kết thúc.**
 
----
+### PHASE 2: Mở 1 GPU RenderPass Duy Nhất Cho Screen
+Compiler gọi `encoder.begin_render_pass(Screen)`. Tất cả các Node dưới đây chia sẻ **cùng 1 Pass này**:
 
-## 4. Bước 3: Thực thi Viewport 1
+1.  **Thực thi `Node_SubGraph_Char`:** Node này có `is_dirty = false` -> Compiler phát `bundle` cũ. Lệnh trong bundle nạp `Texture_Char` vừa vẽ ở Phase 1, chạy `blur.wgsl`, vẽ nhân vật mờ lên Screen.
+2.  **Thực thi `Node_Batch_Grass` (10.000 chiếc lá):** 
+    - `is_dirty = false` -> phát `bundle` cũ.
+    - Lệnh vẽ instancing 10.000 bản sao trong 1 nhịp chớp mắt.
+3.  **Thực thi `Node_Batch_Video`:** 
+    - `ffmpeg` nhả byte video mới. VRAM đầy OOM -> **LRU Cache** kích hoạt đá `logo.png` cũ ra khỏi VRAM.
+    - `write_texture` chép đè byte video vào vùng trống. Phát `bundle` video.
+4.  **Thực thi `Node_Batch_Bullet` (Missing file):** 
+    - ECS đã gán Texture caro mặc định vào `TextureHandle(12)`.
+    - Phát `bundle` viên đạn caro hồng/đen mờ.
 
-Engine duyệt mảng, bắt đầu với `RootGraph_Viewport_1`.
-
-### Hành động 3.1: Gặp SubGraph_Character (Đệ quy)
-*   Engine thấy đây không phải lệnh vẽ trực tiếp mà là một Sub-Graph. Nó **tạm dừng** mạch vẽ chính.
-*   Nó đi xin VRAM một tấm ảnh trống (Render Target) theo kích thước ECS yêu cầu.
-*   Nó đi sâu vào trong SubGraph_Character, thực thi các DrawBatch bên trong đó (vẽ tay, chân, mặt) và in tất cả lên tấm ảnh trống vừa xin.
-*   Vẽ xong, nó gán ID cho tấm ảnh đó, gọi là `TextureHandle(5)`. Quay lại mạch vẽ chính và thực thi danh sách `commands` của SubGraph này để in `TextureHandle(5)` lên màn hình.
-
-### Hành động 3.2: Gặp DrawBatch (10.000 chiếc lá cỏ)
-*   **Batching bẩm sinh:** ECS đã cực kỳ thông minh, thay vì đưa 10.000 lệnh, nó chỉ đưa 1 lệnh duy nhất. Mảng Uniforms đính kèm trong lệnh này chứa một chuỗi dài dằng dặc 10.000 tọa độ.
-*   Engine copy chuỗi tọa độ này chép ụp vào Ring Buffer (Con trỏ Ring Buffer nhích lên 1 đoạn).
-*   Engine gọi `pipeline = PipelineHandle(1)`, nạp `BindGroup` chứa ảnh cỏ.
-*   Engine đọc `action = DrawAction::Indexed { instance_range: 0..10000 }`.
-*   GPU giật điện, vẽ 10.000 chiếc lá trong 1 nhịp chớp mắt. Cực mượt.
-
-### Hành động 3.3: Gặp DrawBatch (Khung hình Video)
-*   Engine đọc lệnh thấy yêu cầu dùng `TextureHandle(9)`.
-*   Phần mềm giải mã video (ffmpeg) vừa nhả ra một khung hình mới (mảng byte mới).
-*   **Xử lý Edge Case (OOM):** Engine định nạp mảng byte này lên VRAM, nhưng phát hiện VRAM ĐÃ ĐẦY! Nếu cố nhét, app sẽ Crash.
-*   **LRU Cache kích hoạt:** Engine lục trong từ điển, phát hiện tấm ảnh `"logo_cong_ty.png"` đã 10 phút rồi không xuất hiện trên màn hình. Nó lạnh lùng **đá (Evict)** tấm ảnh đó ra khỏi VRAM.
-*   **Fast-Update:** Thay vì xin cấp phát VRAM mới (rất chậm), Engine tái sử dụng khoảng trống vừa được giải phóng, ghi đè (write_texture) byte video lên đó. Video chạy mượt 60fps.
-
-### Hành động 3.4: Gặp DrawBatch (Viên đạn)
-*   Engine đọc lệnh yêu cầu nạp `TextureHandle(12)`.
-*   **Xử lý Edge Case (Missing File):** ECS không tìm thấy file trên ổ cứng khi nạp. Nhưng thay vì để trống, ECS đã gắn một Texture mặc định (caro) vào Handle này.
-*   Engine của chúng ta bình tĩnh lôi tấm ảnh caro hồng/đen mờ có sẵn trong VRAM ra vẽ bình thường (vì Handle luôn hợp lệ).
-*   Lệnh vẽ tiếp tục, viên đạn biến thành hình vuông caro lơ lửng trên màn hình.
+Compiler gọi `pass.end_render_pass()`. Viewport 1 hoàn tất!
 
 ---
 
-## 5. Bước 4: Thực thi Viewport 2
+## 5. Bước 4: Biên Dịch Viewport 2 (Tái Sử Dụng Bundle)
 
-Khung hình của Viewport 1 đã render xong, Engine chuyển sang `RootGraph_Viewport_2`.
-
-*   Mục đích của Viewport này là chiếu cận cảnh nhân vật (để user dễ bề chỉnh sửa).
-*   ECS đã tính toán sẵn sự tối ưu này. Lệnh vẽ nó gửi xuống chỉ là 1 `DrawBatch` chứa: `DrawCommand(pipeline: PipelineHandle(2), bind: [TextureHandle(5)], action: Procedural(3))`.
-*   Engine thấy lệnh này, nó lôi `TextureHandle(5)` (tấm ảnh Offscreen mà nó vừa cực khổ vẽ ở hành động 3.1) ra, áp Shader phóng to và in thẳng ra Viewport 2.
-*   **Kết quả:** Dù nhân vật có 100 cái xương, GPU không tốn thêm 1 giọt mồ hôi nào để tính toán lại cấu trúc nhân vật. Nó chỉ thực hiện 1 lệnh vẽ Procedural Quad xài lại ảnh cũ rẻ bèo.
+Compiler chuyển sang `RootGraph_Viewport_2`:
+*   Viewport 2 chiếu cận cảnh nhân vật, dùng chung `Node_SubGraph_Char` từ `RenderNodePool`.
+*   `Node_SubGraph_Char` đã có sẵn `Texture_Char` vẽ từ Phase 1 và `bundle` đã thu âm.
+*   Compiler mở RenderPass cho `Offscreen_Preview`, phát lại `bundle` đó với ma trận phóng to.
+*   **Kết quả:** Dù nhân vật có 100 cái xương, GPU **không tốn 1 giọt mồ hôi** tính lại cấu trúc. Nhanh cực đại!
 
 ---
 
-## 6. Bước 5: Chốt Frame (Present)
+## 6. Bước 5: Chốt Frame (Submit 1 Lần)
 
-Sau khi duyệt hết mảng chứa 2 RootGraph:
-*   GPU Engine gọi hàm `present()`.
-*   Khung hình được đẩy từ VRAM lên màn hình (Monitor) của User.
-*   Đồng hồ điểm 16 mili-giây (Mượt mà 60fps).
-*   Trở về Bước 1, chờ đợi Render Graph của Frame tiếp theo.
+Sau khi duyệt hết 2 RootGraph:
+*   GPU Engine gọi `queue.submit(encoder.finish())` — **Ném 1 CommandBuffer duy nhất xuống GPU**.
+*   GPU thực thi liên hoàn tất cả RenderPass. Mượt mà 144 FPS!

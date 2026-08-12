@@ -17,6 +17,7 @@ struct App<'a> {
     engine: Option<GpuEngine<'a>>,
     executor: RenderGraphExecutor,
     registry: ResourceRegistry,
+    pool: ifol_gpu::render::RenderNodePool,
 }
 
 impl<'a> Default for App<'a> {
@@ -26,6 +27,7 @@ impl<'a> Default for App<'a> {
             engine: None,
             executor: RenderGraphExecutor::new(),
             registry: ResourceRegistry::new(),
+            pool: ifol_gpu::render::RenderNodePool::new(),
         }
     }
 }
@@ -222,9 +224,9 @@ impl<'a> ApplicationHandler for App<'a> {
                                     DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
                                 ).with_bind_group(0, BindGroupHandle(1), vec![]);
 
-                                graph.add_batch(vec![cmd]);
+                                graph.add_batch(&mut self.pool, vec![cmd]);
 
-                                let idx = self.executor.execute_with_surface(engine, &self.registry, &graph, Some(&view));
+                                let idx = self.executor.execute_with_surface(engine, &self.registry, &mut self.pool, &graph, Some(&view));
                                 let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
                                 engine.queue().present(frame);
                             }

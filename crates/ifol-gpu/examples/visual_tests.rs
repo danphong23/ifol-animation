@@ -143,6 +143,8 @@ fn main() {
     registry.pipelines.insert(PipelineHandle(1), create_pipe(true, Some(wgpu::BlendState::REPLACE)));
     registry.pipelines.insert(PipelineHandle(2), create_pipe(false, Some(wgpu::BlendState::ALPHA_BLENDING)));
 
+    let mut pool = ifol_gpu::render::RenderNodePool::new();
+
     // --- Z-Buffer Test ---
     let mut graph_z = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -152,7 +154,7 @@ fn main() {
     .with_clear_color([0.0, 0.0, 0.0, 1.0])
     .with_depth_stencil(TextureHandle(2));
 
-    graph_z.add_batch(vec![DrawCommand::new(
+    graph_z.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(1),
         DrawAction::Procedural {
             vertex_count: 3,
@@ -168,7 +170,7 @@ fn main() {
     })
     .with_clear_color([0.0, 0.0, 0.0, 1.0]);
 
-    graph_alpha.add_batch(vec![DrawCommand::new(
+    graph_alpha.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(2),
         DrawAction::Procedural {
             vertex_count: 3,
@@ -250,7 +252,7 @@ fn main() {
     })
     .with_clear_color([0.0, 0.0, 0.0, 1.0]);
 
-    graph_10k.add_batch(vec![DrawCommand::new(
+    graph_10k.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(3),
         DrawAction::Procedural {
             vertex_count: 3,
@@ -299,13 +301,14 @@ fn main() {
             },
         ),
     ];
-    graph_interleaved.add_batch(interleaved_cmds);
+    graph_interleaved.add_batch(&mut pool, interleaved_cmds);
 
     // Execute
-    let _ = executor.execute(&engine, &registry, &graph_z);
-    let _ = executor.execute(&engine, &registry, &graph_alpha);
-    let _ = executor.execute(&engine, &registry, &graph_10k);
-    let idx_last = executor.execute(&engine, &registry, &graph_interleaved);
+    let _ = executor.execute(&engine, &registry, &mut pool, &graph_z);
+    let _ = executor.execute(&engine, &registry, &mut pool, &graph_alpha);
+    let _ = executor.execute(&engine, &registry, &mut pool, &graph_10k);
+    let idx_last = executor.execute(&engine, &registry, &mut pool, &graph_interleaved);
+
 
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx_last),

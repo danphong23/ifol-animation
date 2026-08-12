@@ -1,5 +1,6 @@
+use std::collections::HashMap;
 use std::ops::Range;
-use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, TextureHandle};
+use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 
 /// ═══════════════════════════════════════════════════════════
 /// HÀNH ĐỘNG VẼ (DrawAction)
@@ -77,7 +78,7 @@ pub enum RenderTarget {
 /// NÚT VẼ (RenderNode) — "Một hành động trên bức tranh"
 /// ═══════════════════════════════════════════════════════════
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum RenderNode {
     /// Nhóm đệ quy (Pre-comp / Group / Camera Post-FX).
     /// Vẽ graph con ra Offscreen trước, sau đó thực thi commands để in kết quả lên Graph cha.
@@ -86,12 +87,14 @@ pub enum RenderNode {
         graph: Box<RenderGraph>,
         commands: Vec<DrawCommand>,
         is_dirty: bool,
+        bundle: Option<wgpu::RenderBundle>,
     },
 
     /// Danh sách lệnh vẽ phẳng trên cùng 1 target.
     DrawBatch {
         commands: Vec<DrawCommand>,
         is_dirty: bool,
+        bundle: Option<wgpu::RenderBundle>,
     },
 }
 
@@ -100,6 +103,7 @@ impl RenderNode {
         Self::DrawBatch {
             commands,
             is_dirty: true,
+            bundle: None,
         }
     }
 
@@ -109,12 +113,104 @@ impl RenderNode {
             graph: Box::new(graph),
             commands,
             is_dirty: true,
+            bundle: None,
+        }
+    }
+
+    pub fn commands(&self) -> &[DrawCommand] {
+        match self {
+            Self::SubGraph { commands, .. } => commands,
+            Self::DrawBatch { commands, .. } => commands,
+        }
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        match self {
+            Self::SubGraph { is_dirty, .. } => *is_dirty,
+            Self::DrawBatch { is_dirty, .. } => *is_dirty,
+        }
+    }
+
+    pub fn bundle(&self) -> Option<&wgpu::RenderBundle> {
+        match self {
+            Self::SubGraph { bundle, .. } => bundle.as_ref(),
+            Self::DrawBatch { bundle, .. } => bundle.as_ref(),
         }
     }
 }
 
 /// ═══════════════════════════════════════════════════════════
-/// ĐỒ THỊ VẼ (RenderGraph) — "Tấm toan chứa các nét cọ"
+/// ARENA POOL (RenderNodePool) — "Nơi lưu trữ các Nút Vẽ"
+/// ═══════════════════════════════════════════════════════════
+
+#[derive(Default)]
+pub struct RenderNodePool {
+    nodes: HashMap<RenderNodeId, RenderNode>,
+    next_id: u64,
+}
+
+impl RenderNodePool {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn alloc_batch(&mut self, commands: Vec<DrawCommand>) -> RenderNodeId {
+        self.next_id += 1;
+        let id = RenderNodeId(self.next_id);
+        self.nodes.insert(id, RenderNode::new_batch(commands));
+        id
+    }
+
+    pub fn alloc_subgraph(&mut self, name: impl Into<String>, graph: RenderGraph, commands: Vec<DrawCommand>) -> RenderNodeId {
+        self.next_id += 1;
+        let id = RenderNodeId(self.next_id);
+        self.nodes.insert(id, RenderNode::new_subgraph(name, graph, commands));
+        id
+    }
+
+    pub fn get(&self, id: RenderNodeId) -> Option<&RenderNode> {
+        self.nodes.get(&id)
+    }
+
+    pub fn get_mut(&mut self, id: RenderNodeId) -> Option<&mut RenderNode> {
+        self.nodes.get_mut(&id)
+    }
+
+    pub fn update_commands(&mut self, id: RenderNodeId, commands: Vec<DrawCommand>) -> bool {
+        if let Some(node) = self.nodes.get_mut(&id) {
+            match node {
+                RenderNode::DrawBatch { commands: cmds, is_dirty, bundle } => {
+                    *cmds = commands;
+                    *is_dirty = true;
+                    *bundle = None;
+                }
+                RenderNode::SubGraph { commands: cmds, is_dirty, bundle, .. } => {
+                    *cmds = commands;
+                    *is_dirty = true;
+                    *bundle = None;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn mark_dirty(&mut self, id: RenderNodeId) {
+        if let Some(node) = self.nodes.get_mut(&id) {
+            match node {
+                RenderNode::DrawBatch { is_dirty, bundle, .. } |
+                RenderNode::SubGraph { is_dirty, bundle, .. } => {
+                    *is_dirty = true;
+                    *bundle = None;
+                }
+            }
+        }
+    }
+}
+
+/// ═══════════════════════════════════════════════════════════
+/// ĐỒ THỊ VẼ (RenderGraph) — "Tấm toan chứa danh sách ID Nút vẽ"
 /// ═══════════════════════════════════════════════════════════
 
 #[derive(Debug, Clone)]
@@ -128,8 +224,8 @@ pub struct RenderGraph {
     /// [3D-Ready] Depth/Stencil Texture dùng chung cho toàn bộ Graph này
     pub depth_stencil: Option<TextureHandle>,
 
-    /// Danh sách các nút vẽ. Thứ tự 0 → N = thứ tự vẽ đè
-    pub nodes: Vec<RenderNode>,
+    /// Danh sách ID các nút vẽ trong RenderNodePool. Thứ tự 0 → N = thứ tự vẽ đè
+    pub node_ids: Vec<RenderNodeId>,
 }
 
 impl RenderGraph {
@@ -138,7 +234,7 @@ impl RenderGraph {
             target,
             clear_color: None,
             depth_stencil: None,
-            nodes: Vec::new(),
+            node_ids: Vec::new(),
         }
     }
 
@@ -152,16 +248,20 @@ impl RenderGraph {
         self
     }
 
-    pub fn add_node(&mut self, node: RenderNode) {
-        self.nodes.push(node);
+    pub fn add_node_id(&mut self, id: RenderNodeId) {
+        self.node_ids.push(id);
     }
 
-    pub fn add_batch(&mut self, commands: Vec<DrawCommand>) {
-        self.nodes.push(RenderNode::new_batch(commands));
+    pub fn add_batch(&mut self, pool: &mut RenderNodePool, commands: Vec<DrawCommand>) -> RenderNodeId {
+        let id = pool.alloc_batch(commands);
+        self.node_ids.push(id);
+        id
     }
 
-    pub fn add_subgraph(&mut self, name: impl Into<String>, graph: RenderGraph, commands: Vec<DrawCommand>) {
-        self.nodes.push(RenderNode::new_subgraph(name, graph, commands));
+    pub fn add_subgraph(&mut self, pool: &mut RenderNodePool, name: impl Into<String>, graph: RenderGraph, commands: Vec<DrawCommand>) -> RenderNodeId {
+        let id = pool.alloc_subgraph(name, graph, commands);
+        self.node_ids.push(id);
+        id
     }
 }
 
@@ -171,6 +271,8 @@ mod tests {
 
     #[test]
     fn test_render_graph_nesting() {
+        let mut pool = RenderNodePool::new();
+
         let mut shadow_graph = RenderGraph::new(RenderTarget::Offscreen {
             color: TextureHandle(1),
             width: 2048,
@@ -178,7 +280,7 @@ mod tests {
         })
         .with_depth_stencil(TextureHandle(2));
 
-        shadow_graph.add_batch(vec![DrawCommand::new(
+        let shadow_batch_id = pool.alloc_batch(vec![DrawCommand::new(
             PipelineHandle(10),
             DrawAction::Indexed {
                 mesh: MeshHandle(100),
@@ -186,16 +288,18 @@ mod tests {
                 instance_range: 0..1,
             },
         )]);
+        shadow_graph.add_node_id(shadow_batch_id);
 
         let mut root_graph = RenderGraph::new(RenderTarget::Screen)
             .with_clear_color([0.1, 0.1, 0.1, 1.0])
             .with_depth_stencil(TextureHandle(3));
 
         // SubGraph Shadow Map (không có command in lên màn hình)
-        root_graph.add_subgraph("ShadowPass", shadow_graph, vec![]);
+        let sub_id = pool.alloc_subgraph("ShadowPass", shadow_graph, vec![]);
+        root_graph.add_node_id(sub_id);
 
         // DrawBatch chính
-        root_graph.add_batch(vec![DrawCommand::new(
+        let main_batch_id = pool.alloc_batch(vec![DrawCommand::new(
             PipelineHandle(20),
             DrawAction::Indexed {
                 mesh: MeshHandle(200),
@@ -203,12 +307,13 @@ mod tests {
                 instance_range: 0..1,
             },
         )]);
+        root_graph.add_node_id(main_batch_id);
 
-        assert_eq!(root_graph.nodes.len(), 2);
-        match &root_graph.nodes[0] {
+        assert_eq!(root_graph.node_ids.len(), 2);
+        match pool.get(root_graph.node_ids[0]).unwrap() {
             RenderNode::SubGraph { name, graph, commands, .. } => {
                 assert_eq!(name, "ShadowPass");
-                assert_eq!(graph.nodes.len(), 1);
+                assert_eq!(graph.node_ids.len(), 1);
                 assert!(commands.is_empty());
             }
             _ => panic!("Kỳ vọng Node 0 là SubGraph"),

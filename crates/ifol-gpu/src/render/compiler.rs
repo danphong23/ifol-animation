@@ -1,5 +1,5 @@
 use crate::api::GpuEngine;
-use crate::render::graph::{DrawAction, DrawCommand, RenderGraph, RenderNode, RenderTarget};
+use crate::render::graph::{DrawAction, DrawCommand, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::render::handle::TextureHandle;
 use crate::render::registry::ResourceRegistry;
 
@@ -21,9 +21,10 @@ impl RenderGraphExecutor {
         &self,
         engine: &GpuEngine,
         registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
         graph: &RenderGraph,
     ) -> wgpu::SubmissionIndex {
-        self.execute_with_surface(engine, registry, graph, None)
+        self.execute_with_surface(engine, registry, pool, graph, None)
     }
 
     /// Biên dịch RenderGraph với Surface Texture View chỉ định (khi vẽ trực tiếp ra cửa sổ)
@@ -31,6 +32,7 @@ impl RenderGraphExecutor {
         &self,
         engine: &GpuEngine,
         registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
         graph: &RenderGraph,
         surface_view: Option<&wgpu::TextureView>,
     ) -> wgpu::SubmissionIndex {
@@ -38,97 +40,58 @@ impl RenderGraphExecutor {
             label: Some("RenderGraphEncoder"),
         });
 
-        // Duyệt đệ quy cây RenderGraph
-        self.compile_graph(&mut encoder, graph, registry, surface_view);
+        // Duyệt 2-Phase cây RenderGraph
+        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view);
 
         // Submit toàn bộ khối lệnh (Command Buffer) lên GPU 1 lần duy nhất
         engine.queue().submit(std::iter::once(encoder.finish()))
     }
 
-    /// Duyệt cây đệ quy Depth-First
+    /// Thuật toán Biên dịch 2-Phase (1 RenderGraph = 1 RenderPass)
     fn compile_graph(
         &self,
         encoder: &mut wgpu::CommandEncoder,
+        engine: &GpuEngine,
+        pool: &mut RenderNodePool,
         graph: &RenderGraph,
         registry: &ResourceRegistry,
         surface_view: Option<&wgpu::TextureView>,
     ) {
-        let mut first_pass_on_target = true;
+        // -------------------------------------------------------------
+        // PHASE 1: Đệ quy xử lý tất cả SubGraph con (Bottom-Up)
+        // Vẽ các nhánh con ra Offscreen Texture trước khi mở Pass cha
+        // -------------------------------------------------------------
+        for &node_id in &graph.node_ids {
+            let inner_graph = if let Some(RenderNode::SubGraph { graph: inner, .. }) = pool.get(node_id) {
+                Some(inner.clone())
+            } else {
+                None
+            };
 
-        for node in &graph.nodes {
-            match node {
-                RenderNode::SubGraph {
-                    graph: inner_graph,
-                    commands,
-                    ..
-                } => {
-                    // 1. ĐỆ QUY: Xử lý Graph con trước (vẽ ra Offscreen)
-                    self.compile_graph(encoder, inner_graph, registry, surface_view);
-
-                    // 2. Thực thi danh sách commands của SubGraph để in kết quả lên Graph cha (nếu có)
-                    if !commands.is_empty() {
-                        self.execute_commands_on_target(
-                            encoder,
-                            graph,
-                            commands,
-                            registry,
-                            surface_view,
-                            first_pass_on_target,
-                        );
-                        first_pass_on_target = false;
-                    }
-                }
-
-                RenderNode::DrawBatch { commands, .. } => {
-                    if !commands.is_empty() || graph.clear_color.is_some() {
-                        self.execute_commands_on_target(
-                            encoder,
-                            graph,
-                            commands,
-                            registry,
-                            surface_view,
-                            first_pass_on_target,
-                        );
-                        first_pass_on_target = false;
-                    }
-                }
+            if let Some(inner) = inner_graph {
+                self.compile_graph(encoder, engine, pool, &inner, registry, surface_view);
             }
         }
-    }
 
-    /// Mở RenderPass và thực thi một chuỗi DrawCommand lên Target của RenderGraph
-    fn execute_commands_on_target(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        graph: &RenderGraph,
-        commands: &[DrawCommand],
-        registry: &ResourceRegistry,
-        surface_view: Option<&wgpu::TextureView>,
-        is_first_pass: bool,
-    ) {
-        // Resolve Target Texture View
+        // -------------------------------------------------------------
+        // PHASE 2: Mở 1 GPU RenderPass DUY NHẤT cho Target của Graph hiện tại
+        // -------------------------------------------------------------
         let target_view = match &graph.target {
             RenderTarget::Screen => surface_view.or_else(|| registry.textures.get(&TextureHandle(0))),
             RenderTarget::Offscreen { color, .. } => registry.textures.get(color),
         };
 
         let Some(color_view) = target_view else {
-            // Nếu không tìm thấy Target Texture View, bỏ qua pass này an toàn
             return;
         };
 
-        // Xác định LoadOp: Pass đầu tiên dùng clear_color (nếu có), các pass sau dùng LoadOp::Load
-        let load_op = if is_first_pass {
-            if let Some(c) = graph.clear_color {
-                wgpu::LoadOp::Clear(wgpu::Color {
-                    r: c[0] as f64,
-                    g: c[1] as f64,
-                    b: c[2] as f64,
-                    a: c[3] as f64,
-                })
-            } else {
-                wgpu::LoadOp::Load
-            }
+        let load_op = if let Some(c) = graph.clear_color {
+            wgpu::LoadOp::Clear(wgpu::Color {
+                r: c[0] as f64,
+                g: c[1] as f64,
+                b: c[2] as f64,
+                a: c[3] as f64,
+            })
         } else {
             wgpu::LoadOp::Load
         };
@@ -143,12 +106,11 @@ impl RenderGraphExecutor {
             },
         })];
 
-        // Resolve Depth Stencil Attachment
         let depth_stencil_attachment = graph.depth_stencil.and_then(|handle| {
             registry.textures.get(&handle).map(|view| wgpu::RenderPassDepthStencilAttachment {
                 view,
                 depth_ops: Some(wgpu::Operations {
-                    load: if is_first_pass {
+                    load: if graph.clear_color.is_some() {
                         wgpu::LoadOp::Clear(1.0)
                     } else {
                         wgpu::LoadOp::Load
@@ -159,9 +121,8 @@ impl RenderGraphExecutor {
             })
         });
 
-        // Bắt đầu GPU Render Pass
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("RenderPass"),
+            label: Some("RenderGraphPass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment,
             timestamp_writes: None,
@@ -169,51 +130,51 @@ impl RenderGraphExecutor {
             multiview_mask: None,
         });
 
-        // Cache trạng thái RenderPass để tối ưu hóa
         let mut current_pipeline = None;
 
-        for cmd in commands {
-            // 1. Set Pipeline
-            if current_pipeline != Some(cmd.pipeline) {
-                if let Some(pipe) = registry.pipelines.get(&cmd.pipeline) {
-                    render_pass.set_pipeline(pipe);
-                    current_pipeline = Some(cmd.pipeline);
-                } else {
-                    continue; // Skip nếu Pipeline không tồn tại
-                }
-            }
+        for &node_id in &graph.node_ids {
+            let Some(node) = pool.get(node_id) else { continue; };
+            let commands = node.commands();
 
-            // 2. Set Bind Groups (với dynamic offsets)
-            for (slot, bg_handle, offsets) in &cmd.bind_groups {
-                if let Some(bg) = registry.bind_groups.get(bg_handle) {
-                    render_pass.set_bind_group(*slot, bg, offsets);
-                }
-            }
-
-            // 3. Perform Draw Action
-            match &cmd.action {
-                DrawAction::Indexed {
-                    mesh,
-                    index_range,
-                    instance_range,
-                } => {
-                    if let Some((vbo, ibo_info, _count)) = registry.meshes.get(mesh) {
-                        render_pass.set_vertex_buffer(0, vbo.slice(..));
-                        if let Some((ibo, format)) = ibo_info {
-                            render_pass.set_index_buffer(ibo.slice(..), *format);
-                            render_pass.draw_indexed(index_range.clone(), 0, instance_range.clone());
-                        } else {
-                            // Không có IBO -> Fallback về draw vertex theo index range
-                            render_pass.draw(index_range.clone(), instance_range.clone());
-                        }
+            for cmd in commands {
+                if current_pipeline != Some(cmd.pipeline) {
+                    if let Some(pipe) = registry.pipelines.get(&cmd.pipeline) {
+                        render_pass.set_pipeline(pipe);
+                        current_pipeline = Some(cmd.pipeline);
+                    } else {
+                        continue;
                     }
                 }
 
-                DrawAction::Procedural {
-                    vertex_count,
-                    instance_range,
-                } => {
-                    render_pass.draw(0..*vertex_count, instance_range.clone());
+                for (slot, bg_handle, offsets) in &cmd.bind_groups {
+                    if let Some(bg) = registry.bind_groups.get(bg_handle) {
+                        render_pass.set_bind_group(*slot, bg, offsets);
+                    }
+                }
+
+                match &cmd.action {
+                    DrawAction::Indexed {
+                        mesh,
+                        index_range,
+                        instance_range,
+                    } => {
+                        if let Some((vbo, ibo_info, _count)) = registry.meshes.get(mesh) {
+                            render_pass.set_vertex_buffer(0, vbo.slice(..));
+                            if let Some((ibo, format)) = ibo_info {
+                                render_pass.set_index_buffer(ibo.slice(..), *format);
+                                render_pass.draw_indexed(index_range.clone(), 0, instance_range.clone());
+                            } else {
+                                render_pass.draw(index_range.clone(), instance_range.clone());
+                            }
+                        }
+                    }
+
+                    DrawAction::Procedural {
+                        vertex_count,
+                        instance_range,
+                    } => {
+                        render_pass.draw(0..*vertex_count, instance_range.clone());
+                    }
                 }
             }
         }

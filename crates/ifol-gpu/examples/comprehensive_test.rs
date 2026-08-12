@@ -3,7 +3,7 @@ use std::time::Instant;
 use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::render::{
     BindGroupHandle, DrawAction, DrawCommand, MeshHandle, PipelineHandle, RenderGraph,
-    RenderGraphExecutor, RenderTarget, ResourceRegistry, TextureHandle,
+    RenderGraphExecutor, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle,
 };
 
 // Helper: Khởi tạo Texture làm bia vẽ (Target)
@@ -34,6 +34,7 @@ fn save_texture(engine: &ifol_gpu::api::GpuEngine, texture: &wgpu::Texture, file
 }
 
 fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
     registry.textures.insert(TextureHandle(1), view);
@@ -46,7 +47,7 @@ fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     .with_clear_color([0.0, 0.5, 0.8, 1.0]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -58,6 +59,7 @@ fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
 }
 
 fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
     registry.textures.insert(TextureHandle(1), view);
@@ -156,10 +158,10 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
             instance_range: 0..3,
         },
     );
-    graph.add_batch(vec![cmd]);
+    graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -171,6 +173,7 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
 }
 
 fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
     registry.textures.insert(TextureHandle(1), view);
@@ -242,10 +245,10 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
             instance_range: 0..3,
         },
     );
-    graph.add_batch(vec![cmd]);
+    graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -257,6 +260,7 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
 }
 
 fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     use wgpu::util::DeviceExt;
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
@@ -420,10 +424,10 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
         )
         .with_bind_group(0, ifol_gpu::render::BindGroupHandle(4), vec![]),
     ];
-    graph.add_batch(commands);
+    graph.add_batch(&mut pool, commands);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -435,6 +439,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
 }
 
 fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
     registry.textures.insert(TextureHandle(1), view);
@@ -536,10 +541,10 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
             },
         ),
     ];
-    graph.add_batch(commands);
+    graph.add_batch(&mut pool, commands);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -551,6 +556,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
 }
 
 fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
     registry.textures.insert(TextureHandle(1), view);
@@ -641,10 +647,10 @@ fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGra
             instance_range: 0..50_000,
         },
     );
-    graph.add_batch(vec![cmd]);
+    graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -656,6 +662,7 @@ fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGra
 }
 
 fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
     registry.textures.insert(TextureHandle(1), view);
@@ -721,11 +728,11 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
             },
         ));
     }
-    graph.add_batch(commands);
+    graph.add_batch(&mut pool, commands);
 
     // Pass 1
     let start_1 = Instant::now();
-    let idx_1 = executor.execute(engine, &registry, &graph);
+    let idx_1 = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx_1),
         timeout: None,
@@ -734,7 +741,7 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
 
     // Pass 2
     let start_2 = Instant::now();
-    let idx_2 = executor.execute(engine, &registry, &graph);
+    let idx_2 = executor.execute(engine, &registry, &mut pool, &graph);
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx_2),
         timeout: None,
@@ -746,6 +753,7 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
 }
 
 fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     // Target chính (Root Target - Offscreen Texture 1)
@@ -845,7 +853,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
     })
     .with_clear_color([0.0, 0.0, 0.0, 1.0]);
 
-    inner_graph.add_batch(vec![DrawCommand::new(
+    inner_graph.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(1),
         DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
     )]);
@@ -864,10 +872,10 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
     .with_bind_group(0, BindGroupHandle(1), vec![]);
 
     // Nhét SubGraph vào RootGraph kèm composite_cmd
-    root_graph.add_subgraph("CharacterSubGraph", inner_graph, vec![composite_cmd]);
+    root_graph.add_subgraph(&mut pool, "CharacterSubGraph", inner_graph, vec![composite_cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &root_graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &root_graph);
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 
@@ -876,6 +884,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
 }
 
 fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     use wgpu::util::DeviceExt;
     let mut registry = ResourceRegistry::new();
 
@@ -1094,7 +1103,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
     let mut char_graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(3), width: 1024, height: 1024 })
         .with_clear_color([0.0, 0.0, 0.0, 0.0])
         .with_depth_stencil(TextureHandle(4));
-    char_graph.add_batch(vec![DrawCommand::new(
+    char_graph.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(1),
         DrawAction::Procedural { vertex_count: 3, instance_range: 0..2 },
     )]);
@@ -1106,10 +1115,10 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
     // Nhét Lớp 3 vào Lớp 2 kèm Composite Command đọc Texture 3
     let comp_char_cmd = DrawCommand::new(PipelineHandle(3), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })
         .with_bind_group(0, BindGroupHandle(1), vec![]);
-    effect_graph.add_subgraph("CharacterSubGraph", char_graph, vec![comp_char_cmd]);
+    effect_graph.add_subgraph(&mut pool, "CharacterSubGraph", char_graph, vec![comp_char_cmd]);
 
     // Thêm Lớp Hạt Bụi 10.000 hạt vào Effect Graph
-    effect_graph.add_batch(vec![DrawCommand::new(
+    effect_graph.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(2),
         DrawAction::Procedural { vertex_count: 6, instance_range: 0..10_000 },
     )]);
@@ -1121,16 +1130,16 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
     // 1. In Ảnh Thật (Real Image BG) làm Nền
     let draw_bg_cmd = DrawCommand::new(PipelineHandle(4), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })
         .with_bind_group(0, BindGroupHandle(3), vec![]);
-    master_graph.add_batch(vec![draw_bg_cmd]);
+    master_graph.add_batch(&mut pool, vec![draw_bg_cmd]);
 
     // 2. Nhét Lớp 2 (Effect Graph) vào Master Graph kèm Post-FX Vignette Command đọc Texture 2
     let comp_final_cmd = DrawCommand::new(PipelineHandle(4), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })
         .with_bind_group(0, BindGroupHandle(2), vec![]);
-    master_graph.add_subgraph("EffectAndCharSubGraph", effect_graph, vec![comp_final_cmd]);
+    master_graph.add_subgraph(&mut pool, "EffectAndCharSubGraph", effect_graph, vec![comp_final_cmd]);
 
     // THỰC THI BIÊN DỊCH VÀ VẼ
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &master_graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &master_graph);
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 
@@ -1139,6 +1148,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
 }
 
 fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     // 1. Tạo các Target Texture (Size 1024x1024)
@@ -1414,7 +1424,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
     let mut char_graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(3), width: 1024, height: 1024 })
         .with_clear_color([0.0, 0.0, 0.0, 0.0])
         .with_depth_stencil(TextureHandle(4));
-    char_graph.add_batch(vec![
+    char_graph.add_batch(&mut pool, vec![
         DrawCommand::new(PipelineHandle(1), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 }), // Object 1: Metallic
         DrawCommand::new(PipelineHandle(2), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 }), // Object 2: Fire Lava
         DrawCommand::new(PipelineHandle(3), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 }), // Object 3: Hologram
@@ -1426,13 +1436,13 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         .with_clear_color([0.0, 0.0, 0.0, 0.0]);
     let blur_cmd = DrawCommand::new(PipelineHandle(6), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })
         .with_bind_group(0, BindGroupHandle(1), vec![]); // Đọc CharTarget (3)
-    blur_graph.add_batch(vec![blur_cmd]);
+    blur_graph.add_batch(&mut pool, vec![blur_cmd]);
 
     // 3. SubGraph Hạt: ParticleGraph (Offscreen Texture 8)
     // 25.000 Hạt Sparkles Cyan
     let mut particle_graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(8), width: 1024, height: 1024 })
         .with_clear_color([0.0, 0.0, 0.0, 0.0]);
-    particle_graph.add_batch(vec![
+    particle_graph.add_batch(&mut pool, vec![
         DrawCommand::new(PipelineHandle(5), DrawAction::Procedural { vertex_count: 6, instance_range: 0..25_000 })
     ]);
 
@@ -1452,9 +1462,9 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         .with_bind_group(0, BindGroupHandle(3), vec![]);
 
     // Nhét 3 SubGraph con vào CompositeGraph
-    comp_graph.add_subgraph("CharGraph", char_graph, vec![draw_char]);
-    comp_graph.add_subgraph("BlurGraph", blur_graph, vec![draw_glow]);
-    comp_graph.add_subgraph("ParticleGraph", particle_graph, vec![draw_sparks]);
+    comp_graph.add_subgraph(&mut pool, "CharGraph", char_graph, vec![draw_char]);
+    comp_graph.add_subgraph(&mut pool, "BlurGraph", blur_graph, vec![draw_glow]);
+    comp_graph.add_subgraph(&mut pool, "ParticleGraph", particle_graph, vec![draw_sparks]);
 
     // 5. Root Master Graph (Master Target 1)
     // Vẽ Ảnh thật Cyberpunk BG + Áp Shader Glitch RGB Split trên toàn bộ Frame
@@ -1464,16 +1474,16 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
     // Lệnh 1: In Ảnh Thật BG
     let draw_bg = DrawCommand::new(PipelineHandle(6), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })
         .with_bind_group(0, BindGroupHandle(5), vec![]);
-    master_graph.add_batch(vec![draw_bg]);
+    master_graph.add_batch(&mut pool, vec![draw_bg]);
 
     // Lệnh 2: Nhét CompositeGraph vào MasterGraph kèm Shader RGB Split Glitch Post-FX
     let draw_glitch = DrawCommand::new(PipelineHandle(8), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })
         .with_bind_group(0, BindGroupHandle(4), vec![]);
-    master_graph.add_subgraph("MasterCompositePipeline", comp_graph, vec![draw_glitch]);
+    master_graph.add_subgraph(&mut pool, "MasterCompositePipeline", comp_graph, vec![draw_glitch]);
 
     // THỰC THI BIÊN DỊCH VÀ VẼ
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &master_graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &master_graph);
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 
