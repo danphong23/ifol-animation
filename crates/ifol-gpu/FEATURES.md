@@ -101,7 +101,7 @@ fn render_frame(engine: &ifol_gpu::api::GpuEngine) {
             DrawCommand::new(
                 PipelineHandle(10), // Blur pipeline
                 DrawAction::Procedural {
-                    vertex_count: 3, // Fullscreen triangle
+                    vertex_count: 6, // 2 triangles for Fullscreen Quad
                     instance_range: 0..1,
                 },
             )
@@ -133,7 +133,7 @@ fn update_uniforms(engine: &ifol_gpu::api::GpuEngine) {
     // Truyền offset này vào DrawCommand để GPU đọc đúng vị trí
     let _cmd = DrawCommand::new(
         PipelineHandle(1),
-        DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
+        DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 },
     )
     .with_bind_group(0, BindGroupHandle(1), vec![offset]);
 }

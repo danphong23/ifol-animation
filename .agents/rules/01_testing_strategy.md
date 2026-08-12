@@ -40,5 +40,13 @@ Mỗi khi bạn (AI Agent) được yêu cầu tạo một Crate mới hoặc vi
 1.  Viết bộ khung struct/function (chưa có ruột).
 2.  Viết ngay Unit Test ở dưới cùng file để định nghĩa kết quả mong đợi.
 3.  Viết code logic để vượt qua (Pass) cái Test đó.
-4.  Tự động chạy `cargo test` để chứng minh với User là code của bạn hoạt động đúng.
-5.  **Luật Báo Cáo Trực Quan (Visual Report):** Đối với các bài test có tính chất render hình ảnh (GPU), TRƯỚC KHI thực hiện đo lường hiệu năng (`cargo bench`), bạn **BẮT BUỘC** phải tạo ra một bài test trực quan (ví dụ: `visual_tests.rs`) để xuất kết quả ra file ảnh (PNG). Sau đó, bạn phải nạp các file ảnh này vào một Artifact Báo cáo (Markdown) để User tự dùng mắt đánh giá xem ảnh render có đúng (chính xác) không. Nguyên tắc: *Hiệu suất đứng sau độ chính xác.*
+5.  **Luật Báo Cáo Test Bắt Buộc:** Đối với các bài test render hình ảnh (GPU), test xong phải lấy ảnh render phân tích lại xem render đúng không đã trước khi nói đến hiệu suất. Sau đó, **BẮT BUỘC** phải tạo 1 báo cáo hoàn chỉnh.
+
+### 5.2. Mẫu Báo Cáo Chuẩn Bắt Buộc
+Mọi Test Case khi báo cáo **BẮT BUỘC** phải có cấu trúc:
+1.  **Ảnh Render**: Link trực tiếp tới ảnh PNG sinh ra.
+2.  **Render Graph**: Phân tích logic đồ thị gốc.
+3.  **Fat Graph (Compiled)**: Lệnh thực tế được GPU hiểu.
+4.  **Thời Gian Biên Dịch**: Hiệu năng đo được.
+5.  **Mô Tả & Check**: Chấm điểm logic Graph và Compiled.
+6.  **⚠️ ĐÁNH GIÁ ẢNH RENDER (AI's Self-Analysis):** Agent tuyệt đối không được báo cáo mù quáng kiểu "Đã lưu file thành công". Bạn phải quan sát/tưởng tượng xem với toạ độ shader đó, mesh đó, ảnh sinh ra có đúng là Hình Chữ Nhật / Hình Đa Giác không? Có bị cắt xén không? Có đúng màu và blend không? Nếu shader cấu hình vẽ Quad mà kết quả chỉ ra Tam giác (do sai Vertex Count) thì phải tự phát hiện và sửa code ngay lập tức.

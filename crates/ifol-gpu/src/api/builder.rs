@@ -1,5 +1,5 @@
 use thiserror::Error;
-use wgpu::{Backends, DeviceDescriptor, Features, Instance, InstanceDescriptor, Limits, MemoryHints, PowerPreference, RequestAdapterOptions};
+use wgpu::{Backends, DeviceDescriptor, Features, Limits, MemoryHints, PowerPreference, RequestAdapterOptions};
 use crate::api::capabilities::GpuCapabilities;
 
 

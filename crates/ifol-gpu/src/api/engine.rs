@@ -99,7 +99,7 @@ impl<'a> GpuEngine<'a> {
         });
         
         // Cần poll device để WGPU thực thi lệnh copy và map buffer.
-        self.device.poll(wgpu::PollType::Wait { submission_index: Some(submission_index), timeout: None });
+        let _ = self.device.poll(wgpu::PollType::Wait { submission_index: Some(submission_index), timeout: None });
         
         if rx.recv().is_err() {
             return Err("Failed to map buffer (receiver dropped)");

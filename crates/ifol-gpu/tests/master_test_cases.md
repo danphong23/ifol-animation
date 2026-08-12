@@ -1,0 +1,128 @@
+# Danh Sách Master Test Cases (GPU Engine)
+
+Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của dự án `ifol-animation` nhằm kiểm tra độ chính xác của hình ảnh render, khả năng biên dịch RenderGraph, và hiệu năng (Performance) của lõi GPU.
+
+Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải được vượt qua.
+
+---
+
+## Nhóm 1: Cơ Bản & Nền Tảng (TC01 - TC05)
+
+### TC01 - Empty Render
+- **Mục tiêu:** Đo đạc Overhead cơ bản nhất của phần cứng.
+- **Kịch bản:** Mở 1 RenderPass với ClearColor (màu xám nhạt). Không có bất kỳ lệnh vẽ nào.
+- **Kỳ vọng:** Hình ảnh xám. Thời gian compile graph xấp xỉ 0ms.
+
+### TC02 - Single Quad
+- **Mục tiêu:** Pipeline cơ bản nhất, test Vertex buffer và Fragment color đơn giản.
+- **Kịch bản:** 1 Node vẽ 1 hình chữ nhật lớn ở giữa màn hình (Solid color).
+- **Kỳ vọng:** 1 hình chữ nhật chuẩn màu. Render graph có 1 Node, 1 DrawCommand.
+
+### TC03 - Z-Buffer Culling
+- **Mục tiêu:** Kiểm tra DepthTest (Pipeline's Z-Buffer).
+- **Kịch bản:** Vẽ 3 hình chữ nhật có kích thước khác nhau (Đỏ Z=0.1, Xanh lá Z=0.5, Xanh dương Z=0.9). Hình được Add sau nhưng có Z sâu hơn phải bị culling (không vẽ đè).
+- **Kỳ vọng:** Hình Đỏ luôn nằm trên cùng.
+
+### TC04 - Alpha Blending & Z-Buffer Interaction
+- **Mục tiêu:** Đảm bảo hệ thống xử lý giao thoa đúng giữa đối tượng đục (Opaque) và bán trong suốt (Transparent).
+- **Kịch bản:** Một khối đục nằm ở Z=0.5. Một khối trong suốt màu vàng nằm trước mặt (Z=0.2). Một khối trong suốt màu lục nằm phía sau khối đục (Z=0.8).
+- **Kỳ vọng:** Khối trong suốt Z=0.2 blend với khối đục. Khối trong suốt Z=0.8 bị khối đục che khuất hoàn toàn (Z-tested).
+
+### TC05 - Interleaved Passes
+- **Mục tiêu:** Kiểm thử SubGraph và khả năng gom RenderPass.
+- **Kịch bản:** Graph A vẽ khối Đỏ ra Offscreen. Graph B lấy Offscreen đó vẽ thêm khối Vàng. Cùng lúc Graph C lấy Offscreen vẽ đè khối Xanh.
+- **Kỳ vọng:** Output cuối cùng phản ánh thứ tự RenderPass chính xác mà không bị mất dữ liệu.
+
+---
+
+## Nhóm 2: Cấu Trúc Đồ Thị & Trình Biên Dịch (TC06 - TC11)
+
+### TC06 - Node Garbage Collection
+- **Mục tiêu:** Rò rỉ bộ nhớ (Memory Leak) ở cấp độ RenderNodePool.
+- **Kịch bản:** Tạo 100 Node, xóa 99 Node (Remove từ Arena). Render Graph chỉ giữ ID của 1 Node duy nhất còn lại.
+- **Kỳ vọng:** Node cuối vẽ đúng. Arena len đếm được số lượng chính xác, không bị rác.
+
+### TC07 - Deep Recursion SubGraphs
+- **Mục tiêu:** Kiểm thử chống tràn Stack và đệ quy đồ thị sâu.
+- **Kịch bản:** A lồng B, B lồng C, C lồng D, D lồng E (5 cấp độ SubGraph).
+- **Kỳ vọng:** Output phải bao gồm cả hiệu ứng của 5 cấp gộp lại.
+
+### TC08 - Massive Draw Commands VS Massive Nodes
+- **Mục tiêu:** Đánh giá độ trễ của cấu trúc Arena (Node) so với Buffer (DrawCommand).
+- **Kịch bản:** 
+  - SubGraph 1: `1 Node` chứa mảng `10,000 DrawCommand`.
+  - SubGraph 2: `10,000 Nodes` trong Arena, mỗi Node chứa `1 DrawCommand`.
+- **Kỳ vọng:** Đo lường Overhead của việc look-up Arena. Thời gian compile của SubGraph 2 phải nằm trong mức cho phép (Dưới 5ms).
+
+### TC09 - Pipeline Caching & Bundle Reuse
+- **Mục tiêu:** Tính năng tối ưu cốt lõi của Engine (RenderBundle).
+- **Kịch bản:** Chạy 1 Graph cực nặng (10,000 Nodes Procedural). Frame 1: Đo Compile Time. Frame 2: Không sửa gì, đo Compile Time.
+- **Kỳ vọng:** Compile Time Frame 2 phải giảm xuống mức gần 0ms nhờ sử dụng Cache.
+
+### TC10 - Missing Resources (Edge Case)
+- **Mục tiêu:** Ổn định (Zero-Crash).
+- **Kịch bản:** Đăng ký 1 DrawCommand yêu cầu đọc Texture (Slot 0) nhưng Texture đó bị xóa khỏi bộ nhớ hoặc ID bị sai.
+- **Kỳ vọng:** GPU Engine không Panic, thay vào đó hiển thị màu hồng cánh sen / đen (Fallback Shader) cho vật thể đó.
+
+### TC11 - Multi-Viewport Isolation
+- **Mục tiêu:** Khả năng chạy song song nhiều Camera / Scene trên 1 Arena Pool.
+- **Kịch bản:** Scene 1 vẽ nhà cửa. Scene 2 vẽ UI mờ. Hai Graph không có Node trùng nhau. Compile và Render liên tiếp trong 1 frame.
+- **Kỳ vọng:** Trạng thái của Scene 1 không rò rỉ sang Scene 2.
+
+---
+
+## Nhóm 3: Hiệu Ứng Nâng Cao (TC12 - TC19)
+
+### TC12 - Chroma Key
+- **Mục tiêu:** Shader Pipeline đọc dữ liệu Image thực tế.
+- **Kịch bản:** Load ảnh Anime phông xanh `#00FF00`. Áp dụng `chroma_key.wgsl`. Cắt bỏ nền xanh.
+- **Kỳ vọng:** Bức ảnh có nhân vật trong suốt (Alpha = 0 ở phần phông nền xanh).
+
+### TC13 - Gaussian Blur (2-Pass)
+- **Mục tiêu:** Kỹ thuật Multi-pass kinh điển.
+- **Kịch bản:** Render ảnh nhân vật -> Pass 1: Blur Horizontal (wgsl) -> Pass 2: Blur Vertical (wgsl).
+- **Kỳ vọng:** Nhân vật nhòe đều theo 2 chiều mà vẫn giữ được màu chuẩn.
+
+### TC14 - Glow / Bloom
+- **Mục tiêu:** Filter & Additive Blending.
+- **Kịch bản:** Tách lấy điểm ảnh có độ sáng > 0.8 (Luma Filter) -> Blur -> Vẽ đè lên ảnh gốc với BlendMode `ADDITIVE`.
+- **Kỳ vọng:** Vùng sáng của ảnh gốc tỏa hào quang rực rỡ.
+
+### TC15 - Instancing Particle System (Snow)
+- **Mục tiêu:** Sức mạnh của phần cứng GPU.
+- **Kịch bản:** 1 Node duy nhất với 1 DrawCommand. Gọi hàm instanced rendering để sinh ra 50,000 hạt tuyết. Tọa độ tính toán bằng hàm Hash Procedural trong WGSL.
+- **Kỳ vọng:** Khung hình ngập tuyết, compile graph vẫn dưới 1ms vì chỉ có 1 DrawCommand.
+
+### TC16 - UV Displacement
+- **Mục tiêu:** Sampling Texture chéo.
+- **Kịch bản:** Dùng Texture Noise làm Input (Slot 1). Ảnh chính (Slot 0). Shader đọc giá trị R, G của Slot 1 làm Vector bóp méo tọa độ UV của Slot 0.
+- **Kỳ vọng:** Hình ảnh gợn sóng hoặc méo mó chân thực.
+
+### TC17 - Luma Masking
+- **Mục tiêu:** Trích xuất kết quả SubGraph làm mặt nạ Alpha.
+- **Kịch bản:** Node A vẽ ngôi sao (đủ màu). Node B vẽ ảnh nhân vật, dùng hàm Shader trích lấy ảnh sao làm mask.
+- **Kỳ vọng:** Nhân vật bị cắt gọn vào trong hình khối ngôi sao.
+
+### TC18 - Color Grading
+- **Mục tiêu:** Post-processing Pipeline.
+- **Kịch bản:** Nhận ảnh đầu vào, shader chỉnh sửa Brightness +20%, Contrast +1.5, Saturation (Desaturated/Trắng đen).
+- **Kỳ vọng:** Màu sắc chính xác như mong muốn.
+
+### TC19 - Dynamic State Change
+- **Mục tiêu:** Thử nghiệm thay đổi Pipeline liên tục.
+- **Kịch bản:** Node 1 (Blend Replace), Node 2 (Blend Additive), Node 3 (Blend Multiply). 
+- **Kỳ vọng:** RenderBundle tự động cache và switch pipeline mà không lỗi rác màn hình.
+
+---
+
+## Nhóm 4: Bài Thi Masterpiece Tích Hợp (TC20)
+
+### TC20 - "Anime Scene" Master Compositing
+- **Mục tiêu:** Tích hợp mọi tinh hoa đồ họa và logic của Engine vào 1 scene hoàn chỉnh. Chứng minh hệ thống chịu tải và tương tác hoàn hảo.
+- **Kịch bản (Từ dưới lên):**
+  1. `Background Node`: Đọc ảnh nền Bầu Trời Đêm Anime thực tế.
+  2. `Character Node`: Đọc ảnh nhân vật phông xanh thật. Qua Pipeline Chroma Key bóc nền. Nằm chồng lên Lớp 1 (Z-Culling).
+  3. `Snow Node`: Particle Tuyết 10,000 hạt (Instancing) phủ tràn màn hình (Alpha Blend).
+  4. `Glow Compositing Node`: Lấy Offscreen của 3 bước trên, Bloom vùng sáng và add ngược lại.
+  5. `Color Grading Node`: Bước Post-Process cuối cùng làm không khí lạnh/xanh.
+- **Kỳ vọng:** Một khung cảnh đẹp siêu thực, kiến trúc Graph dày dặn (có subgraph, multi-pass), render chính xác từng điểm ảnh.
