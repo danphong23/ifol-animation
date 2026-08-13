@@ -1,5 +1,10 @@
 # IFOL GPU: Task plan và thứ tự triển khai
 
+> Phạm vi bắt buộc hiện hành được chuẩn hóa tại
+> [15-core-boundaries-and-task-map](15-core-boundaries-and-task-map.md). Các
+> mục về shader reflection, visual harness và engine domain trong tài liệu cũ
+> chỉ là work ngoài core, không phải điều kiện release của graph kernel.
+
 ## Quy tắc task
 
 Mỗi task phải có:

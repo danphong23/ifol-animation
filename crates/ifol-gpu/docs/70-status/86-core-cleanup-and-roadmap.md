@@ -1,5 +1,10 @@
 # IFOL GPU: boundary, cleanup và roadmap hoàn thiện core
 
+Phạm vi authoritative sau audit được ghi tại
+`00-foundation/15-core-boundaries-and-task-map.md`: shader reflection, visual
+golden harness và engine domain là phần ngoài core, không phải blocker của graph
+kernel. Roadmap cũ phải được đọc theo quyết định phạm vi này.
+
 Operation contract đã bổ sung khai báo `ResourceUsage` và validation range;
 dispatch vào node/flat plan/executor vẫn là task riêng.
 

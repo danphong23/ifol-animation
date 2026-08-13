@@ -1,5 +1,10 @@
 # IFOL GPU: Definition of Done
 
+Core release không yêu cầu shader reflection, video/editor, golden-image
+framework hoặc benchmark dashboard trong runtime crate. Những mục đó được
+đánh giá ở tool/engine/test harness bên ngoài; core chỉ yêu cầu contract và
+evidence tương ứng với boundary trong [task map](15-core-boundaries-and-task-map.md).
+
 ## Done cho một task
 
 - code compile với feature/config liên quan;

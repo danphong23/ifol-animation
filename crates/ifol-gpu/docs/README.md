@@ -6,15 +6,16 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 
 ### 00-foundation
 1. [quy ước tổ chức tài liệu](00-foundation/02-docs-organization.md)
-2. [scope and non goals](00-foundation/00-scope-and-non-goals.md)
-3. [architecture](00-foundation/01-architecture.md)
-4. [validation errors and diagnostics](00-foundation/07-validation-errors-and-diagnostics.md)
-5. [testing and platform matrix](00-foundation/08-testing-and-platform-matrix.md)
-6. [upgrade strategy](00-foundation/10-upgrade-strategy.md)
-7. [test plan](00-foundation/11-test-plan.md)
-8. [edge case matrix](00-foundation/12-edge-case-matrix.md)
-9. [task plan](00-foundation/13-task-plan.md)
-10. [definition of done](00-foundation/14-definition-of-done.md)
+2. [phân loại phạm vi core và engine](00-foundation/15-core-boundaries-and-task-map.md)
+3. [scope and non goals](00-foundation/00-scope-and-non-goals.md)
+4. [architecture](00-foundation/01-architecture.md)
+5. [validation errors and diagnostics](00-foundation/07-validation-errors-and-diagnostics.md)
+6. [testing and platform matrix](00-foundation/08-testing-and-platform-matrix.md)
+7. [upgrade strategy](00-foundation/10-upgrade-strategy.md)
+8. [test plan](00-foundation/11-test-plan.md)
+9. [edge case matrix](00-foundation/12-edge-case-matrix.md)
+10. [task plan](00-foundation/13-task-plan.md)
+11. [definition of done](00-foundation/14-definition-of-done.md)
 
 ### 10-graph
 1. [graph and pass model](10-graph/04-graph-and-pass-model.md)
