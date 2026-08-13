@@ -36,8 +36,8 @@ hoạch. Snapshot chi tiết mới nhất nằm ở [audit hiện tại](../70-s
 ## Design debt còn lại
 
 - một số examples cũ còn warning hoặc `unwrap` phục vụ assertion;
-- các wrapper legacy readback/save vẫn được giữ ở public boundary để tránh
-  phá caller; implementation core mới dùng checked typed-error API;
+- readback/save boundary hiện chỉ còn checked typed-error API; host chịu trách
+  nhiệm chuyển lỗi thành thông báo giao diện nếu cần;
 - cần tiếp tục audit các nhánh encoder sau validation khi command model mở rộng.
 
 Không rewrite toàn bộ crate. Graph model, handle, resource registry, memory

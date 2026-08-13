@@ -53,16 +53,6 @@ pub struct ReadbackTicket {
 }
 
 impl ReadbackTicket {
-    pub fn resolve(self, device: &wgpu::Device) -> Result<(Vec<u8>, u32, u32), &'static str> {
-        self.resolve_checked(device).map_err(|error| match error {
-            ReadbackError::InvalidExtent => "Invalid texture extent for readback",
-            ReadbackError::UnsupportedFormat(_) => "Unsupported texture format for readback",
-            ReadbackError::ArithmeticOverflow => "Readback layout arithmetic overflowed",
-            ReadbackError::MapFailed => "Failed to map buffer for readback",
-            ReadbackError::AccessFailed => "Failed to access mapped readback buffer",
-        })
-    }
-
     pub fn resolve_checked(self, device: &wgpu::Device) -> Result<(Vec<u8>, u32, u32), ReadbackError> {
         let _ = device.poll(wgpu::PollType::Wait { submission_index: Some(self.submission), timeout: None });
         match self.receiver.recv() {
@@ -304,7 +294,7 @@ mod tests {
         );
 
         let ticket = engine.begin_texture_readback_checked(&texture, wgpu::TextureFormat::Rgba8Unorm).unwrap();
-        let (pixels, width, height) = ticket.resolve(engine.device()).unwrap();
+        let (pixels, width, height) = ticket.resolve_checked(engine.device()).unwrap();
         assert_eq!((width, height), (1, 1));
         assert_eq!(pixels, vec![1, 2, 3, 4]);
     }
