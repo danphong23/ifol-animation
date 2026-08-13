@@ -105,6 +105,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 3. [typed readback errors](70-status/81-typed-readback-errors.md)
 4. [typed texture save errors](70-status/82-typed-texture-save-errors.md)
 5. [core cleanup and roadmap](70-status/86-core-cleanup-and-roadmap.md)
+6. [core baseline release audit](70-status/87-core-baseline-release-audit.md)
 
 ### 80-migration
 1. [pipeline migration](80-migration/39-pipeline-migration.md)

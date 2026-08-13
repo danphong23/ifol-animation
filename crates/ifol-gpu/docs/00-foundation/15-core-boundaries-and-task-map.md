@@ -63,11 +63,14 @@ cần parse shader source.
 ### Bắt buộc cho core
 
 1. Mở rộng test để chứng minh extension usage đi cùng validation/lifetime path
-   với built-in node.
-2. Loại bỏ silent skip trong mọi public execution path.
-3. Migrate consumer nội bộ khỏi raw registry API và compatibility facade.
-4. Audit typed errors, deterministic diagnostics và nhiều frame in-flight.
-5. Full correctness/lifetime audit và release checklist.
+   với built-in node — đã hoàn tất ở mức core.
+2. Loại bỏ silent skip trong mọi public execution path — đã hoàn tất.
+3. Migrate consumer nội bộ khỏi raw registry API và compatibility facade — đã
+   hoàn tất cho resource API; facade module path vẫn giữ để tương thích.
+4. Audit typed errors, deterministic diagnostics và nhiều frame in-flight — đã
+   hoàn tất primitive/lifecycle contract; scheduling nhiều frame thuộc host.
+5. Full correctness/lifetime audit và release checklist — đã hoàn tất, xem
+   `70-status/87-core-baseline-release-audit.md`.
 
 ### GPU infrastructure cần evidence trước release candidate
 
