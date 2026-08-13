@@ -1,53 +1,68 @@
 # IFOL GPU: Trạng thái implementation và design debt
 
-Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã hoàn thiện.
+Tài liệu này phân biệt behavior đã được kiểm chứng với phần mới chỉ là design
+hoặc policy dự kiến.
 
-## Prototype đã có
+## Đã implement và có test gate
 
-- khởi tạo `wgpu` device/queue;
-- capability snapshot cơ bản;
-- screen/offscreen render target;
-- indexed và procedural draw command;
-- ordered graph có nesting;
-- depth attachment và clear color;
-- bind group cơ bản và dynamic offset;
-- uniform ring allocation cơ bản, không còn implicit wrap ghi đè allocation cũ;
-- texture readback và image export utility;
-- render example và benchmark scaffold.
+- khởi tạo `wgpu` device/queue và capability snapshot;
+- screen/offscreen target, indexed/procedural draw, depth attachment và clear;
+- graph nesting, flatten, explicit dependency ordering và cycle validation;
+- generational handle allocator và stale-handle detection;
+- `ResourceRegistry` có insert/lookup/remove/version tracking, descriptor
+  validation và private resource maps;
+- owned texture resource với descriptor metadata;
+- render, compute và copy node; buffer-to-buffer và texture-to-texture copy;
+- graph không có render target và execution segmented giữ đúng thứ tự
+  copy/compute/draw;
+- validation typed cho missing resource, target size/usage, copy range, texture
+  mip/range/format/ownership và buffer copy usage;
+- readback theo texture format;
+- bundle cache key có resource version;
+- `SubmissionTracker`, ring allocation không implicit wrap và reset có gate
+  completion;
+- transient texture pool exact-match với descriptor đầy đủ, in-flight protection,
+  duplicate-release detection và drain sau completion;
+- examples, integration test và benchmark harness cơ bản.
 
-## Đã có một phần
+## Đã implement nhưng còn giới hạn
 
-- multi-viewport reuse: có logical reuse nhưng compiled artifact chưa an toàn theo context;
-- render bundle cache: có nhưng context key và dynamic data invalidation chưa hoàn chỉnh;
-- texture pooling: chỉ là exact-match free-list, chưa phải LRU hay memory manager;
-- capability: đã có snapshot limits/features và cờ `INDIRECT_FIRST_INSTANCE`; capability tier và policy fallback vẫn chưa hoàn chỉnh;
-- platform support: có nền tảng `wgpu` nhưng chưa hoàn tất integration theo từng platform.
+- render bundle mới tối ưu fast path render thuần; segmented path encode draw
+  trực tiếp để ưu tiên correctness;
+- texture registry compatibility API view-only chưa có đủ descriptor/ownership;
+  copy/resolve/lifetime phải dùng owned texture API;
+- `TextureCache` vẫn tồn tại như type alias compatibility cho
+  `TransientTexturePool`, không phải LRU hay VRAM eviction manager;
+- lock surface poisoning được xử lý không panic, nhưng lifecycle surface lost,
+  reconfigure và resize policy đa nền tảng còn cần hoàn thiện;
+- bind-group state cache hiện giới hạn bốn slot.
 
-## Đã thiết kế nhưng chưa implement
+## Chưa implement
 
-- generational handle allocator foundation; typed resource store integration vẫn chưa hoàn tất;
-- resource registry API có insert/lookup/remove và version tracking nền tảng; ownership/private store vẫn chưa hoàn tất;
-- logical graph flatten plan vÃ  explicit dependency ordering cÆ¡ báº£n Ä‘Ã£ Ä‘Æ°á»£c execution dÃ¹ng cho node trá»±c tiáº¿p; resource hazard, usage vÃ  pass compilation váº«n chÆ°a implement;
-- compute pass cơ bản với `ComputeBatch`/dispatch và copy pass buffer-to-buffer đã có; texture copy, storage usage và interleave scheduling vẫn chưa implement;
-- transient resource allocator;
-- submission tracker logic nền tảng; frame memory reuse an toàn theo submission vẫn chưa tích hợp;
-- structured validation/error cÆ¡ báº£n cho graph/resource/target; pipeline layout, usage vÃ  dynamic offset validation váº«n cÃ²n;
-- cross-backend test matrix;
-- MSAA/resolve và attachment model đầy đủ hơn;
-- indirect draw/dispatch.
+- resource hazard model khai báo read/write usage tổng quát trong graph;
+- MSAA resolve, depth/stencil aspect và subresource model đầy đủ;
+- indirect draw/dispatch;
+- capability tier và fallback policy theo từng backend/platform;
+- cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;
+- frame context hoàn chỉnh, transient buffer pool và deferred destruction tích
+  hợp trực tiếp với GPU completion;
+- async readback contract tổng quát và profiling/diagnostics hook đầy đủ;
+- context-aware bundle cache cho nhiều viewport/device.
 
 ## Design debt hiện tại
 
-- surface format hard-code đã được loại bỏ khỏi compiler; lifecycle surface/resize/lost vẫn chưa hoàn chỉnh;
-- state cache bind group cố định bốn slot;
-- ring buffer wrap không đồng bộ với GPU in-flight;
-- raw resource map public;
-- target dimension bị lặp nhưng chưa validate;
-- `unwrap()`/panic trong code liên quan library;
-- readback giả định format RGBA bốn byte;
-- examples/benchmarks đã được đồng bộ với texture registry và `RenderNodePool`; vẫn còn warning/style debt cần dọn riêng;
-- tài liệu cũ tuyên bố hoàn thành vượt quá implementation.
+- một số test/example còn `unwrap` để làm failure assertion; production path cần
+  tiếp tục audit riêng;
+- format/usage metadata của các resource đăng ký qua compatibility API chưa đầy
+  đủ, nên validation mạnh yêu cầu API descriptor;
+- execution compiler vẫn có silent-skip ở low-level `execute` legacy API; caller
+  production nên dùng `execute_checked`;
+- tài liệu cũ về copy/compute cần được cập nhật tiếp để phản ánh texture copy và
+  ordered segments;
+- warning/style debt còn lại trong example user-owned.
 
 ## Chính sách rewrite
 
-Không rewrite mù toàn bộ crate. Giữ lại experiment và visual fixture đang hoạt động làm reference, nhưng xem public API và resource/execution internals là provisional cho tới khi design document trong thư mục này được chấp nhận.
+Không rewrite mù toàn bộ crate. Các experiment, visual fixture, graph model và
+API đã được test giữ lại làm nền; chỉ thay thế từng boundary khi invariant mới
+đã có test và tài liệu tương ứng.
