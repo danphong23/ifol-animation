@@ -142,7 +142,7 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
         cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -230,7 +230,7 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
         cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -360,8 +360,8 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
         cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), pipe_alpha);
-    registry.pipelines.insert(PipelineHandle(2), pipe_solid);
+    registry.insert_pipeline(PipelineHandle(1), pipe_alpha);
+    registry.insert_pipeline(PipelineHandle(2), pipe_solid);
 
     for i in 0..4 {
         let offset = [f32::from(i as i16) * 0.5 - 0.75, 0.0_f32];
@@ -486,7 +486,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
         cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline);
     registry.meshes.insert(
         MeshHandle(1),
         (
@@ -631,7 +631,7 @@ fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGra
         cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -709,7 +709,7 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
         cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -786,7 +786,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
         fragment: Some(wgpu::FragmentState { module: &inner_shader, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: None, write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(1), inner_pipeline);
+    registry.insert_pipeline(PipelineHandle(1), inner_pipeline);
 
     // Shader Composite ở Graph Cha (Lấy Texture 2 vẽ đè lên Target 1 với hiệu ứng Tint Xanh Lục)
     let composite_shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -830,7 +830,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
         fragment: Some(wgpu::FragmentState { module: &composite_shader, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::REPLACE), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(2), composite_pipeline);
+    registry.insert_pipeline(PipelineHandle(2), composite_pipeline);
 
     // BindGroup kết nối TextureHandle(2) (Offscreen của SubGraph) vào Shader Composite của Graph Cha
     let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor::default());
@@ -973,7 +973,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Less), stencil: Default::default(), bias: Default::default() }),
         multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(1), pipe_3d);
+    registry.insert_pipeline(PipelineHandle(1), pipe_3d);
 
     // Shader 2 (Lớp 2 - Middle): 10.000 Procedural Particles
     let shader_particles = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1003,7 +1003,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         fragment: Some(wgpu::FragmentState { module: &shader_particles, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(2), pipe_particles);
+    registry.insert_pipeline(PipelineHandle(2), pipe_particles);
 
     // BindGroupLayout & Shader cho Composite Texture (Sampler + Texture)
     let bgl_tex = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -1042,7 +1042,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         fragment: Some(wgpu::FragmentState { module: &shader_comp_char, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(3), pipe_comp_char);
+    registry.insert_pipeline(PipelineHandle(3), pipe_comp_char);
 
     // Composite Shader 2 (Lớp Master): Lấy Ảnh Thật BG (5) làm nền + Lấy EffectTarget (2) đè lên với Vignette Post-FX
     let shader_final_post = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1073,7 +1073,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         fragment: Some(wgpu::FragmentState { module: &shader_final_post, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(4), pipe_final_post);
+    registry.insert_pipeline(PipelineHandle(4), pipe_final_post);
 
     // Bind Groups
     let make_bg = |_handle_id: u64, tex_handle: TextureHandle| {
@@ -1271,9 +1271,9 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         primitive: Default::default(), depth_stencil: depth_state.clone(), multisample: Default::default(), multiview_mask: None, cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), make_obj_pipe(&shader_obj1));
-    registry.pipelines.insert(PipelineHandle(2), make_obj_pipe(&shader_obj2));
-    registry.pipelines.insert(PipelineHandle(3), make_obj_pipe(&shader_obj3));
+    registry.insert_pipeline(PipelineHandle(1), make_obj_pipe(&shader_obj1));
+    registry.insert_pipeline(PipelineHandle(2), make_obj_pipe(&shader_obj2));
+    registry.insert_pipeline(PipelineHandle(3), make_obj_pipe(&shader_obj3));
 
     // SHADER HẠT BỤI SPARKLES (25.000 Hạt)
     let shader_sparks = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1302,7 +1302,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         fragment: Some(wgpu::FragmentState { module: &shader_sparks, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(5), pipe_sparks);
+    registry.insert_pipeline(PipelineHandle(5), pipe_sparks);
 
     // BindGroupLayout & Layout cho Texture Processing Shaders
     let bgl_tex = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -1344,7 +1344,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         fragment: Some(wgpu::FragmentState { module: &shader_blur, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::REPLACE), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(6), pipe_blur);
+    registry.insert_pipeline(PipelineHandle(6), pipe_blur);
 
     // MASTER SHADER POST-FX: RGB Split Chromatic Aberration Glitch + Film Grain + Scanline
     let shader_glitch = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1394,7 +1394,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         fragment: Some(wgpu::FragmentState { module: &shader_glitch, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::REPLACE), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(8), pipe_glitch);
+    registry.insert_pipeline(PipelineHandle(8), pipe_glitch);
 
     // Bind Groups
     let make_bg = |tex_handle: TextureHandle| {

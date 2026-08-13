@@ -140,8 +140,8 @@ fn main() {
         })
     };
 
-    registry.pipelines.insert(PipelineHandle(1), create_pipe(true, Some(wgpu::BlendState::REPLACE)));
-    registry.pipelines.insert(PipelineHandle(2), create_pipe(false, Some(wgpu::BlendState::ALPHA_BLENDING)));
+    registry.insert_pipeline(PipelineHandle(1), create_pipe(true, Some(wgpu::BlendState::REPLACE)));
+    registry.insert_pipeline(PipelineHandle(2), create_pipe(false, Some(wgpu::BlendState::ALPHA_BLENDING)));
 
     let mut pool = ifol_gpu::render::RenderNodePool::new();
 
@@ -240,7 +240,7 @@ fn main() {
         multiview_mask: None,
         cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(3), pipe_10k);
+    registry.insert_pipeline(PipelineHandle(3), pipe_10k);
 
     let (target_10k_view, target_10k_tex) = create_target();
     registry.textures.insert(TextureHandle(4), (target_10k_view, wgpu::TextureFormat::Rgba8UnormSrgb));

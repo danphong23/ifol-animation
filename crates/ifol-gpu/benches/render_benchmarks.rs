@@ -129,8 +129,8 @@ fn bench_complex_graph(c: &mut Criterion) {
         multiview_mask: None,
         cache: None,
     });
-    registry.pipelines.insert(PipelineHandle(1), pipeline.clone());
-    registry.pipelines.insert(PipelineHandle(2), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline.clone());
+    registry.insert_pipeline(PipelineHandle(2), pipeline);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -311,7 +311,7 @@ fn bench_single_large_image(c: &mut Criterion) {
 
     let mut registry = ResourceRegistry::new();
     registry.textures.insert(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.pipelines.insert(PipelineHandle(1), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline);
     registry.bind_groups.insert(BindGroupHandle(1), bg);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
@@ -347,7 +347,7 @@ fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
-    registry.pipelines.insert(
+    registry.insert_pipeline(
         PipelineHandle(1),
         engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Dummy"),
@@ -442,7 +442,7 @@ fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
-    registry.pipelines.insert(
+    registry.insert_pipeline(
         PipelineHandle(1),
         engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Dummy"),
@@ -619,8 +619,8 @@ fn bench_z_buffer(c: &mut Criterion) {
         })
     };
 
-    registry.pipelines.insert(PipelineHandle(1), create_pipeline(false));
-    registry.pipelines.insert(PipelineHandle(2), create_pipeline(true));
+    registry.insert_pipeline(PipelineHandle(1), create_pipeline(false));
+    registry.insert_pipeline(PipelineHandle(2), create_pipeline(true));
 
     let mut graph_no_depth = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -734,8 +734,8 @@ fn bench_alpha_blending(c: &mut Criterion) {
         })
     };
 
-    registry.pipelines.insert(PipelineHandle(1), create_pipeline(Some(wgpu::BlendState::REPLACE)));
-    registry.pipelines.insert(PipelineHandle(2), create_pipeline(Some(wgpu::BlendState::ALPHA_BLENDING)));
+    registry.insert_pipeline(PipelineHandle(1), create_pipeline(Some(wgpu::BlendState::REPLACE)));
+    registry.insert_pipeline(PipelineHandle(2), create_pipeline(Some(wgpu::BlendState::ALPHA_BLENDING)));
 
     let mut graph_replace = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -846,8 +846,8 @@ fn bench_pipeline_caching(c: &mut Criterion) {
         cache: None,
     });
 
-    registry.pipelines.insert(PipelineHandle(1), pipeline.clone());
-    registry.pipelines.insert(PipelineHandle(2), pipeline);
+    registry.insert_pipeline(PipelineHandle(1), pipeline.clone());
+    registry.insert_pipeline(PipelineHandle(2), pipeline);
 
     let mut graph_sorted = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),

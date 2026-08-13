@@ -185,7 +185,7 @@ impl<'a> ApplicationHandler for App<'a> {
             multiview_mask: None,
             cache: None,
         });
-        self.registry.pipelines.insert(PipelineHandle(1), pipeline);
+        self.registry.insert_pipeline(PipelineHandle(1), pipeline);
 
         self.engine = Some(engine);
         
