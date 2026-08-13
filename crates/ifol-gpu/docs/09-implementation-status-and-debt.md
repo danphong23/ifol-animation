@@ -27,6 +27,8 @@ hoặc policy dự kiến.
   duplicate-release detection và drain sau completion;
 - generic deferred destruction queue có completion gate đã có; integration với
   frame context và registry ownership còn thiếu;
+- `FrameContext` đã nối transient texture/buffer pool với seal/reset completion;
+  queue submit/present và registry ownership vẫn thuộc host;
 - examples, integration test và benchmark harness cơ bản.
 
 ## Đã implement nhưng còn giới hạn
@@ -51,8 +53,8 @@ hoặc policy dự kiến.
   thêm end-to-end fixture ghi argument buffer và capability matrix đa backend;
 - capability tier và fallback policy theo từng backend/platform;
 - cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;
-- frame context hoàn chỉnh và deferred destruction tích hợp trực tiếp với GPU
-  completion;
+- frame context mở rộng cho profiling/present lifecycle và deferred destruction
+  integration sâu với registry;
 - async readback contract tổng quát và profiling/diagnostics hook đầy đủ;
 - context-aware bundle cache cho nhiều viewport/device.
 

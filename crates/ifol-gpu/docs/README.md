@@ -66,6 +66,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 59. [Indirect execution](59-indirect-execution.md)
 60. [Transient buffer pool](60-transient-buffer-pool.md)
 61. [Deferred destruction](61-deferred-destruction.md)
+62. [Frame context](62-frame-context.md)
 
 ## Từ vựng trạng thái
 
