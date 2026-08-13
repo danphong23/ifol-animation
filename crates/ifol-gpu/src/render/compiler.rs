@@ -1,6 +1,6 @@
 use thiserror::Error;
 use std::hash::{Hash, Hasher};
-use crate::api::GpuEngine;
+use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::render::graph::{CopyCommand, DrawAction, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
@@ -20,6 +20,20 @@ pub struct ExecutionReport {
     pub copy_commands: usize,
     pub indirect_commands: usize,
     pub declared_usages: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProfiledExecution {
+    pub report: ExecutionReport,
+    pub span: TimestampSpan,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RenderGraphProfilingError {
+    #[error(transparent)]
+    Validation(#[from] RenderGraphValidationError),
+    #[error(transparent)]
+    Profiling(#[from] ProfilingError),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -214,6 +228,44 @@ impl RenderGraphExecutor {
             copy_commands,
             indirect_commands,
             declared_usages,
+        })
+    }
+
+    /// Thực thi graph và ghi một span timestamp bao quanh toàn bộ flat/compile
+    /// boundary. Đây là API opt-in; graph thông thường không chịu overhead này.
+    pub fn execute_checked_with_timestamp(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        profiler: &mut TimestampQueryPool,
+        resolve_buffer: &wgpu::Buffer,
+        resolve_offset: u64,
+    ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
+        self.validate(registry, pool, graph)?;
+        let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
+            Self::execution_counts_for_graph(pool, graph)?;
+        let span = profiler.allocate_span()?;
+        let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("RenderGraphProfiledEncoder"),
+        });
+        profiler.write_span(&mut encoder, span)?;
+        self.compile_graph(&mut encoder, engine, pool, graph, registry, None);
+        profiler.write_span(&mut encoder, span)?;
+        profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
+        let submission = engine.queue().submit(std::iter::once(encoder.finish()));
+        Ok(ProfiledExecution {
+            report: ExecutionReport {
+                submission,
+                flattened_nodes,
+                draw_commands,
+                compute_commands,
+                copy_commands,
+                indirect_commands,
+                declared_usages,
+            },
+            span,
         })
     }
 
@@ -1108,7 +1160,7 @@ fn validate_indirect_buffer(
 
 #[cfg(test)]
 mod tests {
-    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
     use crate::render::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
@@ -1118,6 +1170,34 @@ mod tests {
         assert_eq!(bind_group_slot_index(3), Some(3));
         assert_eq!(bind_group_slot_index(4), None);
         assert_eq!(bind_group_slot_index(u32::MAX), None);
+    }
+
+    #[test]
+    fn profiled_execution_is_opt_in_and_has_typed_backend_fallback() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let Ok(mut profiler) = crate::api::TimestampQueryPool::new(engine.device(), 2) else {
+            return;
+        };
+        let resolve_buffer = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("profiling-resolve-test"),
+            size: 16,
+            usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let result = RenderGraphExecutor::new().execute_checked_with_timestamp(
+            &engine,
+            &ResourceRegistry::new(),
+            &mut RenderNodePool::new(),
+            &RenderGraph::new(RenderTarget::Screen),
+            &mut profiler,
+            &resolve_buffer,
+            0,
+        );
+        match result {
+            Ok(profiled) => assert_eq!(profiled.report.flattened_nodes, 0),
+            Err(RenderGraphProfilingError::Profiling(crate::api::ProfilingError::UnsupportedEncoderTimestamps)) => {}
+            Err(error) => panic!("unexpected profiled execution error: {error:?}"),
+        }
     }
 
     #[test]

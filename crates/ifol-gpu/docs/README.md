@@ -72,6 +72,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 65. [Execution report và profiling hook](65-execution-report-and-profiling-hook.md)
 66. [Timestamp capability và fallback đa nền tảng](66-timestamp-capability-and-platform-fallback.md)
 67. [Timestamp query pool](67-timestamp-query-pool.md)
+68. [Executor timestamp boundary](68-executor-timestamp-boundary.md)
 
 ## Từ vựng trạng thái
 

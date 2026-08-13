@@ -56,8 +56,9 @@ hoặc policy dự kiến.
 - frame context mở rộng cho profiling/present lifecycle và deferred destruction
   integration sâu với registry;
 - async readback ticket format-aware, execution report cấu trúc, timestamp
-  capability snapshot và query pool primitive đã có; queue nhiều frame, worker
-  scheduling, graph pass insertion và diagnostics đầy đủ vẫn còn thiếu;
+  capability snapshot, query pool primitive và executor boundary đã có; queue
+  nhiều frame, worker scheduling, pass-level insertion và diagnostics đầy đủ vẫn
+  còn thiếu;
 - context-aware bundle cache cho nhiều viewport/device.
 
 ## Design debt hiện tại
