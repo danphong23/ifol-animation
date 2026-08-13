@@ -606,7 +606,7 @@ fn execute_non_render_nodes(
             };
             self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command);
+                encode_copy_command(encoder, registry, command)?;
             }
             encode_compute_commands(encoder, registry, node.compute_commands(), engine.capabilities().max_bind_groups)?;
         }
@@ -634,7 +634,7 @@ fn execute_non_render_nodes(
             };
             self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command);
+                encode_copy_command(encoder, registry, command)?;
             }
             encode_compute_commands(encoder, registry, node.compute_commands(), max_bind_groups)?;
             if node.commands().is_empty() { continue; }
@@ -734,7 +734,7 @@ fn execute_non_render_nodes(
 
             self.dispatch_extension(encoder, engine, registry, pool, flat_node.node_id)?;
             for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command);
+                encode_copy_command(encoder, registry, command)?;
             }
             encode_compute_commands(
                 encoder,
@@ -997,7 +997,7 @@ fn execute_non_render_nodes(
             };
             self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command);
+                encode_copy_command(encoder, registry, command)?;
             }
         }
 
@@ -1398,20 +1398,29 @@ fn validate_graph(
     Ok(())
 }
 
-fn encode_copy_command(encoder: &mut wgpu::CommandEncoder, registry: &ResourceRegistry, command: &CopyCommand) {
+fn encode_copy_command(
+    encoder: &mut wgpu::CommandEncoder,
+    registry: &ResourceRegistry,
+    command: &CopyCommand,
+) -> Result<(), RenderGraphValidationError> {
     match command {
         CopyCommand::BufferToBuffer { source, destination, source_offset, destination_offset, size } => {
-            let Some(source_buffer) = registry.buffer(source) else { return; };
-            let Some(destination_buffer) = registry.buffer(destination) else { return; };
+            let Some(source_buffer) = registry.buffer(source) else {
+                return Err(RenderGraphValidationError::MissingBuffer(*source));
+            };
+            let Some(destination_buffer) = registry.buffer(destination) else {
+                return Err(RenderGraphValidationError::MissingBuffer(*destination));
+            };
             encoder.copy_buffer_to_buffer(source_buffer, *source_offset, destination_buffer, *destination_offset, *size);
         }
         CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
-            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::graph::TextureAspect::All);
+            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::graph::TextureAspect::All)?;
         }
         CopyCommand::TextureToTextureAspect { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent, aspect } => {
-            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, *aspect);
+            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, *aspect)?;
         }
     }
+    Ok(())
 }
 
 fn encode_texture_copy(
@@ -1425,9 +1434,13 @@ fn encode_texture_copy(
     destination_origin: [u32; 3],
     extent: [u32; 3],
     aspect: crate::graph::TextureAspect,
-) {
-            let Some(source_texture) = registry.owned_texture(&source) else { return; };
-            let Some(destination_texture) = registry.owned_texture(&destination) else { return; };
+) -> Result<(), RenderGraphValidationError> {
+            let Some(source_texture) = registry.owned_texture(&source) else {
+                return Err(RenderGraphValidationError::MissingOwnedTexture(source));
+            };
+            let Some(destination_texture) = registry.owned_texture(&destination) else {
+                return Err(RenderGraphValidationError::MissingOwnedTexture(destination));
+            };
             let origin = |value: [u32; 3]| wgpu::Origin3d { x: value[0], y: value[1], z: value[2] };
             let extent = wgpu::Extent3d { width: extent[0], height: extent[1], depth_or_array_layers: extent[2] };
             encoder.copy_texture_to_texture(
@@ -1435,6 +1448,7 @@ fn encode_texture_copy(
                 wgpu::TexelCopyTextureInfo { texture: destination_texture, mip_level: destination_mip_level, origin: origin(destination_origin), aspect: to_wgpu_texture_aspect(aspect) },
                 extent,
             );
+    Ok(())
 }
 
 fn to_wgpu_texture_aspect(aspect: crate::graph::TextureAspect) -> wgpu::TextureAspect {
@@ -1565,7 +1579,7 @@ fn validate_indirect_buffer(
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
-    use super::{bind_group_slot_index, bundle_cache_key, encode_compute_commands, encode_draw_commands, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, encode_compute_commands, encode_copy_command, encode_draw_commands, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
     use crate::memory::SubmissionTracker;
     use crate::graph::{ComputeCommand, CopyCommand, DrawAction, DrawCommand, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceAccess, ResourceSubresource};
@@ -1641,6 +1655,17 @@ mod tests {
         assert_eq!(
             encode_draw_commands(&mut pass, &ResourceRegistry::new(), &[command], 4),
             Err(RenderGraphValidationError::MissingPipeline(PipelineHandle(702)))
+        );
+    }
+
+    #[test]
+    fn copy_encoder_reports_missing_buffer_instead_of_skipping() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("missing-copy-buffer") });
+        let command = CopyCommand::buffer_to_buffer(BufferHandle(703), BufferHandle(704), 4);
+        assert_eq!(
+            encode_copy_command(&mut encoder, &ResourceRegistry::new(), &command),
+            Err(RenderGraphValidationError::MissingBuffer(BufferHandle(703)))
         );
     }
 
