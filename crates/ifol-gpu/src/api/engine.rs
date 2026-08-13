@@ -9,6 +9,13 @@ pub struct GpuEngine<'a> {
     surface_config: std::sync::RwLock<Option<wgpu::SurfaceConfiguration>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SurfaceResizeError {
+    InvalidSize,
+    Unavailable,
+    LockPoisoned,
+}
+
 impl<'a> GpuEngine<'a> {
     pub(crate) fn new(
         device: wgpu::Device, 
@@ -43,16 +50,20 @@ impl<'a> GpuEngine<'a> {
     }
 
     pub fn resize_surface(&self, width: u32, height: u32) {
-        if width > 0 && height > 0 {
-            if let Some(surface) = &self.surface {
-                let Ok(mut config_lock) = self.surface_config.write() else { return; };
-                if let Some(config) = config_lock.as_mut() {
-                    config.width = width;
-                    config.height = height;
-                    surface.configure(&self.device, config);
-                }
-            }
+        let _ = self.try_resize_surface(width, height);
+    }
+
+    pub fn try_resize_surface(&self, width: u32, height: u32) -> Result<(), SurfaceResizeError> {
+        if width == 0 || height == 0 {
+            return Err(SurfaceResizeError::InvalidSize);
         }
+        let surface = self.surface.as_ref().ok_or(SurfaceResizeError::Unavailable)?;
+        let mut config_lock = self.surface_config.write().map_err(|_| SurfaceResizeError::LockPoisoned)?;
+        let config = config_lock.as_mut().ok_or(SurfaceResizeError::Unavailable)?;
+        config.width = width;
+        config.height = height;
+        surface.configure(&self.device, config);
+        Ok(())
     }
 
     pub fn surface_format(&self) -> Option<wgpu::TextureFormat> {

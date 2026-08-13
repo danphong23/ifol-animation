@@ -59,6 +59,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 51. [Builder platform policy](50-builder-platform-policy.md)
 52. [MSAA và resolve boundary](51-msaa-resolve-boundary.md)
 53. [Surface initialization contract](52-surface-initialization-contract.md)
+54. [Surface resize contract](53-surface-resize-contract.md)
 
 ## Từ vựng trạng thái
 

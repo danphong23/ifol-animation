@@ -4,4 +4,4 @@ pub mod engine;
 
 pub use builder::{GpuEngineBuilder, GpuError};
 pub use capabilities::{CapabilityError, GpuCapabilities};
-pub use engine::GpuEngine;
+pub use engine::{GpuEngine, SurfaceResizeError};
