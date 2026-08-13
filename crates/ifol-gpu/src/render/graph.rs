@@ -72,6 +72,16 @@ pub enum CopyCommand {
         destination_origin: [u32; 3],
         extent: [u32; 3],
     },
+    TextureToTextureAspect {
+        source: TextureHandle,
+        destination: TextureHandle,
+        source_mip_level: u32,
+        destination_mip_level: u32,
+        source_origin: [u32; 3],
+        destination_origin: [u32; 3],
+        extent: [u32; 3],
+        aspect: TextureAspect,
+    },
 }
 
 impl CopyCommand {
@@ -99,10 +109,32 @@ impl CopyCommand {
         }
     }
 
+    pub fn texture_to_texture_aspect(
+        source: TextureHandle,
+        destination: TextureHandle,
+        extent: [u32; 3],
+        aspect: TextureAspect,
+    ) -> Self {
+        Self::TextureToTextureAspect {
+            source,
+            destination,
+            source_mip_level: 0,
+            destination_mip_level: 0,
+            source_origin: [0, 0, 0],
+            destination_origin: [0, 0, 0],
+            extent,
+            aspect,
+        }
+    }
+
     pub fn with_texture_mips(mut self, source_mip_level: u32, destination_mip_level: u32) -> Self {
-        if let Self::TextureToTexture { source_mip_level: source, destination_mip_level: destination, .. } = &mut self {
+        match &mut self {
+            Self::TextureToTexture { source_mip_level: source, destination_mip_level: destination, .. }
+            | Self::TextureToTextureAspect { source_mip_level: source, destination_mip_level: destination, .. } => {
             *source = source_mip_level;
             *destination = destination_mip_level;
+            }
+            _ => {}
         }
         self
     }
@@ -254,6 +286,22 @@ fn texture_subresource_range(mip_level: u32, origin: [u32; 3], extent: [u32; 3])
         mip_end: mip_level.saturating_add(1),
         layer_start: origin[2],
         layer_end,
+    }
+}
+
+fn texture_aspect_subresource_range(
+    mip_level: u32,
+    origin: [u32; 3],
+    extent: [u32; 3],
+    aspect: TextureAspect,
+) -> ResourceSubresource {
+    let Some(layer_end) = origin[2].checked_add(extent[2]) else { return ResourceSubresource::Whole; };
+    ResourceSubresource::TextureAspectRange {
+        mip_start: mip_level,
+        mip_end: mip_level.saturating_add(1),
+        layer_start: origin[2],
+        layer_end,
+        aspect,
     }
 }
 
@@ -717,6 +765,12 @@ impl RenderGraph {
                     CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
                         let source_subresource = texture_subresource_range(*source_mip_level, *source_origin, *extent);
                         let destination_subresource = texture_subresource_range(*destination_mip_level, *destination_origin, *extent);
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read, subresource: source_subresource });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write, subresource: destination_subresource });
+                    }
+                    CopyCommand::TextureToTextureAspect { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent, aspect } => {
+                        let source_subresource = texture_aspect_subresource_range(*source_mip_level, *source_origin, *extent, *aspect);
+                        let destination_subresource = texture_aspect_subresource_range(*destination_mip_level, *destination_origin, *extent, *aspect);
                         usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read, subresource: source_subresource });
                         usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write, subresource: destination_subresource });
                     }

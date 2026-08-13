@@ -75,6 +75,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 68. [Executor timestamp boundary](68-executor-timestamp-boundary.md)
 69. [Bằng chứng compile đa nền tảng](69-platform-compile-evidence.md)
 70. [Bind-group limit theo capability](70-dynamic-bind-group-limit.md)
+71. [Texture copy theo aspect](71-texture-copy-aspect.md)
 
 ## Từ vựng trạng thái
 

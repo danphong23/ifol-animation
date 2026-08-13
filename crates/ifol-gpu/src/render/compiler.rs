@@ -66,6 +66,8 @@ pub enum RenderGraphValidationError {
     TextureCopyFormatMismatch { source_handle: TextureHandle, destination_handle: TextureHandle },
     #[error("texture copy extent must be non-zero, got {extent:?}")]
     InvalidTextureCopyExtent { extent: [u32; 3] },
+    #[error("texture {handle:?} does not support copy aspect {aspect:?}")]
+    InvalidTextureAspect { handle: TextureHandle, aspect: crate::render::TextureAspect },
     #[error("texture copy mip level {mip_level} is invalid for {handle:?} (mip count {mip_count})")]
     InvalidTextureMipLevel { handle: TextureHandle, mip_level: u32, mip_count: u32 },
     #[error("texture copy range for {handle:?} exceeds mip extent {mip_extent:?}: origin {origin:?}, extent {extent:?}")]
@@ -1070,7 +1072,10 @@ fn validate_graph(
                     validate_copy_range(*destination, *destination_offset, *size, destination_buffer.size())?;
                 }
                 CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
-                    validate_texture_copy(registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent)?;
+                    validate_texture_copy(registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::render::TextureAspect::All)?;
+                }
+                CopyCommand::TextureToTextureAspect { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent, aspect } => {
+                    validate_texture_copy(registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, *aspect)?;
                 }
             }
         }
@@ -1089,16 +1094,42 @@ fn encode_copy_command(encoder: &mut wgpu::CommandEncoder, registry: &ResourceRe
             encoder.copy_buffer_to_buffer(source_buffer, *source_offset, destination_buffer, *destination_offset, *size);
         }
         CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
-            let Some(source_texture) = registry.owned_texture(source) else { return; };
-            let Some(destination_texture) = registry.owned_texture(destination) else { return; };
+            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::render::TextureAspect::All);
+        }
+        CopyCommand::TextureToTextureAspect { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent, aspect } => {
+            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, *aspect);
+        }
+    }
+}
+
+fn encode_texture_copy(
+    encoder: &mut wgpu::CommandEncoder,
+    registry: &ResourceRegistry,
+    source: TextureHandle,
+    destination: TextureHandle,
+    source_mip_level: u32,
+    destination_mip_level: u32,
+    source_origin: [u32; 3],
+    destination_origin: [u32; 3],
+    extent: [u32; 3],
+    aspect: crate::render::TextureAspect,
+) {
+            let Some(source_texture) = registry.owned_texture(&source) else { return; };
+            let Some(destination_texture) = registry.owned_texture(&destination) else { return; };
             let origin = |value: [u32; 3]| wgpu::Origin3d { x: value[0], y: value[1], z: value[2] };
             let extent = wgpu::Extent3d { width: extent[0], height: extent[1], depth_or_array_layers: extent[2] };
             encoder.copy_texture_to_texture(
-                wgpu::TexelCopyTextureInfo { texture: source_texture, mip_level: *source_mip_level, origin: origin(*source_origin), aspect: wgpu::TextureAspect::All },
-                wgpu::TexelCopyTextureInfo { texture: destination_texture, mip_level: *destination_mip_level, origin: origin(*destination_origin), aspect: wgpu::TextureAspect::All },
+                wgpu::TexelCopyTextureInfo { texture: source_texture, mip_level: source_mip_level, origin: origin(source_origin), aspect: to_wgpu_texture_aspect(aspect) },
+                wgpu::TexelCopyTextureInfo { texture: destination_texture, mip_level: destination_mip_level, origin: origin(destination_origin), aspect: to_wgpu_texture_aspect(aspect) },
                 extent,
             );
-        }
+}
+
+fn to_wgpu_texture_aspect(aspect: crate::render::TextureAspect) -> wgpu::TextureAspect {
+    match aspect {
+        crate::render::TextureAspect::All => wgpu::TextureAspect::All,
+        crate::render::TextureAspect::DepthOnly => wgpu::TextureAspect::DepthOnly,
+        crate::render::TextureAspect::StencilOnly => wgpu::TextureAspect::StencilOnly,
     }
 }
 
@@ -1111,6 +1142,7 @@ fn validate_texture_copy(
     source_origin: [u32; 3],
     destination_origin: [u32; 3],
     extent: [u32; 3],
+    aspect: crate::render::TextureAspect,
 ) -> Result<(), RenderGraphValidationError> {
     if !registry.contains_texture(&source) { return Err(RenderGraphValidationError::MissingTexture(source)); }
     if !registry.contains_texture(&destination) { return Err(RenderGraphValidationError::MissingTexture(destination)); }
@@ -1121,6 +1153,12 @@ fn validate_texture_copy(
     let Some(destination_descriptor) = registry.texture_descriptor(&destination) else { return Err(RenderGraphValidationError::MissingTextureDescriptor(destination)); };
     if source_descriptor.format != destination_descriptor.format {
         return Err(RenderGraphValidationError::TextureCopyFormatMismatch { source_handle: source, destination_handle: destination });
+    }
+    if !texture_supports_aspect(source_descriptor.format, aspect) {
+        return Err(RenderGraphValidationError::InvalidTextureAspect { handle: source, aspect });
+    }
+    if !texture_supports_aspect(destination_descriptor.format, aspect) {
+        return Err(RenderGraphValidationError::InvalidTextureAspect { handle: destination, aspect });
     }
     let copy_src = wgpu::TextureUsages::COPY_SRC;
     let copy_dst = wgpu::TextureUsages::COPY_DST;
@@ -1134,6 +1172,26 @@ fn validate_texture_copy(
     validate_texture_mip(source, source_mip_level, source_origin, extent, source_descriptor)?;
     validate_texture_mip(destination, destination_mip_level, destination_origin, extent, destination_descriptor)?;
     Ok(())
+}
+
+fn texture_supports_aspect(format: wgpu::TextureFormat, aspect: crate::render::TextureAspect) -> bool {
+    match aspect {
+        crate::render::TextureAspect::All => true,
+        crate::render::TextureAspect::DepthOnly => matches!(
+            format,
+            wgpu::TextureFormat::Depth16Unorm
+                | wgpu::TextureFormat::Depth24Plus
+                | wgpu::TextureFormat::Depth24PlusStencil8
+                | wgpu::TextureFormat::Depth32Float
+                | wgpu::TextureFormat::Depth32FloatStencil8
+        ),
+        crate::render::TextureAspect::StencilOnly => matches!(
+            format,
+            wgpu::TextureFormat::Stencil8
+                | wgpu::TextureFormat::Depth24PlusStencil8
+                | wgpu::TextureFormat::Depth32FloatStencil8
+        ),
+    }
 }
 
 fn validate_texture_mip(
@@ -1194,7 +1252,7 @@ fn validate_indirect_buffer(
 
 #[cfg(test)]
 mod tests {
-    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
     use crate::render::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
@@ -1263,6 +1321,16 @@ mod tests {
         assert!(format_has_stencil(wgpu::TextureFormat::Depth32FloatStencil8));
         assert!(!format_has_stencil(wgpu::TextureFormat::Depth24Plus));
         assert!(!format_has_stencil(wgpu::TextureFormat::Depth32Float));
+    }
+
+    #[test]
+    fn texture_copy_aspect_support_is_format_specific() {
+        use crate::render::TextureAspect;
+        assert!(texture_supports_aspect(wgpu::TextureFormat::Depth24PlusStencil8, TextureAspect::DepthOnly));
+        assert!(texture_supports_aspect(wgpu::TextureFormat::Depth24PlusStencil8, TextureAspect::StencilOnly));
+        assert!(texture_supports_aspect(wgpu::TextureFormat::Stencil8, TextureAspect::StencilOnly));
+        assert!(!texture_supports_aspect(wgpu::TextureFormat::Rgba8Unorm, TextureAspect::DepthOnly));
+        assert!(!texture_supports_aspect(wgpu::TextureFormat::Depth32Float, TextureAspect::StencilOnly));
     }
 
     #[test]

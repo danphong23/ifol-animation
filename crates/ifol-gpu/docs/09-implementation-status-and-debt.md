@@ -45,8 +45,8 @@ hoặc policy dự kiến.
 - bind-group state cache đã cấp phát theo `max_bind_groups` của device; API
   validate độc lập dùng default limits vì không có device context.
 
-- texture subresource/aspect hazard và MSAA boundary đã có ở mức nền tảng; copy
-  aspect/range đầy đủ và capability matrix đa backend còn thiếu;
+- texture subresource/aspect hazard, MSAA boundary và texture copy aspect đã có
+  ở mức nền tảng; capability matrix đa backend và một số format đặc biệt còn thiếu;
 - indirect draw/dispatch đã có command model, validation và encoder path; end-to-
   end fixture ghi argument buffer và capability matrix đa backend còn thiếu;
 - async readback ticket format-aware, `ExecutionReport`, timestamp capability,
