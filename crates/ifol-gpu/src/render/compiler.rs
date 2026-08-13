@@ -5,6 +5,10 @@ use crate::render::registry::ResourceRegistry;
 
 pub struct RenderGraphExecutor;
 
+fn bind_group_slot_index(slot: u32) -> Option<usize> {
+    (slot < 4).then_some(slot as usize)
+}
+
 impl Default for RenderGraphExecutor {
     fn default() -> Self {
         Self::new()
@@ -130,11 +134,12 @@ impl RenderGraphExecutor {
                     }
 
                     for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
+                        let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
                         // Rebind if changed, or if there are dynamic offsets (offsets mutate per instance)
-                        if current_bind_groups[slot as usize] != Some(bg_handle) || !offsets.is_empty() {
+                        if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
                             if let Some(bg) = registry.bind_groups.get(&bg_handle) {
                                 bundle_encoder.set_bind_group(slot, bg, offsets);
-                                current_bind_groups[slot as usize] = Some(bg_handle);
+                                current_bind_groups[slot_index] = Some(bg_handle);
                             }
                         }
                     }
@@ -223,10 +228,11 @@ impl RenderGraphExecutor {
                     }
 
                     for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
-                        if current_bind_groups[slot as usize] != Some(bg_handle) || !offsets.is_empty() {
+                        let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                        if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
                             if let Some(bg) = registry.bind_groups.get(&bg_handle) {
                                 render_pass.set_bind_group(slot, bg, offsets);
-                                current_bind_groups[slot as usize] = Some(bg_handle);
+                                current_bind_groups[slot_index] = Some(bg_handle);
                             }
                         }
                     }
@@ -250,5 +256,18 @@ impl RenderGraphExecutor {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bind_group_slot_index;
+
+    #[test]
+    fn invalid_bind_group_slot_does_not_index_state_cache() {
+        assert_eq!(bind_group_slot_index(0), Some(0));
+        assert_eq!(bind_group_slot_index(3), Some(3));
+        assert_eq!(bind_group_slot_index(4), None);
+        assert_eq!(bind_group_slot_index(u32::MAX), None);
     }
 }
