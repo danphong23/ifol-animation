@@ -43,7 +43,8 @@ hoặc policy dự kiến.
 - depth/stencil aspect và subresource model đầy đủ; MSAA color resolve, depth
   sample matching, stencil clear/store và mip/layer hazard metadata cơ bản đã
   có, nhưng copy range/aspect đầy đủ và capability matrix đa backend còn thiếu;
-- indirect draw/dispatch;
+- indirect draw/dispatch đã có command model, validation và encoder path; cần
+  thêm end-to-end fixture ghi argument buffer và capability matrix đa backend;
 - capability tier và fallback policy theo từng backend/platform;
 - cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;
 - frame context hoàn chỉnh, transient buffer pool và deferred destruction tích

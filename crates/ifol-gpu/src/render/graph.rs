@@ -24,6 +24,9 @@ pub enum DrawAction {
         vertex_count: u32,
         instance_range: Range<u32>,
     },
+
+    Indirect { buffer: BufferHandle, offset: u64 },
+    IndexedIndirect { mesh: MeshHandle, buffer: BufferHandle, offset: u64 },
 }
 
 /// ═══════════════════════════════════════════════════════════
@@ -48,6 +51,7 @@ pub struct ComputeCommand {
     pub pipeline: ComputePipelineHandle,
     pub bind_groups: Vec<(u32, BindGroupHandle, Vec<u32>)>,
     pub workgroups: [u32; 3],
+    pub indirect: Option<(BufferHandle, u64)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,7 +110,11 @@ impl CopyCommand {
 
 impl ComputeCommand {
     pub fn new(pipeline: ComputePipelineHandle, workgroups: [u32; 3]) -> Self {
-        Self { pipeline, bind_groups: Vec::new(), workgroups }
+        Self { pipeline, bind_groups: Vec::new(), workgroups, indirect: None }
+    }
+
+    pub fn new_indirect(pipeline: ComputePipelineHandle, buffer: BufferHandle, offset: u64) -> Self {
+        Self { pipeline, bind_groups: Vec::new(), workgroups: [0; 3], indirect: Some((buffer, offset)) }
     }
 
     pub fn with_bind_group(mut self, slot: u32, handle: BindGroupHandle, offsets: Vec<u32>) -> Self {
@@ -712,6 +720,21 @@ impl RenderGraph {
                         usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read, subresource: source_subresource });
                         usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write, subresource: destination_subresource });
                     }
+                }
+            }
+            for command in node.commands() {
+                let indirect = match command.action {
+                    DrawAction::Indirect { buffer, offset } => Some((buffer, offset, 16)),
+                    DrawAction::IndexedIndirect { buffer, offset, .. } => Some((buffer, offset, 20)),
+                    _ => None,
+                };
+                if let Some((buffer, offset, size)) = indirect {
+                    usages.push(ResourceUsage { resource: GraphResource::Buffer(buffer), access: ResourceAccess::Read, subresource: buffer_subresource_range(offset, size) });
+                }
+            }
+            for command in node.compute_commands() {
+                if let Some((buffer, offset)) = command.indirect {
+                    usages.push(ResourceUsage { resource: GraphResource::Buffer(buffer), access: ResourceAccess::Read, subresource: buffer_subresource_range(offset, 12) });
                 }
             }
             if !node.commands().is_empty() {

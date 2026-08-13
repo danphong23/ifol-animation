@@ -52,7 +52,7 @@ Phase chỉ hoàn thành khi:
 | Structured errors | Đạt | public `execute`/`execute_with_surface` trả `Result`; encoder unchecked chỉ chạy sau validation |
 | Cross-platform runtime matrix | Chưa đạt | chỉ có evidence trên môi trường hiện tại; chưa chạy đủ Windows/macOS/Linux/Web/Android/iOS |
 | MSAA/resolve | Đạt một phần | color resolve, depth sample matching và stencil aspect cơ bản qua `OffscreenMsaa` đã có runtime test; subresource/capability matrix còn thiếu |
-| Indirect draw/dispatch | Chưa đạt | chưa implement |
+| Indirect draw/dispatch | Đạt nền tảng | command model, range/usage validation và encoder path đã có; end-to-end fixture đa backend còn thiếu |
 | Async readback/profiling | Chưa đạt | readback sync/format-aware hiện có, contract async/profiling hook còn thiếu |
 
 Vì các gate “Chưa đạt” và “Đạt một phần” còn tồn tại, core hiện chưa được gọi là

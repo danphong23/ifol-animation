@@ -47,6 +47,14 @@ pub enum RenderGraphValidationError {
     MissingMesh(MeshHandle),
     #[error("bind group resource {0:?} is missing")]
     MissingBindGroup(BindGroupHandle),
+    #[error("indirect buffer {0:?} is missing")]
+    MissingIndirectBuffer(BufferHandle),
+    #[error("indirect buffer {handle:?} is missing required usage bits {required_usage:#x}; actual {actual_usage:#x}")]
+    MissingIndirectBufferUsage { handle: BufferHandle, required_usage: u32, actual_usage: u32 },
+    #[error("indirect buffer {handle:?} range is invalid: offset {offset}, size {size}")]
+    InvalidIndirectRange { handle: BufferHandle, offset: u64, size: u64 },
+    #[error("indexed indirect draw requires mesh {0:?} to have an index buffer")]
+    MissingIndexBuffer(MeshHandle),
     #[error("bind group slot {0} is outside the supported range 0..4")]
     InvalidBindGroupSlot(u32),
     #[error("render target dimensions must be non-zero, got {width}x{height}")]
@@ -239,7 +247,11 @@ impl RenderGraphExecutor {
                             }
                         }
                     }
-                    compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+                    if let Some((buffer, offset)) = command.indirect {
+                        if let Some(indirect) = registry.buffer(&buffer) { compute_pass.dispatch_workgroups_indirect(indirect, offset); }
+                    } else {
+                        compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+                    }
                 }
             }
         }
@@ -439,6 +451,18 @@ impl RenderGraphExecutor {
                         DrawAction::Procedural { vertex_count, instance_range } => {
                             bundle_encoder.draw(0..*vertex_count, instance_range.clone());
                         }
+                        DrawAction::Indirect { buffer, offset } => {
+                            if let Some(indirect) = registry.buffer(buffer) { bundle_encoder.draw_indirect(indirect, *offset); }
+                        }
+                        DrawAction::IndexedIndirect { mesh, buffer, offset } => {
+                            if let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) {
+                                if let Some(indirect) = registry.buffer(buffer) {
+                                    bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
+                                    bundle_encoder.set_index_buffer(ibo.slice(..), *format);
+                                    bundle_encoder.draw_indexed_indirect(indirect, *offset);
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -491,7 +515,11 @@ impl RenderGraphExecutor {
                         }
                     }
                 }
-                compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+                if let Some((buffer, offset)) = command.indirect {
+                    if let Some(indirect) = registry.buffer(&buffer) { compute_pass.dispatch_workgroups_indirect(indirect, offset); }
+                } else {
+                    compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+                }
             }
         }
 
@@ -578,6 +606,18 @@ impl RenderGraphExecutor {
                         DrawAction::Procedural { vertex_count, instance_range } => {
                             render_pass.draw(0..*vertex_count, instance_range.clone());
                         }
+                        DrawAction::Indirect { buffer, offset } => {
+                            if let Some(indirect) = registry.buffer(buffer) { render_pass.draw_indirect(indirect, *offset); }
+                        }
+                        DrawAction::IndexedIndirect { mesh, buffer, offset } => {
+                            if let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) {
+                                if let Some(indirect) = registry.buffer(buffer) {
+                                    render_pass.set_vertex_buffer(0, vbo.slice(..));
+                                    render_pass.set_index_buffer(ibo.slice(..), *format);
+                                    render_pass.draw_indexed_indirect(indirect, *offset);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -608,7 +648,11 @@ fn encode_compute_commands(
                 current_bind_groups[slot_index] = Some(bind_group);
             }
         }
-        compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+        if let Some((buffer, offset)) = command.indirect {
+            if let Some(indirect) = registry.buffer(&buffer) { compute_pass.dispatch_workgroups_indirect(indirect, offset); }
+        } else {
+            compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+        }
     }
 }
 
@@ -645,6 +689,18 @@ fn encode_draw_commands(
                 }
             }
             DrawAction::Procedural { vertex_count, instance_range } => render_pass.draw(0..*vertex_count, instance_range.clone()),
+            DrawAction::Indirect { buffer, offset } => {
+                if let Some(indirect) = registry.buffer(buffer) { render_pass.draw_indirect(indirect, *offset); }
+            }
+            DrawAction::IndexedIndirect { mesh, buffer, offset } => {
+                if let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) {
+                    if let Some(indirect) = registry.buffer(buffer) {
+                        render_pass.set_vertex_buffer(0, vbo.slice(..));
+                        render_pass.set_index_buffer(ibo.slice(..), *format);
+                        render_pass.draw_indexed_indirect(indirect, *offset);
+                    }
+                }
+            }
         }
     }
 }
@@ -793,6 +849,17 @@ fn validate_graph(
                     return Err(RenderGraphValidationError::MissingMesh(mesh));
                 }
             }
+            match command.action {
+                DrawAction::Indirect { buffer, offset } => validate_indirect_buffer(registry, buffer, offset, 16)?,
+                DrawAction::IndexedIndirect { mesh, buffer, offset } => {
+                    let Some((_, Some(_), _)) = registry.mesh(&mesh) else {
+                        if !registry.contains_mesh(&mesh) { return Err(RenderGraphValidationError::MissingMesh(mesh)); }
+                        return Err(RenderGraphValidationError::MissingIndexBuffer(mesh));
+                    };
+                    validate_indirect_buffer(registry, buffer, offset, 20)?;
+                }
+                _ => {}
+            }
         }
         for command in node.compute_commands() {
             if !registry.contains_compute_pipeline(&command.pipeline) {
@@ -805,6 +872,9 @@ fn validate_graph(
                 if !registry.contains_bind_group(&bind_group) {
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
                 }
+            }
+            if let Some((buffer, offset)) = command.indirect {
+                validate_indirect_buffer(registry, buffer, offset, 12)?;
             }
         }
         for command in node.copy_commands() {
@@ -935,11 +1005,30 @@ fn validate_copy_range(
     Ok(())
 }
 
+fn validate_indirect_buffer(
+    registry: &ResourceRegistry,
+    handle: BufferHandle,
+    offset: u64,
+    size: u64,
+) -> Result<(), RenderGraphValidationError> {
+    let Some(buffer) = registry.buffer(&handle) else { return Err(RenderGraphValidationError::MissingIndirectBuffer(handle)); };
+    if offset % 4 != 0 || offset.checked_add(size).is_none_or(|end| end > buffer.size()) {
+        return Err(RenderGraphValidationError::InvalidIndirectRange { handle, offset, size });
+    }
+    if let Some(descriptor) = registry.buffer_descriptor(&handle) {
+        let required = wgpu::BufferUsages::INDIRECT;
+        if !descriptor.usage.contains(required) {
+            return Err(RenderGraphValidationError::MissingIndirectBufferUsage { handle, required_usage: required.bits(), actual_usage: descriptor.usage.bits() });
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, validate_copy_range, RenderGraphExecutor, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
-    use crate::render::{BindGroupHandle, BufferHandle, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+    use crate::render::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -956,6 +1045,20 @@ mod tests {
         assert!(format_has_stencil(wgpu::TextureFormat::Depth32FloatStencil8));
         assert!(!format_has_stencil(wgpu::TextureFormat::Depth24Plus));
         assert!(!format_has_stencil(wgpu::TextureFormat::Depth32Float));
+    }
+
+    #[test]
+    fn indirect_buffer_validation_checks_alignment_range_and_usage() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let mut registry = ResourceRegistry::new();
+        let buffer = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("indirect_validation"), size: 64,
+            usage: wgpu::BufferUsages::INDIRECT, mapped_at_creation: false,
+        });
+        registry.insert_buffer_with_descriptor(BufferHandle(70), buffer, BufferResourceDescriptor { size: 64, usage: wgpu::BufferUsages::INDIRECT }).unwrap();
+        assert!(validate_indirect_buffer(&registry, BufferHandle(70), 0, 16).is_ok());
+        assert!(matches!(validate_indirect_buffer(&registry, BufferHandle(70), 2, 16), Err(RenderGraphValidationError::InvalidIndirectRange { .. })));
+        assert!(matches!(validate_indirect_buffer(&registry, BufferHandle(70), 52, 16), Err(RenderGraphValidationError::InvalidIndirectRange { .. })));
     }
 
     #[test]
