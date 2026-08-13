@@ -24,12 +24,12 @@ timestamp thành lỗi render thông thường.
 - Đã snapshot capability và có test cả trạng thái có/không có feature.
 - Builder đã có policy `with_required_features`, nên host có thể yêu cầu
   timestamp một cách tường minh nếu ứng dụng bắt buộc phải có.
-- Query-set allocation, timestamp insertion, resolve buffer và đọc kết quả là
-  task profiling riêng; chưa được tuyên bố là đã hoàn thiện.
+- Query-set allocation, timestamp insertion, resolve buffer boundary và tracked
+  submission lifecycle đã có trong core. Việc map/read kết quả, chọn nhiều pool
+  theo frame và trình bày dữ liệu profiling vẫn thuộc host.
 
 ## Ma trận kiểm chứng
 
 Mỗi backend/platform phải ghi nhận capability thực tế của adapter, kết quả
 builder và fallback được chọn. Không suy luận trạng thái macOS/Web/Android/iOS
 từ kết quả Windows hiện tại.
-

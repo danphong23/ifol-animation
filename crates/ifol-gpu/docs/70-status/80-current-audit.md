@@ -32,7 +32,9 @@ sung và ưu tiên hơn các ghi chú trạng thái cũ khi có mâu thuẫn.
 - end-to-end fixture và visual parity trên từng backend chưa đủ;
 - runtime matrix macOS/Metal, Linux, browser WebGPU, Android và iOS chưa chạy
   trong môi trường audit hiện tại;
-- capability/format matrix chi tiết theo adapter chưa hoàn tất.
+- capability/format matrix chi tiết theo adapter chưa hoàn tất; core đã có
+  snapshot và requirement validation, còn runtime evidence phải thu thập theo
+  từng platform.
 
 ## Quy tắc kết luận
 
