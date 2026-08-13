@@ -82,8 +82,12 @@ pub enum ResourceDescriptorError {
     InvalidLayerCount,
     #[error("texture mip level count must be non-zero")]
     InvalidMipCount,
+    #[error("texture mip level count {mip_level_count} exceeds maximum {max_mip_level_count} for extent {width}x{height}")]
+    MipCountExceedsExtent { mip_level_count: u32, max_mip_level_count: u32, width: u32, height: u32 },
     #[error("texture sample count must be non-zero")]
     InvalidSampleCount,
+    #[error("texture sample count {sample_count} must be a power of two")]
+    InvalidSampleCountValue { sample_count: u32 },
     #[error("texture usage must not be empty")]
     EmptyUsage,
     #[error("texture extent {width}x{height} exceeds device limit {max_dimension}")]
@@ -101,8 +105,20 @@ impl TextureResourceDescriptor {
         if self.mip_level_count == 0 {
             return Err(ResourceDescriptorError::InvalidMipCount);
         }
+        let max_mip_level_count = u32::BITS - self.width.max(self.height).leading_zeros();
+        if self.mip_level_count > max_mip_level_count {
+            return Err(ResourceDescriptorError::MipCountExceedsExtent {
+                mip_level_count: self.mip_level_count,
+                max_mip_level_count,
+                width: self.width,
+                height: self.height,
+            });
+        }
         if self.sample_count == 0 {
             return Err(ResourceDescriptorError::InvalidSampleCount);
+        }
+        if !self.sample_count.is_power_of_two() {
+            return Err(ResourceDescriptorError::InvalidSampleCountValue { sample_count: self.sample_count });
         }
         if self.usage.is_empty() {
             return Err(ResourceDescriptorError::EmptyUsage);
@@ -626,6 +642,30 @@ mod tests {
         descriptor = valid_descriptor();
         descriptor.usage = wgpu::TextureUsages::empty();
         assert_eq!(descriptor.validate(1024), Err(ResourceDescriptorError::EmptyUsage));
+    }
+
+    #[test]
+    fn texture_descriptor_rejects_impossible_mips_and_sample_count() {
+        let mut descriptor = valid_descriptor();
+        descriptor.width = 8;
+        descriptor.height = 4;
+        descriptor.mip_level_count = 5;
+        assert_eq!(
+            descriptor.validate(1024),
+            Err(ResourceDescriptorError::MipCountExceedsExtent {
+                mip_level_count: 5,
+                max_mip_level_count: 4,
+                width: 8,
+                height: 4,
+            })
+        );
+
+        descriptor = valid_descriptor();
+        descriptor.sample_count = 3;
+        assert_eq!(
+            descriptor.validate(1024),
+            Err(ResourceDescriptorError::InvalidSampleCountValue { sample_count: 3 })
+        );
     }
 
     #[test]

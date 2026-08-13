@@ -1,5 +1,11 @@
 # IFOL GPU: texture descriptor validation
 
+Validation structural cÃ²n bao gÃ¶m mip count khÃ´ng vÆ°á»£t quÃ¡ sá»‘ mip tá»‘i Ä‘a suy ra
+tá»« extent vÃ  sample count pháº£i lÃ  lÅ©y thá»«a cá»§a hai. Giá»›i háº¡n sample count
+thá»±c táº¿ theo format/adapter váº«n lÃ  capability runtime vÃ  pháº£i Ä‘Æ°á»£c
+kiá»ƒm tra á»Ÿ device-aware validation; structural validation khÃ´ng tuyÃªn bá»‘
+mọi sample count lÃ  backend-supported.
+
 `TextureResourceDescriptor` là descriptor tối thiểu cho texture resource. Nó gồm
 extent, layer, format, usage, mip count và sample count.
 

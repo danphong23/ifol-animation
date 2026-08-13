@@ -89,6 +89,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 82. [Typed texture save errors](82-typed-texture-save-errors.md)
 83. [Không fallback thứ tự khi compile graph lỗi](83-no-compile-order-fallback.md)
 84. [Thực thi theo flat execution plan](84-flat-plan-execution.md)
+85. [Validation cấu trúc texture descriptor](85-texture-descriptor-structural-validation.md)
 
 ## Từ vựng trạng thái
 
