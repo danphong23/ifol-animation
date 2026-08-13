@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use thiserror::Error;
 use crate::memory::{DeferredDestructionQueue, SubmissionId};
-use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle};
+use crate::resources::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle};
 
 type ResourceVersion = u64;
 

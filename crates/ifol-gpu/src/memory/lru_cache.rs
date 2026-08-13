@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use wgpu::TextureFormat;
 use crate::memory::{SubmissionId, SubmissionTracker};
-use crate::render::{BufferHandle, TextureHandle};
+use crate::resources::{BufferHandle, TextureHandle};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextureDimensionKey {

@@ -93,5 +93,8 @@ test duplicate/empty ID. Custom operation vẫn chưa được tích hợp vào 
 plan hoặc executor.
 `Extension` node đã có representation trong graph và được flatten theo usage;
 executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.
+Import nội bộ của graph, execution, resources và memory đã chuyển sang module
+mới; `src/render` không còn là dependency của các layer lõi và chỉ giữ facade
+cho consumer cũ.
 `Extension` node đã có representation trong graph và được flatten theo usage;
 executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.

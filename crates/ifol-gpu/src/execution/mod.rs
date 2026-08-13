@@ -3,9 +3,9 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::memory::{SubmissionId, SubmissionTracker};
-use crate::render::graph::{CopyCommand, DrawAction, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
-use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
-use crate::render::registry::ResourceRegistry;
+use crate::graph::{CopyCommand, DrawAction, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
+use crate::resources::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
+use crate::resources::registry::ResourceRegistry;
 
 pub struct RenderGraphExecutor {
     context_key: u64,
@@ -76,7 +76,7 @@ pub enum RenderGraphValidationError {
     #[error("texture copy extent must be non-zero, got {extent:?}")]
     InvalidTextureCopyExtent { extent: [u32; 3] },
     #[error("texture {handle:?} does not support copy aspect {aspect:?}")]
-    InvalidTextureAspect { handle: TextureHandle, aspect: crate::render::TextureAspect },
+    InvalidTextureAspect { handle: TextureHandle, aspect: crate::graph::TextureAspect },
     #[error("texture copy mip level {mip_level} is invalid for {handle:?} (mip count {mip_count})")]
     InvalidTextureMipLevel { handle: TextureHandle, mip_level: u32, mip_count: u32 },
     #[error("texture copy range for {handle:?} exceeds mip extent {mip_extent:?}: origin {origin:?}, extent {extent:?}")]
@@ -505,9 +505,9 @@ fn execution_counts_for_graph(
     graph: &RenderGraph,
 ) -> Result<(usize, usize, usize, usize, usize, usize), RenderGraphValidationError> {
     let plan = graph.flatten(pool).map_err(|error| match error {
-        crate::render::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
-        crate::render::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
-        crate::render::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
+        crate::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
+        crate::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
+        crate::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
     })?;
     let mut draws = 0;
     let mut computes = 0;
@@ -525,11 +525,11 @@ fn execution_counts_for_graph(
     Ok((plan.nodes.len(), draws, computes, copies, indirect, usages))
 }
 
-fn map_graph_flatten_error(error: crate::render::graph::GraphFlattenError) -> RenderGraphValidationError {
+fn map_graph_flatten_error(error: crate::graph::GraphFlattenError) -> RenderGraphValidationError {
     match error {
-        crate::render::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
-        crate::render::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
-        crate::render::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
+        crate::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
+        crate::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
+        crate::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
     }
 }
 
@@ -666,7 +666,7 @@ fn execute_non_render_nodes(
         Ok(owner)
     }
 
-    fn flat_plan_owner_path(node: &crate::render::graph::FlatRenderNode) -> Vec<RenderNodeId> {
+    fn flat_plan_owner_path(node: &crate::graph::FlatRenderNode) -> Vec<RenderNodeId> {
         node.path[..node.path.len().saturating_sub(1)].to_vec()
     }
 
@@ -1094,7 +1094,7 @@ fn execute_non_render_nodes(
 fn encode_compute_commands(
     encoder: &mut wgpu::CommandEncoder,
     registry: &ResourceRegistry,
-    commands: &[crate::render::graph::ComputeCommand],
+    commands: &[crate::graph::ComputeCommand],
     max_bind_groups: u32,
 ) {
     if commands.is_empty() { return; }
@@ -1126,7 +1126,7 @@ fn encode_compute_commands(
 fn encode_draw_commands(
     render_pass: &mut wgpu::RenderPass<'_>,
     registry: &ResourceRegistry,
-    commands: &[crate::render::graph::DrawCommand],
+    commands: &[crate::graph::DrawCommand],
     max_bind_groups: u32,
 ) {
     let mut current_pipeline = None;
@@ -1180,9 +1180,9 @@ fn validate_graph(
     max_bind_groups: u32,
 ) -> Result<(), RenderGraphValidationError> {
     graph.flatten(pool).map_err(|error| match error {
-        crate::render::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
-        crate::render::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
-        crate::render::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
+        crate::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
+        crate::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
+        crate::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
     })?;
     match graph.target {
         RenderTarget::Screen => {}
@@ -1378,7 +1378,7 @@ fn validate_graph(
                     validate_copy_range(*destination, *destination_offset, *size, destination_buffer.size())?;
                 }
                 CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
-                    validate_texture_copy(registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::render::TextureAspect::All)?;
+                    validate_texture_copy(registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::graph::TextureAspect::All)?;
                 }
                 CopyCommand::TextureToTextureAspect { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent, aspect } => {
                     validate_texture_copy(registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, *aspect)?;
@@ -1400,7 +1400,7 @@ fn encode_copy_command(encoder: &mut wgpu::CommandEncoder, registry: &ResourceRe
             encoder.copy_buffer_to_buffer(source_buffer, *source_offset, destination_buffer, *destination_offset, *size);
         }
         CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
-            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::render::TextureAspect::All);
+            encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, crate::graph::TextureAspect::All);
         }
         CopyCommand::TextureToTextureAspect { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent, aspect } => {
             encode_texture_copy(encoder, registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent, *aspect);
@@ -1418,7 +1418,7 @@ fn encode_texture_copy(
     source_origin: [u32; 3],
     destination_origin: [u32; 3],
     extent: [u32; 3],
-    aspect: crate::render::TextureAspect,
+    aspect: crate::graph::TextureAspect,
 ) {
             let Some(source_texture) = registry.owned_texture(&source) else { return; };
             let Some(destination_texture) = registry.owned_texture(&destination) else { return; };
@@ -1431,11 +1431,11 @@ fn encode_texture_copy(
             );
 }
 
-fn to_wgpu_texture_aspect(aspect: crate::render::TextureAspect) -> wgpu::TextureAspect {
+fn to_wgpu_texture_aspect(aspect: crate::graph::TextureAspect) -> wgpu::TextureAspect {
     match aspect {
-        crate::render::TextureAspect::All => wgpu::TextureAspect::All,
-        crate::render::TextureAspect::DepthOnly => wgpu::TextureAspect::DepthOnly,
-        crate::render::TextureAspect::StencilOnly => wgpu::TextureAspect::StencilOnly,
+        crate::graph::TextureAspect::All => wgpu::TextureAspect::All,
+        crate::graph::TextureAspect::DepthOnly => wgpu::TextureAspect::DepthOnly,
+        crate::graph::TextureAspect::StencilOnly => wgpu::TextureAspect::StencilOnly,
     }
 }
 
@@ -1448,7 +1448,7 @@ fn validate_texture_copy(
     source_origin: [u32; 3],
     destination_origin: [u32; 3],
     extent: [u32; 3],
-    aspect: crate::render::TextureAspect,
+    aspect: crate::graph::TextureAspect,
 ) -> Result<(), RenderGraphValidationError> {
     if !registry.contains_texture(&source) { return Err(RenderGraphValidationError::MissingTexture(source)); }
     if !registry.contains_texture(&destination) { return Err(RenderGraphValidationError::MissingTexture(destination)); }
@@ -1480,10 +1480,10 @@ fn validate_texture_copy(
     Ok(())
 }
 
-fn texture_supports_aspect(format: wgpu::TextureFormat, aspect: crate::render::TextureAspect) -> bool {
+fn texture_supports_aspect(format: wgpu::TextureFormat, aspect: crate::graph::TextureAspect) -> bool {
     match aspect {
-        crate::render::TextureAspect::All => true,
-        crate::render::TextureAspect::DepthOnly => matches!(
+        crate::graph::TextureAspect::All => true,
+        crate::graph::TextureAspect::DepthOnly => matches!(
             format,
             wgpu::TextureFormat::Depth16Unorm
                 | wgpu::TextureFormat::Depth24Plus
@@ -1491,7 +1491,7 @@ fn texture_supports_aspect(format: wgpu::TextureFormat, aspect: crate::render::T
                 | wgpu::TextureFormat::Depth32Float
                 | wgpu::TextureFormat::Depth32FloatStencil8
         ),
-        crate::render::TextureAspect::StencilOnly => matches!(
+        crate::graph::TextureAspect::StencilOnly => matches!(
             format,
             wgpu::TextureFormat::Stencil8
                 | wgpu::TextureFormat::Depth24PlusStencil8
@@ -1505,7 +1505,7 @@ fn validate_texture_mip(
     mip_level: u32,
     origin: [u32; 3],
     extent: [u32; 3],
-    descriptor: &crate::render::registry::TextureResourceDescriptor,
+    descriptor: &crate::resources::registry::TextureResourceDescriptor,
 ) -> Result<(), RenderGraphValidationError> {
     if mip_level >= descriptor.mip_level_count {
         return Err(RenderGraphValidationError::InvalidTextureMipLevel { handle, mip_level, mip_count: descriptor.mip_level_count });
@@ -1561,7 +1561,8 @@ mod tests {
     use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
     use crate::memory::SubmissionTracker;
-    use crate::render::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+    use crate::graph::{ComputeCommand, CopyCommand, DrawAction, DrawCommand, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceAccess, ResourceSubresource};
+    use crate::resources::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputePipelineHandle, PipelineHandle, RenderNodeId, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -1683,7 +1684,7 @@ mod tests {
 
     #[test]
     fn texture_copy_aspect_support_is_format_specific() {
-        use crate::render::TextureAspect;
+        use crate::graph::TextureAspect;
         assert!(texture_supports_aspect(wgpu::TextureFormat::Depth24PlusStencil8, TextureAspect::DepthOnly));
         assert!(texture_supports_aspect(wgpu::TextureFormat::Depth24PlusStencil8, TextureAspect::StencilOnly));
         assert!(texture_supports_aspect(wgpu::TextureFormat::Stencil8, TextureAspect::StencilOnly));
@@ -2023,7 +2024,7 @@ mod tests {
         let mut graph = RenderGraph::new(RenderTarget::Screen);
         let node = RenderNodeId(9);
         graph.declare_resource_usage(node, GraphResource::Texture(TextureHandle(7)), ResourceAccess::ReadWrite);
-        assert_eq!(graph.resource_usages(&node), &[crate::render::ResourceUsage { resource: GraphResource::Texture(TextureHandle(7)), access: ResourceAccess::ReadWrite, subresource: crate::render::ResourceSubresource::Whole }]);
+        assert_eq!(graph.resource_usages(&node), &[crate::graph::ResourceUsage { resource: GraphResource::Texture(TextureHandle(7)), access: ResourceAccess::ReadWrite, subresource: ResourceSubresource::Whole }]);
     }
 
     #[test]
@@ -2032,8 +2033,8 @@ mod tests {
         let source = engine.device().create_buffer(&wgpu::BufferDescriptor { label: Some("invalid_copy_source"), size: 16, usage: wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let destination = engine.device().create_buffer(&wgpu::BufferDescriptor { label: Some("invalid_copy_destination"), size: 16, usage: wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         let mut registry = ResourceRegistry::new();
-        registry.insert_buffer_with_descriptor(BufferHandle(1), source, crate::render::BufferResourceDescriptor { size: 16, usage: wgpu::BufferUsages::COPY_DST }).unwrap();
-        registry.insert_buffer_with_descriptor(BufferHandle(2), destination, crate::render::BufferResourceDescriptor { size: 16, usage: wgpu::BufferUsages::COPY_SRC }).unwrap();
+        registry.insert_buffer_with_descriptor(BufferHandle(1), source, BufferResourceDescriptor { size: 16, usage: wgpu::BufferUsages::COPY_DST }).unwrap();
+        registry.insert_buffer_with_descriptor(BufferHandle(2), destination, BufferResourceDescriptor { size: 16, usage: wgpu::BufferUsages::COPY_SRC }).unwrap();
         let mut pool = RenderNodePool::new();
         let mut graph = RenderGraph::new(RenderTarget::Screen);
         graph.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 4)]);
@@ -2425,7 +2426,7 @@ mod tests {
         registry.insert_compute_pipeline_with_layout_descriptor(
             ComputePipelineHandle(1),
             pipeline,
-            crate::render::PipelineLayoutResourceDescriptor {
+            crate::resources::PipelineLayoutResourceDescriptor {
                 bind_group_layout_signatures: vec![Some(7)],
             },
         );
@@ -2433,7 +2434,7 @@ mod tests {
             .insert_bind_group_with_descriptor(
                 BindGroupHandle(1),
                 bind_group,
-                crate::render::BindGroupResourceDescriptor {
+                crate::resources::BindGroupResourceDescriptor {
                     dynamic_offset_count: 1,
                     dynamic_offset_alignment: alignment,
                     layout_signature: 7,
@@ -2444,7 +2445,7 @@ mod tests {
             .insert_bind_group_with_descriptor(
                 BindGroupHandle(2),
                 mismatched_bind_group,
-                crate::render::BindGroupResourceDescriptor {
+                crate::resources::BindGroupResourceDescriptor {
                     dynamic_offset_count: 1,
                     dynamic_offset_alignment: alignment,
                     layout_signature: 8,

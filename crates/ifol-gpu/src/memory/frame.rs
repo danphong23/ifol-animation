@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use thiserror::Error;
 use crate::memory::{BufferDescriptorKey, DeferredDestructionQueue, SubmissionId, SubmissionTracker, TextureDescriptorKey, TransientBufferPool, TransientTexturePool};
-use crate::render::{BufferHandle, OwnedTextureResource, ResourceRegistry, TextureHandle};
+use crate::resources::{BufferHandle, OwnedTextureResource, ResourceRegistry, TextureHandle};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum FrameContextError {
@@ -149,7 +149,7 @@ mod tests {
     use super::*;
     use crate::api::GpuEngineBuilder;
     use crate::memory::TextureDimensionKey;
-    use crate::render::{ResourceRegistry, TextureResourceDescriptor};
+    use crate::resources::{ResourceRegistry, TextureResourceDescriptor};
     use wgpu::TextureFormat;
 
     #[test]
