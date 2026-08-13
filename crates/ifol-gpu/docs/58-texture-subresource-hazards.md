@@ -7,6 +7,8 @@
 - `Texture { mip_level, array_layer }`: mô tả một mip/layer cụ thể;
 - `TextureRange { mip_start..mip_end, layer_start..layer_end }`: mô tả range
   mip/layer, dùng cho texture copy.
+- `TextureAspect`/`TextureAspectRange`: thêm `All`, `DepthOnly` hoặc
+  `StencilOnly` cho depth-stencil resource.
 
 `declare_resource_usage` tiếp tục tạo usage `Whole`. Host cần độ chính xác cao
 có thể dùng `declare_texture_subresource_usage`. Hai usage texture chỉ tạo
@@ -19,4 +21,5 @@ chúng overlap. Range rỗng hoặc phép cộng offset bị overflow sẽ fallb
 Texture copy tự động suy ra range từ mip, origin và extent. Nếu phép tính range
 bị overflow, compiler fallback về `Whole` để không bỏ qua dependency cần thiết.
 Buffer copy tự động suy ra `BufferRange` từ offset/size. Render attachment vẫn
-dùng `Whole` vì chưa có aspect range model tương ứng.
+dùng `Whole` để giữ dependency bảo thủ; host có thể khai báo depth/stencil aspect
+riêng bằng `declare_texture_aspect_usage` hoặc API range tương ứng.

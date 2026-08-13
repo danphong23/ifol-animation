@@ -169,11 +169,20 @@ pub enum ResourceAccess {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TextureAspect {
+    All,
+    DepthOnly,
+    StencilOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResourceSubresource {
     Whole,
     BufferRange { start: u64, end: u64 },
     Texture { mip_level: u32, array_layer: u32 },
     TextureRange { mip_start: u32, mip_end: u32, layer_start: u32, layer_end: u32 },
+    TextureAspect { mip_level: u32, array_layer: u32, aspect: TextureAspect },
+    TextureAspectRange { mip_start: u32, mip_end: u32, layer_start: u32, layer_end: u32, aspect: TextureAspect },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -194,6 +203,12 @@ fn subresources_overlap(left: ResourceSubresource, right: ResourceSubresource) -
             left_start < right_end && right_start < left_end
         }
         (ResourceSubresource::BufferRange { .. }, _) | (_, ResourceSubresource::BufferRange { .. }) => false,
+        (ResourceSubresource::Texture { mip_level: left_mip, array_layer: left_layer }, ResourceSubresource::TextureAspect { mip_level: right_mip, array_layer: right_layer, .. })
+        | (ResourceSubresource::TextureAspect { mip_level: left_mip, array_layer: left_layer, .. }, ResourceSubresource::Texture { mip_level: right_mip, array_layer: right_layer }) => left_mip == right_mip && left_layer == right_layer,
+        (ResourceSubresource::TextureRange { mip_start: left_mip_start, mip_end: left_mip_end, layer_start: left_layer_start, layer_end: left_layer_end }, ResourceSubresource::TextureAspectRange { mip_start: right_mip_start, mip_end: right_mip_end, layer_start: right_layer_start, layer_end: right_layer_end, .. })
+        | (ResourceSubresource::TextureAspectRange { mip_start: left_mip_start, mip_end: left_mip_end, layer_start: left_layer_start, layer_end: left_layer_end, .. }, ResourceSubresource::TextureRange { mip_start: right_mip_start, mip_end: right_mip_end, layer_start: right_layer_start, layer_end: right_layer_end }) => left_mip_start < right_mip_end && right_mip_start < left_mip_end && left_layer_start < right_layer_end && right_layer_start < left_layer_end,
+        (ResourceSubresource::TextureAspect { mip_level: left_mip, array_layer: left_layer, aspect: left_aspect }, ResourceSubresource::TextureAspect { mip_level: right_mip, array_layer: right_layer, aspect: right_aspect }) => left_mip == right_mip && left_layer == right_layer && aspects_overlap(left_aspect, right_aspect),
+        (ResourceSubresource::TextureAspectRange { mip_start: left_mip_start, mip_end: left_mip_end, layer_start: left_layer_start, layer_end: left_layer_end, aspect: left_aspect }, ResourceSubresource::TextureAspectRange { mip_start: right_mip_start, mip_end: right_mip_end, layer_start: right_layer_start, layer_end: right_layer_end, aspect: right_aspect }) => left_mip_start < right_mip_end && right_mip_start < left_mip_end && left_layer_start < right_layer_end && right_layer_start < left_layer_end && aspects_overlap(left_aspect, right_aspect),
         (
             ResourceSubresource::Texture { mip_level: left_mip, array_layer: left_layer },
             ResourceSubresource::Texture { mip_level: right_mip, array_layer: right_layer },
@@ -206,7 +221,16 @@ fn subresources_overlap(left: ResourceSubresource, right: ResourceSubresource) -
             ResourceSubresource::TextureRange { mip_start: left_mip_start, mip_end: left_mip_end, layer_start: left_layer_start, layer_end: left_layer_end },
             ResourceSubresource::TextureRange { mip_start: right_mip_start, mip_end: right_mip_end, layer_start: right_layer_start, layer_end: right_layer_end },
         ) => left_mip_start < right_mip_end && right_mip_start < left_mip_end && left_layer_start < right_layer_end && right_layer_start < left_layer_end,
+        (ResourceSubresource::TextureAspect { mip_level, array_layer, .. }, ResourceSubresource::TextureAspectRange { mip_start, mip_end, layer_start, layer_end, .. })
+        | (ResourceSubresource::TextureAspectRange { mip_start, mip_end, layer_start, layer_end, .. }, ResourceSubresource::TextureAspect { mip_level, array_layer, .. }) => mip_level >= mip_start && mip_level < mip_end && array_layer >= layer_start && array_layer < layer_end,
+        (ResourceSubresource::Texture { mip_level, array_layer }, ResourceSubresource::TextureAspectRange { mip_start, mip_end, layer_start, layer_end, .. })
+        | (ResourceSubresource::TextureAspectRange { mip_start, mip_end, layer_start, layer_end, .. }, ResourceSubresource::Texture { mip_level, array_layer }) => mip_level >= mip_start && mip_level < mip_end && array_layer >= layer_start && array_layer < layer_end,
+        _ => true,
     }
+}
+
+fn aspects_overlap(left: TextureAspect, right: TextureAspect) -> bool {
+    matches!((left, right), (TextureAspect::All, _) | (_, TextureAspect::All)) || left == right
 }
 
 fn usages_conflict(left: &ResourceUsage, right: &ResourceUsage) -> bool {
@@ -617,6 +641,40 @@ impl RenderGraph {
             resource: GraphResource::Texture(texture),
             access,
             subresource: ResourceSubresource::TextureRange { mip_start, mip_end, layer_start, layer_end },
+        });
+    }
+
+    pub fn declare_texture_aspect_usage(
+        &mut self,
+        node: RenderNodeId,
+        texture: TextureHandle,
+        mip_level: u32,
+        array_layer: u32,
+        aspect: TextureAspect,
+        access: ResourceAccess,
+    ) {
+        self.resource_usages.entry(node).or_default().push(ResourceUsage {
+            resource: GraphResource::Texture(texture),
+            access,
+            subresource: ResourceSubresource::TextureAspect { mip_level, array_layer, aspect },
+        });
+    }
+
+    pub fn declare_texture_aspect_range_usage(
+        &mut self,
+        node: RenderNodeId,
+        texture: TextureHandle,
+        mip_start: u32,
+        mip_end: u32,
+        layer_start: u32,
+        layer_end: u32,
+        aspect: TextureAspect,
+        access: ResourceAccess,
+    ) {
+        self.resource_usages.entry(node).or_default().push(ResourceUsage {
+            resource: GraphResource::Texture(texture),
+            access,
+            subresource: ResourceSubresource::TextureAspectRange { mip_start, mip_end, layer_start, layer_end, aspect },
         });
     }
 
@@ -1062,6 +1120,28 @@ mod tests {
         graph.add_dependency(later_writer, copy);
 
         assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![later_writer, copy]);
+    }
+
+    #[test]
+    fn disjoint_depth_and_stencil_aspects_do_not_create_hazard_edge() {
+        let mut pool = RenderNodePool::new();
+        let depth_writer = pool.alloc_compute_batch(vec![]);
+        let stencil_writer = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(depth_writer);
+        graph.add_node_id(stencil_writer);
+        graph.declare_texture_aspect_usage(depth_writer, TextureHandle(9), 0, 0, TextureAspect::DepthOnly, ResourceAccess::Write);
+        graph.declare_texture_aspect_usage(stencil_writer, TextureHandle(9), 0, 0, TextureAspect::StencilOnly, ResourceAccess::Write);
+        graph.add_dependency(stencil_writer, depth_writer);
+
+        assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![stencil_writer, depth_writer]);
+    }
+
+    #[test]
+    fn all_texture_aspect_overlaps_depth_and_stencil() {
+        assert!(aspects_overlap(TextureAspect::All, TextureAspect::DepthOnly));
+        assert!(aspects_overlap(TextureAspect::StencilOnly, TextureAspect::All));
+        assert!(!aspects_overlap(TextureAspect::DepthOnly, TextureAspect::StencilOnly));
     }
 
     #[test]
