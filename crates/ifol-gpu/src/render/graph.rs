@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Range;
+use thiserror::Error;
 use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 
 /// ═══════════════════════════════════════════════════════════
@@ -87,6 +88,7 @@ pub enum RenderNode {
         graph: Box<RenderGraph>,
         commands: Vec<DrawCommand>,
         is_dirty: bool,
+        use_bundle: bool,
         bundle: Option<wgpu::RenderBundle>,
     },
 
@@ -94,6 +96,7 @@ pub enum RenderNode {
     DrawBatch {
         commands: Vec<DrawCommand>,
         is_dirty: bool,
+        use_bundle: bool,
         bundle: Option<wgpu::RenderBundle>,
     },
 }
@@ -103,6 +106,7 @@ impl RenderNode {
         Self::DrawBatch {
             commands,
             is_dirty: true,
+            use_bundle: true, // Default to bundle enabled
             bundle: None,
         }
     }
@@ -113,6 +117,7 @@ impl RenderNode {
             graph: Box::new(graph),
             commands,
             is_dirty: true,
+            use_bundle: true,
             bundle: None,
         }
     }
@@ -135,6 +140,45 @@ impl RenderNode {
         match self {
             Self::SubGraph { bundle, .. } => bundle.as_ref(),
             Self::DrawBatch { bundle, .. } => bundle.as_ref(),
+        }
+    }
+
+    pub fn set_use_bundle(&mut self, use_bundle: bool) {
+        match self {
+            Self::SubGraph { use_bundle: ub, is_dirty, .. } |
+            Self::DrawBatch { use_bundle: ub, is_dirty, .. } => {
+                *ub = use_bundle;
+                *is_dirty = true;
+            }
+        }
+    }
+
+    pub fn use_bundle(&self) -> bool {
+        match self {
+            Self::SubGraph { use_bundle, .. } => *use_bundle,
+            Self::DrawBatch { use_bundle, .. } => *use_bundle,
+        }
+    }
+
+    /// Tự động sắp xếp các DrawCommand theo Pipeline -> BindGroup
+    /// Giúp giảm State Thrashing khi GPU chạy
+    pub fn sort_by_state(&mut self) {
+        match self {
+            Self::SubGraph { commands, is_dirty, .. } |
+            Self::DrawBatch { commands, is_dirty, .. } => {
+                commands.sort_by(|a, b| {
+                    // Sort by Pipeline first
+                    let cmp = a.pipeline.0.cmp(&b.pipeline.0);
+                    if cmp != std::cmp::Ordering::Equal {
+                        return cmp;
+                    }
+                    // Sort by the first bind group handle if it exists
+                    let bg_a = a.bind_groups.first().map(|bg| bg.1 .0).unwrap_or(0);
+                    let bg_b = b.bind_groups.first().map(|bg| bg.1 .0).unwrap_or(0);
+                    bg_a.cmp(&bg_b)
+                });
+                *is_dirty = true;
+            }
         }
     }
 }
@@ -179,7 +223,7 @@ impl RenderNodePool {
     pub fn update_commands(&mut self, id: RenderNodeId, commands: Vec<DrawCommand>) -> bool {
         if let Some(node) = self.nodes.get_mut(&id) {
             match node {
-                RenderNode::DrawBatch { commands: cmds, is_dirty, bundle } => {
+                RenderNode::DrawBatch { commands: cmds, is_dirty, bundle, .. } => {
                     *cmds = commands;
                     *is_dirty = true;
                     *bundle = None;
@@ -226,6 +270,34 @@ pub struct RenderGraph {
 
     /// Danh sách ID các nút vẽ trong RenderNodePool. Thứ tự 0 → N = thứ tự vẽ đè
     pub node_ids: Vec<RenderNodeId>,
+
+    /// Duyệt từ cuối lên đầu thay vì từ đầu tới cuối (Reverse Draw Order)
+    pub reverse_draw_order: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlatRenderNode {
+    pub node_id: RenderNodeId,
+    /// Chuỗi node từ root tới node này, dùng cho diagnostics/profiling.
+    pub path: Vec<RenderNodeId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FlatRenderPlan {
+    pub nodes: Vec<FlatRenderNode>,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum GraphFlattenError {
+    #[error("render node {0:?} does not exist in the node pool")]
+    MissingNode(RenderNodeId),
+    #[error("cycle detected while flattening render graph at node {0:?}")]
+    Cycle(RenderNodeId),
+}
+
+impl FlatRenderPlan {
+    pub fn len(&self) -> usize { self.nodes.len() }
+    pub fn is_empty(&self) -> bool { self.nodes.is_empty() }
 }
 
 impl RenderGraph {
@@ -235,7 +307,13 @@ impl RenderGraph {
             clear_color: None,
             depth_stencil: None,
             node_ids: Vec::new(),
+            reverse_draw_order: false,
         }
+    }
+
+    pub fn with_reverse_draw_order(mut self, reverse: bool) -> Self {
+        self.reverse_draw_order = reverse;
+        self
     }
 
     pub fn with_clear_color(mut self, color: [f32; 4]) -> Self {
@@ -262,6 +340,39 @@ impl RenderGraph {
         let id = pool.alloc_subgraph(name, graph, commands);
         self.node_ids.push(id);
         id
+    }
+
+    /// Làm phẳng logical graph theo thứ tự thực thi bottom-up: node con của
+    /// `SubGraph` xuất hiện trước node composite của chính subgraph.
+    pub fn flatten(&self, pool: &RenderNodePool) -> Result<FlatRenderPlan, GraphFlattenError> {
+        let mut plan = FlatRenderPlan::default();
+        let mut active = Vec::new();
+        self.flatten_into(pool, &mut plan, &mut active, Vec::new())?;
+        Ok(plan)
+    }
+
+    fn flatten_into(
+        &self,
+        pool: &RenderNodePool,
+        plan: &mut FlatRenderPlan,
+        active: &mut Vec<RenderNodeId>,
+        parent_path: Vec<RenderNodeId>,
+    ) -> Result<(), GraphFlattenError> {
+        for &node_id in &self.node_ids {
+            if active.contains(&node_id) {
+                return Err(GraphFlattenError::Cycle(node_id));
+            }
+            let node = pool.get(node_id).ok_or(GraphFlattenError::MissingNode(node_id))?;
+            let mut path = parent_path.clone();
+            path.push(node_id);
+            if let RenderNode::SubGraph { graph, .. } = node {
+                active.push(node_id);
+                graph.flatten_into(pool, plan, active, path.clone())?;
+                active.pop();
+            }
+            plan.nodes.push(FlatRenderNode { node_id, path });
+        }
+        Ok(())
     }
 }
 
@@ -318,5 +429,34 @@ mod tests {
             }
             _ => panic!("Kỳ vọng Node 0 là SubGraph"),
         }
+    }
+
+    #[test]
+    fn flatten_orders_child_nodes_before_subgraph_composite() {
+        let mut pool = RenderNodePool::new();
+        let child_batch = pool.alloc_batch(vec![]);
+        let mut child_graph = RenderGraph::new(RenderTarget::Screen);
+        child_graph.add_node_id(child_batch);
+        let subgraph = pool.alloc_subgraph("child", child_graph, vec![]);
+        let root_batch = pool.alloc_batch(vec![]);
+        let mut root = RenderGraph::new(RenderTarget::Screen);
+        root.add_node_id(subgraph);
+        root.add_node_id(root_batch);
+
+        let plan = root.flatten(&pool).unwrap();
+
+        assert_eq!(plan.nodes.iter().map(|node| node.node_id).collect::<Vec<_>>(), vec![child_batch, subgraph, root_batch]);
+        assert_eq!(plan.nodes[0].path, vec![subgraph, child_batch]);
+    }
+
+    #[test]
+    fn flatten_reports_missing_node() {
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(RenderNodeId(99));
+
+        assert_eq!(
+            graph.flatten(&RenderNodePool::new()),
+            Err(GraphFlattenError::MissingNode(RenderNodeId(99)))
+        );
     }
 }
