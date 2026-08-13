@@ -25,7 +25,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 
 ## Đã thiết kế nhưng chưa implement
 
-- generational handle;
+- generational handle allocator foundation; typed resource store integration vẫn chưa hoàn tất;
 - resource manager có kiểm soát;
 - dependency-aware graph compiler;
 - compute/copy pass;
