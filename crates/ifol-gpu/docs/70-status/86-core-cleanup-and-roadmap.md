@@ -59,7 +59,8 @@ path chỉ vì đổi thư mục nội bộ.
 
 ## Chưa đạt
 
-- compatibility insert API và migration fixture chưa hoàn tất;
+- raw registry insertion đã bị loại khỏi core; resource registration hiện đi qua
+  descriptor contract;
 - draw/compute/copy encoder ở flat-plan, segmented, legacy `compile_graph` và
   render-bundle path đã trả typed error;
 - docs migration/status còn stale;
@@ -72,7 +73,8 @@ path chỉ vì đổi thư mục nội bộ.
 
 1. Đóng băng graph kernel public contract.
 2. Tách source tree theo boundary ở trên, giữ re-export tạm thời.
-3. Migrate examples/tests sang descriptor API và xóa compatibility path.
+3. Migrate examples/tests sang descriptor API và xóa compatibility path — đã hoàn tất
+   cho toàn bộ consumer nội bộ, gồm cả benchmark.
 4. Loại bỏ silent skip trong encoder hoặc biến thành typed internal error.
 5. Chuẩn hóa built-in operation và mở rộng test cho custom extension boundary.
 6. Viết guides thực hành và API baseline cho host.
@@ -97,8 +99,8 @@ Import nội bộ của graph, execution, resources và memory đã chuyển san
 mới; `src/render` không còn là dependency của các layer lõi và chỉ giữ facade
 cho consumer cũ.
 Examples, benchmark và integration test của crate cũng đã chuyển sang public
-module mới; compatibility facade hiện chỉ còn phục vụ consumer bên ngoài chưa
-di trú.
+module mới; compatibility facade còn lại chỉ là re-export module path, không còn
+raw resource insertion trong core.
 `examples/basic_window.rs` đã migrate pipeline và bind group sang descriptor API;
 các example/test fixture còn lại vẫn được theo dõi theo nhóm resource.
 `examples/visual_tests.rs` đã migrate toàn bộ texture target sang owned descriptor

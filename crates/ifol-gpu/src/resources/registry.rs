@@ -217,22 +217,6 @@ impl ResourceRegistry {
         Self::default()
     }
 
-    /// Đăng ký hoặc thay thế texture và tăng version để compiled artifact biết
-    /// rằng resource backing đã thay đổi.
-    pub fn insert_texture(
-        &mut self,
-        handle: TextureHandle,
-        texture: (wgpu::TextureView, wgpu::TextureFormat),
-    ) -> Option<(wgpu::TextureView, wgpu::TextureFormat)> {
-        let old = self.textures.insert(handle, texture);
-        self.owned_textures.remove(&handle);
-        // Compatibility insert không có descriptor mới; không giữ metadata cũ
-        // để tránh validate graph dựa trên texture đã bị thay thế.
-        self.texture_descriptors.remove(&handle);
-        self.bump_texture_version(handle);
-        old
-    }
-
     pub fn texture(&self, handle: &TextureHandle) -> Option<&(wgpu::TextureView, wgpu::TextureFormat)> {
         self.textures.get(handle)
     }
@@ -311,17 +295,6 @@ impl ResourceRegistry {
         self.bump_texture_version(handle);
     }
 
-    pub fn insert_pipeline(
-        &mut self,
-        handle: PipelineHandle,
-        pipeline: wgpu::RenderPipeline,
-    ) -> Option<wgpu::RenderPipeline> {
-        let old = self.pipelines.insert(handle, pipeline);
-        self.pipeline_layout_descriptors.remove(&handle);
-        self.bump_pipeline_version(handle);
-        old
-    }
-
     pub fn insert_pipeline_with_layout_descriptor(
         &mut self,
         handle: PipelineHandle,
@@ -350,17 +323,6 @@ impl ResourceRegistry {
 
     pub fn mark_pipeline_changed(&mut self, handle: PipelineHandle) {
         self.bump_pipeline_version(handle);
-    }
-
-    pub fn insert_compute_pipeline(
-        &mut self,
-        handle: ComputePipelineHandle,
-        pipeline: wgpu::ComputePipeline,
-    ) -> Option<wgpu::ComputePipeline> {
-        let old = self.compute_pipelines.insert(handle, pipeline);
-        self.compute_pipeline_layout_descriptors.remove(&handle);
-        Self::bump_version(&mut self.versions.compute_pipelines, handle);
-        old
     }
 
     pub fn insert_compute_pipeline_with_layout_descriptor(
@@ -393,13 +355,6 @@ impl ResourceRegistry {
         Self::bump_version(&mut self.versions.compute_pipelines, handle);
     }
 
-    pub fn insert_buffer(&mut self, handle: BufferHandle, buffer: wgpu::Buffer) -> Option<wgpu::Buffer> {
-        let old = self.buffers.insert(handle, buffer);
-        self.buffer_descriptors.remove(&handle);
-        Self::bump_version(&mut self.versions.buffers, handle);
-        old
-    }
-
     pub fn insert_buffer_with_descriptor(
         &mut self,
         handle: BufferHandle,
@@ -423,17 +378,6 @@ impl ResourceRegistry {
 
     pub fn contains_mesh(&self, handle: &MeshHandle) -> bool { self.meshes.contains_key(handle) }
 
-    pub fn insert_mesh(
-        &mut self,
-        handle: MeshHandle,
-        mesh: (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32),
-    ) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
-        let old = self.meshes.insert(handle, mesh);
-        self.mesh_descriptors.remove(&handle);
-        Self::bump_version(&mut self.versions.meshes, handle);
-        old
-    }
-
     pub fn insert_mesh_with_descriptor(
         &mut self,
         handle: MeshHandle,
@@ -456,13 +400,6 @@ impl ResourceRegistry {
     }
 
     pub fn contains_bind_group(&self, handle: &BindGroupHandle) -> bool { self.bind_groups.contains_key(handle) }
-
-    pub fn insert_bind_group(&mut self, handle: BindGroupHandle, bind_group: wgpu::BindGroup) -> Option<wgpu::BindGroup> {
-        let old = self.bind_groups.insert(handle, bind_group);
-        self.bind_group_descriptors.remove(&handle);
-        Self::bump_version(&mut self.versions.bind_groups, handle);
-        old
-    }
 
     pub fn insert_bind_group_with_descriptor(
         &mut self,

@@ -16,7 +16,5 @@ Validation của `BufferToBuffer` dùng metadata này để yêu cầu source c�
 `COPY_SRC` và destination có `COPY_DST`, đồng thời vẫn kiểm tra range theo kích
 thước buffer thật.
 
-`insert_buffer` cũ vẫn được giữ cho compatibility với prototype. Buffer đăng ký
-qua API cũ không có usage metadata nên chỉ nhận được các kiểm tra có thể thực
-hiện từ object thật, như tồn tại và bounds; code production nên dùng API có
-descriptor để nhận invariant đầy đủ.
+Raw `insert_buffer` đã bị loại khỏi core. Buffer phải đăng ký qua
+`insert_buffer_with_descriptor` để graph nhận invariant usage và bounds đầy đủ.
