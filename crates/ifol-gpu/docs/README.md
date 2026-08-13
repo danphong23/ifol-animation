@@ -86,6 +86,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 79. [Context-aware bundle cache](79-context-aware-bundle-cache.md)
 80. [Audit trạng thái hiện tại](80-current-audit.md)
 81. [Typed readback errors](81-typed-readback-errors.md)
+82. [Typed texture save errors](82-typed-texture-save-errors.md)
 
 ## Từ vựng trạng thái
 
