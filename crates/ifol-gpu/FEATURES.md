@@ -14,9 +14,9 @@
 | Khả năng | Trạng thái | Ghi chú |
 |---|---|---|
 | Khởi tạo `wgpu` device/queue | Prototype đã implement | Đã có headless initialization. |
-| Adapter capability snapshot | Một phần | Cần feature negotiation và capability model đầy đủ hơn. |
-| Chọn backend rõ ràng | Một phần | Builder lưu cấu hình nhưng instance creation phải thực sự dùng nó. |
-| Cấu hình required feature/limit | Một phần | Field nội bộ có nhưng public builder API chưa đủ. |
+| Adapter capability snapshot | Một phần | Đã giữ limits/features và nhận diện `INDIRECT_FIRST_INSTANCE`; capability tier/fallback còn thiếu. |
+| Chọn backend rõ ràng | Prototype đã implement | `with_backends` áp dụng trực tiếp khi tạo `wgpu::Instance`. |
+| Cấu hình required feature/limit | Prototype đã implement | Builder có setter public; lỗi thiếu capability được trả qua `GpuError`. |
 | Surface/presentation integration | Một phần | Cần thiết kế lại lifecycle và format handling. |
 | Ma trận Windows/macOS/Linux/Web/mobile | Đã lên kế hoạch | Có nền tảng `wgpu`, chưa có platform validation đầy đủ. |
 

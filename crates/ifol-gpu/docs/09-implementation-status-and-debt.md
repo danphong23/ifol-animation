@@ -20,7 +20,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 - multi-viewport reuse: có logical reuse nhưng compiled artifact chưa an toàn theo context;
 - render bundle cache: có nhưng context key và dynamic data invalidation chưa hoàn chỉnh;
 - texture pooling: chỉ là exact-match free-list, chưa phải LRU hay memory manager;
-- capability: có một số field nhưng feature negotiation/API configuration chưa đầy đủ;
+- capability: đã có snapshot limits/features và cờ `INDIRECT_FIRST_INSTANCE`; capability tier và policy fallback vẫn chưa hoàn chỉnh;
 - platform support: có nền tảng `wgpu` nhưng chưa hoàn tất integration theo từng platform.
 
 ## Đã thiết kế nhưng chưa implement

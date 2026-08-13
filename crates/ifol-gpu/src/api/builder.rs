@@ -1,5 +1,5 @@
 use thiserror::Error;
-use wgpu::{Backends, DeviceDescriptor, Features, Limits, MemoryHints, PowerPreference, RequestAdapterOptions};
+use wgpu::{Backends, DeviceDescriptor, Features, InstanceDescriptor, Limits, MemoryHints, PowerPreference, RequestAdapterOptions};
 use crate::api::capabilities::GpuCapabilities;
 
 
@@ -30,9 +30,13 @@ impl<'a> Default for GpuEngineBuilder<'a> {
 
 impl<'a> GpuEngineBuilder<'a> {
     pub fn new() -> Self {
+        let backends = Backends::all();
         Self {
-            instance: wgpu::Instance::default(),
-            backends: Backends::all(),
+            instance: wgpu::Instance::new(InstanceDescriptor {
+                backends,
+                ..InstanceDescriptor::new_without_display_handle()
+            }),
+            backends,
             power_preference: PowerPreference::HighPerformance,
             required_features: Features::empty(),
             required_limits: Limits::downlevel_webgl2_defaults(),
@@ -51,11 +55,25 @@ impl<'a> GpuEngineBuilder<'a> {
 
     pub fn with_backends(mut self, backends: Backends) -> Self {
         self.backends = backends;
+        self.instance = wgpu::Instance::new(InstanceDescriptor {
+            backends,
+            ..InstanceDescriptor::new_without_display_handle()
+        });
         self
     }
 
     pub fn with_power_preference(mut self, pref: PowerPreference) -> Self {
         self.power_preference = pref;
+        self
+    }
+
+    pub fn with_required_features(mut self, features: Features) -> Self {
+        self.required_features = features;
+        self
+    }
+
+    pub fn with_required_limits(mut self, limits: Limits) -> Self {
+        self.required_limits = limits;
         self
     }
 
