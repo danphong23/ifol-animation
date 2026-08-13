@@ -658,7 +658,7 @@ fn execute_non_render_nodes(
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
             }
-            encode_compute_commands(encoder, registry, node.compute_commands(), max_bind_groups);
+            encode_compute_commands(encoder, registry, node.compute_commands(), max_bind_groups)?;
             if node.commands().is_empty() { continue; }
 
             let color_attachments = [Some(wgpu::RenderPassColorAttachment {
@@ -693,7 +693,7 @@ fn execute_non_render_nodes(
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            encode_draw_commands(&mut render_pass, registry, node.commands(), max_bind_groups);
+            encode_draw_commands(&mut render_pass, registry, node.commands(), max_bind_groups)?;
             drop(render_pass);
             rendered_any = true;
         }
@@ -763,7 +763,7 @@ fn execute_non_render_nodes(
                 registry,
                 node.compute_commands(),
                 engine.capabilities().max_bind_groups,
-            );
+            )?;
             if node.commands().is_empty() {
                 continue;
             }
@@ -825,7 +825,7 @@ fn execute_non_render_nodes(
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            encode_draw_commands(&mut render_pass, registry, node.commands(), engine.capabilities().max_bind_groups);
+            encode_draw_commands(&mut render_pass, registry, node.commands(), engine.capabilities().max_bind_groups)?;
             drop(render_pass);
             let _ = (color_format, depth_format, sample_count);
         }
@@ -1149,31 +1149,41 @@ fn encode_compute_commands(
     registry: &ResourceRegistry,
     commands: &[crate::graph::ComputeCommand],
     max_bind_groups: u32,
-) {
-    if commands.is_empty() { return; }
+) -> Result<(), RenderGraphValidationError> {
+    if commands.is_empty() { return Ok(()); }
     let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("RenderGraphComputePass"), timestamp_writes: None });
     let mut current_pipeline = None;
     let mut current_bind_groups = vec![None; max_bind_groups as usize];
     for command in commands {
         if current_pipeline != Some(command.pipeline) {
-            let Some(pipeline) = registry.compute_pipeline(&command.pipeline) else { continue; };
+            let Some(pipeline) = registry.compute_pipeline(&command.pipeline) else {
+                return Err(RenderGraphValidationError::MissingComputePipeline(command.pipeline));
+            };
             compute_pass.set_pipeline(pipeline);
             current_pipeline = Some(command.pipeline);
         }
         for &(slot, bind_group, ref offsets) in &command.bind_groups {
-            let Some(slot_index) = bind_group_slot_index(slot, max_bind_groups) else { continue; };
+            let Some(slot_index) = bind_group_slot_index(slot, max_bind_groups) else {
+                return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: max_bind_groups });
+            };
             if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                let Some(group) = registry.bind_group(&bind_group) else { continue; };
+                let Some(group) = registry.bind_group(&bind_group) else {
+                    return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
+                };
                 compute_pass.set_bind_group(slot, group, offsets);
                 current_bind_groups[slot_index] = Some(bind_group);
             }
         }
         if let Some((buffer, offset)) = command.indirect {
-            if let Some(indirect) = registry.buffer(&buffer) { compute_pass.dispatch_workgroups_indirect(indirect, offset); }
+            let Some(indirect) = registry.buffer(&buffer) else {
+                return Err(RenderGraphValidationError::MissingIndirectBuffer(buffer));
+            };
+            compute_pass.dispatch_workgroups_indirect(indirect, offset);
         } else {
             compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
         }
     }
+    Ok(())
 }
 
 fn encode_draw_commands(
@@ -1181,26 +1191,34 @@ fn encode_draw_commands(
     registry: &ResourceRegistry,
     commands: &[crate::graph::DrawCommand],
     max_bind_groups: u32,
-) {
+) -> Result<(), RenderGraphValidationError> {
     let mut current_pipeline = None;
     let mut current_bind_groups = vec![None; max_bind_groups as usize];
     for command in commands {
         if current_pipeline != Some(command.pipeline) {
-            let Some(pipeline) = registry.pipeline(&command.pipeline) else { continue; };
+            let Some(pipeline) = registry.pipeline(&command.pipeline) else {
+                return Err(RenderGraphValidationError::MissingPipeline(command.pipeline));
+            };
             render_pass.set_pipeline(pipeline);
             current_pipeline = Some(command.pipeline);
         }
         for &(slot, bind_group, ref offsets) in &command.bind_groups {
-            let Some(slot_index) = bind_group_slot_index(slot, max_bind_groups) else { continue; };
+            let Some(slot_index) = bind_group_slot_index(slot, max_bind_groups) else {
+                return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: max_bind_groups });
+            };
             if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                let Some(group) = registry.bind_group(&bind_group) else { continue; };
+                let Some(group) = registry.bind_group(&bind_group) else {
+                    return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
+                };
                 render_pass.set_bind_group(slot, group, offsets);
                 current_bind_groups[slot_index] = Some(bind_group);
             }
         }
         match &command.action {
             DrawAction::Indexed { mesh, index_range, instance_range } => {
-                let Some((vbo, ibo_info, _)) = registry.mesh(mesh) else { continue; };
+                let Some((vbo, ibo_info, _)) = registry.mesh(mesh) else {
+                    return Err(RenderGraphValidationError::MissingMesh(*mesh));
+                };
                 render_pass.set_vertex_buffer(0, vbo.slice(..));
                 if let Some((ibo, format)) = ibo_info {
                     render_pass.set_index_buffer(ibo.slice(..), *format);
@@ -1211,19 +1229,28 @@ fn encode_draw_commands(
             }
             DrawAction::Procedural { vertex_count, instance_range } => render_pass.draw(0..*vertex_count, instance_range.clone()),
             DrawAction::Indirect { buffer, offset } => {
-                if let Some(indirect) = registry.buffer(buffer) { render_pass.draw_indirect(indirect, *offset); }
+                let Some(indirect) = registry.buffer(buffer) else {
+                    return Err(RenderGraphValidationError::MissingIndirectBuffer(*buffer));
+                };
+                render_pass.draw_indirect(indirect, *offset);
             }
             DrawAction::IndexedIndirect { mesh, buffer, offset } => {
-                if let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) {
-                    if let Some(indirect) = registry.buffer(buffer) {
-                        render_pass.set_vertex_buffer(0, vbo.slice(..));
-                        render_pass.set_index_buffer(ibo.slice(..), *format);
-                        render_pass.draw_indexed_indirect(indirect, *offset);
+                let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) else {
+                    if !registry.contains_mesh(mesh) {
+                        return Err(RenderGraphValidationError::MissingMesh(*mesh));
                     }
-                }
+                    return Err(RenderGraphValidationError::MissingIndexBuffer(*mesh));
+                };
+                let Some(indirect) = registry.buffer(buffer) else {
+                    return Err(RenderGraphValidationError::MissingIndirectBuffer(*buffer));
+                };
+                render_pass.set_vertex_buffer(0, vbo.slice(..));
+                render_pass.set_index_buffer(ibo.slice(..), *format);
+                render_pass.draw_indexed_indirect(indirect, *offset);
             }
         }
     }
+    Ok(())
 }
 
 fn validate_graph(
@@ -1619,7 +1646,7 @@ fn validate_indirect_buffer(
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
-    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, encode_compute_commands, encode_draw_commands, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
     use crate::memory::SubmissionTracker;
     use crate::graph::{ComputeCommand, CopyCommand, DrawAction, DrawCommand, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceAccess, ResourceSubresource};
@@ -1650,6 +1677,52 @@ mod tests {
         assert_eq!(bind_group_slot_index(4, 4), None);
         assert_eq!(bind_group_slot_index(7, 8), Some(7));
         assert_eq!(bind_group_slot_index(u32::MAX, 8), None);
+    }
+
+    #[test]
+    fn flat_compute_encoder_reports_missing_pipeline_instead_of_skipping() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("missing-compute-pipeline") });
+        let command = ComputeCommand::new(ComputePipelineHandle(701), [1, 1, 1]);
+        assert_eq!(
+            encode_compute_commands(&mut encoder, &ResourceRegistry::new(), &[command], 4),
+            Err(RenderGraphValidationError::MissingComputePipeline(ComputePipelineHandle(701)))
+        );
+    }
+
+    #[test]
+    fn flat_draw_encoder_reports_missing_pipeline_instead_of_skipping() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("missing-render-pipeline") });
+        let view = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("missing-render-pipeline-target"),
+            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        }).create_view(&wgpu::TextureViewDescriptor::default());
+        let color_attachments = [Some(wgpu::RenderPassColorAttachment {
+            view: &view,
+            depth_slice: None,
+            resolve_target: None,
+            ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Discard },
+        })];
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("missing-render-pipeline-pass"),
+            color_attachments: &color_attachments,
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        let command = DrawCommand::new(PipelineHandle(702), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 });
+        assert_eq!(
+            encode_draw_commands(&mut pass, &ResourceRegistry::new(), &[command], 4),
+            Err(RenderGraphValidationError::MissingPipeline(PipelineHandle(702)))
+        );
     }
 
     #[test]
