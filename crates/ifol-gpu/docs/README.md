@@ -91,6 +91,12 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 84. [Thực thi theo flat execution plan](84-flat-plan-execution.md)
 85. [Validation cấu trúc texture descriptor](85-texture-descriptor-structural-validation.md)
 
+86. [Boundary, cleanup và roadmap core](86-core-cleanup-and-roadmap.md)
+87. [Hướng dẫn nhanh](87-guide-getting-started.md)
+88. [Hướng dẫn pipeline và shader](88-guide-pipeline-and-shader.md)
+89. [Hướng dẫn xây dựng graph](89-guide-building-a-graph.md)
+90. [Public API và extension boundary](90-guide-public-api-and-extensions.md)
+
 ## Từ vựng trạng thái
 
 - **Đã implement**: đã có và được kiểm chứng trong crate hiện tại;
