@@ -13,6 +13,8 @@ pub enum GpuError {
     DeviceRequestFailed(#[from] wgpu::RequestDeviceError),
     #[error("GPU adapter does not satisfy requested capabilities: {0}")]
     InsufficientCapabilities(#[from] crate::api::capabilities::CapabilityError),
+    #[error("selected adapter cannot configure the provided surface")]
+    SurfaceUnsupported,
 }
 
 pub struct GpuEngineBuilder<'a> {
@@ -126,10 +128,11 @@ impl<'a> GpuEngineBuilder<'a> {
 
         let mut surface_config = None;
         if let Some(surface) = &self.surface {
-            if let Some(config) = surface.get_default_config(&adapter, 1, 1) {
-                surface.configure(&device, &config);
-                surface_config = Some(config);
-            }
+            let Some(config) = surface.get_default_config(&adapter, 1, 1) else {
+                return Err(GpuError::SurfaceUnsupported);
+            };
+            surface.configure(&device, &config);
+            surface_config = Some(config);
         }
 
         Ok(crate::api::engine::GpuEngine::new(device, queue, capabilities, self.surface, surface_config))
