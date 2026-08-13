@@ -142,6 +142,8 @@ impl ResourceRegistry {
         self.textures.get(handle)
     }
 
+    pub fn contains_texture(&self, handle: &TextureHandle) -> bool { self.textures.contains_key(handle) }
+
     pub fn insert_texture_with_descriptor(
         &mut self,
         handle: TextureHandle,
@@ -215,6 +217,8 @@ impl ResourceRegistry {
         self.pipelines.get(handle)
     }
 
+    pub fn contains_pipeline(&self, handle: &PipelineHandle) -> bool { self.pipelines.contains_key(handle) }
+
     pub fn pipeline_version(&self, handle: &PipelineHandle) -> ResourceVersion {
         self.versions.pipelines.get(handle).copied().unwrap_or(0)
     }
@@ -236,6 +240,8 @@ impl ResourceRegistry {
     pub fn compute_pipeline(&self, handle: &ComputePipelineHandle) -> Option<&wgpu::ComputePipeline> {
         self.compute_pipelines.get(handle)
     }
+
+    pub fn contains_compute_pipeline(&self, handle: &ComputePipelineHandle) -> bool { self.compute_pipelines.contains_key(handle) }
 
     pub fn compute_pipeline_version(&self, handle: &ComputePipelineHandle) -> ResourceVersion {
         self.versions.compute_pipelines.get(handle).copied().unwrap_or(0)
@@ -266,6 +272,26 @@ impl ResourceRegistry {
     }
 
     pub fn buffer(&self, handle: &BufferHandle) -> Option<&wgpu::Buffer> { self.buffers.get(handle) }
+
+    pub fn contains_buffer(&self, handle: &BufferHandle) -> bool { self.buffers.contains_key(handle) }
+
+    pub fn mesh(&self, handle: &MeshHandle) -> Option<&(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
+        self.meshes.get(handle)
+    }
+
+    pub fn contains_mesh(&self, handle: &MeshHandle) -> bool { self.meshes.contains_key(handle) }
+
+    pub fn bind_group(&self, handle: &BindGroupHandle) -> Option<&wgpu::BindGroup> {
+        self.bind_groups.get(handle)
+    }
+
+    pub fn contains_bind_group(&self, handle: &BindGroupHandle) -> bool { self.bind_groups.contains_key(handle) }
+
+    pub fn insert_bind_group(&mut self, handle: BindGroupHandle, bind_group: wgpu::BindGroup) -> Option<wgpu::BindGroup> {
+        let old = self.bind_groups.insert(handle, bind_group);
+        Self::bump_version(&mut self.versions.bind_groups, handle);
+        old
+    }
 
     pub fn buffer_descriptor(&self, handle: &BufferHandle) -> Option<&BufferResourceDescriptor> {
         self.buffer_descriptors.get(handle)

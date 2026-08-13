@@ -178,7 +178,7 @@ impl RenderGraphExecutor {
                 let mut current_bind_groups = [None; 4];
                 for command in node.compute_commands() {
                     if current_pipeline != Some(command.pipeline) {
-                        if let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) {
+                        if let Some(pipeline) = registry.compute_pipeline(&command.pipeline) {
                             compute_pass.set_pipeline(pipeline);
                             current_pipeline = Some(command.pipeline);
                         } else { continue; }
@@ -186,7 +186,7 @@ impl RenderGraphExecutor {
                     for &(slot, bind_group, ref offsets) in &command.bind_groups {
                         let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
                         if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                            if let Some(group) = registry.bind_groups.get(&bind_group) {
+                            if let Some(group) = registry.bind_group(&bind_group) {
                                 compute_pass.set_bind_group(slot, group, offsets);
                                 current_bind_groups[slot_index] = Some(bind_group);
                             }
@@ -291,9 +291,9 @@ impl RenderGraphExecutor {
                 // theo backend hoặc theo format mặc định của một cửa sổ cụ thể.
                 surface_view
                     .zip(engine.surface_format())
-                    .or_else(|| registry.textures.get(&TextureHandle(0)).map(|(v, f)| (v, *f)))
+                    .or_else(|| registry.texture(&TextureHandle(0)).map(|(v, f)| (v, *f)))
             }
-            RenderTarget::Offscreen { color, .. } => registry.textures.get(color).map(|(v, f)| (v, *f)),
+            RenderTarget::Offscreen { color, .. } => registry.texture(color).map(|(v, f)| (v, *f)),
         };
 
         let Some((color_view, color_format)) = target_view_info else {
@@ -301,7 +301,7 @@ impl RenderGraphExecutor {
             return;
         };
 
-        let depth_stencil_info = graph.depth_stencil.and_then(|handle| registry.textures.get(&handle));
+        let depth_stencil_info = graph.depth_stencil.and_then(|handle| registry.texture(&handle));
         let depth_format = depth_stencil_info.map(|(_, f)| *f);
 
         let has_draw = ordered_ids.iter().any(|id| pool.get(*id).is_some_and(|node| !node.commands().is_empty()));
@@ -351,7 +351,7 @@ impl RenderGraphExecutor {
 
                 for cmd in node.commands() {
                     if current_pipeline != Some(cmd.pipeline) {
-                        if let Some(pipe) = registry.pipelines.get(&cmd.pipeline) {
+                        if let Some(pipe) = registry.pipeline(&cmd.pipeline) {
                             bundle_encoder.set_pipeline(pipe);
                             current_pipeline = Some(cmd.pipeline);
                         } else { continue; }
@@ -361,7 +361,7 @@ impl RenderGraphExecutor {
                         let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
                         // Rebind if changed, or if there are dynamic offsets (offsets mutate per instance)
                         if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
-                            if let Some(bg) = registry.bind_groups.get(&bg_handle) {
+                            if let Some(bg) = registry.bind_group(&bg_handle) {
                                 bundle_encoder.set_bind_group(slot, bg, offsets);
                                 current_bind_groups[slot_index] = Some(bg_handle);
                             }
@@ -370,7 +370,7 @@ impl RenderGraphExecutor {
 
                     match &cmd.action {
                         DrawAction::Indexed { mesh, index_range, instance_range } => {
-                            if let Some((vbo, ibo_info, _)) = registry.meshes.get(mesh) {
+                            if let Some((vbo, ibo_info, _)) = registry.mesh(mesh) {
                                 bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
                                 if let Some((ibo, format)) = ibo_info {
                                     bundle_encoder.set_index_buffer(ibo.slice(..), *format);
@@ -421,7 +421,7 @@ impl RenderGraphExecutor {
             let mut current_bind_groups = [None; 4];
             for command in node.compute_commands() {
                 if current_pipeline != Some(command.pipeline) {
-                    if let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) {
+                    if let Some(pipeline) = registry.compute_pipeline(&command.pipeline) {
                         compute_pass.set_pipeline(pipeline);
                         current_pipeline = Some(command.pipeline);
                     } else { continue; }
@@ -429,7 +429,7 @@ impl RenderGraphExecutor {
                 for &(slot, bind_group, ref offsets) in &command.bind_groups {
                     let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
                     if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                        if let Some(group) = registry.bind_groups.get(&bind_group) {
+                        if let Some(group) = registry.bind_group(&bind_group) {
                             compute_pass.set_bind_group(slot, group, offsets);
                             current_bind_groups[slot_index] = Some(bind_group);
                         }
@@ -488,7 +488,7 @@ impl RenderGraphExecutor {
                 // IMMEDIATE MODE
                 for cmd in node.commands() {
                     if current_pipeline != Some(cmd.pipeline) {
-                        if let Some(pipe) = registry.pipelines.get(&cmd.pipeline) {
+                        if let Some(pipe) = registry.pipeline(&cmd.pipeline) {
                             render_pass.set_pipeline(pipe);
                             current_pipeline = Some(cmd.pipeline);
                         } else { continue; }
@@ -497,7 +497,7 @@ impl RenderGraphExecutor {
                     for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
                         let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
                         if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
-                            if let Some(bg) = registry.bind_groups.get(&bg_handle) {
+                            if let Some(bg) = registry.bind_group(&bg_handle) {
                                 render_pass.set_bind_group(slot, bg, offsets);
                                 current_bind_groups[slot_index] = Some(bg_handle);
                             }
@@ -506,7 +506,7 @@ impl RenderGraphExecutor {
 
                     match &cmd.action {
                         DrawAction::Indexed { mesh, index_range, instance_range } => {
-                            if let Some((vbo, ibo_info, _)) = registry.meshes.get(mesh) {
+                            if let Some((vbo, ibo_info, _)) = registry.mesh(mesh) {
                                 render_pass.set_vertex_buffer(0, vbo.slice(..));
                                 if let Some((ibo, format)) = ibo_info {
                                     render_pass.set_index_buffer(ibo.slice(..), *format);
@@ -537,14 +537,14 @@ fn encode_compute_commands(
     let mut current_bind_groups = [None; 4];
     for command in commands {
         if current_pipeline != Some(command.pipeline) {
-            let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) else { continue; };
+            let Some(pipeline) = registry.compute_pipeline(&command.pipeline) else { continue; };
             compute_pass.set_pipeline(pipeline);
             current_pipeline = Some(command.pipeline);
         }
         for &(slot, bind_group, ref offsets) in &command.bind_groups {
             let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
             if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                let Some(group) = registry.bind_groups.get(&bind_group) else { continue; };
+                let Some(group) = registry.bind_group(&bind_group) else { continue; };
                 compute_pass.set_bind_group(slot, group, offsets);
                 current_bind_groups[slot_index] = Some(bind_group);
             }
@@ -562,21 +562,21 @@ fn encode_draw_commands(
     let mut current_bind_groups = [None; 4];
     for command in commands {
         if current_pipeline != Some(command.pipeline) {
-            let Some(pipeline) = registry.pipelines.get(&command.pipeline) else { continue; };
+            let Some(pipeline) = registry.pipeline(&command.pipeline) else { continue; };
             render_pass.set_pipeline(pipeline);
             current_pipeline = Some(command.pipeline);
         }
         for &(slot, bind_group, ref offsets) in &command.bind_groups {
             let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
             if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                let Some(group) = registry.bind_groups.get(&bind_group) else { continue; };
+                let Some(group) = registry.bind_group(&bind_group) else { continue; };
                 render_pass.set_bind_group(slot, group, offsets);
                 current_bind_groups[slot_index] = Some(bind_group);
             }
         }
         match &command.action {
             DrawAction::Indexed { mesh, index_range, instance_range } => {
-                let Some((vbo, ibo_info, _)) = registry.meshes.get(mesh) else { continue; };
+                let Some((vbo, ibo_info, _)) = registry.mesh(mesh) else { continue; };
                 render_pass.set_vertex_buffer(0, vbo.slice(..));
                 if let Some((ibo, format)) = ibo_info {
                     render_pass.set_index_buffer(ibo.slice(..), *format);
@@ -606,7 +606,7 @@ fn validate_graph(
             if width == 0 || height == 0 {
                 return Err(RenderGraphValidationError::InvalidTargetSize { width, height });
             }
-            if !registry.textures.contains_key(&color) {
+            if !registry.contains_texture(&color) {
                 return Err(RenderGraphValidationError::MissingTexture(color));
             }
             if let Some(descriptor) = registry.texture_descriptor(&color) {
@@ -632,7 +632,7 @@ fn validate_graph(
     }
 
     if let Some(depth) = graph.depth_stencil {
-        if !registry.textures.contains_key(&depth) {
+        if !registry.contains_texture(&depth) {
             return Err(RenderGraphValidationError::MissingTexture(depth));
         }
         if let Some(descriptor) = registry.texture_descriptor(&depth) {
@@ -650,32 +650,32 @@ fn validate_graph(
     for &node_id in &graph.node_ids {
         let node = pool.get(node_id).ok_or(RenderGraphValidationError::MissingNode(node_id))?;
         for command in node.commands() {
-            if !registry.pipelines.contains_key(&command.pipeline) {
+            if !registry.contains_pipeline(&command.pipeline) {
                 return Err(RenderGraphValidationError::MissingPipeline(command.pipeline));
             }
             for &(slot, bind_group, _) in &command.bind_groups {
                 if bind_group_slot_index(slot).is_none() {
                     return Err(RenderGraphValidationError::InvalidBindGroupSlot(slot));
                 }
-                if !registry.bind_groups.contains_key(&bind_group) {
+                if !registry.contains_bind_group(&bind_group) {
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
                 }
             }
             if let DrawAction::Indexed { mesh, .. } = command.action {
-                if !registry.meshes.contains_key(&mesh) {
+                if !registry.contains_mesh(&mesh) {
                     return Err(RenderGraphValidationError::MissingMesh(mesh));
                 }
             }
         }
         for command in node.compute_commands() {
-            if !registry.compute_pipelines.contains_key(&command.pipeline) {
+            if !registry.contains_compute_pipeline(&command.pipeline) {
                 return Err(RenderGraphValidationError::MissingComputePipeline(command.pipeline));
             }
             for &(slot, bind_group, _) in &command.bind_groups {
                 if bind_group_slot_index(slot).is_none() {
                     return Err(RenderGraphValidationError::InvalidBindGroupSlot(slot));
                 }
-                if !registry.bind_groups.contains_key(&bind_group) {
+                if !registry.contains_bind_group(&bind_group) {
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
                 }
             }
@@ -683,10 +683,10 @@ fn validate_graph(
         for command in node.copy_commands() {
             match command {
                 CopyCommand::BufferToBuffer { source, destination, source_offset, destination_offset, size } => {
-                    let Some(source_buffer) = registry.buffers.get(source) else {
+                    let Some(source_buffer) = registry.buffer(source) else {
                         return Err(RenderGraphValidationError::MissingBuffer(*source));
                     };
-                    let Some(destination_buffer) = registry.buffers.get(destination) else {
+                    let Some(destination_buffer) = registry.buffer(destination) else {
                         return Err(RenderGraphValidationError::MissingBuffer(*destination));
                     };
                     if let Some(descriptor) = registry.buffer_descriptor(source) {
@@ -719,8 +719,8 @@ fn validate_graph(
 fn encode_copy_command(encoder: &mut wgpu::CommandEncoder, registry: &ResourceRegistry, command: &CopyCommand) {
     match command {
         CopyCommand::BufferToBuffer { source, destination, source_offset, destination_offset, size } => {
-            let Some(source_buffer) = registry.buffers.get(source) else { return; };
-            let Some(destination_buffer) = registry.buffers.get(destination) else { return; };
+            let Some(source_buffer) = registry.buffer(source) else { return; };
+            let Some(destination_buffer) = registry.buffer(destination) else { return; };
             encoder.copy_buffer_to_buffer(source_buffer, *source_offset, destination_buffer, *destination_offset, *size);
         }
         CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
@@ -747,8 +747,8 @@ fn validate_texture_copy(
     destination_origin: [u32; 3],
     extent: [u32; 3],
 ) -> Result<(), RenderGraphValidationError> {
-    if !registry.textures.contains_key(&source) { return Err(RenderGraphValidationError::MissingTexture(source)); }
-    if !registry.textures.contains_key(&destination) { return Err(RenderGraphValidationError::MissingTexture(destination)); }
+    if !registry.contains_texture(&source) { return Err(RenderGraphValidationError::MissingTexture(source)); }
+    if !registry.contains_texture(&destination) { return Err(RenderGraphValidationError::MissingTexture(destination)); }
     let Some(source_texture) = registry.owned_texture(&source) else { return Err(RenderGraphValidationError::MissingOwnedTexture(source)); };
     let Some(destination_texture) = registry.owned_texture(&destination) else { return Err(RenderGraphValidationError::MissingOwnedTexture(destination)); };
     let _ = (source_texture, destination_texture);
@@ -1196,7 +1196,7 @@ mod tests {
         registry.insert_buffer(BufferHandle(1), buffer);
         registry.insert_buffer(BufferHandle(2), staging);
         registry.insert_compute_pipeline(ComputePipelineHandle(1), pipeline);
-        registry.bind_groups.insert(BindGroupHandle(1), bind_group);
+        registry.insert_bind_group(BindGroupHandle(1), bind_group);
         let mut pool = RenderNodePool::new();
         let mut graph = RenderGraph::new(RenderTarget::Screen);
         graph.add_compute_batch(&mut pool, vec![ComputeCommand::new(ComputePipelineHandle(1), [1, 1, 1]).with_bind_group(0, BindGroupHandle(1), vec![])]);
