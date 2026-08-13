@@ -115,7 +115,7 @@ impl<'a> GpuEngine<'a> {
             return Err("Failed to map buffer (receiver dropped)");
         }
         
-        let data = slice.get_mapped_range().unwrap();
+        let data = slice.get_mapped_range().map_err(|_| "Failed to access mapped readback buffer")?;
         let mut pixels = Vec::with_capacity((width * height * bytes_per_pixel) as usize);
         for row in 0..height {
             let start = (row * padded_bytes) as usize;
