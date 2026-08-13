@@ -8,7 +8,10 @@ use winit::{
 use ifol_gpu::api::{GpuEngine, GpuEngineBuilder};
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
-use ifol_gpu::resources::{BindGroupHandle, PipelineHandle, ResourceRegistry};
+use ifol_gpu::resources::{
+    BindGroupHandle, BindGroupResourceDescriptor, PipelineHandle,
+    PipelineLayoutResourceDescriptor, ResourceRegistry,
+};
 
 struct App<'a> {
     window: Option<Arc<Window>>,
@@ -131,7 +134,15 @@ impl<'a> ApplicationHandler for App<'a> {
             ],
             label: Some("diffuse_bind_group"),
         });
-        self.registry.insert_bind_group(BindGroupHandle(1), bind_group);
+        self.registry.insert_bind_group_with_descriptor(
+            BindGroupHandle(1),
+            bind_group,
+            BindGroupResourceDescriptor {
+                dynamic_offset_count: 0,
+                dynamic_offset_alignment: 0,
+                layout_signature: 1,
+            },
+        ).unwrap();
 
         let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
@@ -183,7 +194,13 @@ impl<'a> ApplicationHandler for App<'a> {
             multiview_mask: None,
             cache: None,
         });
-        self.registry.insert_pipeline(PipelineHandle(1), pipeline);
+        self.registry.insert_pipeline_with_layout_descriptor(
+            PipelineHandle(1),
+            pipeline,
+            PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: vec![Some(1)],
+            },
+        );
 
         self.engine = Some(engine);
         

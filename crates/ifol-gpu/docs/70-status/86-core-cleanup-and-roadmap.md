@@ -99,6 +99,8 @@ cho consumer cũ.
 Examples, benchmark và integration test của crate cũng đã chuyển sang public
 module mới; compatibility facade hiện chỉ còn phục vụ consumer bên ngoài chưa
 di trú.
+`examples/basic_window.rs` đã migrate pipeline và bind group sang descriptor API;
+các example/test fixture còn lại vẫn được theo dõi theo nhóm resource.
 `TextureCache` alias đã bị xóa vì không còn consumer; code dùng
 `TransientTexturePool` phải gọi đúng semantics.
 `Extension` node đã có representation trong graph và được flatten theo usage;
