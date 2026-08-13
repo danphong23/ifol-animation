@@ -60,8 +60,8 @@ path chỉ vì đổi thư mục nội bộ.
 ## Chưa đạt
 
 - compatibility insert API và migration fixture chưa hoàn tất;
-- encoder của flat-plan/segmented path đã trả typed error; legacy `compile_graph`
-  và render-bundle path vẫn còn nhánh silent skip cần migrate;
+- draw/compute encoder ở flat-plan, segmented, legacy `compile_graph` và
+  render-bundle path đã trả typed error; copy encoder vẫn cần migrate;
 - docs migration/status còn stale;
 - pipeline layout mới là host metadata, chưa có shader reflection;
 - capability/format matrix và runtime matrix đa platform chưa đủ evidence;
@@ -103,6 +103,5 @@ di trú.
 `TransientTexturePool` phải gọi đúng semantics.
 `Extension` node đã có representation trong graph và được flatten theo usage;
 executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.
-Flat-plan/segmented draw và compute encoder đã fail-closed khi thiếu pipeline,
-bind group, mesh hoặc indirect buffer; legacy encoder path vẫn là task cleanup
-riêng.
+Mọi draw/compute encoder hiện fail-closed khi thiếu pipeline, bind group, mesh
+hoặc indirect buffer; copy encoder vẫn là task cleanup riêng.

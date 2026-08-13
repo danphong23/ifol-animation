@@ -561,7 +561,9 @@ fn execution_counts_for_graph(
     let mut indirect = 0;
     let usages = Self::declared_usage_count(pool, graph);
     for flat_node in &plan.nodes {
-        let Some(node) = pool.get(flat_node.node_id) else { continue; };
+        let Some(node) = pool.get(flat_node.node_id) else {
+            return Err(RenderGraphValidationError::MissingNode(flat_node.node_id));
+        };
         draws += node.commands().len();
         computes += node.compute_commands().len();
         copies += node.copy_commands().len();
@@ -599,40 +601,14 @@ fn execute_non_render_nodes(
         node_ids: &[RenderNodeId],
     ) -> Result<(), RenderGraphValidationError> {
         for &node_id in node_ids {
-            let Some(node) = pool.get(node_id) else { continue; };
+            let Some(node) = pool.get(node_id) else {
+                return Err(RenderGraphValidationError::MissingNode(node_id));
+            };
             self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
             }
-            if !node.compute_commands().is_empty() {
-                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("RenderGraphComputePass"), timestamp_writes: None,
-                });
-                let mut current_pipeline = None;
-                let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
-                for command in node.compute_commands() {
-                    if current_pipeline != Some(command.pipeline) {
-                        if let Some(pipeline) = registry.compute_pipeline(&command.pipeline) {
-                            compute_pass.set_pipeline(pipeline);
-                            current_pipeline = Some(command.pipeline);
-                        } else { continue; }
-                    }
-                    for &(slot, bind_group, ref offsets) in &command.bind_groups {
-                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
-                        if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                            if let Some(group) = registry.bind_group(&bind_group) {
-                                compute_pass.set_bind_group(slot, group, offsets);
-                                current_bind_groups[slot_index] = Some(bind_group);
-                            }
-                        }
-                    }
-                    if let Some((buffer, offset)) = command.indirect {
-                        if let Some(indirect) = registry.buffer(&buffer) { compute_pass.dispatch_workgroups_indirect(indirect, offset); }
-                    } else {
-                        compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
-                    }
-                }
-            }
+            encode_compute_commands(encoder, registry, node.compute_commands(), engine.capabilities().max_bind_groups)?;
         }
         Ok(())
     }
@@ -653,7 +629,9 @@ fn execute_non_render_nodes(
     ) -> Result<(), RenderGraphValidationError> {
         let mut rendered_any = false;
         for &node_id in node_ids {
-            let Some(node) = pool.get(node_id) else { continue; };
+            let Some(node) = pool.get(node_id) else {
+                return Err(RenderGraphValidationError::MissingNode(node_id));
+            };
             self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
@@ -916,7 +894,9 @@ fn execute_non_render_nodes(
         for &node_id in &node_ids {
             let expected_bundle_key = pool.get(node_id)
                 .map(|node| bundle_cache_key(node, registry, color_format, depth_format, sample_count, self.context_key));
-            let Some(node) = pool.get_mut(node_id) else { continue; };
+            let Some(node) = pool.get_mut(node_id) else {
+                return Err(RenderGraphValidationError::MissingNode(node_id));
+            };
             if node.use_bundle() && (node.is_dirty() || node.bundle().is_none() || node.bundle_key() != expected_bundle_key) {
                 let mut bundle_encoder = engine.device().create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
                     label: Some("RenderBundleEncoder"),
@@ -938,46 +918,60 @@ fn execute_non_render_nodes(
                         if let Some(pipe) = registry.pipeline(&cmd.pipeline) {
                             bundle_encoder.set_pipeline(pipe);
                             current_pipeline = Some(cmd.pipeline);
-                        } else { continue; }
+                        } else {
+                            return Err(RenderGraphValidationError::MissingPipeline(cmd.pipeline));
+                        }
                     }
 
                     for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
-                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
+                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else {
+                            return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: engine.capabilities().max_bind_groups });
+                        };
                         // Rebind if changed, or if there are dynamic offsets (offsets mutate per instance)
                         if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
-                            if let Some(bg) = registry.bind_group(&bg_handle) {
-                                bundle_encoder.set_bind_group(slot, bg, offsets);
-                                current_bind_groups[slot_index] = Some(bg_handle);
-                            }
+                            let Some(bg) = registry.bind_group(&bg_handle) else {
+                                return Err(RenderGraphValidationError::MissingBindGroup(bg_handle));
+                            };
+                            bundle_encoder.set_bind_group(slot, bg, offsets);
+                            current_bind_groups[slot_index] = Some(bg_handle);
                         }
                     }
 
                     match &cmd.action {
                         DrawAction::Indexed { mesh, index_range, instance_range } => {
-                            if let Some((vbo, ibo_info, _)) = registry.mesh(mesh) {
-                                bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
-                                if let Some((ibo, format)) = ibo_info {
-                                    bundle_encoder.set_index_buffer(ibo.slice(..), *format);
-                                    bundle_encoder.draw_indexed(index_range.clone(), 0, instance_range.clone());
-                                } else {
-                                    bundle_encoder.draw(index_range.clone(), instance_range.clone());
-                                }
+                            let Some((vbo, ibo_info, _)) = registry.mesh(mesh) else {
+                                return Err(RenderGraphValidationError::MissingMesh(*mesh));
+                            };
+                            bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
+                            if let Some((ibo, format)) = ibo_info {
+                                bundle_encoder.set_index_buffer(ibo.slice(..), *format);
+                                bundle_encoder.draw_indexed(index_range.clone(), 0, instance_range.clone());
+                            } else {
+                                bundle_encoder.draw(index_range.clone(), instance_range.clone());
                             }
                         }
                         DrawAction::Procedural { vertex_count, instance_range } => {
                             bundle_encoder.draw(0..*vertex_count, instance_range.clone());
                         }
                         DrawAction::Indirect { buffer, offset } => {
-                            if let Some(indirect) = registry.buffer(buffer) { bundle_encoder.draw_indirect(indirect, *offset); }
+                            let Some(indirect) = registry.buffer(buffer) else {
+                                return Err(RenderGraphValidationError::MissingIndirectBuffer(*buffer));
+                            };
+                            bundle_encoder.draw_indirect(indirect, *offset);
                         }
                         DrawAction::IndexedIndirect { mesh, buffer, offset } => {
-                            if let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) {
-                                if let Some(indirect) = registry.buffer(buffer) {
-                                    bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
-                                    bundle_encoder.set_index_buffer(ibo.slice(..), *format);
-                                    bundle_encoder.draw_indexed_indirect(indirect, *offset);
+                            let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) else {
+                                if !registry.contains_mesh(mesh) {
+                                    return Err(RenderGraphValidationError::MissingMesh(*mesh));
                                 }
-                            }
+                                return Err(RenderGraphValidationError::MissingIndexBuffer(*mesh));
+                            };
+                            let Some(indirect) = registry.buffer(buffer) else {
+                                return Err(RenderGraphValidationError::MissingIndirectBuffer(*buffer));
+                            };
+                            bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
+                            bundle_encoder.set_index_buffer(ibo.slice(..), *format);
+                            bundle_encoder.draw_indexed_indirect(indirect, *offset);
                         }
                     }
                 }
@@ -998,7 +992,9 @@ fn execute_non_render_nodes(
 
         // Copy nodes được submit trước compute/render pass của graph hiện tại.
         for &node_id in &node_ids {
-            let Some(node) = pool.get(node_id) else { continue; };
+            let Some(node) = pool.get(node_id) else {
+                return Err(RenderGraphValidationError::MissingNode(node_id));
+            };
             self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
@@ -1009,36 +1005,10 @@ fn execute_non_render_nodes(
         // Khi graph có interleave compute/render semantics, pass model đầy đủ sẽ
         // tách chúng thành execution segments ở compiler tiếp theo.
         for &node_id in &node_ids {
-            let Some(node) = pool.get(node_id) else { continue; };
-            if node.compute_commands().is_empty() { continue; }
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("RenderGraphComputePass"),
-                timestamp_writes: None,
-            });
-            let mut current_pipeline = None;
-            let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
-            for command in node.compute_commands() {
-                if current_pipeline != Some(command.pipeline) {
-                    if let Some(pipeline) = registry.compute_pipeline(&command.pipeline) {
-                        compute_pass.set_pipeline(pipeline);
-                        current_pipeline = Some(command.pipeline);
-                    } else { continue; }
-                }
-                for &(slot, bind_group, ref offsets) in &command.bind_groups {
-                    let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
-                    if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                        if let Some(group) = registry.bind_group(&bind_group) {
-                            compute_pass.set_bind_group(slot, group, offsets);
-                            current_bind_groups[slot_index] = Some(bind_group);
-                        }
-                    }
-                }
-                if let Some((buffer, offset)) = command.indirect {
-                    if let Some(indirect) = registry.buffer(&buffer) { compute_pass.dispatch_workgroups_indirect(indirect, offset); }
-                } else {
-                    compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
-                }
-            }
+            let Some(node) = pool.get(node_id) else {
+                return Err(RenderGraphValidationError::MissingNode(node_id));
+            };
+            encode_compute_commands(encoder, registry, node.compute_commands(), engine.capabilities().max_bind_groups)?;
         }
 
         // -------------------------------------------------------------
@@ -1076,68 +1046,17 @@ fn execute_non_render_nodes(
             multiview_mask: None,
         });
 
-        let mut current_pipeline = None;
-        let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
-
         for &node_id in &node_ids {
-            let Some(node) = pool.get(node_id) else { continue; };
+            let Some(node) = pool.get(node_id) else {
+                return Err(RenderGraphValidationError::MissingNode(node_id));
+            };
             
             if node.use_bundle() {
                 if let Some(bundle) = node.bundle() {
                     render_pass.execute_bundles(std::iter::once(bundle));
-                    // State is reset after execute_bundles
-                    current_pipeline = None;
-                    current_bind_groups.fill(None);
                 }
             } else {
-                // IMMEDIATE MODE
-                for cmd in node.commands() {
-                    if current_pipeline != Some(cmd.pipeline) {
-                        if let Some(pipe) = registry.pipeline(&cmd.pipeline) {
-                            render_pass.set_pipeline(pipe);
-                            current_pipeline = Some(cmd.pipeline);
-                        } else { continue; }
-                    }
-
-                    for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
-                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
-                        if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
-                            if let Some(bg) = registry.bind_group(&bg_handle) {
-                                render_pass.set_bind_group(slot, bg, offsets);
-                                current_bind_groups[slot_index] = Some(bg_handle);
-                            }
-                        }
-                    }
-
-                    match &cmd.action {
-                        DrawAction::Indexed { mesh, index_range, instance_range } => {
-                            if let Some((vbo, ibo_info, _)) = registry.mesh(mesh) {
-                                render_pass.set_vertex_buffer(0, vbo.slice(..));
-                                if let Some((ibo, format)) = ibo_info {
-                                    render_pass.set_index_buffer(ibo.slice(..), *format);
-                                    render_pass.draw_indexed(index_range.clone(), 0, instance_range.clone());
-                                } else {
-                                    render_pass.draw(index_range.clone(), instance_range.clone());
-                                }
-                            }
-                        }
-                        DrawAction::Procedural { vertex_count, instance_range } => {
-                            render_pass.draw(0..*vertex_count, instance_range.clone());
-                        }
-                        DrawAction::Indirect { buffer, offset } => {
-                            if let Some(indirect) = registry.buffer(buffer) { render_pass.draw_indirect(indirect, *offset); }
-                        }
-                        DrawAction::IndexedIndirect { mesh, buffer, offset } => {
-                            if let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) {
-                                if let Some(indirect) = registry.buffer(buffer) {
-                                    render_pass.set_vertex_buffer(0, vbo.slice(..));
-                                    render_pass.set_index_buffer(ibo.slice(..), *format);
-                                    render_pass.draw_indexed_indirect(indirect, *offset);
-                                }
-                            }
-                        }
-                    }
-                }
+                encode_draw_commands(&mut render_pass, registry, node.commands(), engine.capabilities().max_bind_groups)?;
             }
         }
         Ok(())
