@@ -327,7 +327,7 @@ impl RenderGraphExecutor {
         self.validate_with_device(engine, registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             Self::execution_counts_for_graph(pool, graph)?;
-        let submission = self.execute_unchecked(engine, registry, pool, graph, surface_view);
+        let submission = self.execute_unchecked(engine, registry, pool, graph, surface_view)?;
         Ok(ExecutionReport {
             submission,
             flattened_nodes,
@@ -429,7 +429,7 @@ impl RenderGraphExecutor {
             label: Some("RenderGraphProfiledEncoder"),
         });
         profiler.write_span(&mut encoder, span)?;
-        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view);
+        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
         profiler.write_span(&mut encoder, span)?;
         profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
         let tracking_submission = if let Some(tracker) = tracker.as_deref_mut() {
@@ -485,16 +485,16 @@ impl RenderGraphExecutor {
         pool: &mut RenderNodePool,
         graph: &RenderGraph,
         surface_view: Option<&wgpu::TextureView>,
-    ) -> wgpu::SubmissionIndex {
+    ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
         let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("RenderGraphEncoder"),
         });
 
         // Duyệt 2-Phase cây RenderGraph
-        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view);
+        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
 
         // Submit toàn bộ khối lệnh (Command Buffer) lên GPU 1 lần duy nhất
-        engine.queue().submit(std::iter::once(encoder.finish()))
+        Ok(engine.queue().submit(std::iter::once(encoder.finish())))
 }
 
 fn execution_counts_for_graph(
@@ -520,6 +520,14 @@ fn execution_counts_for_graph(
         indirect += node.compute_commands().iter().filter(|command| command.indirect.is_some()).count();
     }
     Ok((plan.nodes.len(), draws, computes, copies, indirect, usages))
+}
+
+fn map_graph_flatten_error(error: crate::render::graph::GraphFlattenError) -> RenderGraphValidationError {
+    match error {
+        crate::render::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
+        crate::render::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
+        crate::render::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
+    }
 }
 
 fn declared_usage_count(pool: &RenderNodePool, graph: &RenderGraph) -> usize {
@@ -648,7 +656,7 @@ fn execute_non_render_nodes(
         graph: &RenderGraph,
         registry: &ResourceRegistry,
         surface_view: Option<&wgpu::TextureView>,
-    ) {
+    ) -> Result<(), RenderGraphValidationError> {
         // -------------------------------------------------------------
         // PHASE 1: Đệ quy xử lý tất cả SubGraph con (Bottom-Up)
         // Vẽ các nhánh con ra Offscreen Texture trước khi mở Pass cha
@@ -661,14 +669,14 @@ fn execute_non_render_nodes(
             };
 
             if let Some(inner) = inner_graph {
-                self.compile_graph(encoder, engine, pool, &inner, registry, surface_view);
+                self.compile_graph(encoder, engine, pool, &inner, registry, surface_view)?;
             }
         }
 
         // -------------------------------------------------------------
         // PHASE 2: Mở 1 GPU RenderPass DUY NHẤT cho Target của Graph hiện tại
         // -------------------------------------------------------------
-        let ordered_ids = graph.ordered_node_ids(pool).unwrap_or_else(|_| graph.node_ids.clone());
+        let ordered_ids = graph.ordered_node_ids(pool).map_err(Self::map_graph_flatten_error)?;
         let target_view_info = match &graph.target {
             RenderTarget::Screen => {
                 // Surface format thuộc về surface configuration, không được đoán
@@ -686,7 +694,7 @@ fn execute_non_render_nodes(
 
         let Some((color_view, color_format, sample_count, resolve_view)) = target_view_info else {
             self.execute_non_render_nodes(encoder, engine, pool, registry, &ordered_ids);
-            return;
+            return Ok(());
         };
 
         let depth_stencil_info = graph.depth_stencil.and_then(|handle| registry.texture(&handle));
@@ -707,7 +715,7 @@ fn execute_non_render_nodes(
                 graph.clear_color,
                 engine.capabilities().max_bind_groups,
             );
-            return;
+            return Ok(());
         }
 
         // -------------------------------------------------------------
@@ -944,6 +952,7 @@ fn execute_non_render_nodes(
                 }
             }
         }
+        Ok(())
     }
 }
 
