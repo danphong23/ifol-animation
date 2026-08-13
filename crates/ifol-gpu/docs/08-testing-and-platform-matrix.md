@@ -38,4 +38,8 @@ Ma trận là mục tiêu test, không phải lời hứa mọi feature có trê
 
 ## Trạng thái hiện tại
 
-Crate hiện có unit test cơ bản và visual example. Full example compilation hiện chưa sạch sau khi texture registry đổi API. Cần sửa việc này trước khi coi visual result là test authoritative.
+Unit test, integration test, benchmark harness và toàn bộ example targets hiện
+đã compile/pass bằng `cargo test -p ifol-gpu --all-targets` trên môi trường hiện
+tại. Đây mới là evidence cho môi trường hiện tại; cross-backend/device matrix
+thật trên từng platform mục tiêu vẫn chưa được chạy và không được tuyên bố là
+đã đạt parity.

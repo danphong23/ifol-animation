@@ -50,6 +50,12 @@ impl<'a> GpuEngineBuilder<'a> {
         &self.instance
     }
 
+    pub fn backends(&self) -> wgpu::Backends { self.backends }
+
+    pub fn required_features(&self) -> wgpu::Features { self.required_features }
+
+    pub fn required_limits(&self) -> &wgpu::Limits { &self.required_limits }
+
     pub fn with_surface(mut self, surface: wgpu::Surface<'a>) -> Self {
         self.surface = Some(surface);
         self
@@ -127,5 +133,22 @@ impl<'a> GpuEngineBuilder<'a> {
         }
 
         Ok(crate::api::engine::GpuEngine::new(device, queue, capabilities, self.surface, surface_config))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builder_keeps_backend_and_requirement_policy_explicit() {
+        let limits = Limits::downlevel_webgl2_defaults();
+        let builder = GpuEngineBuilder::new()
+            .with_backends(Backends::VULKAN | Backends::GL)
+            .with_required_features(Features::INDIRECT_FIRST_INSTANCE)
+            .with_required_limits(limits.clone());
+        assert_eq!(builder.backends(), Backends::VULKAN | Backends::GL);
+        assert_eq!(builder.required_features(), Features::INDIRECT_FIRST_INSTANCE);
+        assert_eq!(builder.required_limits(), &limits);
     }
 }
