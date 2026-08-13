@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use thiserror::Error;
-use crate::memory::{BufferDescriptorKey, SubmissionId, SubmissionTracker, TextureDescriptorKey, TransientBufferPool, TransientTexturePool};
-use crate::render::{BufferHandle, TextureHandle};
+use crate::memory::{BufferDescriptorKey, DeferredDestructionQueue, SubmissionId, SubmissionTracker, TextureDescriptorKey, TransientBufferPool, TransientTexturePool};
+use crate::render::{BufferHandle, OwnedTextureResource, ResourceRegistry, TextureHandle};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum FrameContextError {
@@ -13,6 +13,10 @@ pub enum FrameContextError {
     DuplicateResource,
     #[error("transient resource release was rejected by its pool")]
     ReleaseRejected,
+    #[error("owned texture is missing from the registry")]
+    MissingOwnedTexture,
+    #[error("frame contains owned textures that require seal_with_deferred_textures")]
+    DeferredDestructionQueueRequired,
 }
 
 pub struct FrameContext {
@@ -22,6 +26,8 @@ pub struct FrameContext {
     buffers: Vec<(BufferDescriptorKey, BufferHandle)>,
     texture_handles: HashSet<TextureHandle>,
     buffer_handles: HashSet<BufferHandle>,
+    pending_owned_textures: Vec<OwnedTextureResource>,
+    pending_owned_texture_handles: HashSet<TextureHandle>,
 }
 
 impl FrameContext {
@@ -33,6 +39,8 @@ impl FrameContext {
             buffers: Vec::new(),
             texture_handles: HashSet::new(),
             buffer_handles: HashSet::new(),
+            pending_owned_textures: Vec::new(),
+            pending_owned_texture_handles: HashSet::new(),
         }
     }
 
@@ -55,7 +63,57 @@ impl FrameContext {
         Ok(())
     }
 
+    /// Chuyển ownership texture ra khỏi registry, nhưng giữ object trong frame
+    /// cho tới lúc seal để gắn nó với submission cuối cùng.
+    pub fn defer_owned_texture(
+        &mut self,
+        registry: &mut ResourceRegistry,
+        handle: TextureHandle,
+    ) -> Result<(), FrameContextError> {
+        if self.submission.is_some() {
+            return Err(FrameContextError::AlreadySealed);
+        }
+        if !self.pending_owned_texture_handles.insert(handle) {
+            return Err(FrameContextError::DuplicateResource);
+        }
+        let Some(resource) = registry.remove_owned_texture(&handle) else {
+            self.pending_owned_texture_handles.remove(&handle);
+            return Err(FrameContextError::MissingOwnedTexture);
+        };
+        self.pending_owned_textures.push(resource);
+        Ok(())
+    }
+
     pub fn seal(
+        &mut self,
+        submission: SubmissionId,
+        textures: &mut TransientTexturePool,
+        buffers: &mut TransientBufferPool,
+    ) -> Result<(), FrameContextError> {
+        if !self.pending_owned_textures.is_empty() {
+            return Err(FrameContextError::DeferredDestructionQueueRequired);
+        }
+        self.seal_transients(submission, textures, buffers)
+    }
+
+    /// Seal frame và đưa owned textures đã tách khỏi registry vào queue có
+    /// completion gate của submission hiện tại.
+    pub fn seal_with_deferred_textures(
+        &mut self,
+        submission: SubmissionId,
+        textures: &mut TransientTexturePool,
+        buffers: &mut TransientBufferPool,
+        deferred_textures: &mut DeferredDestructionQueue<OwnedTextureResource>,
+    ) -> Result<(), FrameContextError> {
+        self.seal_transients(submission, textures, buffers)?;
+        for resource in self.pending_owned_textures.drain(..) {
+            deferred_textures.defer(resource, submission);
+        }
+        self.pending_owned_texture_handles.clear();
+        Ok(())
+    }
+
+    fn seal_transients(
         &mut self,
         submission: SubmissionId,
         textures: &mut TransientTexturePool,
@@ -81,6 +139,7 @@ impl FrameContext {
         self.buffers.clear();
         self.texture_handles.clear();
         self.buffer_handles.clear();
+        self.pending_owned_texture_handles.clear();
         Ok(true)
     }
 }
@@ -88,7 +147,9 @@ impl FrameContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::GpuEngineBuilder;
     use crate::memory::TextureDimensionKey;
+    use crate::render::{ResourceRegistry, TextureResourceDescriptor};
     use wgpu::TextureFormat;
 
     #[test]
@@ -109,5 +170,64 @@ mod tests {
         assert_eq!(frame.frame_index(), 4);
         assert_eq!(texture_pool.acquire(&texture_desc, &tracker), Some(TextureHandle(1)));
         assert_eq!(buffer_pool.acquire(&buffer_desc, &tracker), Some(BufferHandle(2)));
+    }
+
+    #[test]
+    fn frame_context_routes_owned_texture_to_deferred_queue() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("frame_owned_texture_test"),
+            size: wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        let descriptor = TextureResourceDescriptor {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1,
+            sample_count: 1,
+        };
+        let mut registry = ResourceRegistry::new();
+        registry.insert_owned_texture(TextureHandle(7), texture, descriptor, 1024).unwrap();
+        let mut frame = FrameContext::new(5);
+        frame.defer_owned_texture(&mut registry, TextureHandle(7)).unwrap();
+        let mut textures = TransientTexturePool::new();
+        let mut buffers = TransientBufferPool::new();
+        let mut deferred = DeferredDestructionQueue::new();
+        let mut tracker = SubmissionTracker::new();
+        let submission = tracker.begin();
+        assert_eq!(
+            frame.seal(submission, &mut textures, &mut buffers),
+            Err(FrameContextError::DeferredDestructionQueueRequired)
+        );
+        frame
+            .seal_with_deferred_textures(submission, &mut textures, &mut buffers, &mut deferred)
+            .unwrap();
+        assert_eq!(deferred.pending_count(), 1);
+        assert!(deferred.drain_completed(&tracker).is_empty());
+        tracker.mark_completed(submission);
+        assert_eq!(deferred.drain_completed(&tracker).len(), 1);
+        assert!(frame.reset_after(&tracker, 6).unwrap());
+    }
+
+    #[test]
+    fn frame_context_rejects_missing_owned_texture_without_reserving_handle() {
+        let mut registry = ResourceRegistry::new();
+        let mut frame = FrameContext::new(0);
+        assert_eq!(
+            frame.defer_owned_texture(&mut registry, TextureHandle(404)),
+            Err(FrameContextError::MissingOwnedTexture)
+        );
+        assert_eq!(
+            frame.defer_owned_texture(&mut registry, TextureHandle(404)),
+            Err(FrameContextError::MissingOwnedTexture)
+        );
     }
 }
