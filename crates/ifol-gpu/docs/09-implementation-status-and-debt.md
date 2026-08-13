@@ -11,7 +11,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 - ordered graph có nesting;
 - depth attachment và clear color;
 - bind group cơ bản và dynamic offset;
-- uniform ring allocation cơ bản;
+- uniform ring allocation cơ bản, không còn implicit wrap ghi đè allocation cũ;
 - texture readback và image export utility;
 - render example và benchmark scaffold.
 

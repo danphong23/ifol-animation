@@ -14,7 +14,7 @@ Host không được bắt buộc gọi `reset()` không an toàn trong khi GPU 
 
 ## Ring buffer
 
-Ring buffer hiện align allocation nhưng wrap mà không theo dõi submission đang in-flight. Điều này không an toàn cho production. Implementation mục tiêu dùng frame segment, fence/submission completion hoặc allocator từ chối reuse cho tới khi GPU hoàn thành submission liên quan.
+Ring buffer hiện align allocation và từ chối implicit wrap khi hết contiguous space, nên không tự ghi đè allocation cũ. Điều này loại bỏ một lỗi correctness rõ ràng nhưng chưa thay thế frame/submission-aware allocator. Implementation mục tiêu vẫn dùng frame segment, fence/submission completion hoặc allocator từ chối reuse cho tới khi GPU hoàn thành submission liên quan.
 
 Allocation failure phải rõ ràng. Alignment, size overflow và dynamic-offset limit phải được validate.
 

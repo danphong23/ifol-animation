@@ -24,22 +24,27 @@ impl UniformRingBuffer {
     /// Cấp phát một khoảng trống trên Ring Buffer, trả về offset đầu tiên.
     /// Nếu không đủ chỗ trống phía sau, con trỏ sẽ quay vòng (wrap-around) về 0.
     pub fn allocate(&mut self, request_size: u64) -> Option<u64> {
-        // Căn lề block size theo yêu cầu của card đồ họa
-        let aligned_size = (request_size + self.alignment - 1) & !(self.alignment - 1);
-        
+        if request_size == 0 || self.alignment == 0 {
+            return None;
+        }
+
+        let aligned_size = request_size
+            .checked_add(self.alignment - 1)?
+            / self.alignment
+            * self.alignment;
         if aligned_size > self.size {
-            return None; // Kích thước yêu cầu vượt quá dung lượng tối đa của cả Ring
+            return None;
         }
-        
-        if self.current_offset + aligned_size <= self.size {
-            let offset = self.current_offset;
-            self.current_offset += aligned_size;
-            Some(offset)
-        } else {
-            // Hết chỗ phía sau, vòng lại từ đầu Buffer
-            self.current_offset = aligned_size;
-            Some(0)
+
+        // Không tự wrap: vùng đầu buffer có thể vẫn đang được GPU tham chiếu.
+        let end = self.current_offset.checked_add(aligned_size)?;
+        if end > self.size {
+            return None;
         }
+
+        let offset = self.current_offset;
+        self.current_offset = end;
+        Some(offset)
     }
 
     /// Ghi dữ liệu trực tiếp vào Ring Buffer qua wgpu::Queue và trả về Dynamic Offset
@@ -79,8 +84,20 @@ mod tests {
         assert_eq!(ring.allocate(500), Some(512)); 
         // 512 + 512 (căn lề) = 1024. Đã xài hết buffer.
         
-        // Lần cấp phát tiếp theo sẽ bắt buộc Wrap-Around quay lại offset 0
+        // Không được tự wrap và ghi đè allocation cũ.
+        assert_eq!(ring.allocate(100), None);
+        assert_eq!(ring.current_offset, 1024);
+
+        ring.reset();
         assert_eq!(ring.allocate(100), Some(0));
-        assert_eq!(ring.current_offset, 256);
+    }
+
+    #[test]
+    fn ring_rejects_zero_and_overflowing_requests() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let mut ring = UniformRingBuffer::new(engine.device(), 1024, 256);
+
+        assert_eq!(ring.allocate(0), None);
+        assert_eq!(ring.allocate(u64::MAX), None);
     }
 }
