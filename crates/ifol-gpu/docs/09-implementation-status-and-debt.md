@@ -44,23 +44,22 @@ hoặc policy dự kiến.
   error; present/acquire retry policy vẫn thuộc host;
 - bind-group state cache hiện giới hạn bốn slot.
 
+- texture subresource/aspect hazard và MSAA boundary đã có ở mức nền tảng; copy
+  aspect/range đầy đủ và capability matrix đa backend còn thiếu;
+- indirect draw/dispatch đã có command model, validation và encoder path; end-to-
+  end fixture ghi argument buffer và capability matrix đa backend còn thiếu;
+- async readback ticket format-aware, `ExecutionReport`, timestamp capability,
+  query pool và executor profiling boundary đã có; queue nhiều frame, worker
+  scheduling, pass-level insertion và diagnostics đầy đủ còn thiếu.
+
 ## Chưa implement
 
-- depth/stencil aspect và subresource model đầy đủ; MSAA color resolve, depth
-  sample matching, stencil clear/store và mip/layer hazard metadata cơ bản đã
-  có, nhưng copy range/aspect đầy đủ và capability matrix đa backend còn thiếu;
-- indirect draw/dispatch đã có command model, validation và encoder path; cần
-  thêm end-to-end fixture ghi argument buffer và capability matrix đa backend;
 - capability tier và fallback policy theo từng backend/platform;
 - runtime cross-backend/device matrix tự động cho Windows, macOS, Web, Android
   và iOS; compile evidence cho WebAssembly và Windows MSVC đã có nhưng chưa
   thay thế runtime matrix;
 - frame context mở rộng cho profiling/present lifecycle và deferred destruction
   integration sâu với registry;
-- async readback ticket format-aware, execution report cấu trúc, timestamp
-  capability snapshot, query pool primitive và executor boundary đã có; queue
-  nhiều frame, worker scheduling, pass-level insertion và diagnostics đầy đủ vẫn
-  còn thiếu;
 - context-aware bundle cache cho nhiều viewport/device.
 
 ## Design debt hiện tại
