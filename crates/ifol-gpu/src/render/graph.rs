@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Range;
 use thiserror::Error;
-use crate::render::handle::{BindGroupHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
+use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 
 /// ═══════════════════════════════════════════════════════════
 /// HÀNH ĐỘNG VẼ (DrawAction)
@@ -48,6 +48,27 @@ pub struct ComputeCommand {
     pub pipeline: ComputePipelineHandle,
     pub bind_groups: Vec<(u32, BindGroupHandle, Vec<u32>)>,
     pub workgroups: [u32; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CopyCommand {
+    pub source: BufferHandle,
+    pub destination: BufferHandle,
+    pub source_offset: u64,
+    pub destination_offset: u64,
+    pub size: u64,
+}
+
+impl CopyCommand {
+    pub fn buffer_to_buffer(source: BufferHandle, destination: BufferHandle, size: u64) -> Self {
+        Self { source, destination, source_offset: 0, destination_offset: 0, size }
+    }
+
+    pub fn with_offsets(mut self, source_offset: u64, destination_offset: u64) -> Self {
+        self.source_offset = source_offset;
+        self.destination_offset = destination_offset;
+        self
+    }
 }
 
 impl ComputeCommand {
@@ -124,6 +145,10 @@ pub enum RenderNode {
         commands: Vec<ComputeCommand>,
         is_dirty: bool,
     },
+
+    CopyBatch {
+        commands: Vec<CopyCommand>,
+    },
 }
 
 impl RenderNode {
@@ -158,6 +183,7 @@ impl RenderNode {
             Self::SubGraph { commands, .. } => commands,
             Self::DrawBatch { commands, .. } => commands,
             Self::ComputeBatch { .. } => &[],
+            Self::CopyBatch { .. } => &[],
         }
     }
 
@@ -168,11 +194,19 @@ impl RenderNode {
         }
     }
 
+    pub fn copy_commands(&self) -> &[CopyCommand] {
+        match self {
+            Self::CopyBatch { commands } => commands,
+            _ => &[],
+        }
+    }
+
     pub fn is_dirty(&self) -> bool {
         match self {
             Self::SubGraph { is_dirty, .. } => *is_dirty,
             Self::DrawBatch { is_dirty, .. } => *is_dirty,
             Self::ComputeBatch { is_dirty, .. } => *is_dirty,
+            Self::CopyBatch { .. } => false,
         }
     }
 
@@ -181,6 +215,7 @@ impl RenderNode {
             Self::SubGraph { bundle, .. } => bundle.as_ref(),
             Self::DrawBatch { bundle, .. } => bundle.as_ref(),
             Self::ComputeBatch { .. } => None,
+            Self::CopyBatch { .. } => None,
         }
     }
 
@@ -188,6 +223,7 @@ impl RenderNode {
         match self {
             Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key,
             Self::ComputeBatch { .. } => None,
+            Self::CopyBatch { .. } => None,
         }
     }
 
@@ -195,6 +231,7 @@ impl RenderNode {
         match self {
             Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key = Some(key),
             Self::ComputeBatch { .. } => {},
+            Self::CopyBatch { .. } => {},
         }
     }
 
@@ -206,6 +243,7 @@ impl RenderNode {
                 *is_dirty = true;
             }
             Self::ComputeBatch { .. } => {},
+            Self::CopyBatch { .. } => {},
         }
     }
 
@@ -214,6 +252,7 @@ impl RenderNode {
             Self::SubGraph { use_bundle, .. } => *use_bundle,
             Self::DrawBatch { use_bundle, .. } => *use_bundle,
             Self::ComputeBatch { .. } => false,
+            Self::CopyBatch { .. } => false,
         }
     }
 
@@ -237,6 +276,7 @@ impl RenderNode {
                 *is_dirty = true;
             }
             Self::ComputeBatch { .. } => {},
+            Self::CopyBatch { .. } => {},
         }
     }
 }
@@ -277,6 +317,13 @@ impl RenderNodePool {
         id
     }
 
+    pub fn alloc_copy_batch(&mut self, commands: Vec<CopyCommand>) -> RenderNodeId {
+        self.next_id += 1;
+        let id = RenderNodeId(self.next_id);
+        self.nodes.insert(id, RenderNode::CopyBatch { commands });
+        id
+    }
+
     pub fn get(&self, id: RenderNodeId) -> Option<&RenderNode> {
         self.nodes.get(&id)
     }
@@ -301,6 +348,7 @@ impl RenderNodePool {
                     *bundle_key = None;
                 }
                 RenderNode::ComputeBatch { .. } => return false,
+                RenderNode::CopyBatch { .. } => return false,
             }
             true
         } else {
@@ -318,6 +366,7 @@ impl RenderNodePool {
                     *bundle_key = None;
                 }
                 RenderNode::ComputeBatch { is_dirty, .. } => *is_dirty = true,
+                RenderNode::CopyBatch { .. } => {},
             }
         }
     }
@@ -458,6 +507,12 @@ impl RenderGraph {
 
     pub fn add_compute_batch(&mut self, pool: &mut RenderNodePool, commands: Vec<ComputeCommand>) -> RenderNodeId {
         let id = pool.alloc_compute_batch(commands);
+        self.node_ids.push(id);
+        id
+    }
+
+    pub fn add_copy_batch(&mut self, pool: &mut RenderNodePool, commands: Vec<CopyCommand>) -> RenderNodeId {
+        let id = pool.alloc_copy_batch(commands);
         self.node_ids.push(id);
         id
     }

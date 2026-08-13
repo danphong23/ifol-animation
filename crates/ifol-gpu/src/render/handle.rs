@@ -5,6 +5,9 @@ pub struct PipelineHandle(pub u64);
 pub struct ComputePipelineHandle(pub u64);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BufferHandle(pub u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TextureHandle(pub u64);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -33,7 +36,7 @@ macro_rules! impl_generational_handle {
     };
 }
 
-impl_generational_handle!(PipelineHandle, ComputePipelineHandle, TextureHandle, MeshHandle, BindGroupHandle);
+impl_generational_handle!(PipelineHandle, ComputePipelineHandle, BufferHandle, TextureHandle, MeshHandle, BindGroupHandle);
 
 /// Bộ cấp phát handle có generation, tách việc tái sử dụng slot khỏi resource store.
 ///

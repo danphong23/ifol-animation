@@ -2,7 +2,7 @@ use thiserror::Error;
 use std::hash::{Hash, Hasher};
 use crate::api::GpuEngine;
 use crate::render::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
-use crate::render::handle::{BindGroupHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
+use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
 
 pub struct RenderGraphExecutor;
@@ -21,6 +21,10 @@ pub enum RenderGraphValidationError {
     MissingPipeline(PipelineHandle),
     #[error("compute pipeline resource {0:?} is missing")]
     MissingComputePipeline(ComputePipelineHandle),
+    #[error("buffer resource {0:?} is missing")]
+    MissingBuffer(BufferHandle),
+    #[error("copy range for buffer {handle:?} exceeds buffer size: offset {offset}, size {size}, buffer size {buffer_size}")]
+    InvalidCopyRange { handle: BufferHandle, offset: u64, size: u64, buffer_size: u64 },
     #[error("mesh resource {0:?} is missing")]
     MissingMesh(MeshHandle),
     #[error("bind group resource {0:?} is missing")]
@@ -260,8 +264,25 @@ impl RenderGraphExecutor {
                         *is_dirty = false;
                     }
                     RenderNode::ComputeBatch { .. } => unreachable!("compute node cannot create render bundle"),
+                    RenderNode::CopyBatch { .. } => unreachable!("copy node cannot create render bundle"),
                 }
                 node.set_bundle_key(expected_bundle_key.unwrap_or(0));
+            }
+        }
+
+        // Copy nodes được submit trước compute/render pass của graph hiện tại.
+        for &node_id in &node_ids {
+            let Some(node) = pool.get(node_id) else { continue; };
+            for command in node.copy_commands() {
+                let Some(source) = registry.buffers.get(&command.source) else { continue; };
+                let Some(destination) = registry.buffers.get(&command.destination) else { continue; };
+                encoder.copy_buffer_to_buffer(
+                    source,
+                    command.source_offset,
+                    destination,
+                    command.destination_offset,
+                    command.size,
+                );
             }
         }
 
@@ -474,6 +495,16 @@ fn validate_graph(
                 }
             }
         }
+        for command in node.copy_commands() {
+            let Some(source) = registry.buffers.get(&command.source) else {
+                return Err(RenderGraphValidationError::MissingBuffer(command.source));
+            };
+            let Some(destination) = registry.buffers.get(&command.destination) else {
+                return Err(RenderGraphValidationError::MissingBuffer(command.destination));
+            };
+            validate_copy_range(command.source, command.source_offset, command.size, source.size())?;
+            validate_copy_range(command.destination, command.destination_offset, command.size, destination.size())?;
+        }
         if let RenderNode::SubGraph { graph: child, .. } = node {
             validate_graph(registry, pool, child)?;
         }
@@ -481,11 +512,26 @@ fn validate_graph(
     Ok(())
 }
 
+fn validate_copy_range(
+    handle: BufferHandle,
+    offset: u64,
+    size: u64,
+    buffer_size: u64,
+) -> Result<(), RenderGraphValidationError> {
+    let end = offset.checked_add(size).ok_or(RenderGraphValidationError::InvalidCopyRange {
+        handle, offset, size, buffer_size,
+    })?;
+    if end > buffer_size {
+        return Err(RenderGraphValidationError::InvalidCopyRange { handle, offset, size, buffer_size });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{bind_group_slot_index, bundle_cache_key, RenderGraphExecutor, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, validate_copy_range, RenderGraphExecutor, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
-    use crate::render::{ComputeCommand, DrawAction, DrawCommand, ComputePipelineHandle, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+    use crate::render::{BufferHandle, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -622,5 +668,33 @@ mod tests {
             RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph),
             Err(RenderGraphValidationError::MissingComputePipeline(ComputePipelineHandle(42)))
         );
+    }
+
+    #[test]
+    fn validation_rejects_copy_node_without_buffer() {
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_copy_batch(
+            &mut pool,
+            vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 16)],
+        );
+
+        assert_eq!(
+            RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph),
+            Err(RenderGraphValidationError::MissingBuffer(BufferHandle(1)))
+        );
+    }
+
+    #[test]
+    fn copy_range_validation_checks_overflow_and_bounds() {
+        assert!(validate_copy_range(BufferHandle(1), 8, 8, 16).is_ok());
+        assert!(matches!(
+            validate_copy_range(BufferHandle(1), 12, 8, 16),
+            Err(RenderGraphValidationError::InvalidCopyRange { .. })
+        ));
+        assert!(matches!(
+            validate_copy_range(BufferHandle(1), u64::MAX, 1, u64::MAX),
+            Err(RenderGraphValidationError::InvalidCopyRange { .. })
+        ));
     }
 }
