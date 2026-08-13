@@ -312,7 +312,7 @@ fn bench_single_large_image(c: &mut Criterion) {
     let mut registry = ResourceRegistry::new();
     registry.textures.insert(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
     registry.insert_pipeline(PipelineHandle(1), pipeline);
-    registry.bind_groups.insert(BindGroupHandle(1), bg);
+    registry.insert_bind_group(BindGroupHandle(1), bg);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),

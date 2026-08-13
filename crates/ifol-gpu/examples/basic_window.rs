@@ -133,7 +133,7 @@ impl<'a> ApplicationHandler for App<'a> {
             ],
             label: Some("diffuse_bind_group"),
         });
-        self.registry.bind_groups.insert(BindGroupHandle(1), bind_group);
+        self.registry.insert_bind_group(BindGroupHandle(1), bind_group);
 
         let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),

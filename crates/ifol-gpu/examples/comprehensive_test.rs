@@ -843,7 +843,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
         ],
         label: None,
     });
-    registry.bind_groups.insert(BindGroupHandle(1), composite_bg);
+    registry.insert_bind_group(BindGroupHandle(1), composite_bg);
 
     // DỰNG ĐỒ THỊ ĐỆ QUY SubGraph
     let mut inner_graph = RenderGraph::new(RenderTarget::Offscreen {
@@ -1092,9 +1092,9 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
     let bg_effect = make_bg(2, TextureHandle(2)); // Texture 2 (EffectTarget)
     let bg_real_img = make_bg(3, TextureHandle(5)); // Texture 5 (RealImageBG)
 
-    registry.bind_groups.insert(BindGroupHandle(1), bg_char);
-    registry.bind_groups.insert(BindGroupHandle(2), bg_effect);
-    registry.bind_groups.insert(BindGroupHandle(3), bg_real_img);
+    registry.insert_bind_group(BindGroupHandle(1), bg_char);
+    registry.insert_bind_group(BindGroupHandle(2), bg_effect);
+    registry.insert_bind_group(BindGroupHandle(3), bg_real_img);
 
     // DỰNG ĐỒ THỊ ĐỆ QUY 3 CẤP ĐỘ (3-LEVEL RECURSIVE RENDER GRAPH)
     
@@ -1408,11 +1408,16 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         })
     };
 
-    registry.bind_groups.insert(BindGroupHandle(1), make_bg(TextureHandle(3))); // CharTarget (3)
-    registry.bind_groups.insert(BindGroupHandle(2), make_bg(TextureHandle(7))); // BlurTarget (7)
-    registry.bind_groups.insert(BindGroupHandle(3), make_bg(TextureHandle(8))); // ParticleTarget (8)
-    registry.bind_groups.insert(BindGroupHandle(4), make_bg(TextureHandle(2))); // CompositeTarget (2)
-    registry.bind_groups.insert(BindGroupHandle(5), make_bg(TextureHandle(5))); // RealImageBG (5)
+    let bg_char = make_bg(TextureHandle(3));
+    let bg_blur = make_bg(TextureHandle(7));
+    let bg_particle = make_bg(TextureHandle(8));
+    let bg_composite = make_bg(TextureHandle(2));
+    let bg_real_image = make_bg(TextureHandle(5));
+    registry.insert_bind_group(BindGroupHandle(1), bg_char); // CharTarget (3)
+    registry.insert_bind_group(BindGroupHandle(2), bg_blur); // BlurTarget (7)
+    registry.insert_bind_group(BindGroupHandle(3), bg_particle); // ParticleTarget (8)
+    registry.insert_bind_group(BindGroupHandle(4), bg_composite); // CompositeTarget (2)
+    registry.insert_bind_group(BindGroupHandle(5), bg_real_image); // RealImageBG (5)
 
     // =========================================================================
     // XÂY DỰNG RENDER GRAPH AAA MOTION GRAPHICS COMPLEX PIPELINE

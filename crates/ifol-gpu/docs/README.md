@@ -46,6 +46,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 38. [Transient texture pool](37-transient-texture-pool.md)
 39. [Registry accessor boundary](38-registry-accessor-boundary.md)
 40. [Pipeline mutation qua registry API](39-pipeline-migration.md)
+41. [Bind group mutation qua registry API](40-bind-group-migration.md)
 
 ## Từ vựng trạng thái
 
