@@ -243,6 +243,22 @@ impl RenderGraphExecutor {
         resolve_buffer: &wgpu::Buffer,
         resolve_offset: u64,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
+        self.execute_with_surface_checked_with_timestamp(
+            engine, registry, pool, graph, None, profiler, resolve_buffer, resolve_offset,
+        )
+    }
+
+    pub fn execute_with_surface_checked_with_timestamp(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        surface_view: Option<&wgpu::TextureView>,
+        profiler: &mut TimestampQueryPool,
+        resolve_buffer: &wgpu::Buffer,
+        resolve_offset: u64,
+    ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
         self.validate(registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             Self::execution_counts_for_graph(pool, graph)?;
@@ -251,7 +267,7 @@ impl RenderGraphExecutor {
             label: Some("RenderGraphProfiledEncoder"),
         });
         profiler.write_span(&mut encoder, span)?;
-        self.compile_graph(&mut encoder, engine, pool, graph, registry, None);
+        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view);
         profiler.write_span(&mut encoder, span)?;
         profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
         let submission = engine.queue().submit(std::iter::once(encoder.finish()));

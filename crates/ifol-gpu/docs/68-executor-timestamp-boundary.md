@@ -1,7 +1,9 @@
 # IFOL GPU: executor timestamp boundary
 
-`RenderGraphExecutor::execute_checked_with_timestamp` là API opt-in cho profiling
-toàn graph. Nó thực hiện chuỗi:
+`RenderGraphExecutor::execute_checked_with_timestamp` và
+`execute_with_surface_checked_with_timestamp` là API opt-in cho profiling toàn
+graph. Bản thứ hai nhận `surface_view` để profiling không làm mất đường render
+trực tiếp ra cửa sổ. Cả hai thực hiện chuỗi:
 
 ```text
 validate → allocate span → timestamp(begin) → compile flat graph
@@ -22,4 +24,3 @@ theo submission index.
   profiling error; không panic và không submit command buffer dở dang.
 - Boundary hiện là toàn graph, chưa đo từng pass/node. Pass-level profiling cần
   policy query lifetime và integration sâu hơn với FrameContext.
-
