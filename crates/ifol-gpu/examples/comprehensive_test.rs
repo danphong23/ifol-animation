@@ -37,7 +37,7 @@ fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), view);
+    registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -62,7 +62,7 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), view);
+    registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let depth_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("Depth"),
@@ -80,7 +80,7 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
     });
     registry.textures.insert(
         TextureHandle(2),
-        depth_tex.create_view(&wgpu::TextureViewDescriptor::default()),
+        (depth_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Depth32Float),
     );
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -176,7 +176,7 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), view);
+    registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -264,7 +264,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     use wgpu::util::DeviceExt;
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), view);
+    registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -442,7 +442,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), view);
+    registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -559,7 +559,7 @@ fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGra
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), view);
+    registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -665,7 +665,7 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), view);
+    registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -758,11 +758,11 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
 
     // Target chính (Root Target - Offscreen Texture 1)
     let (root_view, root_tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(1), root_view);
+    registry.textures.insert(TextureHandle(1), (root_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     // Target của SubGraph (Offscreen Texture 2 - 800x600)
     let (sub_view, _sub_tex) = create_target(engine);
-    registry.textures.insert(TextureHandle(2), sub_view);
+    registry.textures.insert(TextureHandle(2), (sub_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     // Shader vẽ Tam giác Đỏ trong SubGraph
     let inner_shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -834,7 +834,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
 
     // BindGroup kết nối TextureHandle(2) (Offscreen của SubGraph) vào Shader Composite của Graph Cha
     let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor::default());
-    let sub_view_ref = registry.textures.get(&TextureHandle(2)).unwrap();
+    let sub_view_ref = &registry.textures.get(&TextureHandle(2)).unwrap().0;
     let composite_bg = engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &bgl,
         entries: &[
@@ -911,10 +911,10 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         format: wgpu::TextureFormat::Depth32Float, usage: wgpu::TextureUsages::RENDER_ATTACHMENT, view_formats: &[],
     });
 
-    registry.textures.insert(TextureHandle(1), master_view);
-    registry.textures.insert(TextureHandle(2), effect_view);
-    registry.textures.insert(TextureHandle(3), char_view);
-    registry.textures.insert(TextureHandle(4), char_depth_tex.create_view(&wgpu::TextureViewDescriptor::default()));
+    registry.textures.insert(TextureHandle(1), (master_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(2), (effect_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(3), (char_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(4), (char_depth_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Depth32Float));
 
     // Load ảnh thật (ai_demo_large.png) làm Background
     let ai_img_data = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/assets/ai_demo_large.png")).expect("Thiếu file ảnh demo");
@@ -934,7 +934,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * dims.0), rows_per_image: Some(dims.1) },
         wgpu::Extent3d { width: dims.0, height: dims.1, depth_or_array_layers: 1 },
     );
-    registry.textures.insert(TextureHandle(5), bg_tex.create_view(&wgpu::TextureViewDescriptor::default()));
+    registry.textures.insert(TextureHandle(5), (bg_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb));
 
     // Sampler chung
     let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor {
@@ -1078,7 +1078,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
 
     // Bind Groups
     let make_bg = |handle_id: u64, tex_handle: TextureHandle| {
-        let view_ref = registry.textures.get(&tex_handle).unwrap();
+    let view_ref = &registry.textures.get(&tex_handle).unwrap().0;
         engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bgl_tex,
             entries: &[
@@ -1177,13 +1177,13 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         format: wgpu::TextureFormat::Depth32Float, usage: wgpu::TextureUsages::RENDER_ATTACHMENT, view_formats: &[],
     });
 
-    registry.textures.insert(TextureHandle(1), master_view);
-    registry.textures.insert(TextureHandle(2), comp_view);
-    registry.textures.insert(TextureHandle(3), char_view);
-    registry.textures.insert(TextureHandle(4), char_depth_tex.create_view(&wgpu::TextureViewDescriptor::default()));
-    registry.textures.insert(TextureHandle(6), blur_h_view);
-    registry.textures.insert(TextureHandle(7), blur_v_view);
-    registry.textures.insert(TextureHandle(8), particle_view);
+    registry.textures.insert(TextureHandle(1), (master_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(2), (comp_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(3), (char_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(4), (char_depth_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Depth32Float));
+    registry.textures.insert(TextureHandle(6), (blur_h_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(7), (blur_v_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(8), (particle_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     // Load ảnh thật (ai_demo_large.png) làm Background
     let ai_img_data = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/assets/ai_demo_large.png")).expect("Thiếu file ảnh demo");
@@ -1203,7 +1203,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * dims.0), rows_per_image: Some(dims.1) },
         wgpu::Extent3d { width: dims.0, height: dims.1, depth_or_array_layers: 1 },
     );
-    registry.textures.insert(TextureHandle(5), bg_tex.create_view(&wgpu::TextureViewDescriptor::default()));
+    registry.textures.insert(TextureHandle(5), (bg_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor {
         address_mode_u: wgpu::AddressMode::ClampToEdge, address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -1399,7 +1399,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
 
     // Bind Groups
     let make_bg = |tex_handle: TextureHandle| {
-        let view_ref = registry.textures.get(&tex_handle).unwrap();
+    let view_ref = &registry.textures.get(&tex_handle).unwrap().0;
         engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bgl_tex,
             entries: &[

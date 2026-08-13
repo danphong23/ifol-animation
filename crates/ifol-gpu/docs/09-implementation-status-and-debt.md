@@ -45,7 +45,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 - target dimension bị lặp nhưng chưa validate;
 - `unwrap()`/panic trong code liên quan library;
 - readback giả định format RGBA bốn byte;
-- examples/benchmarks vẫn dùng shape cũ của texture registry;
+- examples/benchmarks đã được đồng bộ với texture registry và `RenderNodePool`; vẫn còn warning/style debt cần dọn riêng;
 - tài liệu cũ tuyên bố hoàn thành vượt quá implementation.
 
 ## Chính sách rewrite

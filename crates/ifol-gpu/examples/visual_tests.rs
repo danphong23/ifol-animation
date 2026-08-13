@@ -50,9 +50,9 @@ fn main() {
     let depth_view = depth_tex.create_view(&wgpu::TextureViewDescriptor::default());
 
     let mut registry = ResourceRegistry::new();
-    registry.textures.insert(TextureHandle(1), z_target_view);
-    registry.textures.insert(TextureHandle(2), depth_view);
-    registry.textures.insert(TextureHandle(3), alpha_target_view);
+    registry.textures.insert(TextureHandle(1), (z_target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(2), (depth_view, wgpu::TextureFormat::Depth32Float));
+    registry.textures.insert(TextureHandle(3), (alpha_target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let shader_src = "
         struct VertexOutput {
@@ -243,7 +243,7 @@ fn main() {
     registry.pipelines.insert(PipelineHandle(3), pipe_10k);
 
     let (target_10k_view, target_10k_tex) = create_target();
-    registry.textures.insert(TextureHandle(4), target_10k_view);
+    registry.textures.insert(TextureHandle(4), (target_10k_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let mut graph_10k = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(4),
@@ -262,7 +262,7 @@ fn main() {
 
     // --- State Tracking Accuracy Test ---
     let (target_interleaved_view, target_interleaved_tex) = create_target();
-    registry.textures.insert(TextureHandle(5), target_interleaved_view);
+    registry.textures.insert(TextureHandle(5), (target_interleaved_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let mut graph_interleaved = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(5),

@@ -2,13 +2,14 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::render::{
     BindGroupHandle, DrawAction, DrawCommand, PipelineHandle, RenderGraph,
-    RenderGraphExecutor, RenderTarget, ResourceRegistry, TextureHandle,
+    RenderGraphExecutor, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle,
 };
 use std::borrow::Cow;
 
 fn bench_clear_screen(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
 
     let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("DummyTarget"),
@@ -28,7 +29,7 @@ fn bench_clear_screen(c: &mut Criterion) {
 
     let mut registry = ResourceRegistry::new();
     let tex_handle = TextureHandle(1);
-    registry.textures.insert(tex_handle, target_view);
+    registry.textures.insert(tex_handle, (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let graph = RenderGraph::new(RenderTarget::Offscreen {
         color: tex_handle,
@@ -39,7 +40,7 @@ fn bench_clear_screen(c: &mut Criterion) {
 
     c.bench_function("bench_clear_screen", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -51,12 +52,13 @@ fn bench_clear_screen(c: &mut Criterion) {
 fn bench_empty_graph(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
     let registry = ResourceRegistry::new();
     let graph = RenderGraph::new(RenderTarget::Screen);
 
     c.bench_function("bench_empty_graph", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -68,6 +70,7 @@ fn bench_empty_graph(c: &mut Criterion) {
 fn bench_complex_graph(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
@@ -86,7 +89,7 @@ fn bench_complex_graph(c: &mut Criterion) {
     });
     registry.textures.insert(
         TextureHandle(1),
-        target_tex.create_view(&wgpu::TextureViewDescriptor::default()),
+        (target_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb),
     );
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -151,12 +154,12 @@ fn bench_complex_graph(c: &mut Criterion) {
                 },
             ));
         }
-        graph.add_batch(commands);
+        graph.add_batch(&mut pool, commands);
     }
 
     c.bench_function("bench_complex_graph_100_nodes", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -168,6 +171,7 @@ fn bench_complex_graph(c: &mut Criterion) {
 fn bench_single_large_image(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
 
     let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("Target"),
@@ -306,7 +310,7 @@ fn bench_single_large_image(c: &mut Criterion) {
     });
 
     let mut registry = ResourceRegistry::new();
-    registry.textures.insert(TextureHandle(1), target_view);
+    registry.textures.insert(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
     registry.pipelines.insert(PipelineHandle(1), pipeline);
     registry.bind_groups.insert(BindGroupHandle(1), bg);
 
@@ -324,11 +328,11 @@ fn bench_single_large_image(c: &mut Criterion) {
     )
     .with_bind_group(0, BindGroupHandle(1), vec![]);
 
-    graph.add_batch(vec![cmd]);
+    graph.add_batch(&mut pool, vec![cmd]);
 
     c.bench_function("bench_single_large_image", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -340,6 +344,7 @@ fn bench_single_large_image(c: &mut Criterion) {
 fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     registry.pipelines.insert(
@@ -400,7 +405,7 @@ fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
         view_formats: &[],
     });
     let target_view = target_tex.create_view(&wgpu::TextureViewDescriptor::default());
-    registry.textures.insert(TextureHandle(1), target_view);
+    registry.textures.insert(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -418,11 +423,11 @@ fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
             },
         ));
     }
-    graph.add_batch(commands);
+    graph.add_batch(&mut pool, commands);
 
     c.bench_function("bench_100k_sprites_cpu_stress", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -434,6 +439,7 @@ fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
 fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     registry.pipelines.insert(
@@ -494,7 +500,7 @@ fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
         view_formats: &[],
     });
     let target_view = target_tex.create_view(&wgpu::TextureViewDescriptor::default());
-    registry.textures.insert(TextureHandle(1), target_view);
+    registry.textures.insert(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -509,11 +515,11 @@ fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
             instance_range: 0..100_000,
         },
     );
-    graph.add_batch(vec![cmd]);
+    graph.add_batch(&mut pool, vec![cmd]);
 
     c.bench_function("bench_100k_sprites_gpu_instanced", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -525,6 +531,7 @@ fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
 fn bench_z_buffer(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
@@ -559,8 +566,8 @@ fn bench_z_buffer(c: &mut Criterion) {
     });
     let depth_view = depth_tex.create_view(&wgpu::TextureViewDescriptor::default());
 
-    registry.textures.insert(TextureHandle(1), target_view);
-    registry.textures.insert(TextureHandle(2), depth_view);
+    registry.textures.insert(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.textures.insert(TextureHandle(2), (depth_view, wgpu::TextureFormat::Depth32Float));
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -620,7 +627,7 @@ fn bench_z_buffer(c: &mut Criterion) {
         width: 1,
         height: 1,
     });
-    graph_no_depth.add_batch(vec![DrawCommand::new(
+    graph_no_depth.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(1),
         DrawAction::Procedural {
             vertex_count: 3,
@@ -634,7 +641,7 @@ fn bench_z_buffer(c: &mut Criterion) {
         height: 1,
     })
     .with_depth_stencil(TextureHandle(2));
-    graph_with_depth.add_batch(vec![DrawCommand::new(
+    graph_with_depth.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(2),
         DrawAction::Procedural {
             vertex_count: 3,
@@ -644,7 +651,7 @@ fn bench_z_buffer(c: &mut Criterion) {
 
     c.bench_function("bench_z_buffer_disabled", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph_no_depth);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph_no_depth);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -653,7 +660,7 @@ fn bench_z_buffer(c: &mut Criterion) {
     });
     c.bench_function("bench_z_buffer_enabled", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph_with_depth);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph_with_depth);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -665,6 +672,7 @@ fn bench_z_buffer(c: &mut Criterion) {
 fn bench_alpha_blending(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
@@ -683,7 +691,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
     });
     registry.textures.insert(
         TextureHandle(1),
-        target_tex.create_view(&wgpu::TextureViewDescriptor::default()),
+        (target_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb),
     );
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -734,7 +742,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
         width: 1,
         height: 1,
     });
-    graph_replace.add_batch(vec![DrawCommand::new(
+    graph_replace.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(1),
         DrawAction::Procedural {
             vertex_count: 3,
@@ -747,7 +755,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
         width: 1,
         height: 1,
     });
-    graph_alpha.add_batch(vec![DrawCommand::new(
+    graph_alpha.add_batch(&mut pool, vec![DrawCommand::new(
         PipelineHandle(2),
         DrawAction::Procedural {
             vertex_count: 3,
@@ -757,7 +765,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
 
     c.bench_function("bench_alpha_blend_replace", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph_replace);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph_replace);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -766,7 +774,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
     });
     c.bench_function("bench_alpha_blend_alpha", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph_alpha);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph_alpha);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -778,6 +786,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
 fn bench_pipeline_caching(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
     let executor = RenderGraphExecutor::new();
+    let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
     let target_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
@@ -796,7 +805,7 @@ fn bench_pipeline_caching(c: &mut Criterion) {
     });
     registry.textures.insert(
         TextureHandle(1),
-        target_tex.create_view(&wgpu::TextureViewDescriptor::default()),
+        (target_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb),
     );
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -864,7 +873,7 @@ fn bench_pipeline_caching(c: &mut Criterion) {
             },
         ));
     }
-    graph_sorted.add_batch(sorted_commands);
+    graph_sorted.add_batch(&mut pool, sorted_commands);
 
     let mut graph_unsorted = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -888,11 +897,11 @@ fn bench_pipeline_caching(c: &mut Criterion) {
             },
         ));
     }
-    graph_unsorted.add_batch(unsorted_commands);
+    graph_unsorted.add_batch(&mut pool, unsorted_commands);
 
     c.bench_function("bench_pipeline_state_sorted", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph_sorted);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph_sorted);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -901,7 +910,7 @@ fn bench_pipeline_caching(c: &mut Criterion) {
     });
     c.bench_function("bench_pipeline_state_unsorted", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &graph_unsorted);
+            let idx = executor.execute(&engine, &registry, &mut pool, &graph_unsorted);
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
