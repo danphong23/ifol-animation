@@ -226,7 +226,10 @@ impl<'a> ApplicationHandler for App<'a> {
 
                                 graph.add_batch(&mut self.pool, vec![cmd]);
 
-                                let idx = self.executor.execute_with_surface(engine, &self.registry, &mut self.pool, &graph, Some(&view));
+                                let idx = match self.executor.execute_with_surface_checked(engine, &self.registry, &mut self.pool, &graph, Some(&view)) {
+                                    Ok(idx) => idx,
+                                    Err(error) => { log::error!("Render graph validation failed: {error}"); return; }
+                                };
                                 let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
                                 engine.queue().present(frame);
                             }
