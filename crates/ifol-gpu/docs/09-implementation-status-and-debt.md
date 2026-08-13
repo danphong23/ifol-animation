@@ -41,9 +41,8 @@ hoặc policy dự kiến.
 ## Chưa implement
 
 - depth/stencil aspect và subresource model đầy đủ; MSAA color resolve, depth
-  sample matching và stencil clear/store cơ bản đã có qua
-  `RenderTarget::OffscreenMsaa`, nhưng subresource model và capability matrix
-  đa backend còn thiếu;
+  sample matching, stencil clear/store và mip/layer hazard metadata cơ bản đã
+  có, nhưng copy range/aspect đầy đủ và capability matrix đa backend còn thiếu;
 - indirect draw/dispatch;
 - capability tier và fallback policy theo từng backend/platform;
 - cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;

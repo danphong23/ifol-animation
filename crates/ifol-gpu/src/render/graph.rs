@@ -169,13 +169,36 @@ pub enum ResourceAccess {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ResourceSubresource {
+    Whole,
+    Texture { mip_level: u32, array_layer: u32 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ResourceUsage {
     pub resource: GraphResource,
     pub access: ResourceAccess,
+    pub subresource: ResourceSubresource,
 }
 
 fn accesses_conflict(left: ResourceAccess, right: ResourceAccess) -> bool {
     !matches!((left, right), (ResourceAccess::Read, ResourceAccess::Read))
+}
+
+fn subresources_overlap(left: ResourceSubresource, right: ResourceSubresource) -> bool {
+    match (left, right) {
+        (ResourceSubresource::Whole, _) | (_, ResourceSubresource::Whole) => true,
+        (
+            ResourceSubresource::Texture { mip_level: left_mip, array_layer: left_layer },
+            ResourceSubresource::Texture { mip_level: right_mip, array_layer: right_layer },
+        ) => left_mip == right_mip && left_layer == right_layer,
+    }
+}
+
+fn usages_conflict(left: &ResourceUsage, right: &ResourceUsage) -> bool {
+    left.resource == right.resource
+        && subresources_overlap(left.subresource, right.subresource)
+        && accesses_conflict(left.access, right.access)
 }
 
 /// ═══════════════════════════════════════════════════════════
@@ -532,7 +555,22 @@ impl RenderGraph {
     /// Khai báo resource mà node đọc/ghi. Đây là metadata cho hazard compiler;
     /// command encoder hiện tại vẫn giữ behavior cũ nếu graph không khai báo.
     pub fn declare_resource_usage(&mut self, node: RenderNodeId, resource: GraphResource, access: ResourceAccess) {
-        self.resource_usages.entry(node).or_default().push(ResourceUsage { resource, access });
+        self.resource_usages.entry(node).or_default().push(ResourceUsage { resource, access, subresource: ResourceSubresource::Whole });
+    }
+
+    pub fn declare_texture_subresource_usage(
+        &mut self,
+        node: RenderNodeId,
+        texture: TextureHandle,
+        mip_level: u32,
+        array_layer: u32,
+        access: ResourceAccess,
+    ) {
+        self.resource_usages.entry(node).or_default().push(ResourceUsage {
+            resource: GraphResource::Texture(texture),
+            access,
+            subresource: ResourceSubresource::Texture { mip_level, array_layer },
+        });
     }
 
     pub fn resource_usages(&self, node: &RenderNodeId) -> &[ResourceUsage] {
@@ -545,28 +583,28 @@ impl RenderGraph {
             for command in node.copy_commands() {
                 match command {
                     CopyCommand::BufferToBuffer { source, destination, .. } => {
-                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*source), access: ResourceAccess::Read });
-                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*destination), access: ResourceAccess::Write });
+                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*source), access: ResourceAccess::Read, subresource: ResourceSubresource::Whole });
+                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*destination), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
                     }
                     CopyCommand::TextureToTexture { source, destination, .. } => {
-                        usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read });
-                        usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read, subresource: ResourceSubresource::Whole });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
                     }
                 }
             }
             if !node.commands().is_empty() {
                 match self.target {
                     RenderTarget::Offscreen { color, .. } => {
-                        usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
                     }
                     RenderTarget::OffscreenMsaa { color, resolve, .. } => {
-                        usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write });
-                        usages.push(ResourceUsage { resource: GraphResource::Texture(resolve), access: ResourceAccess::Write });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(resolve), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
                     }
                     RenderTarget::Screen => {}
                 }
                 if let Some(depth) = self.depth_stencil {
-                    usages.push(ResourceUsage { resource: GraphResource::Texture(depth), access: ResourceAccess::Write });
+                    usages.push(ResourceUsage { resource: GraphResource::Texture(depth), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
                 }
             }
         }
@@ -609,7 +647,7 @@ impl RenderGraph {
                 let before_usages = self.effective_resource_usages(self.node_ids[before], pool);
                 let after_usages = self.effective_resource_usages(self.node_ids[after], pool);
                 let conflict = before_usages.iter().any(|left| {
-                    after_usages.iter().any(|right| left.resource == right.resource && accesses_conflict(left.access, right.access))
+                    after_usages.iter().any(|right| usages_conflict(left, right))
                 });
                 if conflict {
                     add_edge(before, after);
@@ -700,7 +738,7 @@ impl RenderGraph {
             for after in (before + 1)..plan.nodes.len() {
                 let before_usages = usage_map.get(&plan.nodes[before].node_id).map(Vec::as_slice).unwrap_or(&[]);
                 let after_usages = usage_map.get(&plan.nodes[after].node_id).map(Vec::as_slice).unwrap_or(&[]);
-                if before_usages.iter().any(|left| after_usages.iter().any(|right| left.resource == right.resource && accesses_conflict(left.access, right.access))) {
+                if before_usages.iter().any(|left| after_usages.iter().any(|right| usages_conflict(left, right))) {
                     add_edge(before, after);
                 }
             }
@@ -937,6 +975,36 @@ mod tests {
         graph.add_node_id(reader);
         graph.declare_resource_usage(writer, GraphResource::Buffer(BufferHandle(2)), ResourceAccess::Write);
         graph.declare_resource_usage(reader, GraphResource::Buffer(BufferHandle(2)), ResourceAccess::Read);
+        graph.add_dependency(reader, writer);
+
+        assert!(matches!(graph.ordered_node_ids(&pool), Err(GraphFlattenError::Cycle(_))));
+    }
+
+    #[test]
+    fn disjoint_texture_subresources_do_not_create_hazard_edge() {
+        let mut pool = RenderNodePool::new();
+        let writer = pool.alloc_copy_batch(vec![]);
+        let reader = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(writer);
+        graph.add_node_id(reader);
+        graph.declare_texture_subresource_usage(writer, TextureHandle(7), 0, 0, ResourceAccess::Write);
+        graph.declare_texture_subresource_usage(reader, TextureHandle(7), 1, 0, ResourceAccess::Read);
+        graph.add_dependency(reader, writer);
+
+        assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![reader, writer]);
+    }
+
+    #[test]
+    fn overlapping_texture_subresources_create_hazard_edge() {
+        let mut pool = RenderNodePool::new();
+        let writer = pool.alloc_copy_batch(vec![]);
+        let reader = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(writer);
+        graph.add_node_id(reader);
+        graph.declare_texture_subresource_usage(writer, TextureHandle(7), 0, 0, ResourceAccess::Write);
+        graph.declare_texture_subresource_usage(reader, TextureHandle(7), 0, 0, ResourceAccess::Read);
         graph.add_dependency(reader, writer);
 
         assert!(matches!(graph.ordered_node_ids(&pool), Err(GraphFlattenError::Cycle(_))));

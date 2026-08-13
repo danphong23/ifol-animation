@@ -1253,7 +1253,7 @@ mod tests {
         let mut graph = RenderGraph::new(RenderTarget::Screen);
         let node = RenderNodeId(9);
         graph.declare_resource_usage(node, GraphResource::Texture(TextureHandle(7)), ResourceAccess::ReadWrite);
-        assert_eq!(graph.resource_usages(&node), &[crate::render::ResourceUsage { resource: GraphResource::Texture(TextureHandle(7)), access: ResourceAccess::ReadWrite }]);
+        assert_eq!(graph.resource_usages(&node), &[crate::render::ResourceUsage { resource: GraphResource::Texture(TextureHandle(7)), access: ResourceAccess::ReadWrite, subresource: crate::render::ResourceSubresource::Whole }]);
     }
 
     #[test]
