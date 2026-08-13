@@ -1,9 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use ifol_gpu::api::GpuEngineBuilder;
-use ifol_gpu::render::{
-    BindGroupHandle, DrawAction, DrawCommand, PipelineHandle, RenderGraph,
-    RenderGraphExecutor, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle,
-};
+use ifol_gpu::execution::RenderGraphExecutor;
+use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
+use ifol_gpu::resources::{BindGroupHandle, PipelineHandle, ResourceRegistry, TextureHandle};
 use std::borrow::Cow;
 
 fn bench_clear_screen(c: &mut Criterion) {

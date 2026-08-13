@@ -1,11 +1,9 @@
 use std::borrow::Cow;
 use std::time::Instant;
 use ifol_gpu::api::{GpuEngineBuilder, GpuEngine};
-use ifol_gpu::render::{
-    DrawAction, DrawCommand, PipelineHandle, RenderGraph, RenderGraphExecutor, RenderTarget,
-    ResourceRegistry, TextureHandle, RenderNodePool,
-};
-use ifol_gpu::render::handle::BindGroupHandle;
+use ifol_gpu::execution::RenderGraphExecutor;
+use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
+use ifol_gpu::resources::{BindGroupHandle, PipelineHandle, ResourceRegistry, TextureHandle};
 use image::GenericImageView;
 
 struct TestHarness<'a> {

@@ -5,19 +5,17 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowId},
 };
-use ifol_gpu::api::builder::GpuEngineBuilder;
-use ifol_gpu::api::engine::GpuEngine;
-use ifol_gpu::render::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
-use ifol_gpu::render::compiler::RenderGraphExecutor;
-use ifol_gpu::render::handle::{BindGroupHandle, PipelineHandle};
-use ifol_gpu::render::registry::ResourceRegistry;
+use ifol_gpu::api::{GpuEngine, GpuEngineBuilder};
+use ifol_gpu::execution::RenderGraphExecutor;
+use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
+use ifol_gpu::resources::{BindGroupHandle, PipelineHandle, ResourceRegistry};
 
 struct App<'a> {
     window: Option<Arc<Window>>,
     engine: Option<GpuEngine<'a>>,
     executor: RenderGraphExecutor,
     registry: ResourceRegistry,
-    pool: ifol_gpu::render::RenderNodePool,
+    pool: RenderNodePool,
 }
 
 impl<'a> Default for App<'a> {
@@ -27,7 +25,7 @@ impl<'a> Default for App<'a> {
             engine: None,
             executor: RenderGraphExecutor::new(),
             registry: ResourceRegistry::new(),
-            pool: ifol_gpu::render::RenderNodePool::new(),
+            pool: RenderNodePool::new(),
         }
     }
 }

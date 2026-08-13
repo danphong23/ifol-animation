@@ -2,10 +2,9 @@ use std::borrow::Cow;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use ifol_gpu::api::GpuEngineBuilder;
-use ifol_gpu::render::{
-    BindGroupHandle, DrawAction, DrawCommand, MeshHandle, PipelineHandle, RenderGraph,
-    RenderGraphExecutor, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle,
-};
+use ifol_gpu::execution::RenderGraphExecutor;
+use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
+use ifol_gpu::resources::{BindGroupHandle, MeshHandle, PipelineHandle, ResourceRegistry, TextureHandle};
 
 // Helper: Khởi tạo Texture làm bia vẽ (Target)
 fn create_target(engine: &ifol_gpu::api::GpuEngine) -> (wgpu::TextureView, wgpu::Texture) {
@@ -378,7 +377,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
             }],
             label: None,
         });
-        registry.insert_bind_group(ifol_gpu::render::BindGroupHandle(i + 1), bg);
+        registry.insert_bind_group(ifol_gpu::resources::BindGroupHandle(i + 1), bg);
     }
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
@@ -396,7 +395,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
                 instance_range: 0..1,
             },
         )
-        .with_bind_group(0, ifol_gpu::render::BindGroupHandle(1), vec![]),
+        .with_bind_group(0, ifol_gpu::resources::BindGroupHandle(1), vec![]),
         DrawCommand::new(
             PipelineHandle(2),
             DrawAction::Procedural {
@@ -404,7 +403,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
                 instance_range: 0..1,
             },
         )
-        .with_bind_group(0, ifol_gpu::render::BindGroupHandle(2), vec![]),
+        .with_bind_group(0, ifol_gpu::resources::BindGroupHandle(2), vec![]),
         DrawCommand::new(
             PipelineHandle(1),
             DrawAction::Procedural {
@@ -412,7 +411,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
                 instance_range: 0..1,
             },
         )
-        .with_bind_group(0, ifol_gpu::render::BindGroupHandle(3), vec![]),
+        .with_bind_group(0, ifol_gpu::resources::BindGroupHandle(3), vec![]),
         DrawCommand::new(
             PipelineHandle(2),
             DrawAction::Procedural {
@@ -420,7 +419,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
                 instance_range: 0..1,
             },
         )
-        .with_bind_group(0, ifol_gpu::render::BindGroupHandle(4), vec![]),
+        .with_bind_group(0, ifol_gpu::resources::BindGroupHandle(4), vec![]),
     ];
     graph.add_batch(&mut pool, commands);
 

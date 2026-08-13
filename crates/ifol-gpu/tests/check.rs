@@ -1,4 +1,4 @@
-use ifol_gpu::render::{RenderGraph, RenderTarget};
+use ifol_gpu::graph::{RenderGraph, RenderTarget};
 
 #[test]
 fn test_render_graph_creation() {

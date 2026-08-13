@@ -1,9 +1,8 @@
 use std::borrow::Cow;
 use ifol_gpu::api::GpuEngineBuilder;
-use ifol_gpu::render::{
-    DrawAction, DrawCommand, PipelineHandle, RenderGraph, RenderGraphExecutor, RenderTarget,
-    ResourceRegistry, TextureHandle,
-};
+use ifol_gpu::execution::RenderGraphExecutor;
+use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use ifol_gpu::resources::{PipelineHandle, ResourceRegistry, TextureHandle};
 
 fn main() {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).expect("Failed to build engine");
@@ -143,7 +142,7 @@ fn main() {
     registry.insert_pipeline(PipelineHandle(1), create_pipe(true, Some(wgpu::BlendState::REPLACE)));
     registry.insert_pipeline(PipelineHandle(2), create_pipe(false, Some(wgpu::BlendState::ALPHA_BLENDING)));
 
-    let mut pool = ifol_gpu::render::RenderNodePool::new();
+    let mut pool = ifol_gpu::graph::RenderNodePool::new();
 
     // --- Z-Buffer Test ---
     let mut graph_z = RenderGraph::new(RenderTarget::Offscreen {
