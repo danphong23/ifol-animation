@@ -140,7 +140,7 @@ impl RenderGraphExecutor {
         surface_view: Option<&wgpu::TextureView>,
     ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
         self.validate(registry, pool, graph)?;
-        Ok(self.execute_with_surface(engine, registry, pool, graph, surface_view))
+        Ok(self.execute_unchecked(engine, registry, pool, graph, surface_view))
     }
 
     /// Biên dịch RenderGraph thành các lệnh gọi WGPU và đẩy xuống GPU Queue.
@@ -150,12 +150,23 @@ impl RenderGraphExecutor {
         registry: &ResourceRegistry,
         pool: &mut RenderNodePool,
         graph: &RenderGraph,
-    ) -> wgpu::SubmissionIndex {
-        self.execute_with_surface(engine, registry, pool, graph, None)
+    ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
+        self.execute_checked(engine, registry, pool, graph)
     }
 
     /// Biên dịch RenderGraph với Surface Texture View chỉ định (khi vẽ trực tiếp ra cửa sổ)
     pub fn execute_with_surface(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        surface_view: Option<&wgpu::TextureView>,
+    ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
+        self.execute_with_surface_checked(engine, registry, pool, graph, surface_view)
+    }
+
+    fn execute_unchecked(
         &self,
         engine: &GpuEngine,
         registry: &ResourceRegistry,

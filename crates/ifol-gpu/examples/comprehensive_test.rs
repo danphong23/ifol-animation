@@ -48,7 +48,7 @@ fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     .with_clear_color([0.0, 0.5, 0.8, 1.0]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -162,7 +162,7 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
     graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -249,7 +249,7 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -425,7 +425,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     graph.add_batch(&mut pool, commands);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -542,7 +542,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
     graph.add_batch(&mut pool, commands);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -648,7 +648,7 @@ fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGra
     graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -730,7 +730,7 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
 
     // Pass 1
     let start_1 = Instant::now();
-    let idx_1 = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx_1 = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx_1),
         timeout: None,
@@ -739,7 +739,7 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
 
     // Pass 2
     let start_2 = Instant::now();
-    let idx_2 = executor.execute(engine, &registry, &mut pool, &graph);
+    let idx_2 = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx_2),
         timeout: None,
@@ -873,7 +873,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
     root_graph.add_subgraph(&mut pool, "CharacterSubGraph", inner_graph, vec![composite_cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &root_graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &root_graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 
@@ -1136,7 +1136,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
 
     // THỰC THI BIÊN DỊCH VÀ VẼ
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &master_graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &master_graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 
@@ -1485,7 +1485,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
 
     // THỰC THI BIÊN DỊCH VÀ VẼ
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &master_graph);
+    let idx = executor.execute(engine, &registry, &mut pool, &master_graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 

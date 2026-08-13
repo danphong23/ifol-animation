@@ -49,7 +49,7 @@ Phase chỉ hoàn thành khi:
 | Frame memory submission-safe | Đạt một phần | ring reset gate và submission tracker đã có; frame context/transient buffer pool còn thiếu |
 | Surface format không hard-code | Đạt | format lấy từ surface config; surface lost/present lifecycle còn thiếu |
 | Cache invalidation | Đạt nền tảng | resource versions và bundle key đã có; multi-context cache còn thiếu |
-| Structured errors | Đạt nền tảng | validation/resource/capability errors đã có; legacy `execute` vẫn silent-skip |
+| Structured errors | Đạt | public `execute`/`execute_with_surface` trả `Result`; encoder unchecked chỉ chạy sau validation |
 | Cross-platform runtime matrix | Chưa đạt | chỉ có evidence trên môi trường hiện tại; chưa chạy đủ Windows/macOS/Linux/Web/Android/iOS |
 | MSAA/resolve | Chưa đạt | hiện từ chối sample count khác 1 bằng typed error |
 | Indirect draw/dispatch | Chưa đạt | chưa implement |

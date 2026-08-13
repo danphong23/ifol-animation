@@ -304,10 +304,10 @@ fn main() {
     graph_interleaved.add_batch(&mut pool, interleaved_cmds);
 
     // Execute
-    let _ = executor.execute(&engine, &registry, &mut pool, &graph_z);
-    let _ = executor.execute(&engine, &registry, &mut pool, &graph_alpha);
-    let _ = executor.execute(&engine, &registry, &mut pool, &graph_10k);
-    let idx_last = executor.execute(&engine, &registry, &mut pool, &graph_interleaved);
+    let _ = executor.execute(&engine, &registry, &mut pool, &graph_z).expect("visual graph must validate");
+    let _ = executor.execute(&engine, &registry, &mut pool, &graph_alpha).expect("visual graph must validate");
+    let _ = executor.execute(&engine, &registry, &mut pool, &graph_10k).expect("visual graph must validate");
+    let idx_last = executor.execute(&engine, &registry, &mut pool, &graph_interleaved).expect("visual graph must validate");
 
 
     let _ = engine.device().poll(wgpu::PollType::Wait {

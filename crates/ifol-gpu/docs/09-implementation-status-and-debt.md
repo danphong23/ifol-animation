@@ -55,9 +55,9 @@ hoặc policy dự kiến.
   tiếp tục audit riêng;
 - format/usage metadata của các resource đăng ký qua compatibility API chưa đầy
   đủ, nên validation mạnh yêu cầu API descriptor;
-- execution compiler vẫn có silent-skip ở low-level `execute` legacy API; API
-  checked cho surface execution đã có, migration toàn bộ legacy call site chưa
-  hoàn tất;
+- execution public API đã trả `Result` và các call site nội bộ đã migrate; các
+  nhánh `continue` bên trong encoder chỉ còn là implementation detail sau bước
+  validation, cần tiếp tục audit để loại bỏ hoàn toàn nếu mở rộng command model;
 - tài liệu cũ về copy/compute cần được cập nhật tiếp để phản ánh texture copy và
   ordered segments;
 - warning/style debt còn lại trong example user-owned.

@@ -61,6 +61,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 53. [Surface initialization contract](52-surface-initialization-contract.md)
 54. [Surface resize contract](53-surface-resize-contract.md)
 55. [Checked surface execution](54-checked-surface-execution.md)
+56. [Execution API migration](55-execution-api-migration.md)
 
 ## Từ vựng trạng thái
 
