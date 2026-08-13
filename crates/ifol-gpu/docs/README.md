@@ -88,6 +88,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 81. [Typed readback errors](81-typed-readback-errors.md)
 82. [Typed texture save errors](82-typed-texture-save-errors.md)
 83. [Không fallback thứ tự khi compile graph lỗi](83-no-compile-order-fallback.md)
+84. [Thực thi theo flat execution plan](84-flat-plan-execution.md)
 
 ## Từ vựng trạng thái
 

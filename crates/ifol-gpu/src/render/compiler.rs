@@ -1,4 +1,5 @@
 use thiserror::Error;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::memory::{SubmissionId, SubmissionTracker};
@@ -429,7 +430,7 @@ impl RenderGraphExecutor {
             label: Some("RenderGraphProfiledEncoder"),
         });
         profiler.write_span(&mut encoder, span)?;
-        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
+        self.compile_flat_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
         profiler.write_span(&mut encoder, span)?;
         profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
         let tracking_submission = if let Some(tracker) = tracker.as_deref_mut() {
@@ -491,7 +492,7 @@ impl RenderGraphExecutor {
         });
 
         // Duyệt 2-Phase cây RenderGraph
-        self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
+        self.compile_flat_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
 
         // Submit toàn bộ khối lệnh (Command Buffer) lên GPU 1 lần duy nhất
         Ok(engine.queue().submit(std::iter::once(encoder.finish())))
@@ -645,6 +646,136 @@ fn execute_non_render_nodes(
             rendered_any = true;
         }
         let _ = (color_format, rendered_any);
+    }
+
+    fn owner_graph_for_flat_path<'a>(
+        root: &'a RenderGraph,
+        pool: &'a RenderNodePool,
+        path: &[RenderNodeId],
+    ) -> Result<&'a RenderGraph, RenderGraphValidationError> {
+        let mut owner = root;
+        for &ancestor_id in path.iter().take(path.len().saturating_sub(1)) {
+            let Some(RenderNode::SubGraph { graph, .. }) = pool.get(ancestor_id) else {
+                return Err(RenderGraphValidationError::MissingNode(ancestor_id));
+            };
+            owner = graph;
+        }
+        Ok(owner)
+    }
+
+    fn flat_plan_owner_path(node: &crate::render::graph::FlatRenderNode) -> Vec<RenderNodeId> {
+        node.path[..node.path.len().saturating_sub(1)].to_vec()
+    }
+
+    /// Encode the flattened logical plan in exactly the order produced by
+    /// `RenderGraph::flatten`. Each node is encoded against the graph that
+    /// owns it; this is what allows a root node and a nested node to be
+    /// reordered by an explicit dependency or an inferred hazard.
+    fn compile_flat_graph(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        engine: &GpuEngine,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        registry: &ResourceRegistry,
+        surface_view: Option<&wgpu::TextureView>,
+    ) -> Result<(), RenderGraphValidationError> {
+        let plan = graph.flatten(pool).map_err(Self::map_graph_flatten_error)?;
+        let is_direct_plan = plan.nodes.len() == graph.node_ids.len()
+            && plan.nodes.iter().zip(&graph.node_ids).all(|(flat, direct)| flat.node_id == *direct);
+        if is_direct_plan {
+            return self.compile_graph(encoder, engine, pool, graph, registry, surface_view);
+        }
+        let mut last_draw_index = HashMap::<Vec<RenderNodeId>, usize>::new();
+        for (index, flat_node) in plan.nodes.iter().enumerate() {
+            if pool.get(flat_node.node_id).is_some_and(|node| !node.commands().is_empty()) {
+                last_draw_index.insert(Self::flat_plan_owner_path(flat_node), index);
+            }
+        }
+        let mut rendered_targets = HashSet::<Vec<RenderNodeId>>::new();
+
+        for (index, flat_node) in plan.nodes.iter().enumerate() {
+            let Some(node) = pool.get(flat_node.node_id) else {
+                return Err(RenderGraphValidationError::MissingNode(flat_node.node_id));
+            };
+            let owner_path = Self::flat_plan_owner_path(flat_node);
+            let owner = Self::owner_graph_for_flat_path(graph, pool, &flat_node.path)?;
+
+            for command in node.copy_commands() {
+                encode_copy_command(encoder, registry, command);
+            }
+            encode_compute_commands(
+                encoder,
+                registry,
+                node.compute_commands(),
+                engine.capabilities().max_bind_groups,
+            );
+            if node.commands().is_empty() {
+                continue;
+            }
+
+            let target_view_info = match &owner.target {
+                RenderTarget::Screen => surface_view
+                    .zip(engine.surface_format())
+                    .map(|(view, format)| (view, format, 1, None))
+                    .or_else(|| registry.texture(&TextureHandle(0)).map(|(view, format)| (view, *format, 1, None))),
+                RenderTarget::Offscreen { color, .. } => registry.texture(color).map(|(view, format)| (view, *format, 1, None)),
+                RenderTarget::OffscreenMsaa { color, resolve, .. } => registry.texture(color).and_then(|(color_view, format)| {
+                    registry.texture(resolve).map(|(resolve_view, _)| {
+                        (
+                            color_view,
+                            *format,
+                            registry.texture_descriptor(color).map_or(1, |descriptor| descriptor.sample_count),
+                            Some(resolve_view),
+                        )
+                    })
+                }),
+            };
+            let Some((color_view, color_format, sample_count, resolve_view)) = target_view_info else {
+                continue;
+            };
+            let depth_stencil_info = owner.depth_stencil.and_then(|handle| registry.texture(&handle));
+            let depth_format = depth_stencil_info.map(|(_, format)| *format);
+            let is_first_target_draw = rendered_targets.insert(owner_path.clone());
+            let is_last_target_draw = last_draw_index.get(&owner_path).copied() == Some(index);
+            let resolve_target = is_last_target_draw.then_some(resolve_view).flatten();
+            let load_op = if is_first_target_draw {
+                owner.clear_color
+                    .map(|color| wgpu::LoadOp::Clear(wgpu::Color { r: color[0] as f64, g: color[1] as f64, b: color[2] as f64, a: color[3] as f64 }))
+                    .unwrap_or(wgpu::LoadOp::Load)
+            } else {
+                wgpu::LoadOp::Load
+            };
+            let color_attachments = [Some(wgpu::RenderPassColorAttachment {
+                view: color_view,
+                depth_slice: None,
+                resolve_target,
+                ops: wgpu::Operations { load: load_op, store: wgpu::StoreOp::Store },
+            })];
+            let depth_stencil_attachment = depth_stencil_info.map(|(view, format)| wgpu::RenderPassDepthStencilAttachment {
+                view,
+                depth_ops: Some(wgpu::Operations {
+                    load: if is_first_target_draw && owner.clear_color.is_some() { wgpu::LoadOp::Clear(1.0) } else { wgpu::LoadOp::Load },
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: format_has_stencil(*format).then_some(wgpu::Operations {
+                    load: if is_first_target_draw && owner.clear_color.is_some() { wgpu::LoadOp::Clear(0) } else { wgpu::LoadOp::Load },
+                    store: wgpu::StoreOp::Store,
+                }),
+            });
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("RenderGraphFlatPass"),
+                color_attachments: &color_attachments,
+                depth_stencil_attachment,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            encode_draw_commands(&mut render_pass, registry, node.commands(), engine.capabilities().max_bind_groups);
+            drop(render_pass);
+            let _ = (color_format, depth_format, sample_count);
+        }
+        Ok(())
     }
 
     /// Thuật toán Biên dịch 2-Phase (1 RenderGraph = 1 RenderPass)
@@ -2120,6 +2251,87 @@ mod tests {
         receiver.recv().unwrap().unwrap();
         let bytes = slice.get_mapped_range().unwrap();
         assert_eq!(u32::from_ne_bytes(bytes[0..4].try_into().unwrap()), 1);
+    }
+
+    #[test]
+    fn flattened_execution_preserves_root_before_nested_compute_order() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().with_required_limits(wgpu::Limits::default()).build()).unwrap();
+        let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("nested_order_compute"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
+                "@group(0) @binding(0) var<storage, read_write> data: array<u32>; @compute @workgroup_size(1) fn main() { data[0] = data[0] + 1u; }",
+            )),
+        });
+        let layout = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("nested_order_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let pipeline_layout = engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("nested_order_pipeline_layout"),
+            bind_group_layouts: &[Some(&layout)],
+            immediate_size: 0,
+        });
+        let pipeline = engine.device().create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("nested_order_pipeline"),
+            layout: Some(&pipeline_layout),
+            module: &shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+        let make_buffer = |label, usage| engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: 4,
+            usage,
+            mapped_at_creation: false,
+        });
+        let source = make_buffer("nested_order_source", wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST);
+        let shared = make_buffer("nested_order_shared", wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST);
+        let staging = make_buffer("nested_order_staging", wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ);
+        engine.queue().write_buffer(&source, 0, bytemuck::bytes_of(&7u32));
+        engine.queue().write_buffer(&shared, 0, bytemuck::bytes_of(&0u32));
+        let bind_group = engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("nested_order_bind_group"),
+            layout: &layout,
+            entries: &[wgpu::BindGroupEntry { binding: 0, resource: shared.as_entire_binding() }],
+        });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_buffer(BufferHandle(1), source);
+        registry.insert_buffer(BufferHandle(2), shared);
+        registry.insert_buffer(BufferHandle(3), staging);
+        registry.insert_compute_pipeline(ComputePipelineHandle(1), pipeline);
+        registry.insert_bind_group(BindGroupHandle(1), bind_group);
+
+        let mut pool = RenderNodePool::new();
+        let mut child = RenderGraph::new(RenderTarget::Screen);
+        let child_compute = child.add_compute_batch(&mut pool, vec![
+            ComputeCommand::new(ComputePipelineHandle(1), [1, 1, 1]).with_bind_group(0, BindGroupHandle(1), vec![]),
+        ]);
+        child.declare_resource_usage(child_compute, GraphResource::Buffer(BufferHandle(2)), ResourceAccess::ReadWrite);
+        let mut root = RenderGraph::new(RenderTarget::Screen);
+        root.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 4)]);
+        root.add_subgraph(&mut pool, "nested-order", child, vec![]);
+        root.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(BufferHandle(2), BufferHandle(3), 4)]);
+
+        let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut pool, &root).unwrap();
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
+        let staging = registry.buffer(&BufferHandle(3)).unwrap();
+        let slice = staging.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| { let _ = sender.send(result); });
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        receiver.recv().unwrap().unwrap();
+        let bytes = slice.get_mapped_range().unwrap();
+        assert_eq!(u32::from_ne_bytes(bytes[0..4].try_into().unwrap()), 8);
     }
 
     #[test]
