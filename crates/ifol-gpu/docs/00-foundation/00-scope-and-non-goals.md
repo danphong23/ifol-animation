@@ -27,4 +27,4 @@ scene, asset, animation, timeline, editor, audio, input và policy lưu file.
 - không tự present, poll event loop, map readback theo chính sách ứng dụng;
 - không tự suy luận shader reflection khi host chưa cung cấp metadata.
 
-Trạng thái implementation và giới hạn xem [audit hiện tại](80-current-audit.md).
+Trạng thái implementation và giới hạn xem [audit hiện tại](../70-status/80-current-audit.md).

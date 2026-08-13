@@ -1,7 +1,7 @@
 # IFOL GPU: trạng thái implementation và design debt
 
 Tài liệu này phân biệt behavior đã có test với phần còn là policy hoặc kế
-hoạch. Snapshot chi tiết mới nhất nằm ở [audit hiện tại](80-current-audit.md).
+hoạch. Snapshot chi tiết mới nhất nằm ở [audit hiện tại](../70-status/80-current-audit.md).
 
 ## Đã implement và có test gate
 

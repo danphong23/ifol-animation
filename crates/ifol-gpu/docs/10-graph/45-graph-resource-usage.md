@@ -13,4 +13,4 @@ không tạo hazard; `All` overlap depth/stencil; range disjoint có thể chạ
 lập. Đây là dependency logic ở core, không phải backend barrier API riêng.
 
 Validation vẫn từ chối resource thiếu, range/aspect sai và usage descriptor thiếu
-trước submit. Chi tiết hazard tự động xem [automatic hazard edges](46-automatic-hazard-edges.md).
+trước submit. Chi tiết hazard tự động xem [automatic hazard edges](../10-graph/46-automatic-hazard-edges.md).

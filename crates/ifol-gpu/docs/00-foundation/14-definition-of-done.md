@@ -32,5 +32,5 @@ có owner/status; và không còn tài liệu tuyên bố capability thiếu evi
 | Async readback/profiling | Đạt nền tảng; pass-level/đa frame còn thiếu |
 
 Vì runtime matrix, reflection và một số capability gates chưa đủ evidence, core
-chưa được gọi là release candidate. Xem [audit hiện tại](80-current-audit.md)
+chưa được gọi là release candidate. Xem [audit hiện tại](../70-status/80-current-audit.md)
 để biết lệnh gate và phạm vi bằng chứng.

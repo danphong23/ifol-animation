@@ -10,4 +10,4 @@ dùng `read_texture_to_bytes_with_format_checked` hoặc
 format không hỗ trợ, extent lỗi, overflow, map failure hoặc access failure.
 
 Core chưa chuyển đổi depth/stencil/compressed format và không tự đoán format.
-Chi tiết xem [typed readback errors](81-typed-readback-errors.md).
+Chi tiết xem [typed readback errors](../70-status/81-typed-readback-errors.md).

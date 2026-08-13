@@ -13,4 +13,4 @@ node chưa đổi. Dynamic offset được đưa vào key để không bake dữ
 
 Bundle là optimization, không phải source of truth; segmented direct encode vẫn
 là đường correctness. Context key do host cấp và host chịu trách nhiệm không
-dùng chung bundle giữa context có lifetime khác nhau. Xem [context-aware cache](79-context-aware-bundle-cache.md).
+dùng chung bundle giữa context có lifetime khác nhau. Xem [context-aware cache](../20-resources/79-context-aware-bundle-cache.md).
