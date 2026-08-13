@@ -27,6 +27,8 @@ pub enum RenderGraphValidationError {
     MissingBufferUsage { handle: BufferHandle, required_usage: u32, actual_usage: u32 },
     #[error("owned texture resource {0:?} is required for texture copy")]
     MissingOwnedTexture(TextureHandle),
+    #[error("texture resource {0:?} has no descriptor metadata")]
+    MissingTextureDescriptor(TextureHandle),
     #[error("texture copy formats differ: source {source_handle:?}, destination {destination_handle:?}")]
     TextureCopyFormatMismatch { source_handle: TextureHandle, destination_handle: TextureHandle },
     #[error("texture copy extent must be non-zero, got {extent:?}")]
@@ -750,8 +752,8 @@ fn validate_texture_copy(
     let Some(source_texture) = registry.owned_texture(&source) else { return Err(RenderGraphValidationError::MissingOwnedTexture(source)); };
     let Some(destination_texture) = registry.owned_texture(&destination) else { return Err(RenderGraphValidationError::MissingOwnedTexture(destination)); };
     let _ = (source_texture, destination_texture);
-    let source_descriptor = registry.texture_descriptor(&source).expect("owned texture has descriptor");
-    let destination_descriptor = registry.texture_descriptor(&destination).expect("owned texture has descriptor");
+    let Some(source_descriptor) = registry.texture_descriptor(&source) else { return Err(RenderGraphValidationError::MissingTextureDescriptor(source)); };
+    let Some(destination_descriptor) = registry.texture_descriptor(&destination) else { return Err(RenderGraphValidationError::MissingTextureDescriptor(destination)); };
     if source_descriptor.format != destination_descriptor.format {
         return Err(RenderGraphValidationError::TextureCopyFormatMismatch { source_handle: source, destination_handle: destination });
     }

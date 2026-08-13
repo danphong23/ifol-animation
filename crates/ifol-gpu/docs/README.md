@@ -42,6 +42,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 34. [Thực thi graph theo segment có thứ tự](33-ordered-segment-execution.md)
 35. [Buffer descriptor và usage validation](34-buffer-descriptor-and-usage.md)
 36. [Ring reset và submission safety](35-ring-reset-and-submission-safety.md)
+37. [Validation không panic](36-no-panic-validation.md)
 
 ## Từ vựng trạng thái
 
