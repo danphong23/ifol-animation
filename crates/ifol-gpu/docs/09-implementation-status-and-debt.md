@@ -1,84 +1,44 @@
-# IFOL GPU: Trạng thái implementation và design debt
+# IFOL GPU: trạng thái implementation và design debt
 
-Tài liệu này phân biệt behavior đã được kiểm chứng với phần mới chỉ là design
-hoặc policy dự kiến.
+Tài liệu này phân biệt behavior đã có test với phần còn là policy hoặc kế
+hoạch. Snapshot chi tiết mới nhất nằm ở [audit hiện tại](80-current-audit.md).
 
 ## Đã implement và có test gate
 
-- khởi tạo `wgpu` device/queue và capability snapshot;
-- screen/offscreen target, indexed/procedural draw, depth attachment và clear;
-- graph nesting, flatten, explicit dependency ordering và cycle validation;
-- generational handle allocator và stale-handle detection;
-- `ResourceRegistry` có insert/lookup/remove/version tracking, descriptor
-  validation và private resource maps;
-- owned texture resource với descriptor metadata;
-- render, compute và copy node; buffer-to-buffer và texture-to-texture copy;
-- graph không có render target và execution segmented giữ đúng thứ tự
-  copy/compute/draw;
-- validation typed cho missing resource, target size/usage, copy range, texture
-  mip/range/format/ownership và buffer copy usage;
-- readback theo texture format;
-- bundle cache key có resource version;
-- `SubmissionTracker`, ring allocation không implicit wrap và reset có gate
-  completion;
-- transient texture pool exact-match với descriptor đầy đủ, in-flight protection,
-  duplicate-release detection và drain sau completion;
-- transient buffer pool exact-match với descriptor, in-flight protection,
-  duplicate-release detection và drain sau completion;
-- generic deferred destruction queue có completion gate đã có; integration với
-  frame context và registry ownership còn thiếu;
-- `FrameContext` đã nối transient texture/buffer pool với seal/reset completion;
-  queue submit/present và registry ownership vẫn thuộc host;
-- examples, integration test và benchmark harness cơ bản.
+- khởi tạo device/queue, capability snapshot và builder backend/fallback policy;
+- generational handle, registry descriptor/version, owned texture và deferred
+  destruction;
+- graph flatten, dependency explicit/automatic hazard theo subresource;
+- render, compute, copy, indirect, MSAA/resolve, depth/stencil và surface
+  resize/reconfigure;
+- `SubmissionTracker`, transient pools và `FrameContext` submission-safe;
+- async readback, execution report, timestamp query pool và tracked profiling;
+- dynamic bind-group limit, dynamic offset metadata và pipeline-layout signature;
+- bundle cache invalidation theo resource, format, sample count và context key.
 
-## Đã implement nhưng còn giới hạn
+## Đã có nhưng còn giới hạn
 
-- render bundle mới tối ưu fast path render thuần; segmented path encode draw
-  trực tiếp để ưu tiên correctness;
-- texture registry compatibility API view-only chưa có đủ descriptor/ownership;
-  copy/resolve/lifetime phải dùng owned texture API;
-- `TextureCache` vẫn tồn tại như type alias compatibility cho
-  `TransientTexturePool`, không phải LRU hay VRAM eviction manager;
-- lock surface poisoning được xử lý không panic; builder reject surface không có
-  configuration, `try_resize_surface` và `reconfigure_surface` đã có typed
-  error; present/acquire retry policy vẫn thuộc host;
-- bind-group state cache đã cấp phát theo `max_bind_groups` của device; API
-  validate độc lập dùng default limits vì không có device context.
+- compatibility registry API có thể thiếu descriptor/ownership nên validation
+  sâu chỉ áp dụng cho resource đăng ký bằng descriptor API;
+- layout signature là metadata do host cấp, chưa phải shader reflection;
+- bundle fast path và segmented path có policy khác nhau; correctness ưu tiên
+  validation trước tối ưu;
+- present/acquire/retry, map readback và completion notification thuộc host;
+- timestamp boundary hiện đo toàn graph, chưa tự chèn timestamp từng pass.
 
-- texture subresource/aspect hazard, MSAA boundary và texture copy aspect đã có
-  ở mức nền tảng; capability matrix đa backend và một số format đặc biệt còn thiếu;
-- indirect draw/dispatch đã có command model, validation và encoder path; end-to-
-  end fixture ghi argument buffer và capability matrix đa backend còn thiếu;
-- async readback ticket format-aware, `ExecutionReport`, timestamp capability,
-  query pool và executor profiling boundary đã có; queue nhiều frame, worker
-  scheduling, pass-level insertion và diagnostics đầy đủ còn thiếu.
+## Chưa hoàn thiện
 
-## Chưa implement
+- runtime cross-platform matrix cho Metal, Linux, browser WebGPU, Android, iOS;
+- capability/format matrix theo adapter và visual parity đa backend;
+- reflection kiểm tra binding type, visibility và min binding size;
+- pass-level profiling, queue nhiều frame và worker scheduling.
 
-- capability tier và fallback policy chi tiết theo từng backend/platform; builder
-  đã có lựa chọn fallback adapter tường minh;
-- runtime cross-backend/device matrix tự động cho Windows, macOS, Web, Android
-  và iOS; compile evidence cho WebAssembly và Windows MSVC đã có nhưng chưa
-  thay thế runtime matrix;
-- frame context mở rộng cho profiling/present lifecycle và deferred destruction
-  integration sâu với registry;
-- context-aware bundle cache cho nhiều viewport/device.
+## Design debt còn lại
 
-## Design debt hiện tại
+- một số examples cũ còn warning hoặc `unwrap` phục vụ assertion;
+- compatibility API cũ cần migrate dần sang descriptor API;
+- cần tiếp tục audit các nhánh encoder sau validation khi command model mở rộng.
 
-- một số test/example còn `unwrap` để làm failure assertion; production path cần
-  tiếp tục audit riêng;
-- format/usage metadata của các resource đăng ký qua compatibility API chưa đầy
-  đủ, nên validation mạnh yêu cầu API descriptor;
-- execution public API đã trả `Result` và các call site nội bộ đã migrate; các
-  nhánh `continue` bên trong encoder chỉ còn là implementation detail sau bước
-  validation, cần tiếp tục audit để loại bỏ hoàn toàn nếu mở rộng command model;
-- tài liệu cũ về copy/compute cần được cập nhật tiếp để phản ánh texture copy và
-  ordered segments;
-- warning/style debt còn lại trong example user-owned.
-
-## Chính sách rewrite
-
-Không rewrite mù toàn bộ crate. Các experiment, visual fixture, graph model và
-API đã được test giữ lại làm nền; chỉ thay thế từng boundary khi invariant mới
-đã có test và tài liệu tương ứng.
+Không rewrite toàn bộ crate. Graph model, handle, resource registry, memory
+primitive và visual fixture có test được giữ lại; chỉ thay boundary khi invariant
+mới có test và tài liệu tương ứng.

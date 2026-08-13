@@ -2,59 +2,35 @@
 
 ## Done cho một task
 
-Task chỉ hoàn thành khi:
-
 - code compile với feature/config liên quan;
-- test mới hoặc test cập nhật đã pass;
-- test edge case liên quan đã pass;
-- không có `unwrap`/panic mới trên public invalid path;
-- không tạo hard-code mới nếu không có lý do được ghi lại;
-- docs liên quan được cập nhật;
-- API change có migration note;
-- không làm hỏng regression test.
-
-## Done cho một phase
-
-Phase chỉ hoàn thành khi:
-
-- tất cả task trong phase pass;
-- test gate của phase pass;
-- full regression pass;
-- visual fixture không regression ngoài tolerance;
-- implementation status phản ánh đúng thực tế;
-- design decision quan trọng đã được ghi trong docs/ADR nếu cần;
-- phase kế tiếp có input ổn định.
+- test behavior và edge case pass;
+- không thêm panic trên public invalid path;
+- không thêm hard-code không có design reason;
+- docs và migration note được cập nhật;
+- regression gate không giảm.
 
 ## Done cho core release candidate
 
-`ifol-gpu` chỉ được coi là release candidate khi:
+Core chỉ được gọi là release candidate khi resource lifetime, graph dependency,
+frame memory, surface format, cache invalidation và structured errors đều có
+evidence; baseline runtime chạy trên các platform mục tiêu khả dụng; test plan
+có owner/status; và không còn tài liệu tuyên bố capability thiếu evidence.
 
-- resource lifetime và stale handle được kiểm soát;
-- graph dependency và pass execution được validate;
-- frame memory submission-safe;
-- surface format không hard-code;
-- cache invalidation deterministic;
-- structured errors đầy đủ;
-- baseline chạy trên các platform mục tiêu khả dụng;
-- examples không còn là cách duy nhất để chứng minh behavior;
-- toàn bộ test plan bắt buộc có owner/status;
-- không còn tài liệu tuyên bố capability chưa có bằng chứng.
+## Audit hiện tại
 
-## Audit trạng thái hiện tại
+| Gate | Trạng thái hiện tại |
+|---|---|
+| Resource lifetime/stale handle | Đạt nền tảng; FrameContext và registry deferred ownership đã có |
+| Graph dependency/pass execution | Đạt nền tảng; flat plan và hazard validation đã có |
+| Frame memory submission-safe | Đạt nền tảng; transient pools, tracker, frame seal/reset đã có |
+| Surface format không hard-code | Đạt nền tảng; resize/reconfigure typed, present thuộc host |
+| Cache invalidation | Đạt nền tảng; resource/sample/context key đã có |
+| Structured errors | Đạt; validation trước submit |
+| Dynamic offsets/layout metadata | Đạt nền tảng; reflection đầy đủ còn thiếu |
+| Cross-platform runtime matrix | Chưa đạt; mới có host runtime, WASM/MSVC compile và backend probes |
+| MSAA/resolve/indirect | Đạt nền tảng; capability matrix và fixture đa backend còn thiếu |
+| Async readback/profiling | Đạt nền tảng; pass-level/đa frame còn thiếu |
 
-| Gate | Trạng thái | Evidence/ghi chú |
-|---|---|---|
-| Resource lifetime, stale handle | Đạt một phần | generational handle, owned resource, transient pools, deferred queue và submission-safe ring đã có test; frame/registry integration còn thiếu |
-| Graph dependency/pass execution | Đạt nền tảng | flat graph, explicit + automatic hazard edges, mip/layer subresource hazard metadata và render/compute/copy segmented execution đã có test |
-| Frame memory submission-safe | Đạt nền tảng | ring, submission tracker, transient pools và `FrameContext` seal/reset đã có; present/profiling/registry integration còn thiếu |
-| Surface format không hard-code | Đạt nền tảng | format lấy từ surface config; checked resize/reconfigure đã có, present policy thuộc host |
-| Cache invalidation | Đạt nền tảng | resource versions, bundle key và bind-group cache theo device limit đã có; multi-context cache còn thiếu |
-| Structured errors | Đạt | public `execute`/`execute_with_surface` trả `Result`; encoder unchecked chỉ chạy sau validation |
-| Cross-platform runtime matrix | Chưa đạt | host runtime đã đạt; compile evidence WebAssembly và Windows MSVC đã có, nhưng chưa chạy đủ Windows/macOS/Linux/Web/Android/iOS |
-| MSAA/resolve | Đạt một phần | color resolve, depth sample matching, stencil aspect và texture copy aspect qua `OffscreenMsaa`/`CopyCommand` đã có test; capability matrix format/backend còn thiếu |
-| Indirect draw/dispatch | Đạt nền tảng | command model, range/usage validation và encoder path đã có; end-to-end fixture đa backend còn thiếu |
-| Async readback/profiling | Đạt nền tảng | `ReadbackTicket`, `ExecutionReport`, timestamp capability, `TimestampQueryPool` và executor boundary đã có; pass-level insertion, queue nhiều frame và profiling backend còn thiếu |
-
-Vì các gate “Chưa đạt” và “Đạt một phần” còn tồn tại, core hiện chưa được gọi là
-release candidate. Mốc hiện tại là một nền tảng design/implementation có test
-regression mạnh trên host hiện tại.
+Vì runtime matrix, reflection và một số capability gates chưa đủ evidence, core
+chưa được gọi là release candidate. Xem [audit hiện tại](80-current-audit.md)
+để biết lệnh gate và phạm vi bằng chứng.

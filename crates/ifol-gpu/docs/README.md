@@ -84,6 +84,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 77. [Descriptor-aware dynamic offset validation](77-dynamic-offset-descriptor-validation.md)
 78. [Pipeline-layout signature validation](78-pipeline-layout-signature-validation.md)
 79. [Context-aware bundle cache](79-context-aware-bundle-cache.md)
+80. [Audit trạng thái hiện tại](80-current-audit.md)
 
 ## Từ vựng trạng thái
 
