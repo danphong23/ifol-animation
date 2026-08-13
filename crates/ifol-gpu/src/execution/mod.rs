@@ -1583,7 +1583,7 @@ mod tests {
     use crate::api::GpuEngineBuilder;
     use crate::memory::SubmissionTracker;
     use crate::graph::{ComputeCommand, CopyCommand, DrawAction, DrawCommand, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceAccess, ResourceSubresource};
-    use crate::resources::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputePipelineHandle, PipelineHandle, RenderNodeId, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+    use crate::resources::{BindGroupHandle, BindGroupResourceDescriptor, BufferHandle, BufferResourceDescriptor, ComputePipelineHandle, PipelineHandle, PipelineLayoutResourceDescriptor, RenderNodeId, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     struct CountingDispatcher {
         descriptor: crate::extensions::ExtensionDescriptor,
@@ -2188,8 +2188,8 @@ mod tests {
         engine.queue().write_buffer(&source, 0, &[7, 8, 9, 10]);
 
         let mut registry = ResourceRegistry::new();
-        registry.insert_buffer(BufferHandle(1), source);
-        registry.insert_buffer(BufferHandle(2), destination);
+        registry.insert_buffer_with_descriptor(BufferHandle(1), source, BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST }).unwrap();
+        registry.insert_buffer_with_descriptor(BufferHandle(2), destination, BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ }).unwrap();
         let mut pool = RenderNodePool::new();
         let mut graph = RenderGraph::new(RenderTarget::Screen);
         graph.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 4)]);
@@ -2372,10 +2372,10 @@ mod tests {
             entries: &[wgpu::BindGroupEntry { binding: 0, resource: buffer.as_entire_binding() }],
         });
         let mut registry = ResourceRegistry::new();
-        registry.insert_buffer(BufferHandle(1), buffer);
-        registry.insert_buffer(BufferHandle(2), staging);
-        registry.insert_compute_pipeline(ComputePipelineHandle(1), pipeline);
-        registry.insert_bind_group(BindGroupHandle(1), bind_group);
+        registry.insert_buffer_with_descriptor(BufferHandle(1), buffer, BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST }).unwrap();
+        registry.insert_buffer_with_descriptor(BufferHandle(2), staging, BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ }).unwrap();
+        registry.insert_compute_pipeline_with_layout_descriptor(ComputePipelineHandle(1), pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] });
+        registry.insert_bind_group_with_descriptor(BindGroupHandle(1), bind_group, BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1 }).unwrap();
         let mut pool = RenderNodePool::new();
         let mut graph = RenderGraph::new(RenderTarget::Screen);
         graph.add_compute_batch(&mut pool, vec![ComputeCommand::new(ComputePipelineHandle(1), [1, 1, 1]).with_bind_group(0, BindGroupHandle(1), vec![])]);
@@ -2445,11 +2445,11 @@ mod tests {
             entries: &[wgpu::BindGroupEntry { binding: 0, resource: shared.as_entire_binding() }],
         });
         let mut registry = ResourceRegistry::new();
-        registry.insert_buffer(BufferHandle(1), source);
-        registry.insert_buffer(BufferHandle(2), shared);
-        registry.insert_buffer(BufferHandle(3), staging);
-        registry.insert_compute_pipeline(ComputePipelineHandle(1), pipeline);
-        registry.insert_bind_group(BindGroupHandle(1), bind_group);
+        registry.insert_buffer_with_descriptor(BufferHandle(1), source, BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST }).unwrap();
+        registry.insert_buffer_with_descriptor(BufferHandle(2), shared, BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST }).unwrap();
+        registry.insert_buffer_with_descriptor(BufferHandle(3), staging, BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ }).unwrap();
+        registry.insert_compute_pipeline_with_layout_descriptor(ComputePipelineHandle(1), pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] });
+        registry.insert_bind_group_with_descriptor(BindGroupHandle(1), bind_group, BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1 }).unwrap();
 
         let mut pool = RenderNodePool::new();
         let mut child = RenderGraph::new(RenderTarget::Screen);

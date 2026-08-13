@@ -101,6 +101,9 @@ module mới; compatibility facade hiện chỉ còn phục vụ consumer bên n
 di trú.
 `examples/basic_window.rs` đã migrate pipeline và bind group sang descriptor API;
 các example/test fixture còn lại vẫn được theo dõi theo nhóm resource.
+Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
+bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
+examples lớn và benchmark.
 `TextureCache` alias đã bị xóa vì không còn consumer; code dùng
 `TransientTexturePool` phải gọi đúng semantics.
 `Extension` node đã có representation trong graph và được flatten theo usage;
