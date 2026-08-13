@@ -52,7 +52,9 @@ hoặc policy dự kiến.
 - indirect draw/dispatch đã có command model, validation và encoder path; cần
   thêm end-to-end fixture ghi argument buffer và capability matrix đa backend;
 - capability tier và fallback policy theo từng backend/platform;
-- cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;
+- runtime cross-backend/device matrix tự động cho Windows, macOS, Web, Android
+  và iOS; compile evidence cho WebAssembly và Windows MSVC đã có nhưng chưa
+  thay thế runtime matrix;
 - frame context mở rộng cho profiling/present lifecycle và deferred destruction
   integration sâu với registry;
 - async readback ticket format-aware, execution report cấu trúc, timestamp

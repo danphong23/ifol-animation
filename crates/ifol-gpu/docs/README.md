@@ -73,6 +73,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 66. [Timestamp capability và fallback đa nền tảng](66-timestamp-capability-and-platform-fallback.md)
 67. [Timestamp query pool](67-timestamp-query-pool.md)
 68. [Executor timestamp boundary](68-executor-timestamp-boundary.md)
+69. [Bằng chứng compile đa nền tảng](69-platform-compile-evidence.md)
 
 ## Từ vựng trạng thái
 
