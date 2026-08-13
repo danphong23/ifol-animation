@@ -80,3 +80,6 @@ change phải có migration note và test contract.
 - Builder và engine backend đã được chuyển vào `src/backend/`; `src/api/` giờ
   chỉ còn profiling cùng các re-export public. Các module graph/execution có thể
   dùng backend boundary mà không phụ thuộc đường dẫn facade nội bộ.
+Extension registry/identity boundary đã được tạo tại `src/extensions/` và có
+test duplicate/empty ID. Custom operation vẫn chưa được tích hợp vào node, flat
+plan hoặc executor.

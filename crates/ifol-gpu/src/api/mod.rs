@@ -13,4 +13,5 @@ pub mod profiling;
 pub use crate::backend::{GpuEngineBuilder, GpuError};
 pub use crate::backend::capabilities::{CapabilityError, GpuCapabilities};
 pub use crate::backend::{GpuEngine, ReadbackError, ReadbackTicket, SurfaceResizeError, TextureSaveError};
+pub use crate::extensions::{ExtensionDescriptor, ExtensionId, ExtensionRegistry, ExtensionRegistrationError, GpuExtension};
 pub use profiling::{ProfilingError, TimestampQueryPool, TimestampSpan};

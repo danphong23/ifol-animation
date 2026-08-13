@@ -20,4 +20,12 @@ representation, encoder và unit/runtime test.
 Custom graph operation là phần còn phải hoàn thiện. Mục tiêu là host có thể thêm
 operation mới mà không làm graph kernel biết semantic domain, đồng thời vẫn giữ
 validation và resource lifetime contract.
+### Giai đoạn đăng ký hiện tại
 
+`ifol_gpu::extensions::ExtensionRegistry` cung cấp ranh giới đăng ký không phụ
+thuộc domain. Mỗi extension có `ExtensionId` không rỗng, `version` và
+implementation `GpuExtension`; registry từ chối ID trùng.
+
+Đây chưa phải execution contract: extension chưa được gắn vào `RenderNode` hay
+flat plan. Task kế tiếp sẽ thêm operation payload, usage declaration, validation
+và dispatch qua executor.
