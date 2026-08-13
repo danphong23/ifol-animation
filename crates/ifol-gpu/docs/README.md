@@ -67,6 +67,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 60. [Transient buffer pool](60-transient-buffer-pool.md)
 61. [Deferred destruction](61-deferred-destruction.md)
 62. [Frame context](62-frame-context.md)
+63. [Surface reconfigure](63-surface-reconfigure.md)
 
 ## Từ vựng trạng thái
 

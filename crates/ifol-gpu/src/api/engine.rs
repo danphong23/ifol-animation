@@ -66,6 +66,14 @@ impl<'a> GpuEngine<'a> {
         Ok(())
     }
 
+    pub fn reconfigure_surface(&self) -> Result<(), SurfaceResizeError> {
+        let surface = self.surface.as_ref().ok_or(SurfaceResizeError::Unavailable)?;
+        let config_lock = self.surface_config.read().map_err(|_| SurfaceResizeError::LockPoisoned)?;
+        let config = config_lock.as_ref().ok_or(SurfaceResizeError::Unavailable)?;
+        surface.configure(&self.device, config);
+        Ok(())
+    }
+
     pub fn surface_format(&self) -> Option<wgpu::TextureFormat> {
         self.surface_config.read().ok().and_then(|config| config.as_ref().map(|c| c.format))
     }
@@ -181,7 +189,7 @@ fn texture_format_bytes_per_pixel(format: wgpu::TextureFormat) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::texture_format_bytes_per_pixel;
+    use super::{texture_format_bytes_per_pixel, SurfaceResizeError};
 
     #[test]
     fn readback_format_width_is_explicit() {
@@ -189,5 +197,13 @@ mod tests {
         assert_eq!(texture_format_bytes_per_pixel(wgpu::TextureFormat::Rgba8UnormSrgb), Some(4));
         assert_eq!(texture_format_bytes_per_pixel(wgpu::TextureFormat::Rgba16Float), Some(8));
         assert_eq!(texture_format_bytes_per_pixel(wgpu::TextureFormat::Depth32Float), None);
+    }
+
+    #[test]
+    fn headless_surface_lifecycle_returns_typed_errors() {
+        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        assert_eq!(engine.try_resize_surface(0, 8), Err(SurfaceResizeError::InvalidSize));
+        assert_eq!(engine.try_resize_surface(8, 8), Err(SurfaceResizeError::Unavailable));
+        assert_eq!(engine.reconfigure_surface(), Err(SurfaceResizeError::Unavailable));
     }
 }

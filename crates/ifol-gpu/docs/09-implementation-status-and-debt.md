@@ -40,8 +40,8 @@ hoặc policy dự kiến.
 - `TextureCache` vẫn tồn tại như type alias compatibility cho
   `TransientTexturePool`, không phải LRU hay VRAM eviction manager;
 - lock surface poisoning được xử lý không panic; builder reject surface không có
-  configuration và `try_resize_surface` đã có typed error, nhưng surface-lost,
-  present và reconfigure policy đa nền tảng còn cần hoàn thiện;
+  configuration, `try_resize_surface` và `reconfigure_surface` đã có typed
+  error; present/acquire retry policy vẫn thuộc host;
 - bind-group state cache hiện giới hạn bốn slot.
 
 ## Chưa implement

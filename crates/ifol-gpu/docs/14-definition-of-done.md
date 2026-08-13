@@ -47,7 +47,7 @@ Phase chỉ hoàn thành khi:
 | Resource lifetime, stale handle | Đạt một phần | generational handle, owned resource, transient pools, deferred queue và submission-safe ring đã có test; frame/registry integration còn thiếu |
 | Graph dependency/pass execution | Đạt nền tảng | flat graph, explicit + automatic hazard edges, mip/layer subresource hazard metadata và render/compute/copy segmented execution đã có test |
 | Frame memory submission-safe | Đạt nền tảng | ring, submission tracker, transient pools và `FrameContext` seal/reset đã có; present/profiling/registry integration còn thiếu |
-| Surface format không hard-code | Đạt | format lấy từ surface config; surface lost/present lifecycle còn thiếu |
+| Surface format không hard-code | Đạt nền tảng | format lấy từ surface config; checked resize/reconfigure đã có, present policy thuộc host |
 | Cache invalidation | Đạt nền tảng | resource versions và bundle key đã có; multi-context cache còn thiếu |
 | Structured errors | Đạt | public `execute`/`execute_with_surface` trả `Result`; encoder unchecked chỉ chạy sau validation |
 | Cross-platform runtime matrix | Chưa đạt | chỉ có evidence trên môi trường hiện tại; chưa chạy đủ Windows/macOS/Linux/Web/Android/iOS |
