@@ -25,6 +25,8 @@ hoặc policy dự kiến.
   duplicate-release detection và drain sau completion;
 - transient buffer pool exact-match với descriptor, in-flight protection,
   duplicate-release detection và drain sau completion;
+- generic deferred destruction queue có completion gate đã có; integration với
+  frame context và registry ownership còn thiếu;
 - examples, integration test và benchmark harness cơ bản.
 
 ## Đã implement nhưng còn giới hạn

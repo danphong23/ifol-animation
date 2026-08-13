@@ -44,7 +44,7 @@ Phase chỉ hoàn thành khi:
 
 | Gate | Trạng thái | Evidence/ghi chú |
 |---|---|---|
-| Resource lifetime, stale handle | Đạt một phần | generational handle, owned resource, transient texture pool và submission-safe ring đã có test; deferred destruction tổng quát còn thiếu |
+| Resource lifetime, stale handle | Đạt một phần | generational handle, owned resource, transient pools, deferred queue và submission-safe ring đã có test; frame/registry integration còn thiếu |
 | Graph dependency/pass execution | Đạt nền tảng | flat graph, explicit + automatic hazard edges, mip/layer subresource hazard metadata và render/compute/copy segmented execution đã có test |
 | Frame memory submission-safe | Đạt một phần | ring reset gate, submission tracker và transient texture/buffer pool đã có; frame context/deferred destruction còn thiếu |
 | Surface format không hard-code | Đạt | format lấy từ surface config; surface lost/present lifecycle còn thiếu |
