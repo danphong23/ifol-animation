@@ -1,5 +1,8 @@
 # IFOL GPU: boundary, cleanup và roadmap hoàn thiện core
 
+Operation contract đã bổ sung khai báo `ResourceUsage` và validation range;
+dispatch vào node/flat plan/executor vẫn là task riêng.
+
 ## Ba tầng kiến trúc
 
 ```text

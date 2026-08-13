@@ -1,5 +1,12 @@
 # Hướng dẫn: public API và extension boundary
 
+## Contract operation và resource usage
+
+Extension dùng như graph operation implement thêm `ExtensionOperation`. Nó phải
+cung cấp danh sách `ResourceUsage` (resource, access, subresource) và tự kiểm
+tra payload qua `validate_operation()`. Graph kernel chỉ dùng usage để dựng
+dependency/hazard; không đọc semantic payload của extension.
+
 ## Public baseline cho engine bên ngoài
 
 Engine ngoài chỉ nên dùng `GpuEngineBuilder`, `GpuCapabilities`, descriptor-based

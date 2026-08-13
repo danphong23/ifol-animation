@@ -8,6 +8,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
+use crate::graph::{ResourceSubresource, ResourceUsage};
+#[cfg(test)]
+use crate::graph::{GraphResource, ResourceAccess};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ExtensionId(String);
@@ -42,6 +45,48 @@ impl ExtensionDescriptor {
 /// top of this registry in the graph/execution integration task.
 pub trait GpuExtension: Send + Sync {
     fn descriptor(&self) -> ExtensionDescriptor;
+}
+
+/// Resource contract for an operation lowered into a graph node.
+pub trait ExtensionOperation: GpuExtension {
+    fn resource_usages(&self) -> &[ResourceUsage];
+    fn validate_operation(&self) -> Result<(), ExtensionValidationError>;
+}
+
+pub use crate::graph::{
+    GraphResource as OperationResource,
+    ResourceAccess as OperationAccess,
+    ResourceSubresource as OperationSubresource,
+};
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ExtensionValidationError {
+    #[error("extension operation contains no resource declaration for a resource-bearing operation")]
+    MissingResourceDeclaration,
+    #[error("extension operation resource usage has an invalid zero-sized range")]
+    InvalidResourceRange,
+}
+
+pub fn validate_resource_usages(usages: &[ResourceUsage]) -> Result<(), ExtensionValidationError> {
+    for usage in usages {
+        match usage.subresource {
+            ResourceSubresource::BufferRange { start, end } if start >= end => {
+                return Err(ExtensionValidationError::InvalidResourceRange);
+            }
+            ResourceSubresource::TextureRange { mip_start, mip_end, layer_start, layer_end }
+                if mip_start >= mip_end || layer_start >= layer_end =>
+            {
+                return Err(ExtensionValidationError::InvalidResourceRange);
+            }
+            ResourceSubresource::TextureAspectRange { mip_start, mip_end, layer_start, layer_end, .. }
+                if mip_start >= mip_end || layer_start >= layer_end =>
+            {
+                return Err(ExtensionValidationError::InvalidResourceRange);
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -93,6 +138,7 @@ mod tests {
 
     struct TestExtension {
         descriptor: ExtensionDescriptor,
+        usages: Vec<ResourceUsage>,
     }
 
     impl GpuExtension for TestExtension {
@@ -101,8 +147,16 @@ mod tests {
         }
     }
 
+    impl ExtensionOperation for TestExtension {
+        fn resource_usages(&self) -> &[ResourceUsage] { &self.usages }
+
+        fn validate_operation(&self) -> Result<(), ExtensionValidationError> {
+            validate_resource_usages(&self.usages)
+        }
+    }
+
     fn extension(id: &str, version: u32) -> Arc<dyn GpuExtension> {
-        Arc::new(TestExtension { descriptor: ExtensionDescriptor::new(id, version).unwrap() })
+        Arc::new(TestExtension { descriptor: ExtensionDescriptor::new(id, version).unwrap(), usages: Vec::new() })
     }
 
     #[test]
@@ -126,5 +180,26 @@ mod tests {
         assert_eq!(registry.len(), 1);
         assert!(registry.contains(&id));
         assert_eq!(registry.get(&id).unwrap().descriptor().version, 7);
+    }
+
+    #[test]
+    fn operation_contract_preserves_usage_and_rejects_invalid_ranges() {
+        let valid = TestExtension {
+            descriptor: ExtensionDescriptor::new("test.operation", 1).unwrap(),
+            usages: vec![ResourceUsage {
+                resource: GraphResource::Buffer(crate::render::BufferHandle(3)),
+                access: ResourceAccess::ReadWrite,
+                subresource: ResourceSubresource::BufferRange { start: 4, end: 12 },
+            }],
+        };
+        assert_eq!(valid.resource_usages().len(), 1);
+        assert_eq!(valid.validate_operation(), Ok(()));
+
+        let invalid = [ResourceUsage {
+            resource: GraphResource::Buffer(crate::render::BufferHandle(3)),
+            access: ResourceAccess::Write,
+            subresource: ResourceSubresource::BufferRange { start: 12, end: 12 },
+        }];
+        assert_eq!(validate_resource_usages(&invalid), Err(ExtensionValidationError::InvalidResourceRange));
     }
 }
