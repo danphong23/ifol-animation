@@ -10,9 +10,9 @@ slot theo đúng device.
 hard-code không cần thiết trong core.
 
 `RenderGraphExecutor::validate` không nhận device nên dùng
-`wgpu::Limits::default().max_bind_groups` làm policy độc lập. API execute có
-device context và luôn dùng capability snapshot thực tế; host nên dùng execute
-checked để có validation chính xác theo adapter.
+`wgpu::Limits::default().max_bind_groups` làm policy độc lập. Host cần chẩn đoán
+đúng adapter trước submit có thể dùng `validate_with_device`; các API execute
+checked cũng dùng capability snapshot thực tế.
 
 ## Invariant
 
@@ -25,4 +25,3 @@ checked để có validation chính xác theo adapter.
 
 Unit test kiểm tra slot 7 hợp lệ khi limit là 8 và slot 4 không hợp lệ khi limit
 là 4. Full execution regression tiếp tục bảo vệ các graph hiện có.
-

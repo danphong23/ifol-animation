@@ -177,6 +177,19 @@ impl RenderGraphExecutor {
         validate_graph(registry, pool, graph, wgpu::Limits::default().max_bind_groups)
     }
 
+    /// Validate graph theo capability của device mà host thực sự sẽ dùng.
+    /// Dùng API này khi host cần chẩn đoán trước execute mà vẫn giữ đúng
+    /// `max_bind_groups` của adapter.
+    pub fn validate_with_device(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &RenderNodePool,
+        graph: &RenderGraph,
+    ) -> Result<(), RenderGraphValidationError> {
+        validate_graph(registry, pool, graph, engine.capabilities().max_bind_groups)
+    }
+
     pub fn execute_checked(
         &self,
         engine: &GpuEngine,
@@ -216,7 +229,7 @@ impl RenderGraphExecutor {
         graph: &RenderGraph,
         surface_view: Option<&wgpu::TextureView>,
     ) -> Result<ExecutionReport, RenderGraphValidationError> {
-        self.validate_for_bind_group_limit(registry, pool, graph, engine.capabilities().max_bind_groups)?;
+        self.validate_with_device(engine, registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             Self::execution_counts_for_graph(pool, graph)?;
         let submission = self.execute_unchecked(engine, registry, pool, graph, surface_view);
@@ -259,7 +272,7 @@ impl RenderGraphExecutor {
         resolve_buffer: &wgpu::Buffer,
         resolve_offset: u64,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.validate_for_bind_group_limit(registry, pool, graph, engine.capabilities().max_bind_groups)?;
+        self.validate_with_device(engine, registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             Self::execution_counts_for_graph(pool, graph)?;
         let span = profiler.allocate_span()?;
@@ -283,16 +296,6 @@ impl RenderGraphExecutor {
             },
             span,
         })
-    }
-
-    fn validate_for_bind_group_limit(
-        &self,
-        registry: &ResourceRegistry,
-        pool: &RenderNodePool,
-        graph: &RenderGraph,
-        max_bind_groups: u32,
-    ) -> Result<(), RenderGraphValidationError> {
-        validate_graph(registry, pool, graph, max_bind_groups)
     }
 
     /// Biên dịch RenderGraph thành các lệnh gọi WGPU và đẩy xuống GPU Queue.
@@ -1308,6 +1311,23 @@ mod tests {
         );
 
         assert_eq!(result.err(), Some(RenderGraphValidationError::MissingTexture(TextureHandle(9))));
+    }
+
+    #[test]
+    fn validate_with_device_exposes_adapter_aware_contract() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: TextureHandle(9),
+            width: 64,
+            height: 64,
+        });
+        let result = RenderGraphExecutor::new().validate_with_device(
+            &engine,
+            &ResourceRegistry::new(),
+            &RenderNodePool::new(),
+            &graph,
+        );
+        assert_eq!(result, Err(RenderGraphValidationError::MissingTexture(TextureHandle(9))));
     }
 
     #[test]
