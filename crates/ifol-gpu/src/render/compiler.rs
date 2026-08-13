@@ -1,7 +1,7 @@
 use thiserror::Error;
 use std::hash::{Hash, Hasher};
 use crate::api::GpuEngine;
-use crate::render::graph::{CopyCommand, DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
+use crate::render::graph::{CopyCommand, DrawAction, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
 
@@ -23,6 +23,10 @@ pub enum RenderGraphValidationError {
     MissingComputePipeline(ComputePipelineHandle),
     #[error("buffer resource {0:?} is missing")]
     MissingBuffer(BufferHandle),
+    #[error("declared resource usage references missing buffer {0:?}")]
+    MissingUsageBuffer(BufferHandle),
+    #[error("declared resource usage references missing texture {0:?}")]
+    MissingUsageTexture(TextureHandle),
     #[error("buffer {handle:?} is missing required usage bits {required_usage:#x}; actual {actual_usage:#x}")]
     MissingBufferUsage { handle: BufferHandle, required_usage: u32, actual_usage: u32 },
     #[error("owned texture resource {0:?} is required for texture copy")]
@@ -649,6 +653,17 @@ fn validate_graph(
 
     for &node_id in &graph.node_ids {
         let node = pool.get(node_id).ok_or(RenderGraphValidationError::MissingNode(node_id))?;
+        for usage in graph.resource_usages(&node_id) {
+            match usage.resource {
+                GraphResource::Buffer(handle) if !registry.contains_buffer(&handle) => {
+                    return Err(RenderGraphValidationError::MissingUsageBuffer(handle));
+                }
+                GraphResource::Texture(handle) if !registry.contains_texture(&handle) => {
+                    return Err(RenderGraphValidationError::MissingUsageTexture(handle));
+                }
+                _ => {}
+            }
+        }
         for command in node.commands() {
             if !registry.contains_pipeline(&command.pipeline) {
                 return Err(RenderGraphValidationError::MissingPipeline(command.pipeline));
@@ -812,7 +827,7 @@ fn validate_copy_range(
 mod tests {
     use super::{bind_group_slot_index, bundle_cache_key, validate_copy_range, RenderGraphExecutor, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
-    use crate::render::{BindGroupHandle, BufferHandle, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+    use crate::render::{BindGroupHandle, BufferHandle, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -964,6 +979,23 @@ mod tests {
             RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph),
             Err(RenderGraphValidationError::MissingBuffer(BufferHandle(1)))
         );
+    }
+
+    #[test]
+    fn validation_rejects_declared_usage_without_resource() {
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        let node = graph.add_copy_batch(&mut pool, vec![]);
+        graph.declare_resource_usage(node, GraphResource::Buffer(BufferHandle(404)), ResourceAccess::Read);
+        assert_eq!(RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph), Err(RenderGraphValidationError::MissingUsageBuffer(BufferHandle(404))));
+    }
+
+    #[test]
+    fn declared_resource_usage_is_preserved_on_graph() {
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        let node = RenderNodeId(9);
+        graph.declare_resource_usage(node, GraphResource::Texture(TextureHandle(7)), ResourceAccess::ReadWrite);
+        assert_eq!(graph.resource_usages(&node), &[crate::render::ResourceUsage { resource: GraphResource::Texture(TextureHandle(7)), access: ResourceAccess::ReadWrite }]);
     }
 
     #[test]

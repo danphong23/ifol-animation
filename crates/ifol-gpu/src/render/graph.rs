@@ -147,6 +147,25 @@ pub enum RenderTarget {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GraphResource {
+    Buffer(BufferHandle),
+    Texture(TextureHandle),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ResourceAccess {
+    Read,
+    Write,
+    ReadWrite,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ResourceUsage {
+    pub resource: GraphResource,
+    pub access: ResourceAccess,
+}
+
 /// ═══════════════════════════════════════════════════════════
 /// NÚT VẼ (RenderNode) — "Một hành động trên bức tranh"
 /// ═══════════════════════════════════════════════════════════
@@ -426,6 +445,7 @@ pub struct RenderGraph {
     /// Duyệt từ cuối lên đầu thay vì từ đầu tới cuối (Reverse Draw Order)
     pub reverse_draw_order: bool,
     pub dependencies: Vec<GraphDependency>,
+    resource_usages: HashMap<RenderNodeId, Vec<ResourceUsage>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -470,6 +490,7 @@ impl RenderGraph {
             node_ids: Vec::new(),
             reverse_draw_order: false,
             dependencies: Vec::new(),
+            resource_usages: HashMap::new(),
         }
     }
 
@@ -494,6 +515,16 @@ impl RenderGraph {
 
     pub fn add_dependency(&mut self, before: RenderNodeId, after: RenderNodeId) {
         self.dependencies.push(GraphDependency { before, after });
+    }
+
+    /// Khai báo resource mà node đọc/ghi. Đây là metadata cho hazard compiler;
+    /// command encoder hiện tại vẫn giữ behavior cũ nếu graph không khai báo.
+    pub fn declare_resource_usage(&mut self, node: RenderNodeId, resource: GraphResource, access: ResourceAccess) {
+        self.resource_usages.entry(node).or_default().push(ResourceUsage { resource, access });
+    }
+
+    pub fn resource_usages(&self, node: &RenderNodeId) -> &[ResourceUsage] {
+        self.resource_usages.get(node).map(Vec::as_slice).unwrap_or(&[])
     }
 
     /// Trả về thứ tự của các node trực tiếp thuộc graph sau khi áp dụng
