@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use thiserror::Error;
+use crate::extensions::ExtensionId;
 use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 
 /// ═══════════════════════════════════════════════════════════
@@ -346,6 +347,12 @@ pub enum RenderNode {
     CopyBatch {
         commands: Vec<CopyCommand>,
     },
+
+    /// Opaque host/extension operation ordered by declared resource usages.
+    Extension {
+        extension: ExtensionId,
+        usages: Vec<ResourceUsage>,
+    },
 }
 
 impl RenderNode {
@@ -375,12 +382,17 @@ impl RenderNode {
         Self::ComputeBatch { commands, is_dirty: true }
     }
 
+    pub fn new_extension(extension: ExtensionId, usages: Vec<ResourceUsage>) -> Self {
+        Self::Extension { extension, usages }
+    }
+
     pub fn commands(&self) -> &[DrawCommand] {
         match self {
             Self::SubGraph { commands, .. } => commands,
             Self::DrawBatch { commands, .. } => commands,
             Self::ComputeBatch { .. } => &[],
             Self::CopyBatch { .. } => &[],
+            Self::Extension { .. } => &[],
         }
     }
 
@@ -398,12 +410,20 @@ impl RenderNode {
         }
     }
 
+    pub fn extension_usages(&self) -> &[ResourceUsage] {
+        match self {
+            Self::Extension { usages, .. } => usages,
+            _ => &[],
+        }
+    }
+
     pub fn is_dirty(&self) -> bool {
         match self {
             Self::SubGraph { is_dirty, .. } => *is_dirty,
             Self::DrawBatch { is_dirty, .. } => *is_dirty,
             Self::ComputeBatch { is_dirty, .. } => *is_dirty,
             Self::CopyBatch { .. } => false,
+            Self::Extension { .. } => false,
         }
     }
 
@@ -413,6 +433,7 @@ impl RenderNode {
             Self::DrawBatch { bundle, .. } => bundle.as_ref(),
             Self::ComputeBatch { .. } => None,
             Self::CopyBatch { .. } => None,
+            Self::Extension { .. } => None,
         }
     }
 
@@ -421,6 +442,7 @@ impl RenderNode {
             Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key,
             Self::ComputeBatch { .. } => None,
             Self::CopyBatch { .. } => None,
+            Self::Extension { .. } => None,
         }
     }
 
@@ -429,6 +451,7 @@ impl RenderNode {
             Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key = Some(key),
             Self::ComputeBatch { .. } => {},
             Self::CopyBatch { .. } => {},
+            Self::Extension { .. } => {},
         }
     }
 
@@ -441,6 +464,7 @@ impl RenderNode {
             }
             Self::ComputeBatch { .. } => {},
             Self::CopyBatch { .. } => {},
+            Self::Extension { .. } => {},
         }
     }
 
@@ -450,6 +474,7 @@ impl RenderNode {
             Self::DrawBatch { use_bundle, .. } => *use_bundle,
             Self::ComputeBatch { .. } => false,
             Self::CopyBatch { .. } => false,
+            Self::Extension { .. } => false,
         }
     }
 
@@ -474,6 +499,7 @@ impl RenderNode {
             }
             Self::ComputeBatch { .. } => {},
             Self::CopyBatch { .. } => {},
+            Self::Extension { .. } => {},
         }
     }
 }
@@ -521,6 +547,13 @@ impl RenderNodePool {
         id
     }
 
+    pub fn alloc_extension(&mut self, extension: ExtensionId, usages: Vec<ResourceUsage>) -> RenderNodeId {
+        self.next_id += 1;
+        let id = RenderNodeId(self.next_id);
+        self.nodes.insert(id, RenderNode::new_extension(extension, usages));
+        id
+    }
+
     pub fn get(&self, id: RenderNodeId) -> Option<&RenderNode> {
         self.nodes.get(&id)
     }
@@ -546,6 +579,7 @@ impl RenderNodePool {
                 }
                 RenderNode::ComputeBatch { .. } => return false,
                 RenderNode::CopyBatch { .. } => return false,
+                RenderNode::Extension { .. } => return false,
             }
             true
         } else {
@@ -564,6 +598,7 @@ impl RenderNodePool {
                 }
                 RenderNode::ComputeBatch { is_dirty, .. } => *is_dirty = true,
                 RenderNode::CopyBatch { .. } => {},
+                RenderNode::Extension { .. } => {},
             }
         }
     }
@@ -756,6 +791,7 @@ impl RenderGraph {
     fn effective_resource_usages(&self, node_id: RenderNodeId, pool: &RenderNodePool) -> Vec<ResourceUsage> {
         let mut usages = self.resource_usages(&node_id).to_vec();
         if let Some(node) = pool.get(node_id) {
+            usages.extend_from_slice(node.extension_usages());
             for command in node.copy_commands() {
                 match command {
                     CopyCommand::BufferToBuffer { source, destination, source_offset, destination_offset, size } => {
@@ -1083,6 +1119,28 @@ mod tests {
 
         assert_eq!(plan.nodes.iter().map(|node| node.node_id).collect::<Vec<_>>(), vec![child_batch, subgraph, root_batch]);
         assert_eq!(plan.nodes[0].path, vec![subgraph, child_batch]);
+    }
+
+    #[test]
+    fn flatten_keeps_extension_node_and_uses_its_resource_hazards() {
+        let mut pool = RenderNodePool::new();
+        let extension = pool.alloc_extension(
+            crate::extensions::ExtensionId::new("test.filter").unwrap(),
+            vec![ResourceUsage {
+                resource: GraphResource::Texture(TextureHandle(9)),
+                access: ResourceAccess::Write,
+                subresource: ResourceSubresource::Whole,
+            }],
+        );
+        let reader = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(extension);
+        graph.add_node_id(reader);
+        graph.declare_resource_usage(reader, GraphResource::Texture(TextureHandle(9)), ResourceAccess::Read);
+
+        let plan = graph.flatten(&pool).unwrap();
+        assert_eq!(plan.nodes.iter().map(|node| node.node_id).collect::<Vec<_>>(), vec![extension, reader]);
+        assert_eq!(pool.get(extension).unwrap().extension_usages().len(), 1);
     }
 
     #[test]

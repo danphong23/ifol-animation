@@ -86,3 +86,5 @@ change phải có migration note và test contract.
 Extension registry/identity boundary đã được tạo tại `src/extensions/` và có
 test duplicate/empty ID. Custom operation vẫn chưa được tích hợp vào node, flat
 plan hoặc executor.
+`Extension` node đã có representation trong graph và được flatten theo usage;
+executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.

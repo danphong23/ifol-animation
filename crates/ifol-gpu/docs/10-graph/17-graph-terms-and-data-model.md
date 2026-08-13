@@ -161,3 +161,8 @@ Compiled artifact là kết quả backend-specific như:
 - resource binding plan.
 
 Artifact phải có context key và version để tránh reuse sai.
+## Extension node
+
+Graph có thể chứa `Extension` node với `ExtensionId` và danh sách
+`ResourceUsage`. Node này được flatten như node thường, nên hazard/dependency
+vẫn deterministic; executor chỉ được chạy khi đã có dispatch đăng ký tương ứng.

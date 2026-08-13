@@ -45,6 +45,8 @@ pub enum RenderGraphProfilingError {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum RenderGraphValidationError {
+    #[error("extension operation {0:?} has no executor dispatch registered")]
+    UnsupportedExtension(crate::extensions::ExtensionId),
     #[error("render node {0:?} does not exist in the node pool")]
     MissingNode(RenderNodeId),
     #[error("render graph dependency cycle involves node {0:?}")]
@@ -537,7 +539,8 @@ fn declared_usage_count(pool: &RenderNodePool, graph: &RenderGraph) -> usize {
             Some(RenderNode::SubGraph { graph: child, .. }) => Self::declared_usage_count(pool, child),
             _ => 0,
         };
-        count + graph.resource_usages(node_id).len() + nested
+        let extension_usage_count = pool.get(*node_id).map_or(0, |node| node.extension_usages().len());
+        count + graph.resource_usages(node_id).len() + extension_usage_count + nested
     })
 }
 
@@ -935,6 +938,7 @@ fn execute_non_render_nodes(
                     }
                     RenderNode::ComputeBatch { .. } => unreachable!("compute node cannot create render bundle"),
                     RenderNode::CopyBatch { .. } => unreachable!("copy node cannot create render bundle"),
+                    RenderNode::Extension { .. } => unreachable!("extension node cannot create render bundle"),
                 }
                 node.set_bundle_key(expected_bundle_key.unwrap_or(0));
             }
@@ -1286,6 +1290,9 @@ fn validate_graph(
 
     for &node_id in &graph.node_ids {
         let node = pool.get(node_id).ok_or(RenderGraphValidationError::MissingNode(node_id))?;
+        if let RenderNode::Extension { extension, .. } = node {
+            return Err(RenderGraphValidationError::UnsupportedExtension(extension.clone()));
+        }
         for usage in graph.resource_usages(&node_id) {
             match usage.resource {
                 GraphResource::Buffer(handle) if !registry.contains_buffer(&handle) => {

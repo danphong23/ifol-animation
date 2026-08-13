@@ -36,3 +36,8 @@ implementation `GpuExtension`; registry từ chối ID trùng.
 Đây chưa phải execution contract: extension chưa được gắn vào `RenderNode` hay
 flat plan. Task kế tiếp sẽ thêm operation payload, usage declaration, validation
 và dispatch qua executor.
+## Execution contract
+
+Khi operation đã được đưa vào graph nhưng chưa có executor dispatch, việc
+execute phải trả lỗi typed `UnsupportedExtension`; core không được bỏ qua node
+hoặc âm thầm tiếp tục.
