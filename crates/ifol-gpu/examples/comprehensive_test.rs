@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::time::Instant;
+use wgpu::util::DeviceExt;
 use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::render::{
     BindGroupHandle, DrawAction, DrawCommand, MeshHandle, PipelineHandle, RenderGraph,
@@ -261,7 +262,6 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
 
 fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
-    use wgpu::util::DeviceExt;
     let mut registry = ResourceRegistry::new();
     let (view, tex) = create_target(engine);
     registry.textures.insert(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
@@ -885,7 +885,6 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
 
 fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
-    use wgpu::util::DeviceExt;
     let mut registry = ResourceRegistry::new();
 
     // 1. Tạo các Target Texture (Size 1024x1024)
@@ -1077,7 +1076,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
     registry.pipelines.insert(PipelineHandle(4), pipe_final_post);
 
     // Bind Groups
-    let make_bg = |handle_id: u64, tex_handle: TextureHandle| {
+    let make_bg = |_handle_id: u64, tex_handle: TextureHandle| {
     let view_ref = &registry.textures.get(&tex_handle).unwrap().0;
         engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bgl_tex,
