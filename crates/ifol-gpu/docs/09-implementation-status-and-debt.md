@@ -33,13 +33,13 @@ hoặc policy dự kiến.
   copy/resolve/lifetime phải dùng owned texture API;
 - `TextureCache` vẫn tồn tại như type alias compatibility cho
   `TransientTexturePool`, không phải LRU hay VRAM eviction manager;
-- lock surface poisoning được xử lý không panic, nhưng lifecycle surface lost,
-  reconfigure và resize policy đa nền tảng còn cần hoàn thiện;
+- lock surface poisoning được xử lý không panic; builder reject surface không có
+  configuration và `try_resize_surface` đã có typed error, nhưng surface-lost,
+  present và reconfigure policy đa nền tảng còn cần hoàn thiện;
 - bind-group state cache hiện giới hạn bốn slot.
 
 ## Chưa implement
 
-- resource hazard model khai báo read/write usage tổng quát trong graph;
 - MSAA resolve, depth/stencil aspect và subresource model đầy đủ;
 - indirect draw/dispatch;
 - capability tier và fallback policy theo từng backend/platform;
@@ -55,8 +55,8 @@ hoặc policy dự kiến.
   tiếp tục audit riêng;
 - format/usage metadata của các resource đăng ký qua compatibility API chưa đầy
   đủ, nên validation mạnh yêu cầu API descriptor;
-- execution compiler vẫn có silent-skip ở low-level `execute` legacy API; caller
-  production nên dùng `execute_checked`;
+- execution compiler vẫn có silent-skip ở low-level `execute` legacy API; task
+  migration sang execution API có `Result` chưa hoàn tất;
 - tài liệu cũ về copy/compute cần được cập nhật tiếp để phản ánh texture copy và
   ordered segments;
 - warning/style debt còn lại trong example user-owned.
