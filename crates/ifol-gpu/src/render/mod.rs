@@ -1,6 +1,4 @@
-pub mod compiler;
-
-pub use compiler::*;
+pub use crate::execution::*;
 
 /// Compatibility facade for the resource layer during source migration.
 pub mod handle {
@@ -9,6 +7,11 @@ pub mod handle {
 
 pub mod registry {
     pub use crate::resources::registry::*;
+}
+
+/// Compatibility facade for the execution layer during source migration.
+pub mod compiler {
+    pub use crate::execution::*;
 }
 
 pub use crate::resources::*;

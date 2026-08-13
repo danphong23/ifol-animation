@@ -1,6 +1,7 @@
 pub mod api;
 pub mod graph;
 pub mod resources;
+pub mod execution;
 pub mod render;
 pub mod memory;
 
