@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Range;
 use thiserror::Error;
-use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
+use crate::render::handle::{BindGroupHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 
 /// ═══════════════════════════════════════════════════════════
 /// HÀNH ĐỘNG VẼ (DrawAction)
@@ -41,6 +41,24 @@ pub struct DrawCommand {
 
     /// Hành động quẹt cọ cụ thể (Indexed hoặc Procedural)
     pub action: DrawAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ComputeCommand {
+    pub pipeline: ComputePipelineHandle,
+    pub bind_groups: Vec<(u32, BindGroupHandle, Vec<u32>)>,
+    pub workgroups: [u32; 3],
+}
+
+impl ComputeCommand {
+    pub fn new(pipeline: ComputePipelineHandle, workgroups: [u32; 3]) -> Self {
+        Self { pipeline, bind_groups: Vec::new(), workgroups }
+    }
+
+    pub fn with_bind_group(mut self, slot: u32, handle: BindGroupHandle, offsets: Vec<u32>) -> Self {
+        self.bind_groups.push((slot, handle, offsets));
+        self
+    }
 }
 
 impl DrawCommand {
@@ -101,6 +119,11 @@ pub enum RenderNode {
         bundle: Option<wgpu::RenderBundle>,
         bundle_key: Option<u64>,
     },
+
+    ComputeBatch {
+        commands: Vec<ComputeCommand>,
+        is_dirty: bool,
+    },
 }
 
 impl RenderNode {
@@ -126,10 +149,22 @@ impl RenderNode {
         }
     }
 
+    pub fn new_compute_batch(commands: Vec<ComputeCommand>) -> Self {
+        Self::ComputeBatch { commands, is_dirty: true }
+    }
+
     pub fn commands(&self) -> &[DrawCommand] {
         match self {
             Self::SubGraph { commands, .. } => commands,
             Self::DrawBatch { commands, .. } => commands,
+            Self::ComputeBatch { .. } => &[],
+        }
+    }
+
+    pub fn compute_commands(&self) -> &[ComputeCommand] {
+        match self {
+            Self::ComputeBatch { commands, .. } => commands,
+            _ => &[],
         }
     }
 
@@ -137,6 +172,7 @@ impl RenderNode {
         match self {
             Self::SubGraph { is_dirty, .. } => *is_dirty,
             Self::DrawBatch { is_dirty, .. } => *is_dirty,
+            Self::ComputeBatch { is_dirty, .. } => *is_dirty,
         }
     }
 
@@ -144,18 +180,21 @@ impl RenderNode {
         match self {
             Self::SubGraph { bundle, .. } => bundle.as_ref(),
             Self::DrawBatch { bundle, .. } => bundle.as_ref(),
+            Self::ComputeBatch { .. } => None,
         }
     }
 
     pub fn bundle_key(&self) -> Option<u64> {
         match self {
             Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key,
+            Self::ComputeBatch { .. } => None,
         }
     }
 
     pub fn set_bundle_key(&mut self, key: u64) {
         match self {
             Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key = Some(key),
+            Self::ComputeBatch { .. } => {},
         }
     }
 
@@ -166,6 +205,7 @@ impl RenderNode {
                 *ub = use_bundle;
                 *is_dirty = true;
             }
+            Self::ComputeBatch { .. } => {},
         }
     }
 
@@ -173,6 +213,7 @@ impl RenderNode {
         match self {
             Self::SubGraph { use_bundle, .. } => *use_bundle,
             Self::DrawBatch { use_bundle, .. } => *use_bundle,
+            Self::ComputeBatch { .. } => false,
         }
     }
 
@@ -195,6 +236,7 @@ impl RenderNode {
                 });
                 *is_dirty = true;
             }
+            Self::ComputeBatch { .. } => {},
         }
     }
 }
@@ -228,6 +270,13 @@ impl RenderNodePool {
         id
     }
 
+    pub fn alloc_compute_batch(&mut self, commands: Vec<ComputeCommand>) -> RenderNodeId {
+        self.next_id += 1;
+        let id = RenderNodeId(self.next_id);
+        self.nodes.insert(id, RenderNode::new_compute_batch(commands));
+        id
+    }
+
     pub fn get(&self, id: RenderNodeId) -> Option<&RenderNode> {
         self.nodes.get(&id)
     }
@@ -251,6 +300,7 @@ impl RenderNodePool {
                     *bundle = None;
                     *bundle_key = None;
                 }
+                RenderNode::ComputeBatch { .. } => return false,
             }
             true
         } else {
@@ -267,6 +317,7 @@ impl RenderNodePool {
                     *bundle = None;
                     *bundle_key = None;
                 }
+                RenderNode::ComputeBatch { is_dirty, .. } => *is_dirty = true,
             }
         }
     }
@@ -401,6 +452,12 @@ impl RenderGraph {
 
     pub fn add_batch(&mut self, pool: &mut RenderNodePool, commands: Vec<DrawCommand>) -> RenderNodeId {
         let id = pool.alloc_batch(commands);
+        self.node_ids.push(id);
+        id
+    }
+
+    pub fn add_compute_batch(&mut self, pool: &mut RenderNodePool, commands: Vec<ComputeCommand>) -> RenderNodeId {
+        let id = pool.alloc_compute_batch(commands);
         self.node_ids.push(id);
         id
     }

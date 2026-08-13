@@ -28,7 +28,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 - generational handle allocator foundation; typed resource store integration vẫn chưa hoàn tất;
 - resource registry API có insert/lookup/remove và version tracking nền tảng; ownership/private store vẫn chưa hoàn tất;
 - logical graph flatten plan vÃ  explicit dependency ordering cÆ¡ báº£n Ä‘Ã£ Ä‘Æ°á»£c execution dÃ¹ng cho node trá»±c tiáº¿p; resource hazard, usage vÃ  pass compilation váº«n chÆ°a implement;
-- compute/copy pass;
+- compute pass cơ bản với `ComputeBatch`/dispatch đã có; copy pass, storage usage và interleave scheduling vẫn chưa implement;
 - transient resource allocator;
 - submission tracker logic nền tảng; frame memory reuse an toàn theo submission vẫn chưa tích hợp;
 - structured validation/error cÆ¡ báº£n cho graph/resource/target; pipeline layout, usage vÃ  dynamic offset validation váº«n cÃ²n;

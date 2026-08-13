@@ -2,7 +2,7 @@ use thiserror::Error;
 use std::hash::{Hash, Hasher};
 use crate::api::GpuEngine;
 use crate::render::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
-use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
+use crate::render::handle::{BindGroupHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
 
 pub struct RenderGraphExecutor;
@@ -19,6 +19,8 @@ pub enum RenderGraphValidationError {
     MissingTexture(TextureHandle),
     #[error("pipeline resource {0:?} is missing")]
     MissingPipeline(PipelineHandle),
+    #[error("compute pipeline resource {0:?} is missing")]
+    MissingComputePipeline(ComputePipelineHandle),
     #[error("mesh resource {0:?} is missing")]
     MissingMesh(MeshHandle),
     #[error("bind group resource {0:?} is missing")]
@@ -257,8 +259,41 @@ impl RenderGraphExecutor {
                         *b = Some(bundle);
                         *is_dirty = false;
                     }
+                    RenderNode::ComputeBatch { .. } => unreachable!("compute node cannot create render bundle"),
                 }
                 node.set_bundle_key(expected_bundle_key.unwrap_or(0));
+            }
+        }
+
+        // Compute nodes được submit trước render pass của graph hiện tại.
+        // Khi graph có interleave compute/render semantics, pass model đầy đủ sẽ
+        // tách chúng thành execution segments ở compiler tiếp theo.
+        for &node_id in &node_ids {
+            let Some(node) = pool.get(node_id) else { continue; };
+            if node.compute_commands().is_empty() { continue; }
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("RenderGraphComputePass"),
+                timestamp_writes: None,
+            });
+            let mut current_pipeline = None;
+            let mut current_bind_groups = [None; 4];
+            for command in node.compute_commands() {
+                if current_pipeline != Some(command.pipeline) {
+                    if let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) {
+                        compute_pass.set_pipeline(pipeline);
+                        current_pipeline = Some(command.pipeline);
+                    } else { continue; }
+                }
+                for &(slot, bind_group, ref offsets) in &command.bind_groups {
+                    let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                    if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
+                        if let Some(group) = registry.bind_groups.get(&bind_group) {
+                            compute_pass.set_bind_group(slot, group, offsets);
+                            current_bind_groups[slot_index] = Some(bind_group);
+                        }
+                    }
+                }
+                compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
             }
         }
 
@@ -426,6 +461,19 @@ fn validate_graph(
                 }
             }
         }
+        for command in node.compute_commands() {
+            if !registry.compute_pipelines.contains_key(&command.pipeline) {
+                return Err(RenderGraphValidationError::MissingComputePipeline(command.pipeline));
+            }
+            for &(slot, bind_group, _) in &command.bind_groups {
+                if bind_group_slot_index(slot).is_none() {
+                    return Err(RenderGraphValidationError::InvalidBindGroupSlot(slot));
+                }
+                if !registry.bind_groups.contains_key(&bind_group) {
+                    return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
+                }
+            }
+        }
         if let RenderNode::SubGraph { graph: child, .. } = node {
             validate_graph(registry, pool, child)?;
         }
@@ -437,7 +485,7 @@ fn validate_graph(
 mod tests {
     use super::{bind_group_slot_index, bundle_cache_key, RenderGraphExecutor, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
-    use crate::render::{DrawAction, DrawCommand, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+    use crate::render::{ComputeCommand, DrawAction, DrawCommand, ComputePipelineHandle, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -559,5 +607,20 @@ mod tests {
             RenderGraphExecutor::new().validate(&registry, &RenderNodePool::new(), &usage_graph),
             Err(RenderGraphValidationError::MissingTextureUsage { handle: TextureHandle(2), .. })
         ));
+    }
+
+    #[test]
+    fn validation_rejects_compute_node_without_pipeline() {
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_compute_batch(
+            &mut pool,
+            vec![ComputeCommand::new(ComputePipelineHandle(42), [1, 1, 1])],
+        );
+
+        assert_eq!(
+            RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph),
+            Err(RenderGraphValidationError::MissingComputePipeline(ComputePipelineHandle(42)))
+        );
     }
 }
