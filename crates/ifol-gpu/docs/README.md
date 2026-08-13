@@ -70,6 +70,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 63. [Surface reconfigure](63-surface-reconfigure.md)
 64. [Readback bất đồng bộ](64-async-readback.md)
 65. [Execution report và profiling hook](65-execution-report-and-profiling-hook.md)
+66. [Timestamp capability và fallback đa nền tảng](66-timestamp-capability-and-platform-fallback.md)
 
 ## Từ vựng trạng thái
 

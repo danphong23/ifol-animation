@@ -24,6 +24,8 @@ pub struct GpuCapabilities {
     /// Indirect draw cơ bản là capability nền của WebGPU; feature này chỉ
     /// mô tả phần mở rộng cần kiểm tra riêng.
     pub supports_indirect_first_instance: bool,
+    /// Có thể dùng timestamp query cho profiler GPU tùy chọn.
+    pub supports_timestamp_queries: bool,
     pub features: Features,
 }
 
@@ -39,6 +41,7 @@ impl GpuCapabilities {
             max_vertex_attributes: limits.max_vertex_attributes,
             supports_compute: limits.max_compute_workgroups_per_dimension > 0,
             supports_indirect_first_instance: features.contains(Features::INDIRECT_FIRST_INSTANCE),
+            supports_timestamp_queries: features.contains(Features::TIMESTAMP_QUERY),
             features: *features,
         }
     }
@@ -62,7 +65,7 @@ mod tests {
     fn capability_snapshot_preserves_limits_and_features() {
         let mut limits = Limits::downlevel_webgl2_defaults();
         limits.max_texture_dimension_2d = 2048;
-        let features = Features::INDIRECT_FIRST_INSTANCE;
+        let features = Features::INDIRECT_FIRST_INSTANCE | Features::TIMESTAMP_QUERY;
 
         let capabilities = GpuCapabilities::new(&limits, &features);
 
@@ -72,6 +75,7 @@ mod tests {
             limits.max_compute_workgroups_per_dimension > 0
         );
         assert!(capabilities.supports_indirect_first_instance);
+        assert!(capabilities.supports_timestamp_queries);
         assert!(capabilities.features.contains(Features::INDIRECT_FIRST_INSTANCE));
     }
 
@@ -81,6 +85,7 @@ mod tests {
         let capabilities = GpuCapabilities::new(&limits, &Features::empty());
 
         assert!(!capabilities.supports_indirect_first_instance);
+        assert!(!capabilities.supports_timestamp_queries);
         assert!(capabilities.features.is_empty());
     }
 
