@@ -1234,12 +1234,12 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         (tex.create_view(&wgpu::TextureViewDescriptor::default()), tex)
     };
 
-    let (master_view, master_tex) = create_tex("MasterTarget");       // TextureHandle(1)
-    let (comp_view, _comp_tex) = create_tex("CompositeTarget");       // TextureHandle(2)
-    let (char_view, _char_tex) = create_tex("CharTarget");             // TextureHandle(3)
-    let (blur_h_view, _blur_h_tex) = create_tex("BlurHTarget");       // TextureHandle(6)
-    let (blur_v_view, _blur_v_tex) = create_tex("BlurVTarget");       // TextureHandle(7)
-    let (particle_view, _particle_tex) = create_tex("ParticleTarget");// TextureHandle(8)
+    let master_tex = create_tex("MasterTarget").1;       // TextureHandle(1)
+    let comp_tex = create_tex("CompositeTarget").1;       // TextureHandle(2)
+    let char_tex = create_tex("CharTarget").1;             // TextureHandle(3)
+    let blur_h_tex = create_tex("BlurHTarget").1;       // TextureHandle(6)
+    let blur_v_tex = create_tex("BlurVTarget").1;       // TextureHandle(7)
+    let particle_tex = create_tex("ParticleTarget").1;// TextureHandle(8)
 
     let char_depth_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("CharDepth"), size: wgpu::Extent3d { width: 1024, height: 1024, depth_or_array_layers: 1 },
@@ -1247,13 +1247,23 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         format: wgpu::TextureFormat::Depth32Float, usage: wgpu::TextureUsages::RENDER_ATTACHMENT, view_formats: &[],
     });
 
-    registry.insert_texture(TextureHandle(1), (master_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(2), (comp_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(3), (char_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(4), (char_depth_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Depth32Float));
-    registry.insert_texture(TextureHandle(6), (blur_h_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(7), (blur_v_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(8), (particle_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let color_descriptor = TextureResourceDescriptor {
+        width: 1024, height: 1024, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST,
+        mip_level_count: 1, sample_count: 1,
+    };
+    registry.insert_owned_texture(TextureHandle(1), master_tex.clone(), color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(2), comp_tex, color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(3), char_tex, color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(4), char_depth_tex, TextureResourceDescriptor {
+        width: 1024, height: 1024, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Depth32Float, usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(6), blur_h_tex, color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(7), blur_v_tex, color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(8), particle_tex, color_descriptor, 8192).unwrap();
 
     // Load ảnh thật (ai_demo_large.png) làm Background
     let ai_img_data = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/assets/ai_demo_large.png")).expect("Thiếu file ảnh demo");
@@ -1273,7 +1283,12 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * dims.0), rows_per_image: Some(dims.1) },
         wgpu::Extent3d { width: dims.0, height: dims.1, depth_or_array_layers: 1 },
     );
-    registry.insert_texture(TextureHandle(5), (bg_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.insert_owned_texture(TextureHandle(5), bg_tex, TextureResourceDescriptor {
+        width: dims.0, height: dims.1, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor {
         address_mode_u: wgpu::AddressMode::ClampToEdge, address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -1342,9 +1357,9 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         primitive: Default::default(), depth_stencil: depth_state.clone(), multisample: Default::default(), multiview_mask: None, cache: None,
     });
 
-    registry.insert_pipeline(PipelineHandle(1), make_obj_pipe(&shader_obj1));
-    registry.insert_pipeline(PipelineHandle(2), make_obj_pipe(&shader_obj2));
-    registry.insert_pipeline(PipelineHandle(3), make_obj_pipe(&shader_obj3));
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), make_obj_pipe(&shader_obj1), PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(2), make_obj_pipe(&shader_obj2), PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(3), make_obj_pipe(&shader_obj3), PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
 
     // SHADER HẠT BỤI SPARKLES (25.000 Hạt)
     let shader_sparks = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1373,7 +1388,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         fragment: Some(wgpu::FragmentState { module: &shader_sparks, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(5), pipe_sparks);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(5), pipe_sparks, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
 
     // BindGroupLayout & Layout cho Texture Processing Shaders
     let bgl_tex = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -1415,7 +1430,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         fragment: Some(wgpu::FragmentState { module: &shader_blur, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::REPLACE), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(6), pipe_blur);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(6), pipe_blur, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] });
 
     // MASTER SHADER POST-FX: RGB Split Chromatic Aberration Glitch + Film Grain + Scanline
     let shader_glitch = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1465,7 +1480,7 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
         fragment: Some(wgpu::FragmentState { module: &shader_glitch, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::REPLACE), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(8), pipe_glitch);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(8), pipe_glitch, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] });
 
     // Bind Groups
     let make_bg = |tex_handle: TextureHandle| {
@@ -1484,11 +1499,12 @@ fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, e
     let bg_particle = make_bg(TextureHandle(8));
     let bg_composite = make_bg(TextureHandle(2));
     let bg_real_image = make_bg(TextureHandle(5));
-    registry.insert_bind_group(BindGroupHandle(1), bg_char); // CharTarget (3)
-    registry.insert_bind_group(BindGroupHandle(2), bg_blur); // BlurTarget (7)
-    registry.insert_bind_group(BindGroupHandle(3), bg_particle); // ParticleTarget (8)
-    registry.insert_bind_group(BindGroupHandle(4), bg_composite); // CompositeTarget (2)
-    registry.insert_bind_group(BindGroupHandle(5), bg_real_image); // RealImageBG (5)
+    let bind_group_descriptor = BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1 };
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(1), bg_char, bind_group_descriptor).unwrap(); // CharTarget (3)
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(2), bg_blur, bind_group_descriptor).unwrap(); // BlurTarget (7)
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(3), bg_particle, bind_group_descriptor).unwrap(); // ParticleTarget (8)
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(4), bg_composite, bind_group_descriptor).unwrap(); // CompositeTarget (2)
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(5), bg_real_image, bind_group_descriptor).unwrap(); // RealImageBG (5)
 
     // =========================================================================
     // XÂY DỰNG RENDER GRAPH AAA MOTION GRAPHICS COMPLEX PIPELINE

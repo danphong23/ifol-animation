@@ -120,6 +120,8 @@ Fixture nested-graph compositing đã chuyển hai texture target, hai pipeline 
 bind group composite sang descriptor API.
 Fixture ultimate-master compositing đã chuyển năm texture, bốn pipeline và ba
 bind group sang descriptor API; phần fixture 11 còn lại sẽ xử lý riêng.
+Fixture 11 extreme motion graphics đã chuyển toàn bộ texture target/background,
+pipeline và bind group sang descriptor API; mesh fixture vẫn là phần còn lại.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.
