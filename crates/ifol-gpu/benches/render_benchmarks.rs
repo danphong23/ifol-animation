@@ -60,10 +60,24 @@ fn register_pipeline(
     handle: PipelineHandle,
     pipeline: wgpu::RenderPipeline,
 ) {
-    registry.insert_pipeline_with_layout_descriptor(
+    register_pipeline_with_layout_descriptor(
+        registry,
         handle,
         pipeline,
         PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() },
+    );
+}
+
+fn register_pipeline_with_layout_descriptor(
+    registry: &mut ResourceRegistry,
+    handle: PipelineHandle,
+    pipeline: wgpu::RenderPipeline,
+    descriptor: PipelineLayoutResourceDescriptor,
+) {
+    registry.insert_pipeline_with_layout_descriptor(
+        handle,
+        pipeline,
+        descriptor,
     );
 }
 
@@ -391,7 +405,12 @@ fn bench_single_large_image(c: &mut Criterion) {
 
     let mut registry = ResourceRegistry::new();
     register_color_texture(&mut registry, TextureHandle(1), target_view, 1024, 1024);
-    register_pipeline(&mut registry, PipelineHandle(1), pipeline);
+    register_pipeline_with_layout_descriptor(
+        &mut registry,
+        PipelineHandle(1),
+        pipeline,
+        PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(0)] },
+    );
     register_bind_group(&mut registry, BindGroupHandle(1), bg);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
