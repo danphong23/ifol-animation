@@ -5,8 +5,8 @@ Phạm vi authoritative sau audit được ghi tại
 golden harness và engine domain là phần ngoài core, không phải blocker của graph
 kernel. Roadmap cũ phải được đọc theo quyết định phạm vi này.
 
-Operation contract đã bổ sung khai báo `ResourceUsage` và validation range;
-dispatch vào node/flat plan/executor vẫn là task riêng.
+Operation contract đã bổ sung khai báo `ResourceUsage`, validation range và
+dispatcher/context để extension encode vào executor.
 
 ## Ba tầng kiến trúc
 
@@ -59,13 +59,13 @@ path chỉ vì đổi thư mục nội bộ.
 
 ## Chưa đạt
 
-- source layout chưa phản ánh ba tầng;
 - compatibility insert API và migration fixture chưa hoàn tất;
 - private encoder còn silent skip ở một số nhánh;
 - docs migration/status còn stale;
 - pipeline layout mới là host metadata, chưa có shader reflection;
 - capability/format matrix và runtime matrix đa platform chưa đủ evidence;
-- extension boundary cho custom graph operation chưa hoàn chỉnh.
+- extension boundary cho custom graph operation đã có registry, context, validation
+  và dispatch; payload semantic/built-in operation cụ thể vẫn là task riêng.
 
 ## Roadmap bắt buộc
 
@@ -73,7 +73,7 @@ path chỉ vì đổi thư mục nội bộ.
 2. Tách source tree theo boundary ở trên, giữ re-export tạm thời.
 3. Migrate examples/tests sang descriptor API và xóa compatibility path.
 4. Loại bỏ silent skip trong encoder hoặc biến thành typed internal error.
-5. Chuẩn hóa built-in operation và custom extension boundary.
+5. Chuẩn hóa built-in operation và mở rộng test cho custom extension boundary.
 6. Viết guides thực hành và API baseline cho host.
 7. Sau đó mới làm reflection, capability matrix và runtime portability.
 
@@ -89,10 +89,9 @@ change phải có migration note và test contract.
   chỉ còn profiling cùng các re-export public. Các module graph/execution có thể
   dùng backend boundary mà không phụ thuộc đường dẫn facade nội bộ.
 Extension registry/identity boundary đã được tạo tại `src/extensions/` và có
-test duplicate/empty ID. Custom operation vẫn chưa được tích hợp vào node, flat
-plan hoặc executor.
-`Extension` node đã có representation trong graph và được flatten theo usage;
-executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.
+test duplicate/empty ID. Custom operation đã được tích hợp vào node, flat plan,
+validation và executor dispatcher; built-in operation cụ thể vẫn không thuộc
+phạm vi tự động của core.
 Import nội bộ của graph, execution, resources và memory đã chuyển sang module
 mới; `src/render` không còn là dependency của các layer lõi và chỉ giữ facade
 cho consumer cũ.

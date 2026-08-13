@@ -1,14 +1,16 @@
 //! Registration boundary for built-in and host-provided GPU extensions.
 //!
-//! The registry is independent from the graph kernel. An extension can be
-//! discovered and versioned without making graph code know whether it
-//! represents a video filter, a game effect, or another workload. Execution
-//! and graph-node integration are a later layer with their own contract.
+//! The registries are independent from the graph kernel. An extension can be
+//! discovered, versioned, and dispatched without making graph code know
+//! whether it represents a video filter, a game effect, or another workload.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
+use crate::api::GpuEngine;
 use crate::graph::{ResourceSubresource, ResourceUsage};
+use crate::resources::handle::RenderNodeId;
+use crate::resources::registry::ResourceRegistry;
 #[cfg(test)]
 use crate::graph::{GraphResource, ResourceAccess};
 
@@ -51,6 +53,54 @@ pub trait GpuExtension: Send + Sync {
 pub trait ExtensionOperation: GpuExtension {
     fn resource_usages(&self) -> &[ResourceUsage];
     fn validate_operation(&self) -> Result<(), ExtensionValidationError>;
+}
+
+/// Context passed to a registered extension dispatcher.
+///
+/// The context deliberately exposes only GPU execution primitives and the
+/// resource registry. Domain payloads (shader, material, video, and so on)
+/// remain owned by the host extension implementation.
+pub struct ExtensionExecutionContext<'a, 'engine> {
+    engine: &'a GpuEngine<'engine>,
+    registry: &'a ResourceRegistry,
+    encoder: &'a mut wgpu::CommandEncoder,
+    node_id: RenderNodeId,
+    usages: &'a [ResourceUsage],
+}
+
+impl<'a, 'engine> ExtensionExecutionContext<'a, 'engine> {
+    pub(crate) fn new(
+        engine: &'a GpuEngine<'engine>,
+        registry: &'a ResourceRegistry,
+        encoder: &'a mut wgpu::CommandEncoder,
+        node_id: RenderNodeId,
+        usages: &'a [ResourceUsage],
+    ) -> Self {
+        Self { engine, registry, encoder, node_id, usages }
+    }
+
+    pub fn engine(&self) -> &GpuEngine<'_> { self.engine }
+    pub fn registry(&self) -> &ResourceRegistry { self.registry }
+    pub fn encoder(&mut self) -> &mut wgpu::CommandEncoder { self.encoder }
+    pub fn node_id(&self) -> RenderNodeId { self.node_id }
+    pub fn usages(&self) -> &[ResourceUsage] { self.usages }
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ExtensionExecutionError {
+    #[error("extension dispatcher rejected execution: {0}")]
+    Rejected(String),
+}
+
+/// Host-provided encoder for one opaque graph operation.
+pub trait ExtensionDispatcher: Send + Sync {
+    fn descriptor(&self) -> ExtensionDescriptor;
+
+    fn validate(&self, usages: &[ResourceUsage]) -> Result<(), ExtensionValidationError> {
+        validate_resource_usages(usages)
+    }
+
+    fn encode(&self, context: ExtensionExecutionContext<'_, '_>) -> Result<(), ExtensionExecutionError>;
 }
 
 pub use crate::graph::{
@@ -97,6 +147,12 @@ pub enum ExtensionRegistrationError {
     Duplicate(ExtensionId),
 }
 
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ExtensionDispatchRegistrationError {
+    #[error("extension dispatcher {0:?} is already registered")]
+    Duplicate(ExtensionId),
+}
+
 #[derive(Default)]
 pub struct ExtensionRegistry {
     entries: HashMap<ExtensionId, Arc<dyn GpuExtension>>,
@@ -132,6 +188,34 @@ impl ExtensionRegistry {
     }
 }
 
+#[derive(Default, Clone)]
+pub struct ExtensionDispatchRegistry {
+    entries: HashMap<ExtensionId, Arc<dyn ExtensionDispatcher>>,
+}
+
+impl ExtensionDispatchRegistry {
+    pub fn new() -> Self { Self::default() }
+
+    pub fn register(
+        &mut self,
+        dispatcher: Arc<dyn ExtensionDispatcher>,
+    ) -> Result<(), ExtensionDispatchRegistrationError> {
+        let id = dispatcher.descriptor().id;
+        if self.entries.contains_key(&id) {
+            return Err(ExtensionDispatchRegistrationError::Duplicate(id));
+        }
+        self.entries.insert(id, dispatcher);
+        Ok(())
+    }
+
+    pub fn get(&self, id: &ExtensionId) -> Option<&Arc<dyn ExtensionDispatcher>> {
+        self.entries.get(id)
+    }
+
+    pub fn contains(&self, id: &ExtensionId) -> bool { self.entries.contains_key(id) }
+    pub fn len(&self) -> usize { self.entries.len() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,6 +236,14 @@ mod tests {
 
         fn validate_operation(&self) -> Result<(), ExtensionValidationError> {
             validate_resource_usages(&self.usages)
+        }
+    }
+
+    impl ExtensionDispatcher for TestExtension {
+        fn descriptor(&self) -> ExtensionDescriptor { self.descriptor.clone() }
+
+        fn encode(&self, _context: ExtensionExecutionContext<'_, '_>) -> Result<(), ExtensionExecutionError> {
+            Ok(())
         }
     }
 
@@ -201,5 +293,37 @@ mod tests {
             subresource: ResourceSubresource::BufferRange { start: 12, end: 12 },
         }];
         assert_eq!(validate_resource_usages(&invalid), Err(ExtensionValidationError::InvalidResourceRange));
+    }
+
+    #[test]
+    fn dispatch_registry_rejects_duplicate_and_keeps_versioned_dispatcher() {
+        let dispatcher = Arc::new(TestExtension {
+            descriptor: ExtensionDescriptor::new("test.dispatch", 3).unwrap(),
+            usages: Vec::new(),
+        });
+        let mut registry = ExtensionDispatchRegistry::new();
+        registry.register(dispatcher.clone()).unwrap();
+        assert_eq!(registry.len(), 1);
+        let id = ExtensionId::new("test.dispatch").unwrap();
+        assert!(registry.contains(&id));
+        assert_eq!(registry.get(&id).unwrap().descriptor().version, 3);
+        assert_eq!(
+            registry.register(dispatcher),
+            Err(ExtensionDispatchRegistrationError::Duplicate(id))
+        );
+    }
+
+    #[test]
+    fn dispatcher_default_validation_reuses_resource_contract() {
+        let dispatcher = TestExtension {
+            descriptor: ExtensionDescriptor::new("test.validation", 1).unwrap(),
+            usages: Vec::new(),
+        };
+        let invalid = [ResourceUsage {
+            resource: GraphResource::Buffer(crate::render::BufferHandle(4)),
+            access: ResourceAccess::Read,
+            subresource: ResourceSubresource::BufferRange { start: 9, end: 9 },
+        }];
+        assert_eq!(dispatcher.validate(&invalid), Err(ExtensionValidationError::InvalidResourceRange));
     }
 }

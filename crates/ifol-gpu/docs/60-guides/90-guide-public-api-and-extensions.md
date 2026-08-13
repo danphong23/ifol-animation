@@ -24,23 +24,22 @@ representation, encoder và unit/runtime test.
 
 ## Custom operation
 
-Custom graph operation là phần còn phải hoàn thiện. Mục tiêu là host có thể thêm
-operation mới mà không làm graph kernel biết semantic domain, đồng thời vẫn giữ
-validation và resource lifetime contract.
+Custom graph operation được đăng ký qua `ExtensionDispatchRegistry`. Host có thể
+thêm operation mới mà không làm graph kernel biết semantic domain, đồng thời vẫn
+giữ validation và resource lifetime contract.
 ### Giai đoạn đăng ký hiện tại
 
 `ifol_gpu::extensions::ExtensionRegistry` cung cấp ranh giới đăng ký không phụ
 thuộc domain. Mỗi extension có `ExtensionId` không rỗng, `version` và
 implementation `GpuExtension`; registry từ chối ID trùng.
 
-Đây chưa phải execution contract: extension chưa được gắn vào `RenderNode` hay
-flat plan. Task kế tiếp sẽ thêm operation payload, usage declaration, validation
-và dispatch qua executor.
-## Execution contract
+`RenderNode::Extension` giữ `ExtensionId` và `ResourceUsage`, được flatten như các
+node khác. Dispatcher nhận `ExtensionExecutionContext` để encode command vào
+`wgpu::CommandEncoder`; payload semantic vẫn nằm trong implementation của host.
 
-Khi operation đã được đưa vào graph nhưng chưa có executor dispatch, việc
-execute phải trả lỗi typed `UnsupportedExtension`; core không được bỏ qua node
-hoặc âm thầm tiếp tục.
+Tạo executor có dispatcher bằng `RenderGraphExecutor::with_extension_dispatchers`.
+Executor mặc định không có dispatcher và sẽ fail-closed bằng
+`UnsupportedExtension`.
 ## Execution contract
 
 Khi operation đã được đưa vào graph nhưng chưa có executor dispatch, việc

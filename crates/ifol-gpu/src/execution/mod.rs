@@ -1,7 +1,9 @@
 use thiserror::Error;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
+use crate::extensions::{ExtensionDispatchRegistry, ExtensionExecutionContext};
 use crate::memory::{SubmissionId, SubmissionTracker};
 use crate::graph::{CopyCommand, DrawAction, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::resources::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
@@ -9,6 +11,7 @@ use crate::resources::registry::ResourceRegistry;
 
 pub struct RenderGraphExecutor {
     context_key: u64,
+    extension_dispatchers: Arc<ExtensionDispatchRegistry>,
 }
 
 /// Thống kê cấu trúc của một lần thực thi graph.
@@ -47,6 +50,16 @@ pub enum RenderGraphProfilingError {
 pub enum RenderGraphValidationError {
     #[error("extension operation {0:?} has no executor dispatch registered")]
     UnsupportedExtension(crate::extensions::ExtensionId),
+    #[error("extension operation {extension:?} failed validation: {error}")]
+    ExtensionValidation {
+        extension: crate::extensions::ExtensionId,
+        error: crate::extensions::ExtensionValidationError,
+    },
+    #[error("extension operation {extension:?} failed during dispatch: {error}")]
+    ExtensionDispatch {
+        extension: crate::extensions::ExtensionId,
+        error: crate::extensions::ExtensionExecutionError,
+    },
     #[error("render node {0:?} does not exist in the node pool")]
     MissingNode(RenderNodeId),
     #[error("render graph dependency cycle involves node {0:?}")]
@@ -251,17 +264,50 @@ impl Default for RenderGraphExecutor {
 
 impl RenderGraphExecutor {
     pub fn new() -> Self {
-        Self { context_key: 0 }
+        Self { context_key: 0, extension_dispatchers: Arc::new(ExtensionDispatchRegistry::new()) }
     }
 
     /// Gán identity ổn định cho device/viewport mà host đang dùng. Hai context
     /// khác nhau không được dùng chung bundle dù logical node giống nhau.
     pub fn with_context_key(context_key: u64) -> Self {
-        Self { context_key }
+        Self { context_key, ..Self::new() }
+    }
+
+    pub fn with_extension_dispatchers(dispatchers: ExtensionDispatchRegistry) -> Self {
+        Self { context_key: 0, extension_dispatchers: Arc::new(dispatchers) }
+    }
+
+    pub fn with_context_and_extension_dispatchers(
+        context_key: u64,
+        dispatchers: ExtensionDispatchRegistry,
+    ) -> Self {
+        Self { context_key, extension_dispatchers: Arc::new(dispatchers) }
     }
 
     pub fn context_key(&self) -> u64 {
         self.context_key
+    }
+
+    fn dispatch_extension(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &RenderNodePool,
+        node_id: RenderNodeId,
+    ) -> Result<(), RenderGraphValidationError> {
+        let Some(RenderNode::Extension { extension, usages }) = pool.get(node_id) else {
+            return Ok(());
+        };
+        let Some(dispatcher) = self.extension_dispatchers.get(extension) else {
+            return Err(RenderGraphValidationError::UnsupportedExtension(extension.clone()));
+        };
+        dispatcher
+            .encode(ExtensionExecutionContext::new(engine, registry, encoder, node_id, usages))
+            .map_err(|error| RenderGraphValidationError::ExtensionDispatch {
+                extension: extension.clone(),
+                error,
+            })
     }
 
     /// Kiểm tra graph trước khi tạo command buffer. Đây là API được khuyến nghị
@@ -272,7 +318,7 @@ impl RenderGraphExecutor {
         pool: &RenderNodePool,
         graph: &RenderGraph,
     ) -> Result<(), RenderGraphValidationError> {
-        validate_graph(registry, pool, graph, wgpu::Limits::default().max_bind_groups)
+        validate_graph(registry, pool, graph, wgpu::Limits::default().max_bind_groups, &self.extension_dispatchers)
     }
 
     /// Validate graph theo capability của device mà host thực sự sẽ dùng.
@@ -285,7 +331,7 @@ impl RenderGraphExecutor {
         pool: &RenderNodePool,
         graph: &RenderGraph,
     ) -> Result<(), RenderGraphValidationError> {
-        validate_graph(registry, pool, graph, engine.capabilities().max_bind_groups)
+        validate_graph(registry, pool, graph, engine.capabilities().max_bind_groups, &self.extension_dispatchers)
     }
 
     pub fn execute_checked(
@@ -551,9 +597,10 @@ fn execute_non_render_nodes(
         pool: &RenderNodePool,
         registry: &ResourceRegistry,
         node_ids: &[RenderNodeId],
-    ) {
+    ) -> Result<(), RenderGraphValidationError> {
         for &node_id in node_ids {
             let Some(node) = pool.get(node_id) else { continue; };
+            self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
             }
@@ -587,12 +634,13 @@ fn execute_non_render_nodes(
                 }
             }
         }
-        let _ = engine;
+        Ok(())
     }
 
     fn execute_ordered_target_nodes(
         &self,
         encoder: &mut wgpu::CommandEncoder,
+        engine: &GpuEngine,
         pool: &RenderNodePool,
         registry: &ResourceRegistry,
         node_ids: &[RenderNodeId],
@@ -602,10 +650,11 @@ fn execute_non_render_nodes(
         depth_stencil_info: Option<(&wgpu::TextureView, wgpu::TextureFormat)>,
         clear_color: Option<[f32; 4]>,
         max_bind_groups: u32,
-    ) {
+    ) -> Result<(), RenderGraphValidationError> {
         let mut rendered_any = false;
         for &node_id in node_ids {
             let Some(node) = pool.get(node_id) else { continue; };
+            self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
             }
@@ -649,6 +698,7 @@ fn execute_non_render_nodes(
             rendered_any = true;
         }
         let _ = (color_format, rendered_any);
+        Ok(())
     }
 
     fn owner_graph_for_flat_path<'a>(
@@ -704,6 +754,7 @@ fn execute_non_render_nodes(
             let owner_path = Self::flat_plan_owner_path(flat_node);
             let owner = Self::owner_graph_for_flat_path(graph, pool, &flat_node.path)?;
 
+            self.dispatch_extension(encoder, engine, registry, pool, flat_node.node_id)?;
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
             }
@@ -827,7 +878,7 @@ fn execute_non_render_nodes(
         };
 
         let Some((color_view, color_format, sample_count, resolve_view)) = target_view_info else {
-            self.execute_non_render_nodes(encoder, engine, pool, registry, &ordered_ids);
+            self.execute_non_render_nodes(encoder, engine, pool, registry, &ordered_ids)?;
             return Ok(());
         };
 
@@ -839,6 +890,7 @@ fn execute_non_render_nodes(
         if has_draw && has_non_render {
             self.execute_ordered_target_nodes(
                 encoder,
+                engine,
                 pool,
                 registry,
                 &ordered_ids,
@@ -848,7 +900,7 @@ fn execute_non_render_nodes(
                 depth_stencil_info.map(|(view, format)| (view, *format)),
                 graph.clear_color,
                 engine.capabilities().max_bind_groups,
-            );
+            )?;
             return Ok(());
         }
 
@@ -947,6 +999,7 @@ fn execute_non_render_nodes(
         // Copy nodes được submit trước compute/render pass của graph hiện tại.
         for &node_id in &node_ids {
             let Some(node) = pool.get(node_id) else { continue; };
+            self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
             }
@@ -1178,6 +1231,7 @@ fn validate_graph(
     pool: &RenderNodePool,
     graph: &RenderGraph,
     max_bind_groups: u32,
+    extension_dispatchers: &ExtensionDispatchRegistry,
 ) -> Result<(), RenderGraphValidationError> {
     graph.flatten(pool).map_err(|error| match error {
         crate::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
@@ -1290,8 +1344,14 @@ fn validate_graph(
 
     for &node_id in &graph.node_ids {
         let node = pool.get(node_id).ok_or(RenderGraphValidationError::MissingNode(node_id))?;
-        if let RenderNode::Extension { extension, .. } = node {
-            return Err(RenderGraphValidationError::UnsupportedExtension(extension.clone()));
+        if let RenderNode::Extension { extension, usages } = node {
+            let Some(dispatcher) = extension_dispatchers.get(extension) else {
+                return Err(RenderGraphValidationError::UnsupportedExtension(extension.clone()));
+            };
+            dispatcher.validate(usages).map_err(|error| RenderGraphValidationError::ExtensionValidation {
+                extension: extension.clone(),
+                error,
+            })?;
         }
         for usage in graph.resource_usages(&node_id) {
             match usage.resource {
@@ -1386,7 +1446,7 @@ fn validate_graph(
             }
         }
         if let RenderNode::SubGraph { graph: child, .. } = node {
-            validate_graph(registry, pool, child, max_bind_groups)?;
+            validate_graph(registry, pool, child, max_bind_groups, extension_dispatchers)?;
         }
     }
     Ok(())
@@ -1558,11 +1618,30 @@ fn validate_indirect_buffer(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
     use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
     use crate::memory::SubmissionTracker;
     use crate::graph::{ComputeCommand, CopyCommand, DrawAction, DrawCommand, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceAccess, ResourceSubresource};
     use crate::resources::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputePipelineHandle, PipelineHandle, RenderNodeId, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+
+    struct CountingDispatcher {
+        descriptor: crate::extensions::ExtensionDescriptor,
+        calls: Arc<AtomicUsize>,
+    }
+
+    impl crate::extensions::ExtensionDispatcher for CountingDispatcher {
+        fn descriptor(&self) -> crate::extensions::ExtensionDescriptor { self.descriptor.clone() }
+
+        fn encode(
+            &self,
+            context: crate::extensions::ExtensionExecutionContext<'_, '_>,
+        ) -> Result<(), crate::extensions::ExtensionExecutionError> {
+            assert_eq!(context.usages().len(), 0);
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        }
+    }
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -1585,6 +1664,28 @@ mod tests {
             RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph),
             Err(RenderGraphValidationError::UnsupportedExtension(extension_id))
         );
+    }
+
+    #[test]
+    fn registered_extension_dispatches_once_in_no_target_path() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let extension_id = crate::extensions::ExtensionId::new("test.counting").unwrap();
+        let mut dispatchers = crate::extensions::ExtensionDispatchRegistry::new();
+        dispatchers.register(Arc::new(CountingDispatcher {
+            descriptor: crate::extensions::ExtensionDescriptor { id: extension_id.clone(), version: 1 },
+            calls: calls.clone(),
+        })).unwrap();
+
+        let mut pool = RenderNodePool::new();
+        let node = pool.alloc_extension(extension_id, Vec::new());
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(node);
+
+        RenderGraphExecutor::with_extension_dispatchers(dispatchers)
+            .execute_checked(&engine, &ResourceRegistry::new(), &mut pool, &graph)
+            .unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
     }
 
     #[test]

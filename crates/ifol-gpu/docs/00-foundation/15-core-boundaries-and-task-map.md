@@ -62,13 +62,12 @@ cần parse shader source.
 
 ### Bắt buộc cho core
 
-1. Hoàn thiện dispatcher contract và execution context cho extension.
-2. Chuyển extension usage vào cùng validation/lifetime path với built-in node.
-3. Loại bỏ silent skip trong mọi public execution path.
-4. Migrate consumer nội bộ khỏi raw registry API và compatibility facade.
-5. Xóa `TextureCache` alias sau khi không còn consumer.
-6. Audit typed errors, deterministic diagnostics và nhiều frame in-flight.
-7. Full correctness/lifetime audit và release checklist.
+1. Mở rộng test để chứng minh extension usage đi cùng validation/lifetime path
+   với built-in node.
+2. Loại bỏ silent skip trong mọi public execution path.
+3. Migrate consumer nội bộ khỏi raw registry API và compatibility facade.
+4. Audit typed errors, deterministic diagnostics và nhiều frame in-flight.
+5. Full correctness/lifetime audit và release checklist.
 
 ### GPU infrastructure cần evidence trước release candidate
 
