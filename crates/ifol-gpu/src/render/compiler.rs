@@ -83,6 +83,15 @@ fn bind_group_slot_index(slot: u32) -> Option<usize> {
     (slot < 4).then_some(slot as usize)
 }
 
+fn format_has_stencil(format: wgpu::TextureFormat) -> bool {
+    matches!(
+        format,
+        wgpu::TextureFormat::Stencil8
+            | wgpu::TextureFormat::Depth24PlusStencil8
+            | wgpu::TextureFormat::Depth32FloatStencil8
+    )
+}
+
 fn bundle_cache_key(
     node: &RenderNode,
     registry: &ResourceRegistry,
@@ -271,13 +280,16 @@ impl RenderGraphExecutor {
                     store: wgpu::StoreOp::Store,
                 },
             })];
-            let depth_stencil_attachment = depth_stencil_info.map(|(view, _format)| wgpu::RenderPassDepthStencilAttachment {
+            let depth_stencil_attachment = depth_stencil_info.map(|(view, format)| wgpu::RenderPassDepthStencilAttachment {
                 view,
                 depth_ops: Some(wgpu::Operations {
                     load: if !rendered_any && clear_color.is_some() { wgpu::LoadOp::Clear(1.0) } else { wgpu::LoadOp::Load },
                     store: wgpu::StoreOp::Store,
                 }),
-                stencil_ops: None,
+                stencil_ops: format_has_stencil(format).then_some(wgpu::Operations {
+                    load: if !rendered_any && clear_color.is_some() { wgpu::LoadOp::Clear(0) } else { wgpu::LoadOp::Load },
+                    store: wgpu::StoreOp::Store,
+                }),
             });
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("RenderGraphSegmentPass"),
@@ -497,13 +509,16 @@ impl RenderGraphExecutor {
             ops: wgpu::Operations { load: load_op, store: wgpu::StoreOp::Store },
         })];
 
-        let depth_stencil_attachment = depth_stencil_info.map(|(view, _)| wgpu::RenderPassDepthStencilAttachment {
+        let depth_stencil_attachment = depth_stencil_info.map(|(view, format)| wgpu::RenderPassDepthStencilAttachment {
             view,
             depth_ops: Some(wgpu::Operations {
                 load: if graph.clear_color.is_some() { wgpu::LoadOp::Clear(1.0) } else { wgpu::LoadOp::Load },
                 store: wgpu::StoreOp::Store,
             }),
-            stencil_ops: None,
+            stencil_ops: format_has_stencil(*format).then_some(wgpu::Operations {
+                load: if graph.clear_color.is_some() { wgpu::LoadOp::Clear(0) } else { wgpu::LoadOp::Load },
+                store: wgpu::StoreOp::Store,
+            }),
         });
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -922,7 +937,7 @@ fn validate_copy_range(
 
 #[cfg(test)]
 mod tests {
-    use super::{bind_group_slot_index, bundle_cache_key, validate_copy_range, RenderGraphExecutor, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, validate_copy_range, RenderGraphExecutor, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
     use crate::render::{BindGroupHandle, BufferHandle, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
@@ -932,6 +947,15 @@ mod tests {
         assert_eq!(bind_group_slot_index(3), Some(3));
         assert_eq!(bind_group_slot_index(4), None);
         assert_eq!(bind_group_slot_index(u32::MAX), None);
+    }
+
+    #[test]
+    fn stencil_aspect_detection_is_format_specific() {
+        assert!(format_has_stencil(wgpu::TextureFormat::Stencil8));
+        assert!(format_has_stencil(wgpu::TextureFormat::Depth24PlusStencil8));
+        assert!(format_has_stencil(wgpu::TextureFormat::Depth32FloatStencil8));
+        assert!(!format_has_stencil(wgpu::TextureFormat::Depth24Plus));
+        assert!(!format_has_stencil(wgpu::TextureFormat::Depth32Float));
     }
 
     #[test]
@@ -1169,7 +1193,7 @@ mod tests {
         let depth = engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("msaa_depth_attachment"), size: wgpu::Extent3d { width: 8, height: 8, depth_or_array_layers: 1 },
             mip_level_count: 1, sample_count: 4, dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth24Plus, usage: color_usage, view_formats: &[],
+            format: wgpu::TextureFormat::Depth24PlusStencil8, usage: color_usage, view_formats: &[],
         });
         let mut registry = ResourceRegistry::new();
         let descriptor = |format, sample_count| TextureResourceDescriptor {
@@ -1178,7 +1202,7 @@ mod tests {
         };
         registry.insert_texture_with_descriptor(TextureHandle(30), color.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Rgba8Unorm, 4), 1024).unwrap();
         registry.insert_texture_with_descriptor(TextureHandle(31), resolve.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Rgba8Unorm, 1), 1024).unwrap();
-        registry.insert_texture_with_descriptor(TextureHandle(32), depth.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Depth24Plus, 4), 1024).unwrap();
+        registry.insert_texture_with_descriptor(TextureHandle(32), depth.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Depth24PlusStencil8, 4), 1024).unwrap();
         let mut graph = RenderGraph::new(RenderTarget::OffscreenMsaa { color: TextureHandle(30), resolve: TextureHandle(31), width: 8, height: 8 });
         graph.depth_stencil = Some(TextureHandle(32));
         let submission = RenderGraphExecutor::new().execute(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();

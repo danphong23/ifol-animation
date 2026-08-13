@@ -12,7 +12,8 @@ Validation bắt buộc:
 - format và kích thước của hai texture giống nhau;
 - cả hai texture có usage `RENDER_ATTACHMENT`.
 
-Depth MSAA cơ bản đã được nối vào render pass và có runtime test. Stencil
-aspect/subresource model và capability-limit theo adapter vẫn là phần tiếp
-theo; target sample count không được coi là đã chạy trên mọi backend chỉ vì
-validation graph thành công.
+Depth MSAA cơ bản và stencil aspect (`Stencil8`, `Depth24PlusStencil8`,
+`Depth32FloatStencil8`) đã được nối vào render pass và có runtime test. Việc
+chọn sample count cuối cùng vẫn do device/backend xác nhận khi tạo texture;
+`wgpu::Limits` không cung cấp một `max_sample_count` chung để core tự suy diễn.
+Subresource model và capability matrix đa backend vẫn là phần tiếp theo.
