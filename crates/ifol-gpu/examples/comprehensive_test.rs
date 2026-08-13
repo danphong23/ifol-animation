@@ -4,7 +4,10 @@ use wgpu::util::DeviceExt;
 use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
-use ifol_gpu::resources::{BindGroupHandle, MeshHandle, PipelineHandle, ResourceRegistry, TextureHandle};
+use ifol_gpu::resources::{
+    BindGroupHandle, MeshHandle, PipelineHandle, PipelineLayoutResourceDescriptor,
+    ResourceRegistry, TextureHandle, TextureResourceDescriptor,
+};
 
 // Helper: Khởi tạo Texture làm bia vẽ (Target)
 fn create_target(engine: &ifol_gpu::api::GpuEngine) -> (wgpu::TextureView, wgpu::Texture) {
@@ -36,8 +39,13 @@ fn save_texture(engine: &ifol_gpu::api::GpuEngine, texture: &wgpu::Texture, file
 fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
-    let (view, tex) = create_target(engine);
-    registry.insert_texture(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let (_view, tex) = create_target(engine);
+    registry.insert_owned_texture(TextureHandle(1), tex.clone(), TextureResourceDescriptor {
+        width: 800, height: 600, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     let graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -61,8 +69,13 @@ fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
 fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
-    let (view, tex) = create_target(engine);
-    registry.insert_texture(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let (_view, tex) = create_target(engine);
+    registry.insert_owned_texture(TextureHandle(1), tex.clone(), TextureResourceDescriptor {
+        width: 800, height: 600, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     let depth_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("Depth"),
@@ -78,10 +91,12 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     });
-    registry.insert_texture(
-        TextureHandle(2),
-        (depth_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Depth32Float),
-    );
+    registry.insert_owned_texture(TextureHandle(2), depth_tex.clone(), TextureResourceDescriptor {
+        width: 800, height: 600, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -141,7 +156,7 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
         cache: None,
     });
 
-    registry.insert_pipeline(PipelineHandle(1), pipeline);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -175,8 +190,13 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
 fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
-    let (view, tex) = create_target(engine);
-    registry.insert_texture(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let (_view, tex) = create_target(engine);
+    registry.insert_owned_texture(TextureHandle(1), tex.clone(), TextureResourceDescriptor {
+        width: 800, height: 600, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -229,7 +249,7 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
         cache: None,
     });
 
-    registry.insert_pipeline(PipelineHandle(1), pipeline);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),

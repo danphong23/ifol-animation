@@ -106,6 +106,9 @@ API và toàn bộ pipeline sang pipeline-layout descriptor API.
 `examples/ultimate_test_suite.rs` cũng đã migrate các helper texture, bind group
 và pipeline sang descriptor API; raw consumer còn lại tập trung ở
 `comprehensive_test.rs` và benchmark.
+Ba fixture đầu tiên trong `comprehensive_test.rs` (clear color, depth và alpha)
+đã chuyển texture sang owned descriptor API và pipeline sang layout descriptor;
+phần fixture còn lại sẽ tiếp tục migrate theo nhóm test.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.
