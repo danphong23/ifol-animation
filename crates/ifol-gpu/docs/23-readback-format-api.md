@@ -1,9 +1,13 @@
 # IFOL GPU: readback theo texture format
 
-`GpuEngine::read_texture_to_bytes_with_format` yêu cầu host truyền
-`TextureFormat` thật của texture. API trả raw bytes theo row đã bỏ padding và kích
-thước width/height.
+Host phải truyền `TextureFormat` thật cho readback vì `wgpu::Texture` không
+expose descriptor đầy đủ sau khi tạo. Core bỏ row padding và trả raw bytes cùng
+width/height.
 
-API `read_texture_to_bytes` cũ vẫn tồn tại cho compatibility và giả định
-`Rgba8UnormSrgb`; host mới nên dùng API có format. Depth/stencil và format chưa có
-bytes-per-pixel mapping sẽ trả lỗi thay vì đọc sai dữ liệu.
+API legacy `read_texture_to_bytes` vẫn giả định `Rgba8UnormSrgb`. API mới nên
+dùng `read_texture_to_bytes_with_format_checked` hoặc
+`begin_texture_readback_checked`; API checked trả `ReadbackError` typed cho
+format không hỗ trợ, extent lỗi, overflow, map failure hoặc access failure.
+
+Core chưa chuyển đổi depth/stencil/compressed format và không tự đoán format.
+Chi tiết xem [typed readback errors](81-typed-readback-errors.md).

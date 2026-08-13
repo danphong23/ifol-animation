@@ -1,12 +1,16 @@
 # IFOL GPU: bundle cache key
 
-Render node bundle hiện có cache key deterministic gồm:
+Bundle key deterministic hiện bao gồm:
 
-- color/depth format của target;
-- pipeline handle và pipeline version;
-- bind group handle/version/dynamic offsets;
+- context key của device/viewport;
+- color/depth format và sample count;
+- pipeline handle/version và layout metadata;
+- bind-group handle/version/dynamic offsets;
 - mesh handle/version.
 
-Khi key thay đổi, bundle được compile lại dù dirty flag của node chưa đổi. Đây là
-nền tảng invalidation; context surface, sample count/MSAA và resource usage đầy đủ
-vẫn phải được bổ sung trước production cache.
+Khi bất kỳ thành phần nào thay đổi, bundle được compile lại dù dirty flag của
+node chưa đổi. Dynamic offset được đưa vào key để không bake dữ liệu frame cũ.
+
+Bundle là optimization, không phải source of truth; segmented direct encode vẫn
+là đường correctness. Context key do host cấp và host chịu trách nhiệm không
+dùng chung bundle giữa context có lifetime khác nhau. Xem [context-aware cache](79-context-aware-bundle-cache.md).
