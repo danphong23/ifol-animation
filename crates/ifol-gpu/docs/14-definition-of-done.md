@@ -46,7 +46,7 @@ Phase chỉ hoàn thành khi:
 |---|---|---|
 | Resource lifetime, stale handle | Đạt một phần | generational handle, owned resource, transient texture pool và submission-safe ring đã có test; deferred destruction tổng quát còn thiếu |
 | Graph dependency/pass execution | Đạt nền tảng | flat graph, explicit + automatic hazard edges, mip/layer subresource hazard metadata và render/compute/copy segmented execution đã có test |
-| Frame memory submission-safe | Đạt một phần | ring reset gate và submission tracker đã có; frame context/transient buffer pool còn thiếu |
+| Frame memory submission-safe | Đạt một phần | ring reset gate, submission tracker và transient texture/buffer pool đã có; frame context/deferred destruction còn thiếu |
 | Surface format không hard-code | Đạt | format lấy từ surface config; surface lost/present lifecycle còn thiếu |
 | Cache invalidation | Đạt nền tảng | resource versions và bundle key đã có; multi-context cache còn thiếu |
 | Structured errors | Đạt | public `execute`/`execute_with_surface` trả `Result`; encoder unchecked chỉ chạy sau validation |

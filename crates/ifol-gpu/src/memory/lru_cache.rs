@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use wgpu::TextureFormat;
 use crate::memory::{SubmissionId, SubmissionTracker};
-use crate::render::TextureHandle;
+use crate::render::{BufferHandle, TextureHandle};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextureDimensionKey {
@@ -102,12 +102,83 @@ impl TransientTexturePool {
 /// không còn là LRU và acquire/release đều yêu cầu submission contract.
 pub type TextureCache = TransientTexturePool;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BufferDescriptorKey {
+    pub size: u64,
+    pub usage: u32,
+}
+
+impl BufferDescriptorKey {
+    pub fn new(size: u64, usage: wgpu::BufferUsages) -> Self {
+        Self { size, usage: usage.bits() }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct AvailableBuffer {
+    handle: BufferHandle,
+    available_after: SubmissionId,
+}
+
+pub struct TransientBufferPool {
+    pools: HashMap<BufferDescriptorKey, Vec<AvailableBuffer>>,
+    known_handles: HashSet<BufferHandle>,
+}
+
+impl Default for TransientBufferPool {
+    fn default() -> Self { Self::new() }
+}
+
+impl TransientBufferPool {
+    pub fn new() -> Self {
+        Self { pools: HashMap::new(), known_handles: HashSet::new() }
+    }
+
+    pub fn acquire(&mut self, desc: &BufferDescriptorKey, tracker: &SubmissionTracker) -> Option<BufferHandle> {
+        let completed = tracker.completed();
+        let pool = self.pools.get_mut(desc)?;
+        let index = pool.iter().rposition(|entry| entry.available_after <= completed)?;
+        let entry = pool.swap_remove(index);
+        self.known_handles.remove(&entry.handle);
+        Some(entry.handle)
+    }
+
+    pub fn release(&mut self, desc: BufferDescriptorKey, handle: BufferHandle, last_use: SubmissionId) -> bool {
+        if !self.known_handles.insert(handle) { return false; }
+        self.pools.entry(desc).or_default().push(AvailableBuffer { handle, available_after: last_use });
+        true
+    }
+
+    pub fn pending_count(&self) -> usize {
+        self.pools.values().map(Vec::len).sum()
+    }
+
+    pub fn drain_completed(&mut self, tracker: &SubmissionTracker) -> Vec<BufferHandle> {
+        let completed = tracker.completed();
+        let mut drained = Vec::new();
+        for pool in self.pools.values_mut() {
+            let mut kept = Vec::with_capacity(pool.len());
+            for entry in pool.drain(..) {
+                if entry.available_after <= completed { drained.push(entry.handle); }
+                else { kept.push(entry); }
+            }
+            *pool = kept;
+        }
+        for handle in &drained { self.known_handles.remove(handle); }
+        drained
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn desc(format: TextureFormat) -> TextureDescriptorKey {
         TextureDescriptorKey::new(64, 32, 1, format, wgpu::TextureUsages::RENDER_ATTACHMENT, 1, 1, TextureDimensionKey::D2)
+    }
+
+    fn buffer_desc(usage: wgpu::BufferUsages) -> BufferDescriptorKey {
+        BufferDescriptorKey::new(256, usage)
     }
 
     #[test]
@@ -142,5 +213,29 @@ mod tests {
         tracker.mark_completed(SubmissionId(1));
         assert_eq!(pool.drain_completed(&tracker), vec![TextureHandle(3)]);
         assert_eq!(pool.pending_count(), 0);
+    }
+
+    #[test]
+    fn transient_buffer_pool_respects_descriptor_and_submission() {
+        let mut pool = TransientBufferPool::new();
+        let desc = buffer_desc(wgpu::BufferUsages::STORAGE);
+        let mut tracker = SubmissionTracker::new();
+        let submission = tracker.begin();
+        assert!(pool.release(desc.clone(), BufferHandle(8), submission));
+        assert_eq!(pool.acquire(&desc, &tracker), None);
+        assert_eq!(pool.acquire(&buffer_desc(wgpu::BufferUsages::UNIFORM), &tracker), None);
+        tracker.mark_completed(submission);
+        assert_eq!(pool.acquire(&desc, &tracker), Some(BufferHandle(8)));
+    }
+
+    #[test]
+    fn transient_buffer_pool_rejects_duplicate_release_and_drains() {
+        let mut pool = TransientBufferPool::new();
+        let desc = buffer_desc(wgpu::BufferUsages::INDIRECT);
+        assert!(pool.release(desc.clone(), BufferHandle(9), SubmissionId(2)));
+        assert!(!pool.release(desc, BufferHandle(9), SubmissionId(3)));
+        let mut tracker = SubmissionTracker::new();
+        tracker.mark_completed(SubmissionId(2));
+        assert_eq!(pool.drain_completed(&tracker), vec![BufferHandle(9)]);
     }
 }

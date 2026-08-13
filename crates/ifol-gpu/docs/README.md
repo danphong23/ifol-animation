@@ -64,6 +64,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 56. [Execution API migration](55-execution-api-migration.md)
 58. [Texture subresource hazards](58-texture-subresource-hazards.md)
 59. [Indirect execution](59-indirect-execution.md)
+60. [Transient buffer pool](60-transient-buffer-pool.md)
 
 ## Từ vựng trạng thái
 

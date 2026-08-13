@@ -23,6 +23,8 @@ hoặc policy dự kiến.
   completion;
 - transient texture pool exact-match với descriptor đầy đủ, in-flight protection,
   duplicate-release detection và drain sau completion;
+- transient buffer pool exact-match với descriptor, in-flight protection,
+  duplicate-release detection và drain sau completion;
 - examples, integration test và benchmark harness cơ bản.
 
 ## Đã implement nhưng còn giới hạn
@@ -47,8 +49,8 @@ hoặc policy dự kiến.
   thêm end-to-end fixture ghi argument buffer và capability matrix đa backend;
 - capability tier và fallback policy theo từng backend/platform;
 - cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;
-- frame context hoàn chỉnh, transient buffer pool và deferred destruction tích
-  hợp trực tiếp với GPU completion;
+- frame context hoàn chỉnh và deferred destruction tích hợp trực tiếp với GPU
+  completion;
 - async readback contract tổng quát và profiling/diagnostics hook đầy đủ;
 - context-aware bundle cache cho nhiều viewport/device.
 
