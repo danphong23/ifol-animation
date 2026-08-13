@@ -171,6 +171,7 @@ pub enum ResourceAccess {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResourceSubresource {
     Whole,
+    BufferRange { start: u64, end: u64 },
     Texture { mip_level: u32, array_layer: u32 },
     TextureRange { mip_start: u32, mip_end: u32, layer_start: u32, layer_end: u32 },
 }
@@ -189,6 +190,10 @@ fn accesses_conflict(left: ResourceAccess, right: ResourceAccess) -> bool {
 fn subresources_overlap(left: ResourceSubresource, right: ResourceSubresource) -> bool {
     match (left, right) {
         (ResourceSubresource::Whole, _) | (_, ResourceSubresource::Whole) => true,
+        (ResourceSubresource::BufferRange { start: left_start, end: left_end }, ResourceSubresource::BufferRange { start: right_start, end: right_end }) => {
+            left_start < right_end && right_start < left_end
+        }
+        (ResourceSubresource::BufferRange { .. }, _) | (_, ResourceSubresource::BufferRange { .. }) => false,
         (
             ResourceSubresource::Texture { mip_level: left_mip, array_layer: left_layer },
             ResourceSubresource::Texture { mip_level: right_mip, array_layer: right_layer },
@@ -218,6 +223,12 @@ fn texture_subresource_range(mip_level: u32, origin: [u32; 3], extent: [u32; 3])
         layer_start: origin[2],
         layer_end,
     }
+}
+
+fn buffer_subresource_range(offset: u64, size: u64) -> ResourceSubresource {
+    if size == 0 { return ResourceSubresource::Whole; }
+    let Some(end) = offset.checked_add(size) else { return ResourceSubresource::Whole; };
+    ResourceSubresource::BufferRange { start: offset, end }
 }
 
 /// ═══════════════════════════════════════════════════════════
@@ -609,6 +620,21 @@ impl RenderGraph {
         });
     }
 
+    pub fn declare_buffer_range_usage(
+        &mut self,
+        node: RenderNodeId,
+        buffer: BufferHandle,
+        offset: u64,
+        size: u64,
+        access: ResourceAccess,
+    ) {
+        self.resource_usages.entry(node).or_default().push(ResourceUsage {
+            resource: GraphResource::Buffer(buffer),
+            access,
+            subresource: buffer_subresource_range(offset, size),
+        });
+    }
+
     pub fn resource_usages(&self, node: &RenderNodeId) -> &[ResourceUsage] {
         self.resource_usages.get(node).map(Vec::as_slice).unwrap_or(&[])
     }
@@ -618,9 +644,9 @@ impl RenderGraph {
         if let Some(node) = pool.get(node_id) {
             for command in node.copy_commands() {
                 match command {
-                    CopyCommand::BufferToBuffer { source, destination, .. } => {
-                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*source), access: ResourceAccess::Read, subresource: ResourceSubresource::Whole });
-                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*destination), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
+                    CopyCommand::BufferToBuffer { source, destination, source_offset, destination_offset, size } => {
+                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*source), access: ResourceAccess::Read, subresource: buffer_subresource_range(*source_offset, *size) });
+                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*destination), access: ResourceAccess::Write, subresource: buffer_subresource_range(*destination_offset, *size) });
                     }
                     CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
                         let source_subresource = texture_subresource_range(*source_mip_level, *source_origin, *extent);
@@ -1016,6 +1042,23 @@ mod tests {
         graph.add_node_id(copy);
         graph.add_node_id(later_writer);
         graph.declare_texture_subresource_usage(later_writer, TextureHandle(1), 1, 0, ResourceAccess::Write);
+        graph.add_dependency(later_writer, copy);
+
+        assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![later_writer, copy]);
+    }
+
+    #[test]
+    fn buffer_copy_hazard_uses_byte_range() {
+        let mut pool = RenderNodePool::new();
+        let copy = pool.alloc_copy_batch(vec![CopyCommand::BufferToBuffer {
+            source: BufferHandle(1), destination: BufferHandle(2),
+            source_offset: 0, destination_offset: 0, size: 16,
+        }]);
+        let later_writer = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(copy);
+        graph.add_node_id(later_writer);
+        graph.declare_buffer_range_usage(later_writer, BufferHandle(1), 32, 16, ResourceAccess::Write);
         graph.add_dependency(later_writer, copy);
 
         assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![later_writer, copy]);
