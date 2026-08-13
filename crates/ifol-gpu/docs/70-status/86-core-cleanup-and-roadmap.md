@@ -111,6 +111,9 @@ Ba fixture đầu tiên trong `comprehensive_test.rs` (clear color, depth và al
 phần fixture còn lại sẽ tiếp tục migrate theo nhóm test.
 Fixture interleaved đã chuyển thêm uniform bind group, pipeline layout metadata
 và texture target sang descriptor API.
+Fixture garbage-collection đã chuyển texture target và pipeline; mesh registry
+vẫn dùng API hiện tại vì core chưa định nghĩa descriptor/usage contract riêng
+cho mesh.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.

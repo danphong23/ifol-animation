@@ -469,8 +469,13 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
 fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
-    let (view, tex) = create_target(engine);
-    registry.insert_texture(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let (_view, tex) = create_target(engine);
+    registry.insert_owned_texture(TextureHandle(1), tex.clone(), TextureResourceDescriptor {
+        width: 800, height: 600, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -514,7 +519,10 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
         cache: None,
     });
 
-    registry.insert_pipeline(PipelineHandle(1), pipeline);
+    registry.insert_pipeline_with_layout_descriptor(
+        PipelineHandle(1), pipeline,
+        PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() },
+    );
     registry.insert_mesh(
         MeshHandle(1),
         (
