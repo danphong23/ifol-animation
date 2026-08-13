@@ -195,6 +195,62 @@ impl RenderGraphExecutor {
         let _ = engine;
     }
 
+    fn execute_ordered_target_nodes(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        pool: &RenderNodePool,
+        registry: &ResourceRegistry,
+        node_ids: &[RenderNodeId],
+        color_view: &wgpu::TextureView,
+        color_format: wgpu::TextureFormat,
+        depth_stencil_info: Option<(&wgpu::TextureView, wgpu::TextureFormat)>,
+        clear_color: Option<[f32; 4]>,
+    ) {
+        let mut rendered_any = false;
+        for &node_id in node_ids {
+            let Some(node) = pool.get(node_id) else { continue; };
+            for command in node.copy_commands() {
+                encode_copy_command(encoder, registry, command);
+            }
+            encode_compute_commands(encoder, registry, node.compute_commands());
+            if node.commands().is_empty() { continue; }
+
+            let color_attachments = [Some(wgpu::RenderPassColorAttachment {
+                view: color_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: if !rendered_any {
+                        clear_color.map(|c| wgpu::LoadOp::Clear(wgpu::Color { r: c[0] as f64, g: c[1] as f64, b: c[2] as f64, a: c[3] as f64 })).unwrap_or(wgpu::LoadOp::Load)
+                    } else {
+                        wgpu::LoadOp::Load
+                    },
+                    store: wgpu::StoreOp::Store,
+                },
+            })];
+            let depth_stencil_attachment = depth_stencil_info.map(|(view, _format)| wgpu::RenderPassDepthStencilAttachment {
+                view,
+                depth_ops: Some(wgpu::Operations {
+                    load: if !rendered_any && clear_color.is_some() { wgpu::LoadOp::Clear(1.0) } else { wgpu::LoadOp::Load },
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            });
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("RenderGraphSegmentPass"),
+                color_attachments: &color_attachments,
+                depth_stencil_attachment,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            encode_draw_commands(&mut render_pass, registry, node.commands());
+            drop(render_pass);
+            rendered_any = true;
+        }
+        let _ = (color_format, rendered_any);
+    }
+
     /// Thuật toán Biên dịch 2-Phase (1 RenderGraph = 1 RenderPass)
     fn compile_graph(
         &self,
@@ -243,6 +299,22 @@ impl RenderGraphExecutor {
 
         let depth_stencil_info = graph.depth_stencil.and_then(|handle| registry.textures.get(&handle));
         let depth_format = depth_stencil_info.map(|(_, f)| *f);
+
+        let has_draw = ordered_ids.iter().any(|id| pool.get(*id).is_some_and(|node| !node.commands().is_empty()));
+        let has_non_render = ordered_ids.iter().any(|id| pool.get(*id).is_some_and(|node| !node.copy_commands().is_empty() || !node.compute_commands().is_empty()));
+        if has_draw && has_non_render {
+            self.execute_ordered_target_nodes(
+                encoder,
+                pool,
+                registry,
+                &ordered_ids,
+                color_view,
+                color_format,
+                depth_stencil_info.map(|(view, format)| (view, *format)),
+                graph.clear_color,
+            );
+            return;
+        }
 
         // -------------------------------------------------------------
         // 2.1 UPDATE BUNDLES (For nodes that have use_bundle == true)
@@ -446,6 +518,70 @@ impl RenderGraphExecutor {
                     }
                 }
             }
+        }
+    }
+}
+
+fn encode_compute_commands(
+    encoder: &mut wgpu::CommandEncoder,
+    registry: &ResourceRegistry,
+    commands: &[crate::render::graph::ComputeCommand],
+) {
+    if commands.is_empty() { return; }
+    let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("RenderGraphComputePass"), timestamp_writes: None });
+    let mut current_pipeline = None;
+    let mut current_bind_groups = [None; 4];
+    for command in commands {
+        if current_pipeline != Some(command.pipeline) {
+            let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) else { continue; };
+            compute_pass.set_pipeline(pipeline);
+            current_pipeline = Some(command.pipeline);
+        }
+        for &(slot, bind_group, ref offsets) in &command.bind_groups {
+            let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+            if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
+                let Some(group) = registry.bind_groups.get(&bind_group) else { continue; };
+                compute_pass.set_bind_group(slot, group, offsets);
+                current_bind_groups[slot_index] = Some(bind_group);
+            }
+        }
+        compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+    }
+}
+
+fn encode_draw_commands(
+    render_pass: &mut wgpu::RenderPass<'_>,
+    registry: &ResourceRegistry,
+    commands: &[crate::render::graph::DrawCommand],
+) {
+    let mut current_pipeline = None;
+    let mut current_bind_groups = [None; 4];
+    for command in commands {
+        if current_pipeline != Some(command.pipeline) {
+            let Some(pipeline) = registry.pipelines.get(&command.pipeline) else { continue; };
+            render_pass.set_pipeline(pipeline);
+            current_pipeline = Some(command.pipeline);
+        }
+        for &(slot, bind_group, ref offsets) in &command.bind_groups {
+            let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+            if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
+                let Some(group) = registry.bind_groups.get(&bind_group) else { continue; };
+                render_pass.set_bind_group(slot, group, offsets);
+                current_bind_groups[slot_index] = Some(bind_group);
+            }
+        }
+        match &command.action {
+            DrawAction::Indexed { mesh, index_range, instance_range } => {
+                let Some((vbo, ibo_info, _)) = registry.meshes.get(mesh) else { continue; };
+                render_pass.set_vertex_buffer(0, vbo.slice(..));
+                if let Some((ibo, format)) = ibo_info {
+                    render_pass.set_index_buffer(ibo.slice(..), *format);
+                    render_pass.draw_indexed(index_range.clone(), 0, instance_range.clone());
+                } else {
+                    render_pass.draw(index_range.clone(), instance_range.clone());
+                }
+            }
+            DrawAction::Procedural { vertex_count, instance_range } => render_pass.draw(0..*vertex_count, instance_range.clone()),
         }
     }
 }
@@ -942,6 +1078,44 @@ mod tests {
         graph = RenderGraph::new(RenderTarget::Screen);
         graph.add_copy_batch(&mut pool, vec![CopyCommand::texture_to_texture(TextureHandle(1), TextureHandle(2), [5, 3, 1])]);
         assert!(matches!(RenderGraphExecutor::new().validate(&registry, &pool, &graph), Err(RenderGraphValidationError::InvalidTextureCopyRange { .. })));
+    }
+
+    #[test]
+    fn target_graph_with_interleaved_copy_and_draw_uses_ordered_segments() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("ordered_segments_shader"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
+                "@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> { var p = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0)); return vec4<f32>(p[i], 0.0, 1.0); } @fragment fn fs() -> @location(0) vec4<f32> { return vec4<f32>(1.0, 0.0, 0.0, 1.0); }",
+            )),
+        });
+        let pipeline = engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("ordered_segments_pipeline"),
+            layout: None,
+            vertex: wgpu::VertexState { module: &shader, entry_point: Some("vs"), buffers: &[], compilation_options: Default::default() },
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            fragment: Some(wgpu::FragmentState { module: &shader, entry_point: Some("fs"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8Unorm, blend: None, write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
+            multiview_mask: None,
+            cache: None,
+        });
+        let usage = wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST;
+        let descriptor = TextureResourceDescriptor { width: 2, height: 2, depth_or_array_layers: 1, format: wgpu::TextureFormat::Rgba8Unorm, usage, mip_level_count: 1, sample_count: 1 };
+        let make_texture = |label| engine.device().create_texture(&wgpu::TextureDescriptor { label: Some(label), size: wgpu::Extent3d { width: 2, height: 2, depth_or_array_layers: 1 }, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: wgpu::TextureFormat::Rgba8Unorm, usage, view_formats: &[] });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_owned_texture(TextureHandle(1), make_texture("ordered_source"), descriptor, 1024).unwrap();
+        registry.insert_owned_texture(TextureHandle(2), make_texture("ordered_copy_destination"), descriptor, 1024).unwrap();
+        registry.insert_owned_texture(TextureHandle(3), make_texture("ordered_target"), descriptor, 1024).unwrap();
+        registry.insert_pipeline(PipelineHandle(1), pipeline);
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(3), width: 2, height: 2 });
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::texture_to_texture(TextureHandle(1), TextureHandle(2), [2, 2, 1])]);
+        graph.add_batch(&mut pool, vec![DrawCommand::new(PipelineHandle(1), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })]);
+        let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
+        let (pixels, _, _) = engine.read_texture_to_bytes_with_format(registry.owned_texture(&TextureHandle(3)).unwrap(), wgpu::TextureFormat::Rgba8Unorm).unwrap();
+        assert_eq!(&pixels[0..4], &[255, 0, 0, 255]);
     }
 
     #[test]
