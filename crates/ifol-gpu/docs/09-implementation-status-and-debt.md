@@ -31,7 +31,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 - compute/copy pass;
 - transient resource allocator;
 - frame memory an toàn theo submission;
-- structured validation/error;
+- structured validation/error cÆ¡ báº£n cho graph/resource/target; pipeline layout, usage vÃ  dynamic offset validation váº«n cÃ²n;
 - cross-backend test matrix;
 - MSAA/resolve và attachment model đầy đủ hơn;
 - indirect draw/dispatch.

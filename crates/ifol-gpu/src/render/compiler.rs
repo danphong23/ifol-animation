@@ -1,9 +1,28 @@
+use thiserror::Error;
 use crate::api::GpuEngine;
 use crate::render::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
-use crate::render::handle::TextureHandle;
+use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
 
 pub struct RenderGraphExecutor;
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RenderGraphValidationError {
+    #[error("render node {0:?} does not exist in the node pool")]
+    MissingNode(RenderNodeId),
+    #[error("texture resource {0:?} is missing")]
+    MissingTexture(TextureHandle),
+    #[error("pipeline resource {0:?} is missing")]
+    MissingPipeline(PipelineHandle),
+    #[error("mesh resource {0:?} is missing")]
+    MissingMesh(MeshHandle),
+    #[error("bind group resource {0:?} is missing")]
+    MissingBindGroup(BindGroupHandle),
+    #[error("bind group slot {0} is outside the supported range 0..4")]
+    InvalidBindGroupSlot(u32),
+    #[error("render target dimensions must be non-zero, got {width}x{height}")]
+    InvalidTargetSize { width: u32, height: u32 },
+}
 
 fn bind_group_slot_index(slot: u32) -> Option<usize> {
     (slot < 4).then_some(slot as usize)
@@ -18,6 +37,28 @@ impl Default for RenderGraphExecutor {
 impl RenderGraphExecutor {
     pub fn new() -> Self {
         Self
+    }
+
+    /// Kiểm tra graph trước khi tạo command buffer. Đây là API được khuyến nghị
+    /// cho host muốn nhận lỗi typed thay vì behavior silent-skip của prototype.
+    pub fn validate(
+        &self,
+        registry: &ResourceRegistry,
+        pool: &RenderNodePool,
+        graph: &RenderGraph,
+    ) -> Result<(), RenderGraphValidationError> {
+        validate_graph(registry, pool, graph)
+    }
+
+    pub fn execute_checked(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+    ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
+        self.validate(registry, pool, graph)?;
+        Ok(self.execute(engine, registry, pool, graph))
     }
 
     /// Biên dịch RenderGraph thành các lệnh gọi WGPU và đẩy xuống GPU Queue.
@@ -259,9 +300,60 @@ impl RenderGraphExecutor {
     }
 }
 
+fn validate_graph(
+    registry: &ResourceRegistry,
+    pool: &RenderNodePool,
+    graph: &RenderGraph,
+) -> Result<(), RenderGraphValidationError> {
+    match graph.target {
+        RenderTarget::Screen => {}
+        RenderTarget::Offscreen { color, width, height } => {
+            if width == 0 || height == 0 {
+                return Err(RenderGraphValidationError::InvalidTargetSize { width, height });
+            }
+            if !registry.textures.contains_key(&color) {
+                return Err(RenderGraphValidationError::MissingTexture(color));
+            }
+        }
+    }
+
+    if let Some(depth) = graph.depth_stencil {
+        if !registry.textures.contains_key(&depth) {
+            return Err(RenderGraphValidationError::MissingTexture(depth));
+        }
+    }
+
+    for &node_id in &graph.node_ids {
+        let node = pool.get(node_id).ok_or(RenderGraphValidationError::MissingNode(node_id))?;
+        for command in node.commands() {
+            if !registry.pipelines.contains_key(&command.pipeline) {
+                return Err(RenderGraphValidationError::MissingPipeline(command.pipeline));
+            }
+            for &(slot, bind_group, _) in &command.bind_groups {
+                if bind_group_slot_index(slot).is_none() {
+                    return Err(RenderGraphValidationError::InvalidBindGroupSlot(slot));
+                }
+                if !registry.bind_groups.contains_key(&bind_group) {
+                    return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
+                }
+            }
+            if let DrawAction::Indexed { mesh, .. } = command.action {
+                if !registry.meshes.contains_key(&mesh) {
+                    return Err(RenderGraphValidationError::MissingMesh(mesh));
+                }
+            }
+        }
+        if let RenderNode::SubGraph { graph: child, .. } = node {
+            validate_graph(registry, pool, child)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::bind_group_slot_index;
+    use super::{bind_group_slot_index, RenderGraphExecutor, RenderGraphValidationError};
+    use crate::render::{RenderGraph, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -269,5 +361,40 @@ mod tests {
         assert_eq!(bind_group_slot_index(3), Some(3));
         assert_eq!(bind_group_slot_index(4), None);
         assert_eq!(bind_group_slot_index(u32::MAX), None);
+    }
+
+    #[test]
+    fn validation_rejects_missing_offscreen_target() {
+        let graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: TextureHandle(9),
+            width: 64,
+            height: 64,
+        });
+        let result = RenderGraphExecutor::new().validate(
+            &ResourceRegistry::new(),
+            &RenderNodePool::new(),
+            &graph,
+        );
+
+        assert_eq!(result, Err(RenderGraphValidationError::MissingTexture(TextureHandle(9))));
+    }
+
+    #[test]
+    fn validation_rejects_zero_sized_target_before_resource_lookup() {
+        let graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: TextureHandle(9),
+            width: 0,
+            height: 64,
+        });
+        let result = RenderGraphExecutor::new().validate(
+            &ResourceRegistry::new(),
+            &RenderNodePool::new(),
+            &graph,
+        );
+
+        assert_eq!(
+            result,
+            Err(RenderGraphValidationError::InvalidTargetSize { width: 0, height: 64 })
+        );
     }
 }
