@@ -1,10 +1,17 @@
-pub mod handle;
-pub mod registry;
 pub mod compiler;
 
-pub use handle::*;
-pub use registry::*;
 pub use compiler::*;
+
+/// Compatibility facade for the resource layer during source migration.
+pub mod handle {
+    pub use crate::resources::handle::*;
+}
+
+pub mod registry {
+    pub use crate::resources::registry::*;
+}
+
+pub use crate::resources::*;
 
 /// Compatibility facade. The graph kernel now lives at `crate::graph`; this
 /// module preserves the existing `crate::render::graph::*` public path during

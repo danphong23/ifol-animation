@@ -21,9 +21,10 @@ domain. Host tạo shader, pipeline, texture, buffer, bind group và dữ liệu
 
 ### Trạng thái migration hiện tại
 
-Graph kernel đã được tách vật lý sang `src/graph/`. `src/render` hiện giữ
-re-export facade để bảo toàn public path `ifol_gpu::render::*`. Resource,
-execution và backend vẫn đang ở phase migration tiếp theo.
+Graph kernel và resource layer đã được tách vật lý sang `src/graph/` và
+`src/resources/`. `src/render` hiện giữ re-export facade để bảo toàn public
+path `ifol_gpu::render::*`. Execution và backend vẫn đang ở phase migration
+tiếp theo.
 
 ```text
 src/
