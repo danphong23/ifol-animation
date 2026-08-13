@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use thiserror::Error;
 use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
@@ -164,6 +164,10 @@ pub enum ResourceAccess {
 pub struct ResourceUsage {
     pub resource: GraphResource,
     pub access: ResourceAccess,
+}
+
+fn accesses_conflict(left: ResourceAccess, right: ResourceAccess) -> bool {
+    !matches!((left, right), (ResourceAccess::Read, ResourceAccess::Read))
 }
 
 /// ═══════════════════════════════════════════════════════════
@@ -538,6 +542,13 @@ impl RenderGraph {
         }
         let mut edges = vec![Vec::new(); self.node_ids.len()];
         let mut indegree = vec![0usize; self.node_ids.len()];
+        let mut edge_set = HashSet::new();
+        let mut add_edge = |before: usize, after: usize| {
+            if edge_set.insert((before, after)) {
+                edges[before].push(after);
+                indegree[after] += 1;
+            }
+        };
         for dependency in &self.dependencies {
             let Some(&before) = positions.get(&dependency.before) else {
                 return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.before));
@@ -545,8 +556,23 @@ impl RenderGraph {
             let Some(&after) = positions.get(&dependency.after) else {
                 return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.after));
             };
-            edges[before].push(after);
-            indegree[after] += 1;
+            add_edge(before, after);
+        }
+
+        // Declaration order is the stable tie-breaker for implicit hazards.
+        // A later node cannot observe/write the same resource before the earlier
+        // node when at least one side writes it.
+        for before in 0..self.node_ids.len() {
+            for after in (before + 1)..self.node_ids.len() {
+                let before_usages = self.resource_usages(&self.node_ids[before]);
+                let after_usages = self.resource_usages(&self.node_ids[after]);
+                let conflict = before_usages.iter().any(|left| {
+                    after_usages.iter().any(|right| left.resource == right.resource && accesses_conflict(left.access, right.access))
+                });
+                if conflict {
+                    add_edge(before, after);
+                }
+            }
         }
 
         let mut ordered = Vec::with_capacity(self.node_ids.len());
@@ -781,5 +807,34 @@ mod tests {
         graph.add_dependency(second, first);
 
         assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![second, first]);
+    }
+
+    #[test]
+    fn resource_write_then_read_creates_implicit_hazard_edge() {
+        let mut pool = RenderNodePool::new();
+        let writer = pool.alloc_copy_batch(vec![]);
+        let reader = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(writer);
+        graph.add_node_id(reader);
+        graph.declare_resource_usage(writer, GraphResource::Buffer(BufferHandle(1)), ResourceAccess::Write);
+        graph.declare_resource_usage(reader, GraphResource::Buffer(BufferHandle(1)), ResourceAccess::Read);
+
+        assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![writer, reader]);
+    }
+
+    #[test]
+    fn explicit_reverse_dependency_conflicts_with_hazard_edge() {
+        let mut pool = RenderNodePool::new();
+        let writer = pool.alloc_copy_batch(vec![]);
+        let reader = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(writer);
+        graph.add_node_id(reader);
+        graph.declare_resource_usage(writer, GraphResource::Buffer(BufferHandle(2)), ResourceAccess::Write);
+        graph.declare_resource_usage(reader, GraphResource::Buffer(BufferHandle(2)), ResourceAccess::Read);
+        graph.add_dependency(reader, writer);
+
+        assert!(matches!(graph.ordered_node_ids(&pool), Err(GraphFlattenError::Cycle(_))));
     }
 }
