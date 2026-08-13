@@ -7,6 +7,21 @@ use crate::render::registry::ResourceRegistry;
 
 pub struct RenderGraphExecutor;
 
+/// Thống kê cấu trúc của một lần thực thi graph.
+///
+/// Đây là diagnostics hook cấp core, không giả vờ là GPU timing. Host có thể
+/// dùng report để log, kiểm thử regression hoặc nối vào profiler riêng.
+#[derive(Debug, Clone)]
+pub struct ExecutionReport {
+    pub submission: wgpu::SubmissionIndex,
+    pub flattened_nodes: usize,
+    pub draw_commands: usize,
+    pub compute_commands: usize,
+    pub copy_commands: usize,
+    pub indirect_commands: usize,
+    pub declared_usages: usize,
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum RenderGraphValidationError {
     #[error("render node {0:?} does not exist in the node pool")]
@@ -155,7 +170,17 @@ impl RenderGraphExecutor {
         pool: &mut RenderNodePool,
         graph: &RenderGraph,
     ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
-        self.execute_with_surface_checked(engine, registry, pool, graph, None)
+        Ok(self.execute_checked_with_report(engine, registry, pool, graph)?.submission)
+    }
+
+    pub fn execute_checked_with_report(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+    ) -> Result<ExecutionReport, RenderGraphValidationError> {
+        self.execute_with_surface_checked_with_report(engine, registry, pool, graph, None)
     }
 
     pub fn execute_with_surface_checked(
@@ -166,8 +191,30 @@ impl RenderGraphExecutor {
         graph: &RenderGraph,
         surface_view: Option<&wgpu::TextureView>,
     ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
+        Ok(self.execute_with_surface_checked_with_report(engine, registry, pool, graph, surface_view)?.submission)
+    }
+
+    pub fn execute_with_surface_checked_with_report(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        surface_view: Option<&wgpu::TextureView>,
+    ) -> Result<ExecutionReport, RenderGraphValidationError> {
         self.validate(registry, pool, graph)?;
-        Ok(self.execute_unchecked(engine, registry, pool, graph, surface_view))
+        let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
+            Self::execution_counts_for_graph(pool, graph)?;
+        let submission = self.execute_unchecked(engine, registry, pool, graph, surface_view);
+        Ok(ExecutionReport {
+            submission,
+            flattened_nodes,
+            draw_commands,
+            compute_commands,
+            copy_commands,
+            indirect_commands,
+            declared_usages,
+        })
     }
 
     /// Biên dịch RenderGraph thành các lệnh gọi WGPU và đẩy xuống GPU Queue.
@@ -210,9 +257,44 @@ impl RenderGraphExecutor {
 
         // Submit toàn bộ khối lệnh (Command Buffer) lên GPU 1 lần duy nhất
         engine.queue().submit(std::iter::once(encoder.finish()))
-    }
+}
 
-    fn execute_non_render_nodes(
+fn execution_counts_for_graph(
+    pool: &RenderNodePool,
+    graph: &RenderGraph,
+) -> Result<(usize, usize, usize, usize, usize, usize), RenderGraphValidationError> {
+    let plan = graph.flatten(pool).map_err(|error| match error {
+        crate::render::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
+        crate::render::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
+        crate::render::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
+    })?;
+    let mut draws = 0;
+    let mut computes = 0;
+    let mut copies = 0;
+    let mut indirect = 0;
+    let usages = Self::declared_usage_count(pool, graph);
+    for flat_node in &plan.nodes {
+        let Some(node) = pool.get(flat_node.node_id) else { continue; };
+        draws += node.commands().len();
+        computes += node.compute_commands().len();
+        copies += node.copy_commands().len();
+        indirect += node.commands().iter().filter(|command| matches!(command.action, DrawAction::Indirect { .. } | DrawAction::IndexedIndirect { .. })).count();
+        indirect += node.compute_commands().iter().filter(|command| command.indirect.is_some()).count();
+    }
+    Ok((plan.nodes.len(), draws, computes, copies, indirect, usages))
+}
+
+fn declared_usage_count(pool: &RenderNodePool, graph: &RenderGraph) -> usize {
+    graph.node_ids.iter().fold(0, |count, node_id| {
+        let nested = match pool.get(*node_id) {
+            Some(RenderNode::SubGraph { graph: child, .. }) => Self::declared_usage_count(pool, child),
+            _ => 0,
+        };
+        count + graph.resource_usages(node_id).len() + nested
+    })
+}
+
+fn execute_non_render_nodes(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         engine: &GpuEngine,
@@ -1036,6 +1118,27 @@ mod tests {
         assert_eq!(bind_group_slot_index(3), Some(3));
         assert_eq!(bind_group_slot_index(4), None);
         assert_eq!(bind_group_slot_index(u32::MAX), None);
+    }
+
+    #[test]
+    fn execution_report_counts_flattened_commands_and_usages() {
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        let draw = graph.add_batch(&mut pool, vec![DrawCommand::new(
+            PipelineHandle(1),
+            DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
+        )]);
+        let compute = graph.add_compute_batch(&mut pool, vec![ComputeCommand::new(
+            ComputePipelineHandle(2), [1, 1, 1],
+        )]);
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(
+            BufferHandle(3), BufferHandle(4), 16,
+        )]);
+        graph.declare_resource_usage(draw, GraphResource::Buffer(BufferHandle(5)), ResourceAccess::Read);
+        graph.declare_resource_usage(compute, GraphResource::Buffer(BufferHandle(6)), ResourceAccess::Write);
+
+        let counts = RenderGraphExecutor::execution_counts_for_graph(&pool, &graph).unwrap();
+        assert_eq!(counts, (3, 1, 1, 1, 0, 2));
     }
 
     #[test]
