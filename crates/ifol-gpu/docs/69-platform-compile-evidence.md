@@ -12,7 +12,9 @@ Môi trường audit ngày 2026-08-13:
 
 | Target | Lệnh | Kết quả | Phạm vi |
 |---|---|---|---|
-| Host Windows GNU | `cargo test -p ifol-gpu --all-targets` | Đạt | 75 unit tests, integration, benchmarks, examples |
+| Host Windows GNU | serialized `cargo test -p ifol-gpu --lib --tests --examples -- --test-threads=1` + benchmark riêng | Đạt | 79 unit tests, integration, examples, benchmarks |
+| Host Vulkan probe | `cargo test -p ifol-gpu api::builder::tests --lib -- --test-threads=1` | Đạt | builder policy reaches Vulkan adapter request |
+| Host GL probe | `cargo test -p ifol-gpu api::builder::tests --lib -- --test-threads=1` | Đạt | GL adapter request succeeds hoặc trả optional no-adapter outcome |
 | WebAssembly | `cargo check -p ifol-gpu --target wasm32-unknown-unknown` | Đạt | compile crate, chưa chạy browser |
 | Windows MSVC | `cargo check -p ifol-gpu --target x86_64-pc-windows-msvc` | Đạt | compile crate, chưa chạy MSVC runtime |
 
@@ -25,4 +27,3 @@ Môi trường audit ngày 2026-08-13:
 
 Vì vậy Definition of Done vẫn giữ cross-platform runtime ở trạng thái chưa đạt.
 Không được dùng compile evidence này để tuyên bố mọi feature có trên mọi thiết bị.
-

@@ -154,4 +154,24 @@ mod tests {
         assert_eq!(builder.required_features(), Features::INDIRECT_FIRST_INSTANCE);
         assert_eq!(builder.required_limits(), &limits);
     }
+
+    #[test]
+    fn builder_backend_policy_reaches_runtime_adapter_request() {
+        let result = pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::VULKAN).build());
+        match result {
+            Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
+            Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}
+            Err(error) => panic!("unexpected Vulkan backend setup error: {error}"),
+        }
+    }
+
+    #[test]
+    fn builder_gl_policy_is_an_explicit_optional_backend_probe() {
+        let result = pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::GL).build());
+        match result {
+            Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
+            Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}
+            Err(error) => panic!("unexpected GL backend setup error: {error}"),
+        }
+    }
 }
