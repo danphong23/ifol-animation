@@ -144,7 +144,7 @@ impl<'a> GpuEngineBuilder<'a> {
             surface_config = Some(config);
         }
 
-        Ok(super::engine::GpuEngine::new(device, queue, capabilities, self.surface, surface_config))
+        Ok(super::engine::GpuEngine::new(device, queue, adapter_info, capabilities, self.surface, surface_config))
     }
 }
 
@@ -170,7 +170,10 @@ mod tests {
     fn builder_backend_policy_reaches_runtime_adapter_request() {
         let result = pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::VULKAN).build());
         match result {
-            Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
+            Ok(engine) => {
+                assert!(engine.capabilities().max_bind_groups > 0);
+                assert_eq!(engine.adapter_info().backend, wgpu::Backend::Vulkan);
+            }
             Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}
             Err(error) => panic!("unexpected Vulkan backend setup error: {error}"),
         }

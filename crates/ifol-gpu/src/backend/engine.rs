@@ -5,6 +5,7 @@ use crate::backend::capabilities::GpuCapabilities;
 pub struct GpuEngine<'a> {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
+    adapter_info: wgpu::AdapterInfo,
     capabilities: GpuCapabilities,
     surface: Option<wgpu::Surface<'a>>,
     surface_config: std::sync::RwLock<Option<wgpu::SurfaceConfiguration>>,
@@ -92,6 +93,7 @@ impl<'a> GpuEngine<'a> {
     pub(crate) fn new(
         device: wgpu::Device, 
         queue: wgpu::Queue, 
+        adapter_info: wgpu::AdapterInfo,
         capabilities: GpuCapabilities,
         surface: Option<wgpu::Surface<'a>>,
         surface_config: Option<wgpu::SurfaceConfiguration>,
@@ -99,6 +101,7 @@ impl<'a> GpuEngine<'a> {
         Self {
             device: Arc::new(device),
             queue: Arc::new(queue),
+            adapter_info,
             capabilities,
             surface,
             surface_config: std::sync::RwLock::new(surface_config),
@@ -115,6 +118,12 @@ impl<'a> GpuEngine<'a> {
 
     pub fn capabilities(&self) -> &GpuCapabilities {
         &self.capabilities
+    }
+
+    /// Thông tin adapter thực tế đã tạo device, dùng cho diagnostics và
+    /// capability/runtime matrix của host.
+    pub fn adapter_info(&self) -> &wgpu::AdapterInfo {
+        &self.adapter_info
     }
 
     pub fn surface(&self) -> Option<&wgpu::Surface<'a>> {

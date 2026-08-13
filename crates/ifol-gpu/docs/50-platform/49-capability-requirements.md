@@ -5,6 +5,11 @@
 adapter thiếu feature hoặc limit được báo bằng `GpuError::InsufficientCapabilities`
 thay vì để lỗi xuất hiện mơ hồ ở bước khởi tạo device.
 
+Sau khi tạo engine, `GpuEngine::adapter_info()` trả thông tin adapter đã được
+chọn, gồm backend, vendor, device và driver. Host dùng thông tin này để ghi
+runtime matrix, diagnostics và quyết định policy bên ngoài; core không tự đổi
+shader/material theo vendor.
+
 API không hard-code backend: cùng một requirement policy áp dụng cho Vulkan,
 Metal, DX12, GLES hoặc WebGPU; host có thể chọn `with_backends` và chọn policy
 fallback dựa trên capability snapshot.
