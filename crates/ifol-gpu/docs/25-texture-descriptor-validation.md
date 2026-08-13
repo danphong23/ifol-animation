@@ -13,3 +13,5 @@ dùng API có descriptor.
 
 Khi descriptor đã có trong registry, `RenderGraphExecutor::validate` đối chiếu
 width/height của `RenderTarget::Offscreen` với descriptor và trả lỗi typed nếu lệch.
+Validation cũng yêu cầu texture color/depth có usage `RENDER_ATTACHMENT` khi được
+dùng làm attachment.

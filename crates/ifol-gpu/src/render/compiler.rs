@@ -35,6 +35,12 @@ pub enum RenderGraphValidationError {
         actual_width: u32,
         actual_height: u32,
     },
+    #[error("texture {handle:?} is missing required usage bits {required_usage:#x}; actual {actual_usage:#x}")]
+    MissingTextureUsage {
+        handle: TextureHandle,
+        required_usage: u32,
+        actual_usage: u32,
+    },
 }
 
 fn bind_group_slot_index(slot: u32) -> Option<usize> {
@@ -372,6 +378,14 @@ fn validate_graph(
                         actual_height: descriptor.height,
                     });
                 }
+                let required = wgpu::TextureUsages::RENDER_ATTACHMENT;
+                if !descriptor.usage.contains(required) {
+                    return Err(RenderGraphValidationError::MissingTextureUsage {
+                        handle: color,
+                        required_usage: required.bits(),
+                        actual_usage: descriptor.usage.bits(),
+                    });
+                }
             }
         }
     }
@@ -379,6 +393,16 @@ fn validate_graph(
     if let Some(depth) = graph.depth_stencil {
         if !registry.textures.contains_key(&depth) {
             return Err(RenderGraphValidationError::MissingTexture(depth));
+        }
+        if let Some(descriptor) = registry.texture_descriptor(&depth) {
+            let required = wgpu::TextureUsages::RENDER_ATTACHMENT;
+            if !descriptor.usage.contains(required) {
+                return Err(RenderGraphValidationError::MissingTextureUsage {
+                    handle: depth,
+                    required_usage: required.bits(),
+                    actual_usage: descriptor.usage.bits(),
+                });
+            }
         }
     }
 
@@ -508,5 +532,32 @@ mod tests {
                 handle: TextureHandle(1), width: 64, height: 64, actual_width: 128, actual_height: 64,
             })
         );
+
+        let texture_without_attachment = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("usage_test"),
+            size: wgpu::Extent3d { width: 64, height: 64, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        registry.insert_texture_with_descriptor(
+            TextureHandle(2),
+            texture_without_attachment.create_view(&wgpu::TextureViewDescriptor::default()),
+            TextureResourceDescriptor {
+                width: 64, height: 64, depth_or_array_layers: 1,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                mip_level_count: 1, sample_count: 1,
+            },
+            1024,
+        ).unwrap();
+        let usage_graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(2), width: 64, height: 64 });
+        assert!(matches!(
+            RenderGraphExecutor::new().validate(&registry, &RenderNodePool::new(), &usage_graph),
+            Err(RenderGraphValidationError::MissingTextureUsage { handle: TextureHandle(2), .. })
+        ));
     }
 }
