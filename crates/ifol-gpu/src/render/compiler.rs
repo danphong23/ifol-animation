@@ -23,6 +23,8 @@ pub enum RenderGraphValidationError {
     MissingComputePipeline(ComputePipelineHandle),
     #[error("buffer resource {0:?} is missing")]
     MissingBuffer(BufferHandle),
+    #[error("buffer {handle:?} is missing required usage bits {required_usage:#x}; actual {actual_usage:#x}")]
+    MissingBufferUsage { handle: BufferHandle, required_usage: u32, actual_usage: u32 },
     #[error("owned texture resource {0:?} is required for texture copy")]
     MissingOwnedTexture(TextureHandle),
     #[error("texture copy formats differ: source {source_handle:?}, destination {destination_handle:?}")]
@@ -685,6 +687,18 @@ fn validate_graph(
                     let Some(destination_buffer) = registry.buffers.get(destination) else {
                         return Err(RenderGraphValidationError::MissingBuffer(*destination));
                     };
+                    if let Some(descriptor) = registry.buffer_descriptor(source) {
+                        let required = wgpu::BufferUsages::COPY_SRC;
+                        if !descriptor.usage.contains(required) {
+                            return Err(RenderGraphValidationError::MissingBufferUsage { handle: *source, required_usage: required.bits(), actual_usage: descriptor.usage.bits() });
+                        }
+                    }
+                    if let Some(descriptor) = registry.buffer_descriptor(destination) {
+                        let required = wgpu::BufferUsages::COPY_DST;
+                        if !descriptor.usage.contains(required) {
+                            return Err(RenderGraphValidationError::MissingBufferUsage { handle: *destination, required_usage: required.bits(), actual_usage: descriptor.usage.bits() });
+                        }
+                    }
                     validate_copy_range(*source, *source_offset, *size, source_buffer.size())?;
                     validate_copy_range(*destination, *destination_offset, *size, destination_buffer.size())?;
                 }
@@ -948,6 +962,20 @@ mod tests {
             RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph),
             Err(RenderGraphValidationError::MissingBuffer(BufferHandle(1)))
         );
+    }
+
+    #[test]
+    fn validation_rejects_buffer_copy_with_missing_usage_bits() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let source = engine.device().create_buffer(&wgpu::BufferDescriptor { label: Some("invalid_copy_source"), size: 16, usage: wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let destination = engine.device().create_buffer(&wgpu::BufferDescriptor { label: Some("invalid_copy_destination"), size: 16, usage: wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_buffer_with_descriptor(BufferHandle(1), source, crate::render::BufferResourceDescriptor { size: 16, usage: wgpu::BufferUsages::COPY_DST }).unwrap();
+        registry.insert_buffer_with_descriptor(BufferHandle(2), destination, crate::render::BufferResourceDescriptor { size: 16, usage: wgpu::BufferUsages::COPY_SRC }).unwrap();
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 4)]);
+        assert_eq!(RenderGraphExecutor::new().validate(&registry, &pool, &graph), Err(RenderGraphValidationError::MissingBufferUsage { handle: BufferHandle(1), required_usage: wgpu::BufferUsages::COPY_SRC.bits(), actual_usage: wgpu::BufferUsages::COPY_DST.bits() }));
     }
 
     #[test]

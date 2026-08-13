@@ -15,6 +15,28 @@ pub struct TextureResourceDescriptor {
     pub sample_count: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BufferResourceDescriptor {
+    pub size: u64,
+    pub usage: wgpu::BufferUsages,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum BufferDescriptorError {
+    #[error("buffer size must be non-zero")]
+    InvalidSize,
+    #[error("buffer usage must not be empty")]
+    EmptyUsage,
+}
+
+impl BufferResourceDescriptor {
+    pub fn validate(&self) -> Result<(), BufferDescriptorError> {
+        if self.size == 0 { return Err(BufferDescriptorError::InvalidSize); }
+        if self.usage.is_empty() { return Err(BufferDescriptorError::EmptyUsage); }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ResourceDescriptorError {
     #[error("texture width and height must be non-zero, got {width}x{height}")]
@@ -89,6 +111,7 @@ pub struct ResourceRegistry {
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
     pub meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>, 
     pub bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
+    buffer_descriptors: HashMap<BufferHandle, BufferResourceDescriptor>,
     texture_descriptors: HashMap<TextureHandle, TextureResourceDescriptor>,
     owned_textures: HashMap<TextureHandle, OwnedTextureResource>,
     versions: ResourceVersions,
@@ -224,11 +247,29 @@ impl ResourceRegistry {
 
     pub fn insert_buffer(&mut self, handle: BufferHandle, buffer: wgpu::Buffer) -> Option<wgpu::Buffer> {
         let old = self.buffers.insert(handle, buffer);
+        self.buffer_descriptors.remove(&handle);
         Self::bump_version(&mut self.versions.buffers, handle);
         old
     }
 
+    pub fn insert_buffer_with_descriptor(
+        &mut self,
+        handle: BufferHandle,
+        buffer: wgpu::Buffer,
+        descriptor: BufferResourceDescriptor,
+    ) -> Result<Option<wgpu::Buffer>, BufferDescriptorError> {
+        descriptor.validate()?;
+        let old = self.buffers.insert(handle, buffer);
+        self.buffer_descriptors.insert(handle, descriptor);
+        Self::bump_version(&mut self.versions.buffers, handle);
+        Ok(old)
+    }
+
     pub fn buffer(&self, handle: &BufferHandle) -> Option<&wgpu::Buffer> { self.buffers.get(handle) }
+
+    pub fn buffer_descriptor(&self, handle: &BufferHandle) -> Option<&BufferResourceDescriptor> {
+        self.buffer_descriptors.get(handle)
+    }
 
     pub fn buffer_version(&self, handle: &BufferHandle) -> ResourceVersion {
         self.versions.buffers.get(handle).copied().unwrap_or(0)
@@ -240,6 +281,7 @@ impl ResourceRegistry {
 
     pub fn remove_buffer(&mut self, handle: &BufferHandle) -> Option<wgpu::Buffer> {
         let old = self.buffers.remove(handle);
+        self.buffer_descriptors.remove(handle);
         if old.is_some() {
             Self::bump_version(&mut self.versions.buffers, *handle);
         }
@@ -368,6 +410,13 @@ mod tests {
 
         assert_eq!(registry.buffer_version(&BufferHandle(1)), 1);
         assert_eq!(registry.texture_version(&TextureHandle(1)), 1);
+    }
+
+    #[test]
+    fn buffer_descriptor_rejects_invalid_size_and_usage() {
+        assert_eq!(BufferResourceDescriptor { size: 0, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Err(BufferDescriptorError::InvalidSize));
+        assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::empty() }.validate(), Err(BufferDescriptorError::EmptyUsage));
+        assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Ok(()));
     }
 
     fn valid_descriptor() -> TextureResourceDescriptor {

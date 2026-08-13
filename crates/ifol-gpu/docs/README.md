@@ -40,6 +40,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 32. [Owned texture resource](31-owned-texture-resource.md)
 33. [Texture copy pass](32-texture-copy-pass.md)
 34. [Thực thi graph theo segment có thứ tự](33-ordered-segment-execution.md)
+35. [Buffer descriptor và usage validation](34-buffer-descriptor-and-usage.md)
 
 ## Từ vựng trạng thái
 
