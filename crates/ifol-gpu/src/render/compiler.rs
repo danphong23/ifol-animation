@@ -10,6 +10,10 @@ pub struct RenderGraphExecutor;
 pub enum RenderGraphValidationError {
     #[error("render node {0:?} does not exist in the node pool")]
     MissingNode(RenderNodeId),
+    #[error("render graph dependency cycle involves node {0:?}")]
+    DependencyCycle(RenderNodeId),
+    #[error("render graph dependency references node {0:?} outside the graph")]
+    DependencyOutsideGraph(RenderNodeId),
     #[error("texture resource {0:?} is missing")]
     MissingTexture(TextureHandle),
     #[error("pipeline resource {0:?} is missing")]
@@ -142,10 +146,11 @@ impl RenderGraphExecutor {
         // -------------------------------------------------------------
         // 2.1 UPDATE BUNDLES (For nodes that have use_bundle == true)
         // -------------------------------------------------------------
+        let ordered_ids = graph.ordered_node_ids(pool).unwrap_or_else(|_| graph.node_ids.clone());
         let node_ids = if graph.reverse_draw_order {
-            graph.node_ids.iter().rev().copied().collect::<Vec<_>>()
+            ordered_ids.iter().rev().copied().collect::<Vec<_>>()
         } else {
-            graph.node_ids.clone()
+            ordered_ids
         };
 
         for &node_id in &node_ids {
@@ -305,6 +310,11 @@ fn validate_graph(
     pool: &RenderNodePool,
     graph: &RenderGraph,
 ) -> Result<(), RenderGraphValidationError> {
+    graph.flatten(pool).map_err(|error| match error {
+        crate::render::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
+        crate::render::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
+        crate::render::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
+    })?;
     match graph.target {
         RenderTarget::Screen => {}
         RenderTarget::Offscreen { color, width, height } => {

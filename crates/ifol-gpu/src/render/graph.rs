@@ -344,6 +344,42 @@ impl RenderGraph {
         self.dependencies.push(GraphDependency { before, after });
     }
 
+    /// Trả về thứ tự của các node trực tiếp thuộc graph sau khi áp dụng
+    /// dependency. Declaration order là tie-breaker ổn định.
+    pub fn ordered_node_ids(&self, pool: &RenderNodePool) -> Result<Vec<RenderNodeId>, GraphFlattenError> {
+        let positions = self.node_ids.iter().enumerate().map(|(index, &id)| (id, index)).collect::<HashMap<_, _>>();
+        for &node_id in &self.node_ids {
+            if pool.get(node_id).is_none() {
+                return Err(GraphFlattenError::MissingNode(node_id));
+            }
+        }
+        let mut edges = vec![Vec::new(); self.node_ids.len()];
+        let mut indegree = vec![0usize; self.node_ids.len()];
+        for dependency in &self.dependencies {
+            let Some(&before) = positions.get(&dependency.before) else {
+                return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.before));
+            };
+            let Some(&after) = positions.get(&dependency.after) else {
+                return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.after));
+            };
+            edges[before].push(after);
+            indegree[after] += 1;
+        }
+
+        let mut ordered = Vec::with_capacity(self.node_ids.len());
+        let mut emitted = vec![false; self.node_ids.len()];
+        while ordered.len() < self.node_ids.len() {
+            let Some(index) = (0..self.node_ids.len()).find(|&index| !emitted[index] && indegree[index] == 0) else {
+                let cycle = self.node_ids.iter().enumerate().find(|(index, _)| !emitted[*index]).map(|(_, &id)| id).unwrap_or(RenderNodeId(0));
+                return Err(GraphFlattenError::Cycle(cycle));
+            };
+            emitted[index] = true;
+            ordered.push(self.node_ids[index]);
+            for &next in &edges[index] { indegree[next] -= 1; }
+        }
+        Ok(ordered)
+    }
+
     pub fn add_batch(&mut self, pool: &mut RenderNodePool, commands: Vec<DrawCommand>) -> RenderNodeId {
         let id = pool.alloc_batch(commands);
         self.node_ids.push(id);
@@ -537,5 +573,18 @@ mod tests {
         graph.add_dependency(second, first);
 
         assert!(matches!(graph.flatten(&pool), Err(GraphFlattenError::Cycle(_))));
+    }
+
+    #[test]
+    fn direct_execution_order_uses_explicit_dependency() {
+        let mut pool = RenderNodePool::new();
+        let first = pool.alloc_batch(vec![]);
+        let second = pool.alloc_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(first);
+        graph.add_node_id(second);
+        graph.add_dependency(second, first);
+
+        assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![second, first]);
     }
 }

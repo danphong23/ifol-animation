@@ -27,7 +27,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 
 - generational handle allocator foundation; typed resource store integration vẫn chưa hoàn tất;
 - resource registry API có insert/lookup/remove và version tracking nền tảng; ownership/private store vẫn chưa hoàn tất;
-- logical graph flatten plan vÃ  explicit dependency ordering cÆ¡ báº£n; resource hazard, usage vÃ  pass compilation váº«n chÆ°a implement;
+- logical graph flatten plan vÃ  explicit dependency ordering cÆ¡ báº£n Ä‘Ã£ Ä‘Æ°á»£c execution dÃ¹ng cho node trá»±c tiáº¿p; resource hazard, usage vÃ  pass compilation váº«n chÆ°a implement;
 - compute/copy pass;
 - transient resource allocator;
 - submission tracker logic nền tảng; frame memory reuse an toàn theo submission vẫn chưa tích hợp;
