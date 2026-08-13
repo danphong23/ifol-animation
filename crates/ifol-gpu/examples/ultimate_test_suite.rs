@@ -87,7 +87,7 @@ impl<'a> TestHarness<'a> {
         let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
         let id = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.textures.insert(id, view);
+        self.registry.insert_texture(id, (view, wgpu::TextureFormat::Rgba8UnormSrgb));
         (id, tex)
     }
 
@@ -105,7 +105,7 @@ impl<'a> TestHarness<'a> {
         let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
         let id = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.textures.insert(id, view);
+        self.registry.insert_texture(id, (view, wgpu::TextureFormat::Depth32Float));
         (id, tex)
     }
 
@@ -143,12 +143,12 @@ impl<'a> TestHarness<'a> {
         );
 
         let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
-        let tex_id = TextureHandle(self.next_tex_id);
+        let t_handle = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.textures.insert(tex_id, view);
+        self.registry.insert_texture(t_handle, (view, wgpu::TextureFormat::Rgba8UnormSrgb));
         
         // Create BindGroup
-        let view_ref = self.registry.textures.get(&tex_id).unwrap();
+        let view_ref = &self.registry.texture(&t_handle).unwrap().0;
         let bind_group = self.engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &self.texture_bind_group_layout,
             entries: &[
@@ -166,7 +166,7 @@ impl<'a> TestHarness<'a> {
 
         let bg_id = BindGroupHandle(self.next_bg_id);
         self.next_bg_id += 1;
-        self.registry.bind_groups.insert(bg_id, bind_group);
+        self.registry.insert_bind_group(bg_id, bind_group);
         bg_id
     }
 
@@ -232,7 +232,7 @@ impl<'a> TestHarness<'a> {
 
         let id = PipelineHandle(self.next_pipe_id);
         self.next_pipe_id += 1;
-        self.registry.pipelines.insert(id, pipe);
+        self.registry.insert_pipeline(id, pipe);
         id
     }
 }

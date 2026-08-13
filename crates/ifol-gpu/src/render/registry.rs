@@ -104,13 +104,13 @@ struct ResourceVersions {
 /// Nơi ánh xạ từ Handle siêu nhẹ (u64) sang các đối tượng nặng của GPU (Buffer, Texture, Pipeline)
 #[derive(Default)]
 pub struct ResourceRegistry {
-    pub textures: HashMap<TextureHandle, (wgpu::TextureView, wgpu::TextureFormat)>,
-    pub pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
-    pub compute_pipelines: HashMap<ComputePipelineHandle, wgpu::ComputePipeline>,
-    pub buffers: HashMap<BufferHandle, wgpu::Buffer>,
+    textures: HashMap<TextureHandle, (wgpu::TextureView, wgpu::TextureFormat)>,
+    pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
+    compute_pipelines: HashMap<ComputePipelineHandle, wgpu::ComputePipeline>,
+    buffers: HashMap<BufferHandle, wgpu::Buffer>,
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
-    pub meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>, 
-    pub bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
+    meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
+    bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
     buffer_descriptors: HashMap<BufferHandle, BufferResourceDescriptor>,
     texture_descriptors: HashMap<TextureHandle, TextureResourceDescriptor>,
     owned_textures: HashMap<TextureHandle, OwnedTextureResource>,

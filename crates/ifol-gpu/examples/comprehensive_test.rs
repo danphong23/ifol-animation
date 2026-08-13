@@ -378,9 +378,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
             }],
             label: None,
         });
-        registry
-            .bind_groups
-            .insert(ifol_gpu::render::BindGroupHandle(i + 1), bg);
+        registry.insert_bind_group(ifol_gpu::render::BindGroupHandle(i + 1), bg);
     }
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {

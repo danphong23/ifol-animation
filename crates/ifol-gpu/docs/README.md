@@ -49,6 +49,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 41. [Bind group mutation qua registry API](40-bind-group-migration.md)
 42. [Mesh mutation qua registry API](41-mesh-migration.md)
 43. [Texture registration qua registry API](42-texture-registration-migration.md)
+44. [Private resource store](43-private-resource-store.md)
 
 ## Từ vựng trạng thái
 
