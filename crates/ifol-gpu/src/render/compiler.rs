@@ -884,6 +884,24 @@ mod tests {
     }
 
     #[test]
+    fn public_execute_rejects_invalid_graph_before_submit() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: TextureHandle(9),
+            width: 64,
+            height: 64,
+        });
+        let result = RenderGraphExecutor::new().execute(
+            &engine,
+            &ResourceRegistry::new(),
+            &mut RenderNodePool::new(),
+            &graph,
+        );
+
+        assert_eq!(result.err(), Some(RenderGraphValidationError::MissingTexture(TextureHandle(9))));
+    }
+
+    #[test]
     fn validation_rejects_zero_sized_target_before_resource_lookup() {
         let graph = RenderGraph::new(RenderTarget::Offscreen {
             color: TextureHandle(9),
