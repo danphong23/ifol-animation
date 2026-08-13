@@ -41,3 +41,8 @@ và dispatch qua executor.
 Khi operation đã được đưa vào graph nhưng chưa có executor dispatch, việc
 execute phải trả lỗi typed `UnsupportedExtension`; core không được bỏ qua node
 hoặc âm thầm tiếp tục.
+## Execution contract
+
+Khi operation đã được đưa vào graph nhưng chưa có executor dispatch, việc
+execute phải trả lỗi typed `UnsupportedExtension`; core không được bỏ qua node
+hoặc âm thầm tiếp tục.

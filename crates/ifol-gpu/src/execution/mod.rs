@@ -1573,6 +1573,20 @@ mod tests {
     }
 
     #[test]
+    fn extension_without_dispatch_fails_closed_before_resource_lookup() {
+        let extension_id = crate::extensions::ExtensionId::new("test.unhandled").unwrap();
+        let mut pool = RenderNodePool::new();
+        let node = pool.alloc_extension(extension_id.clone(), Vec::new());
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(node);
+
+        assert_eq!(
+            RenderGraphExecutor::new().validate(&ResourceRegistry::new(), &pool, &graph),
+            Err(RenderGraphValidationError::UnsupportedExtension(extension_id))
+        );
+    }
+
+    #[test]
     fn profiled_execution_is_opt_in_and_has_typed_backend_fallback() {
         let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
         let Ok(mut profiler) = crate::api::TimestampQueryPool::new(engine.device(), 2) else {

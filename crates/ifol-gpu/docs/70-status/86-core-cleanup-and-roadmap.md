@@ -88,3 +88,5 @@ test duplicate/empty ID. Custom operation vẫn chưa được tích hợp vào 
 plan hoặc executor.
 `Extension` node đã có representation trong graph và được flatten theo usage;
 executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.
+`Extension` node đã có representation trong graph và được flatten theo usage;
+executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.
