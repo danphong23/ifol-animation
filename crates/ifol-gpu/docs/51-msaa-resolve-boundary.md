@@ -1,16 +1,16 @@
 # MSAA và resolve boundary
 
-Render compiler hiện dùng `sample_count: 1`, không có resolve target và chưa có
-subresource/aspect model. Vì vậy `execute_checked` từ chối color/depth texture
-có `sample_count != 1` bằng `UnsupportedSampleCount` trước khi encode.
+Render compiler hiện hỗ trợ target `RenderTarget::OffscreenMsaa`: color
+attachment multisample được resolve vào texture single-sample trong cùng render
+pass. `Offscreen` cũ vẫn giữ sample count bằng 1.
 
-Đây là behavior có chủ ý để không gửi graph MSAA vào backend với attachment và
-pipeline không tương thích. MSAA/resolve sẽ cần API riêng mô tả:
+Validation bắt buộc:
 
-- multisampled render attachment;
-- single-sample resolve target;
-- format/sample compatibility;
-- load/store và lifetime của cả hai resource.
+- color attachment có sample count lớn hơn 1;
+- resolve target có sample count bằng 1;
+- format và kích thước của hai texture giống nhau;
+- cả hai texture có usage `RENDER_ATTACHMENT`.
 
-Hiện tại không được coi lỗi này là thiếu capability của GPU; đây là giới hạn
-execution path của core.
+Depth/stencil MSAA, subresource/aspect và capability-limit theo adapter vẫn là
+phần tiếp theo; target sample count không được coi là đã chạy trên mọi backend
+chỉ vì validation graph thành công.

@@ -51,7 +51,7 @@ Phase chỉ hoàn thành khi:
 | Cache invalidation | Đạt nền tảng | resource versions và bundle key đã có; multi-context cache còn thiếu |
 | Structured errors | Đạt | public `execute`/`execute_with_surface` trả `Result`; encoder unchecked chỉ chạy sau validation |
 | Cross-platform runtime matrix | Chưa đạt | chỉ có evidence trên môi trường hiện tại; chưa chạy đủ Windows/macOS/Linux/Web/Android/iOS |
-| MSAA/resolve | Chưa đạt | hiện từ chối sample count khác 1 bằng typed error |
+| MSAA/resolve | Đạt một phần | color resolve qua `OffscreenMsaa` đã có validation/test; depth MSAA và capability matrix còn thiếu |
 | Indirect draw/dispatch | Chưa đạt | chưa implement |
 | Async readback/profiling | Chưa đạt | readback sync/format-aware hiện có, contract async/profiling hook còn thiếu |
 

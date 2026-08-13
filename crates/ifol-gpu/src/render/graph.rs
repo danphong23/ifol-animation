@@ -145,6 +145,14 @@ pub enum RenderTarget {
         width: u32,
         height: u32,
     },
+
+    /// Render vào attachment multisample rồi resolve sang texture single-sample.
+    OffscreenMsaa {
+        color: TextureHandle,
+        resolve: TextureHandle,
+        width: u32,
+        height: u32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -547,8 +555,15 @@ impl RenderGraph {
                 }
             }
             if !node.commands().is_empty() {
-                if let RenderTarget::Offscreen { color, .. } = self.target {
-                    usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write });
+                match self.target {
+                    RenderTarget::Offscreen { color, .. } => {
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write });
+                    }
+                    RenderTarget::OffscreenMsaa { color, resolve, .. } => {
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(resolve), access: ResourceAccess::Write });
+                    }
+                    RenderTarget::Screen => {}
                 }
                 if let Some(depth) = self.depth_stencil {
                     usages.push(ResourceUsage { resource: GraphResource::Texture(depth), access: ResourceAccess::Write });

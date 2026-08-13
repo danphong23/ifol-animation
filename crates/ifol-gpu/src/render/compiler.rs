@@ -67,6 +67,14 @@ pub enum RenderGraphValidationError {
     },
     #[error("texture {handle:?} uses sample count {actual}, but this render path supports only sample count 1")]
     UnsupportedSampleCount { handle: TextureHandle, actual: u32 },
+    #[error("MSAA resolve texture {0:?} is missing")]
+    MissingResolveTexture(TextureHandle),
+    #[error("MSAA resolve texture {handle:?} must be single-sample, got {actual}")]
+    InvalidResolveSampleCount { handle: TextureHandle, actual: u32 },
+    #[error("MSAA color and resolve formats differ: color {color:?}, resolve {resolve:?}")]
+    ResolveFormatMismatch { color: wgpu::TextureFormat, resolve: wgpu::TextureFormat },
+    #[error("MSAA color and resolve dimensions differ: color {color_width}x{color_height}, resolve {resolve_width}x{resolve_height}")]
+    ResolveSizeMismatch { color_width: u32, color_height: u32, resolve_width: u32, resolve_height: u32 },
 }
 
 fn bind_group_slot_index(slot: u32) -> Option<usize> {
@@ -235,6 +243,7 @@ impl RenderGraphExecutor {
         node_ids: &[RenderNodeId],
         color_view: &wgpu::TextureView,
         color_format: wgpu::TextureFormat,
+        resolve_view: Option<&wgpu::TextureView>,
         depth_stencil_info: Option<(&wgpu::TextureView, wgpu::TextureFormat)>,
         clear_color: Option<[f32; 4]>,
     ) {
@@ -250,7 +259,7 @@ impl RenderGraphExecutor {
             let color_attachments = [Some(wgpu::RenderPassColorAttachment {
                 view: color_view,
                 depth_slice: None,
-                resolve_target: None,
+                resolve_target: resolve_view,
                 ops: wgpu::Operations {
                     load: if !rendered_any {
                         clear_color.map(|c| wgpu::LoadOp::Clear(wgpu::Color { r: c[0] as f64, g: c[1] as f64, b: c[2] as f64, a: c[3] as f64 })).unwrap_or(wgpu::LoadOp::Load)
@@ -319,12 +328,16 @@ impl RenderGraphExecutor {
                 // theo backend hoặc theo format mặc định của một cửa sổ cụ thể.
                 surface_view
                     .zip(engine.surface_format())
-                    .or_else(|| registry.texture(&TextureHandle(0)).map(|(v, f)| (v, *f)))
+                    .map(|(view, format)| (view, format, 1, None))
+                    .or_else(|| registry.texture(&TextureHandle(0)).map(|(v, f)| (v, *f, 1, None)))
             }
-            RenderTarget::Offscreen { color, .. } => registry.texture(color).map(|(v, f)| (v, *f)),
+            RenderTarget::Offscreen { color, .. } => registry.texture(color).map(|(v, f)| (v, *f, 1, None)),
+            RenderTarget::OffscreenMsaa { color, resolve, .. } => registry.texture(color).and_then(|(color_view, format)| {
+                registry.texture(resolve).map(|(resolve_view, _)| (color_view, *format, registry.texture_descriptor(color).map_or(1, |d| d.sample_count), Some(resolve_view)))
+            }),
         };
 
-        let Some((color_view, color_format)) = target_view_info else {
+        let Some((color_view, color_format, sample_count, resolve_view)) = target_view_info else {
             self.execute_non_render_nodes(encoder, engine, pool, registry, &ordered_ids);
             return;
         };
@@ -342,6 +355,7 @@ impl RenderGraphExecutor {
                 &ordered_ids,
                 color_view,
                 color_format,
+                resolve_view,
                 depth_stencil_info.map(|(view, format)| (view, *format)),
                 graph.clear_color,
             );
@@ -370,7 +384,7 @@ impl RenderGraphExecutor {
                         depth_read_only: false,
                         stencil_read_only: false,
                     }),
-                    sample_count: 1,
+                    sample_count,
                     multiview: None,
                 });
 
@@ -477,7 +491,7 @@ impl RenderGraphExecutor {
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {
             view: color_view,
             depth_slice: None,
-            resolve_target: None,
+            resolve_target: resolve_view,
             ops: wgpu::Operations { load: load_op, store: wgpu::StoreOp::Store },
         })];
 
@@ -658,6 +672,51 @@ fn validate_graph(
                 if descriptor.sample_count != 1 {
                     return Err(RenderGraphValidationError::UnsupportedSampleCount { handle: color, actual: descriptor.sample_count });
                 }
+            }
+        }
+        RenderTarget::OffscreenMsaa { color, resolve, width, height } => {
+            if width == 0 || height == 0 {
+                return Err(RenderGraphValidationError::InvalidTargetSize { width, height });
+            }
+            let color_descriptor = registry.texture_descriptor(&color).ok_or(RenderGraphValidationError::MissingTexture(color))?;
+            if !registry.contains_texture(&color) {
+                return Err(RenderGraphValidationError::MissingTexture(color));
+            }
+            if color_descriptor.width != width || color_descriptor.height != height {
+                return Err(RenderGraphValidationError::TargetSizeMismatch {
+                    handle: color, width, height,
+                    actual_width: color_descriptor.width, actual_height: color_descriptor.height,
+                });
+            }
+            if color_descriptor.sample_count <= 1 {
+                return Err(RenderGraphValidationError::UnsupportedSampleCount { handle: color, actual: color_descriptor.sample_count });
+            }
+            if !color_descriptor.usage.contains(wgpu::TextureUsages::RENDER_ATTACHMENT) {
+                return Err(RenderGraphValidationError::MissingTextureUsage {
+                    handle: color,
+                    required_usage: wgpu::TextureUsages::RENDER_ATTACHMENT.bits(),
+                    actual_usage: color_descriptor.usage.bits(),
+                });
+            }
+            let resolve_descriptor = registry.texture_descriptor(&resolve).ok_or(RenderGraphValidationError::MissingResolveTexture(resolve))?;
+            if resolve_descriptor.width != width || resolve_descriptor.height != height {
+                return Err(RenderGraphValidationError::ResolveSizeMismatch {
+                    color_width: width, color_height: height,
+                    resolve_width: resolve_descriptor.width, resolve_height: resolve_descriptor.height,
+                });
+            }
+            if resolve_descriptor.sample_count != 1 {
+                return Err(RenderGraphValidationError::InvalidResolveSampleCount { handle: resolve, actual: resolve_descriptor.sample_count });
+            }
+            if resolve_descriptor.format != color_descriptor.format {
+                return Err(RenderGraphValidationError::ResolveFormatMismatch { color: color_descriptor.format, resolve: resolve_descriptor.format });
+            }
+            if !resolve_descriptor.usage.contains(wgpu::TextureUsages::RENDER_ATTACHMENT) {
+                return Err(RenderGraphValidationError::MissingTextureUsage {
+                    handle: resolve,
+                    required_usage: wgpu::TextureUsages::RENDER_ATTACHMENT.bits(),
+                    actual_usage: resolve_descriptor.usage.bits(),
+                });
             }
         }
     }
@@ -1024,6 +1083,65 @@ mod tests {
             RenderGraphExecutor::new().validate(&registry, &RenderNodePool::new(), &multisample_graph),
             Err(RenderGraphValidationError::UnsupportedSampleCount { handle: TextureHandle(3), actual: 4 })
         );
+    }
+
+    #[test]
+    fn validation_accepts_msaa_attachment_with_single_sample_resolve() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
+        let make_texture = |label, sample_count| engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d { width: 64, height: 64, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage,
+            view_formats: &[],
+        });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_texture_with_descriptor(
+            TextureHandle(10),
+            make_texture("msaa_color", 4).create_view(&wgpu::TextureViewDescriptor::default()),
+            TextureResourceDescriptor { width: 64, height: 64, depth_or_array_layers: 1, format: wgpu::TextureFormat::Rgba8Unorm, usage, mip_level_count: 1, sample_count: 4 },
+            1024,
+        ).unwrap();
+        registry.insert_texture_with_descriptor(
+            TextureHandle(11),
+            make_texture("resolve_color", 1).create_view(&wgpu::TextureViewDescriptor::default()),
+            TextureResourceDescriptor { width: 64, height: 64, depth_or_array_layers: 1, format: wgpu::TextureFormat::Rgba8Unorm, usage, mip_level_count: 1, sample_count: 1 },
+            1024,
+        ).unwrap();
+
+        let graph = RenderGraph::new(RenderTarget::OffscreenMsaa {
+            color: TextureHandle(10), resolve: TextureHandle(11), width: 64, height: 64,
+        });
+        assert!(RenderGraphExecutor::new().validate(&registry, &RenderNodePool::new(), &graph).is_ok());
+    }
+
+    #[test]
+    fn execute_msaa_target_with_resolve_attachment() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
+        let make_texture = |label, sample_count| engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(label), size: wgpu::Extent3d { width: 8, height: 8, depth_or_array_layers: 1 },
+            mip_level_count: 1, sample_count, dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm, usage, view_formats: &[],
+        });
+        let color = make_texture("msaa_execute_color", 4);
+        let resolve = make_texture("msaa_execute_resolve", 1);
+        let mut registry = ResourceRegistry::new();
+        registry.insert_texture_with_descriptor(
+            TextureHandle(20), color.create_view(&wgpu::TextureViewDescriptor::default()),
+            TextureResourceDescriptor { width: 8, height: 8, depth_or_array_layers: 1, format: wgpu::TextureFormat::Rgba8Unorm, usage, mip_level_count: 1, sample_count: 4 }, 1024,
+        ).unwrap();
+        registry.insert_texture_with_descriptor(
+            TextureHandle(21), resolve.create_view(&wgpu::TextureViewDescriptor::default()),
+            TextureResourceDescriptor { width: 8, height: 8, depth_or_array_layers: 1, format: wgpu::TextureFormat::Rgba8Unorm, usage, mip_level_count: 1, sample_count: 1 }, 1024,
+        ).unwrap();
+        let graph = RenderGraph::new(RenderTarget::OffscreenMsaa { color: TextureHandle(20), resolve: TextureHandle(21), width: 8, height: 8 });
+        let submission = RenderGraphExecutor::new().execute(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
     }
 
     #[test]

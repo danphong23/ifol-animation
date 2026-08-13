@@ -40,7 +40,8 @@ hoặc policy dự kiến.
 
 ## Chưa implement
 
-- MSAA resolve, depth/stencil aspect và subresource model đầy đủ;
+- depth/stencil aspect và subresource model đầy đủ; MSAA color resolve cơ bản đã
+  có qua `RenderTarget::OffscreenMsaa`, nhưng capability-limit và depth MSAA còn thiếu;
 - indirect draw/dispatch;
 - capability tier và fallback policy theo từng backend/platform;
 - cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;
