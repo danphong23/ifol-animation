@@ -65,6 +65,8 @@ pub enum RenderGraphValidationError {
         required_usage: u32,
         actual_usage: u32,
     },
+    #[error("texture {handle:?} uses sample count {actual}, but this render path supports only sample count 1")]
+    UnsupportedSampleCount { handle: TextureHandle, actual: u32 },
 }
 
 fn bind_group_slot_index(slot: u32) -> Option<usize> {
@@ -631,6 +633,9 @@ fn validate_graph(
                         actual_usage: descriptor.usage.bits(),
                     });
                 }
+                if descriptor.sample_count != 1 {
+                    return Err(RenderGraphValidationError::UnsupportedSampleCount { handle: color, actual: descriptor.sample_count });
+                }
             }
         }
     }
@@ -647,6 +652,9 @@ fn validate_graph(
                     required_usage: required.bits(),
                     actual_usage: descriptor.usage.bits(),
                 });
+            }
+            if descriptor.sample_count != 1 {
+                return Err(RenderGraphValidationError::UnsupportedSampleCount { handle: depth, actual: descriptor.sample_count });
             }
         }
     }
@@ -949,6 +957,33 @@ mod tests {
             RenderGraphExecutor::new().validate(&registry, &RenderNodePool::new(), &usage_graph),
             Err(RenderGraphValidationError::MissingTextureUsage { handle: TextureHandle(2), .. })
         ));
+
+        let multisampled = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("multisampled_target"),
+            size: wgpu::Extent3d { width: 64, height: 64, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 4,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        registry.insert_texture_with_descriptor(
+            TextureHandle(3),
+            multisampled.create_view(&wgpu::TextureViewDescriptor::default()),
+            TextureResourceDescriptor {
+                width: 64, height: 64, depth_or_array_layers: 1,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                mip_level_count: 1, sample_count: 4,
+            },
+            1024,
+        ).unwrap();
+        let multisample_graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(3), width: 64, height: 64 });
+        assert_eq!(
+            RenderGraphExecutor::new().validate(&registry, &RenderNodePool::new(), &multisample_graph),
+            Err(RenderGraphValidationError::UnsupportedSampleCount { handle: TextureHandle(3), actual: 4 })
+        );
     }
 
     #[test]

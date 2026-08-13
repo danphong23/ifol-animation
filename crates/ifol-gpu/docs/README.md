@@ -57,6 +57,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 49. [Dependency của nested graph trong flat plan](48-nested-graph-dependencies.md)
 50. [Capability requirements và platform policy](49-capability-requirements.md)
 51. [Builder platform policy](50-builder-platform-policy.md)
+52. [MSAA và resolve boundary](51-msaa-resolve-boundary.md)
 
 ## Từ vựng trạng thái
 
