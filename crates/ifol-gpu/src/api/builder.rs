@@ -174,4 +174,14 @@ mod tests {
             Err(error) => panic!("unexpected GL backend setup error: {error}"),
         }
     }
+
+    #[test]
+    fn builder_dx12_policy_is_an_explicit_optional_backend_probe() {
+        let result = pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::DX12).build());
+        match result {
+            Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
+            Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}
+            Err(error) => panic!("unexpected DX12 backend setup error: {error}"),
+        }
+    }
 }
