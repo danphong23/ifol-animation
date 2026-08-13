@@ -243,7 +243,7 @@ impl ResourceRegistry {
     }
 
     /// Lưu texture object thật cùng view compatibility. Đây là API cần cho
-    /// copy/resolve; `insert_texture` cũ chỉ lưu view và không đủ ownership.
+    /// copy/resolve; view-only registration chỉ lưu view và không đủ ownership.
     pub fn insert_owned_texture(
         &mut self,
         handle: TextureHandle,

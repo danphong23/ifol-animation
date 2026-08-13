@@ -1,6 +1,6 @@
 # IFOL GPU: audit trạng thái hiện tại
 
-Tài liệu này là snapshot audit sau các task đã commit tới `298c953`. Nó bổ
+Tài liệu này là snapshot audit sau các task đã commit tới `01f4996`. Nó bổ
 sung và ưu tiên hơn các ghi chú trạng thái cũ khi có mâu thuẫn.
 
 ## Đã có test gate
@@ -26,8 +26,6 @@ sung và ưu tiên hơn các ghi chú trạng thái cũ khi có mâu thuẫn.
 ## Còn giới hạn, chưa được gọi là release candidate
 
 - pipeline signature hiện do host cung cấp, chưa phải shader reflection đầy đủ;
-- resource insertion raw đã bị loại khỏi core; texture, buffer, pipeline,
-  bind group và mesh đều bắt buộc đi qua descriptor contract;
 - pass-level profiling, queue nhiều frame và present policy vẫn thuộc host;
 - end-to-end fixture và visual parity trên từng backend chưa đủ;
 - runtime matrix macOS/Metal, Linux, browser WebGPU, Android và iOS chưa chạy
