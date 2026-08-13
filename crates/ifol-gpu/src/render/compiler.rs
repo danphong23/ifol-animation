@@ -96,6 +96,14 @@ pub enum RenderGraphValidationError {
     InvalidDynamicOffsetCount { handle: BindGroupHandle, expected: u32, actual: u32 },
     #[error("dynamic offset {offset} for bind group {handle:?} is not aligned to {alignment}")]
     InvalidDynamicOffsetAlignment { handle: BindGroupHandle, offset: u32, alignment: u32 },
+    #[error("pipeline {pipeline:?} has no bind-group layout metadata for bind group {bind_group:?} at slot {slot}")]
+    MissingPipelineLayoutMetadata { pipeline: PipelineHandle, bind_group: BindGroupHandle, slot: u32 },
+    #[error("compute pipeline {pipeline:?} has no bind-group layout metadata for bind group {bind_group:?} at slot {slot}")]
+    MissingComputePipelineLayoutMetadata { pipeline: ComputePipelineHandle, bind_group: BindGroupHandle, slot: u32 },
+    #[error("pipeline {pipeline:?} layout mismatch at slot {slot}: expected {expected:?}, actual {actual:?}")]
+    PipelineLayoutMismatch { pipeline: PipelineHandle, slot: u32, expected: Option<u64>, actual: Option<u64> },
+    #[error("compute pipeline {pipeline:?} layout mismatch at slot {slot}: expected {expected:?}, actual {actual:?}")]
+    ComputePipelineLayoutMismatch { pipeline: ComputePipelineHandle, slot: u32, expected: Option<u64>, actual: Option<u64> },
     #[error("render target dimensions must be non-zero, got {width}x{height}")]
     InvalidTargetSize { width: u32, height: u32 },
     #[error("texture {handle:?} has descriptor size {actual_width}x{actual_height}, graph requested {width}x{height}")]
@@ -151,6 +159,42 @@ fn validate_bind_group_offsets(
                 alignment: descriptor.dynamic_offset_alignment,
             });
         }
+    }
+    Ok(())
+}
+
+fn validate_render_pipeline_layout(
+    registry: &ResourceRegistry,
+    pipeline: PipelineHandle,
+    slot: u32,
+    bind_group: BindGroupHandle,
+) -> Result<(), RenderGraphValidationError> {
+    let Some(descriptor) = registry.pipeline_layout_descriptor(&pipeline) else { return Ok(()); };
+    let expected = descriptor.bind_group_layout_signatures.get(slot as usize).copied().flatten();
+    let actual = registry.bind_group_descriptor(&bind_group).map(|descriptor| descriptor.layout_signature);
+    if expected.is_some() && actual.is_none() {
+        return Err(RenderGraphValidationError::MissingPipelineLayoutMetadata { pipeline, bind_group, slot });
+    }
+    if expected != actual {
+        return Err(RenderGraphValidationError::PipelineLayoutMismatch { pipeline, slot, expected, actual });
+    }
+    Ok(())
+}
+
+fn validate_compute_pipeline_layout(
+    registry: &ResourceRegistry,
+    pipeline: ComputePipelineHandle,
+    slot: u32,
+    bind_group: BindGroupHandle,
+) -> Result<(), RenderGraphValidationError> {
+    let Some(descriptor) = registry.compute_pipeline_layout_descriptor(&pipeline) else { return Ok(()); };
+    let expected = descriptor.bind_group_layout_signatures.get(slot as usize).copied().flatten();
+    let actual = registry.bind_group_descriptor(&bind_group).map(|descriptor| descriptor.layout_signature);
+    if expected.is_some() && actual.is_none() {
+        return Err(RenderGraphValidationError::MissingComputePipelineLayoutMetadata { pipeline, bind_group, slot });
+    }
+    if expected != actual {
+        return Err(RenderGraphValidationError::ComputePipelineLayoutMismatch { pipeline, slot, expected, actual });
     }
     Ok(())
 }
@@ -1111,6 +1155,7 @@ fn validate_graph(
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
                 }
                 validate_bind_group_offsets(registry, bind_group, offsets)?;
+                validate_render_pipeline_layout(registry, command.pipeline, slot, bind_group)?;
             }
             if let DrawAction::Indexed { mesh, .. } = command.action {
                 if !registry.contains_mesh(&mesh) {
@@ -1141,6 +1186,7 @@ fn validate_graph(
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
                 }
                 validate_bind_group_offsets(registry, bind_group, offsets)?;
+                validate_compute_pipeline_layout(registry, command.pipeline, slot, bind_group)?;
             }
             if let Some((buffer, offset)) = command.indirect {
                 validate_indirect_buffer(registry, buffer, offset, 12)?;
@@ -2104,8 +2150,26 @@ mod tests {
                 }),
             }],
         });
+        let mismatched_bind_group = engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("dynamic_offset_mismatched_bind_group"),
+            layout: &layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &buffer,
+                    offset: 0,
+                    size: std::num::NonZeroU64::new(4),
+                }),
+            }],
+        });
         let mut registry = ResourceRegistry::new();
-        registry.insert_compute_pipeline(ComputePipelineHandle(1), pipeline);
+        registry.insert_compute_pipeline_with_layout_descriptor(
+            ComputePipelineHandle(1),
+            pipeline,
+            crate::render::PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: vec![Some(7)],
+            },
+        );
         registry
             .insert_bind_group_with_descriptor(
                 BindGroupHandle(1),
@@ -2113,6 +2177,18 @@ mod tests {
                 crate::render::BindGroupResourceDescriptor {
                     dynamic_offset_count: 1,
                     dynamic_offset_alignment: alignment,
+                    layout_signature: 7,
+                },
+            )
+            .unwrap();
+        registry
+            .insert_bind_group_with_descriptor(
+                BindGroupHandle(2),
+                mismatched_bind_group,
+                crate::render::BindGroupResourceDescriptor {
+                    dynamic_offset_count: 1,
+                    dynamic_offset_alignment: alignment,
+                    layout_signature: 8,
                 },
             )
             .unwrap();
@@ -2126,6 +2202,14 @@ mod tests {
             RenderGraphExecutor::new().validate_with_device(&engine, &registry, &pool, &invalid),
             Err(RenderGraphValidationError::InvalidDynamicOffsetAlignment {
                 handle: BindGroupHandle(1), offset: 1, alignment,
+            })
+        );
+        let mut mismatched = RenderGraph::new(RenderTarget::Screen);
+        mismatched.add_compute_batch(&mut pool, vec![ComputeCommand::new(ComputePipelineHandle(1), [1, 1, 1]).with_bind_group(0, BindGroupHandle(2), vec![alignment])]);
+        assert_eq!(
+            RenderGraphExecutor::new().validate_with_device(&engine, &registry, &pool, &mismatched),
+            Err(RenderGraphValidationError::ComputePipelineLayoutMismatch {
+                pipeline: ComputePipelineHandle(1), slot: 0, expected: Some(7), actual: Some(8),
             })
         );
     }

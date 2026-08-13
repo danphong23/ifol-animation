@@ -26,6 +26,12 @@ pub struct BufferResourceDescriptor {
 pub struct BindGroupResourceDescriptor {
     pub dynamic_offset_count: u32,
     pub dynamic_offset_alignment: u32,
+    pub layout_signature: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PipelineLayoutResourceDescriptor {
+    pub bind_group_layout_signatures: Vec<Option<u64>>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -138,6 +144,8 @@ pub struct ResourceRegistry {
     textures: HashMap<TextureHandle, (wgpu::TextureView, wgpu::TextureFormat)>,
     pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
     compute_pipelines: HashMap<ComputePipelineHandle, wgpu::ComputePipeline>,
+    pipeline_layout_descriptors: HashMap<PipelineHandle, PipelineLayoutResourceDescriptor>,
+    compute_pipeline_layout_descriptors: HashMap<ComputePipelineHandle, PipelineLayoutResourceDescriptor>,
     buffers: HashMap<BufferHandle, wgpu::Buffer>,
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
     meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
@@ -254,6 +262,19 @@ impl ResourceRegistry {
         pipeline: wgpu::RenderPipeline,
     ) -> Option<wgpu::RenderPipeline> {
         let old = self.pipelines.insert(handle, pipeline);
+        self.pipeline_layout_descriptors.remove(&handle);
+        self.bump_pipeline_version(handle);
+        old
+    }
+
+    pub fn insert_pipeline_with_layout_descriptor(
+        &mut self,
+        handle: PipelineHandle,
+        pipeline: wgpu::RenderPipeline,
+        descriptor: PipelineLayoutResourceDescriptor,
+    ) -> Option<wgpu::RenderPipeline> {
+        let old = self.pipelines.insert(handle, pipeline);
+        self.pipeline_layout_descriptors.insert(handle, descriptor);
         self.bump_pipeline_version(handle);
         old
     }
@@ -268,6 +289,10 @@ impl ResourceRegistry {
         self.versions.pipelines.get(handle).copied().unwrap_or(0)
     }
 
+    pub fn pipeline_layout_descriptor(&self, handle: &PipelineHandle) -> Option<&PipelineLayoutResourceDescriptor> {
+        self.pipeline_layout_descriptors.get(handle)
+    }
+
     pub fn mark_pipeline_changed(&mut self, handle: PipelineHandle) {
         self.bump_pipeline_version(handle);
     }
@@ -278,6 +303,19 @@ impl ResourceRegistry {
         pipeline: wgpu::ComputePipeline,
     ) -> Option<wgpu::ComputePipeline> {
         let old = self.compute_pipelines.insert(handle, pipeline);
+        self.compute_pipeline_layout_descriptors.remove(&handle);
+        Self::bump_version(&mut self.versions.compute_pipelines, handle);
+        old
+    }
+
+    pub fn insert_compute_pipeline_with_layout_descriptor(
+        &mut self,
+        handle: ComputePipelineHandle,
+        pipeline: wgpu::ComputePipeline,
+        descriptor: PipelineLayoutResourceDescriptor,
+    ) -> Option<wgpu::ComputePipeline> {
+        let old = self.compute_pipelines.insert(handle, pipeline);
+        self.compute_pipeline_layout_descriptors.insert(handle, descriptor);
         Self::bump_version(&mut self.versions.compute_pipelines, handle);
         old
     }
@@ -290,6 +328,10 @@ impl ResourceRegistry {
 
     pub fn compute_pipeline_version(&self, handle: &ComputePipelineHandle) -> ResourceVersion {
         self.versions.compute_pipelines.get(handle).copied().unwrap_or(0)
+    }
+
+    pub fn compute_pipeline_layout_descriptor(&self, handle: &ComputePipelineHandle) -> Option<&PipelineLayoutResourceDescriptor> {
+        self.compute_pipeline_layout_descriptors.get(handle)
     }
 
     pub fn mark_compute_pipeline_changed(&mut self, handle: ComputePipelineHandle) {
@@ -385,6 +427,7 @@ impl ResourceRegistry {
 
     pub fn remove_compute_pipeline(&mut self, handle: &ComputePipelineHandle) -> Option<wgpu::ComputePipeline> {
         let old = self.compute_pipelines.remove(handle);
+        self.compute_pipeline_layout_descriptors.remove(handle);
         if old.is_some() {
             Self::bump_version(&mut self.versions.compute_pipelines, *handle);
         }
@@ -423,6 +466,7 @@ impl ResourceRegistry {
 
     pub fn remove_pipeline(&mut self, handle: &PipelineHandle) -> Option<wgpu::RenderPipeline> {
         let old = self.pipelines.remove(handle);
+        self.pipeline_layout_descriptors.remove(handle);
         if old.is_some() {
             self.bump_pipeline_version(*handle);
         }
@@ -523,19 +567,19 @@ mod tests {
     #[test]
     fn bind_group_descriptor_validates_dynamic_offset_contract() {
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0 }.validate(),
+            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 7 }.validate(),
             Ok(())
         );
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 256 }.validate(),
+            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 256, layout_signature: 7 }.validate(),
             Err(BindGroupDescriptorError::UnexpectedAlignmentWithoutOffsets)
         );
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 1, dynamic_offset_alignment: 0 }.validate(),
+            BindGroupResourceDescriptor { dynamic_offset_count: 1, dynamic_offset_alignment: 0, layout_signature: 7 }.validate(),
             Err(BindGroupDescriptorError::InvalidAlignment)
         );
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 2, dynamic_offset_alignment: 256 }.validate(),
+            BindGroupResourceDescriptor { dynamic_offset_count: 2, dynamic_offset_alignment: 256, layout_signature: 7 }.validate(),
             Ok(())
         );
     }
