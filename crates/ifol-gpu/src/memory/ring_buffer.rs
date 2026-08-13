@@ -1,3 +1,5 @@
+use crate::memory::{SubmissionId, SubmissionTracker};
+
 pub struct UniformRingBuffer {
     buffer: wgpu::Buffer,
     size: u64,
@@ -55,8 +57,18 @@ impl UniformRingBuffer {
         Some(offset)
     }
 
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.current_offset = 0;
+    }
+
+    /// Reset chỉ khi submission cuối cùng dùng allocation đã hoàn tất.
+    /// Trả `false` và giữ nguyên allocation nếu GPU vẫn còn in-flight.
+    pub fn reset_after(&mut self, tracker: &SubmissionTracker, submission: SubmissionId) -> bool {
+        if !tracker.can_reuse_after(submission) {
+            return false;
+        }
+        self.reset();
+        true
     }
 
     pub fn buffer(&self) -> &wgpu::Buffer {
@@ -99,5 +111,21 @@ mod tests {
 
         assert_eq!(ring.allocate(0), None);
         assert_eq!(ring.allocate(u64::MAX), None);
+    }
+
+    #[test]
+    fn reset_waits_for_submission_completion() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let mut ring = UniformRingBuffer::new(engine.device(), 1024, 256);
+        assert_eq!(ring.allocate(128), Some(0));
+        let mut tracker = SubmissionTracker::new();
+        let submission = tracker.begin();
+
+        assert!(!ring.reset_after(&tracker, submission));
+        assert_eq!(ring.allocate(128), Some(256));
+
+        tracker.mark_completed(submission);
+        assert!(ring.reset_after(&tracker, submission));
+        assert_eq!(ring.allocate(128), Some(0));
     }
 }
