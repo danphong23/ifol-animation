@@ -1,4 +1,5 @@
 pub mod api;
+pub mod graph;
 pub mod render;
 pub mod memory;
 
