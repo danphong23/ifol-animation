@@ -11,6 +11,8 @@ pub enum GpuError {
     AdapterRequestFailed(#[from] wgpu::RequestAdapterError),
     #[error("Failed to request device: {0}")]
     DeviceRequestFailed(#[from] wgpu::RequestDeviceError),
+    #[error("GPU adapter does not satisfy requested capabilities: {0}")]
+    InsufficientCapabilities(#[from] crate::api::capabilities::CapabilityError),
 }
 
 pub struct GpuEngineBuilder<'a> {
@@ -101,6 +103,7 @@ impl<'a> GpuEngineBuilder<'a> {
 
         let capabilities = GpuCapabilities::new(&adapter.limits(), &adapter.features());
         log::info!("Hardware Capabilities: {:?}", capabilities);
+        capabilities.validate_requirements(self.required_features, &self.required_limits)?;
 
         log::info!("Requesting Device & Queue...");
         let (device, queue) = adapter

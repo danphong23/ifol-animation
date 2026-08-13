@@ -1,7 +1,17 @@
 use wgpu::{Features, Limits};
+use thiserror::Error;
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum CapabilityError {
+    #[error("required GPU features are unavailable: requested {requested:?}, available {available:?}")]
+    MissingFeatures { requested: Features, available: Features },
+    #[error("required GPU limits are unavailable")]
+    InsufficientLimits,
+}
 
 #[derive(Debug, Clone)]
 pub struct GpuCapabilities {
+    pub limits: Limits,
     pub max_texture_dimension_2d: u32,
     pub max_bind_groups: u32,
     pub max_uniform_buffer_binding_size: u64,
@@ -20,6 +30,7 @@ pub struct GpuCapabilities {
 impl GpuCapabilities {
     pub fn new(limits: &Limits, features: &Features) -> Self {
         Self {
+            limits: limits.clone(),
             max_texture_dimension_2d: limits.max_texture_dimension_2d,
             max_bind_groups: limits.max_bind_groups,
             max_uniform_buffer_binding_size: limits.max_uniform_buffer_binding_size,
@@ -30,6 +41,16 @@ impl GpuCapabilities {
             supports_indirect_first_instance: features.contains(Features::INDIRECT_FIRST_INSTANCE),
             features: *features,
         }
+    }
+
+    pub fn validate_requirements(&self, required_features: Features, required_limits: &Limits) -> Result<(), CapabilityError> {
+        if !self.features.contains(required_features) {
+            return Err(CapabilityError::MissingFeatures { requested: required_features, available: self.features });
+        }
+        if !required_limits.check_limits(&self.limits) {
+            return Err(CapabilityError::InsufficientLimits);
+        }
+        Ok(())
     }
 }
 
@@ -61,5 +82,25 @@ mod tests {
 
         assert!(!capabilities.supports_indirect_first_instance);
         assert!(capabilities.features.is_empty());
+    }
+
+    #[test]
+    fn requirements_validation_reports_feature_and_limit_mismatch() {
+        let limits = Limits::downlevel_webgl2_defaults();
+        let capabilities = GpuCapabilities::new(&limits, &Features::empty());
+        assert_eq!(
+            capabilities.validate_requirements(Features::INDIRECT_FIRST_INSTANCE, &limits),
+            Err(CapabilityError::MissingFeatures { requested: Features::INDIRECT_FIRST_INSTANCE, available: Features::empty() })
+        );
+        let mut required_limits = limits.clone();
+        required_limits.max_texture_dimension_2d = limits.max_texture_dimension_2d + 1;
+        assert_eq!(capabilities.validate_requirements(Features::empty(), &required_limits), Err(CapabilityError::InsufficientLimits));
+    }
+
+    #[test]
+    fn requirements_validation_accepts_subset_of_snapshot() {
+        let limits = Limits::downlevel_webgl2_defaults();
+        let capabilities = GpuCapabilities::new(&limits, &Features::INDIRECT_FIRST_INSTANCE);
+        assert_eq!(capabilities.validate_requirements(Features::empty(), &limits), Ok(()));
     }
 }

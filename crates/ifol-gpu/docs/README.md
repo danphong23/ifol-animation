@@ -55,6 +55,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 47. [Automatic hazard edges](46-automatic-hazard-edges.md)
 48. [Inferred usage cho pass built-in](47-inferred-pass-usage.md)
 49. [Dependency của nested graph trong flat plan](48-nested-graph-dependencies.md)
+50. [Capability requirements và platform policy](49-capability-requirements.md)
 
 ## Từ vựng trạng thái
 
