@@ -37,6 +37,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 29. [Copy pass buffer-to-buffer](28-copy-pass.md)
 30. [Graph không có render target](29-non-render-graph-execution.md)
 31. [Resource lifecycle API](30-resource-lifecycle-api.md)
+32. [Owned texture resource](31-owned-texture-resource.md)
 
 ## Từ vựng trạng thái
 

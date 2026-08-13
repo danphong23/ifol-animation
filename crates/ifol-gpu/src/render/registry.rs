@@ -59,6 +59,16 @@ impl TextureResourceDescriptor {
     }
 }
 
+pub struct OwnedTextureResource {
+    texture: wgpu::Texture,
+    descriptor: TextureResourceDescriptor,
+}
+
+impl OwnedTextureResource {
+    pub fn texture(&self) -> &wgpu::Texture { &self.texture }
+    pub fn descriptor(&self) -> TextureResourceDescriptor { self.descriptor }
+}
+
 #[derive(Default)]
 struct ResourceVersions {
     textures: HashMap<TextureHandle, ResourceVersion>,
@@ -80,6 +90,7 @@ pub struct ResourceRegistry {
     pub meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>, 
     pub bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
     texture_descriptors: HashMap<TextureHandle, TextureResourceDescriptor>,
+    owned_textures: HashMap<TextureHandle, OwnedTextureResource>,
     versions: ResourceVersions,
 }
 
@@ -96,6 +107,7 @@ impl ResourceRegistry {
         texture: (wgpu::TextureView, wgpu::TextureFormat),
     ) -> Option<(wgpu::TextureView, wgpu::TextureFormat)> {
         let old = self.textures.insert(handle, texture);
+        self.owned_textures.remove(&handle);
         // Compatibility insert không có descriptor mới; không giữ metadata cũ
         // để tránh validate graph dựa trên texture đã bị thay thế.
         self.texture_descriptors.remove(&handle);
@@ -116,6 +128,7 @@ impl ResourceRegistry {
     ) -> Result<Option<(wgpu::TextureView, wgpu::TextureFormat)>, ResourceDescriptorError> {
         descriptor.validate(max_dimension)?;
         let old = self.textures.insert(handle, (texture, descriptor.format));
+        self.owned_textures.remove(&handle);
         self.texture_descriptors.insert(handle, descriptor);
         self.bump_texture_version(handle);
         Ok(old)
@@ -123,6 +136,38 @@ impl ResourceRegistry {
 
     pub fn texture_descriptor(&self, handle: &TextureHandle) -> Option<&TextureResourceDescriptor> {
         self.texture_descriptors.get(handle)
+    }
+
+    /// Lưu texture object thật cùng view compatibility. Đây là API cần cho
+    /// copy/resolve; `insert_texture` cũ chỉ lưu view và không đủ ownership.
+    pub fn insert_owned_texture(
+        &mut self,
+        handle: TextureHandle,
+        texture: wgpu::Texture,
+        descriptor: TextureResourceDescriptor,
+        max_dimension: u32,
+    ) -> Result<Option<OwnedTextureResource>, ResourceDescriptorError> {
+        descriptor.validate(max_dimension)?;
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let old = self.owned_textures.insert(handle, OwnedTextureResource { texture, descriptor });
+        self.textures.insert(handle, (view, descriptor.format));
+        self.texture_descriptors.insert(handle, descriptor);
+        self.bump_texture_version(handle);
+        Ok(old)
+    }
+
+    pub fn owned_texture(&self, handle: &TextureHandle) -> Option<&wgpu::Texture> {
+        self.owned_textures.get(handle).map(OwnedTextureResource::texture)
+    }
+
+    pub fn remove_owned_texture(&mut self, handle: &TextureHandle) -> Option<OwnedTextureResource> {
+        let old = self.owned_textures.remove(handle);
+        if old.is_some() {
+            self.textures.remove(handle);
+            self.texture_descriptors.remove(handle);
+            self.bump_texture_version(*handle);
+        }
+        old
     }
 
     pub fn texture_version(&self, handle: &TextureHandle) -> ResourceVersion {
@@ -227,6 +272,7 @@ impl ResourceRegistry {
 
     pub fn remove_texture(&mut self, handle: &TextureHandle) -> Option<(wgpu::TextureView, wgpu::TextureFormat)> {
         let old = self.textures.remove(handle);
+        self.owned_textures.remove(handle);
         self.texture_descriptors.remove(handle);
         if old.is_some() {
             self.bump_texture_version(*handle);
@@ -278,6 +324,7 @@ impl ResourceRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::GpuEngineBuilder;
 
     #[test]
     fn texture_version_starts_at_zero_and_marks_changes() {
@@ -365,5 +412,35 @@ mod tests {
         descriptor = valid_descriptor();
         descriptor.usage = wgpu::TextureUsages::empty();
         assert_eq!(descriptor.validate(1024), Err(ResourceDescriptorError::EmptyUsage));
+    }
+
+    #[test]
+    fn owned_texture_keeps_texture_object_and_descriptor_together() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("owned_texture_test"),
+            size: wgpu::Extent3d { width: 16, height: 8, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let mut registry = ResourceRegistry::new();
+        let descriptor = TextureResourceDescriptor {
+            width: 16, height: 8, depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            mip_level_count: 1, sample_count: 1,
+        };
+
+        registry.insert_owned_texture(TextureHandle(3), texture, descriptor, 1024).unwrap();
+        assert!(registry.owned_texture(&TextureHandle(3)).is_some());
+        assert_eq!(registry.texture_descriptor(&TextureHandle(3)), Some(&descriptor));
+        assert!(registry.texture(&TextureHandle(3)).is_some());
+        assert!(registry.remove_owned_texture(&TextureHandle(3)).is_some());
+        assert!(registry.owned_texture(&TextureHandle(3)).is_none());
+        assert!(registry.texture(&TextureHandle(3)).is_none());
     }
 }
