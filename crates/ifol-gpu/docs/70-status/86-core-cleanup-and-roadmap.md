@@ -101,6 +101,8 @@ module mới; compatibility facade hiện chỉ còn phục vụ consumer bên n
 di trú.
 `examples/basic_window.rs` đã migrate pipeline và bind group sang descriptor API;
 các example/test fixture còn lại vẫn được theo dõi theo nhóm resource.
+`examples/visual_tests.rs` đã migrate toàn bộ texture target sang owned descriptor
+API và toàn bộ pipeline sang pipeline-layout descriptor API.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.

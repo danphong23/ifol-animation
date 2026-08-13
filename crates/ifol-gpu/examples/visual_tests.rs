@@ -2,7 +2,10 @@ use std::borrow::Cow;
 use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
-use ifol_gpu::resources::{PipelineHandle, ResourceRegistry, TextureHandle};
+use ifol_gpu::resources::{
+    PipelineHandle, PipelineLayoutResourceDescriptor, ResourceRegistry,
+    TextureHandle, TextureResourceDescriptor,
+};
 
 fn main() {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).expect("Failed to build engine");
@@ -26,11 +29,11 @@ fn main() {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
-        (tex.create_view(&wgpu::TextureViewDescriptor::default()), tex)
+        tex
     };
 
-    let (z_target_view, z_target_tex) = create_target();
-    let (alpha_target_view, alpha_target_tex) = create_target();
+    let z_target_tex = create_target();
+    let alpha_target_tex = create_target();
 
     let depth_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("Depth"),
@@ -46,12 +49,31 @@ fn main() {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     });
-    let depth_view = depth_tex.create_view(&wgpu::TextureViewDescriptor::default());
-
     let mut registry = ResourceRegistry::new();
-    registry.insert_texture(TextureHandle(1), (z_target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(2), (depth_view, wgpu::TextureFormat::Depth32Float));
-    registry.insert_texture(TextureHandle(3), (alpha_target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let target_descriptor = |format, usage| TextureResourceDescriptor {
+        width,
+        height,
+        depth_or_array_layers: 1,
+        format,
+        usage,
+        mip_level_count: 1,
+        sample_count: 1,
+    };
+    registry.insert_owned_texture(
+        TextureHandle(1), z_target_tex.clone(),
+        target_descriptor(wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC),
+        8192,
+    ).unwrap();
+    registry.insert_owned_texture(
+        TextureHandle(2), depth_tex,
+        target_descriptor(wgpu::TextureFormat::Depth32Float, wgpu::TextureUsages::RENDER_ATTACHMENT),
+        8192,
+    ).unwrap();
+    registry.insert_owned_texture(
+        TextureHandle(3), alpha_target_tex.clone(),
+        target_descriptor(wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC),
+        8192,
+    ).unwrap();
 
     let shader_src = "
         struct VertexOutput {
@@ -139,8 +161,9 @@ fn main() {
         })
     };
 
-    registry.insert_pipeline(PipelineHandle(1), create_pipe(true, Some(wgpu::BlendState::REPLACE)));
-    registry.insert_pipeline(PipelineHandle(2), create_pipe(false, Some(wgpu::BlendState::ALPHA_BLENDING)));
+    let pipeline_descriptor = || PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() };
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), create_pipe(true, Some(wgpu::BlendState::REPLACE)), pipeline_descriptor());
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(2), create_pipe(false, Some(wgpu::BlendState::ALPHA_BLENDING)), pipeline_descriptor());
 
     let mut pool = ifol_gpu::graph::RenderNodePool::new();
 
@@ -239,10 +262,14 @@ fn main() {
         multiview_mask: None,
         cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(3), pipe_10k);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(3), pipe_10k, pipeline_descriptor());
 
-    let (target_10k_view, target_10k_tex) = create_target();
-    registry.insert_texture(TextureHandle(4), (target_10k_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let target_10k_tex = create_target();
+    registry.insert_owned_texture(
+        TextureHandle(4), target_10k_tex.clone(),
+        target_descriptor(wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC),
+        8192,
+    ).unwrap();
 
     let mut graph_10k = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(4),
@@ -260,8 +287,12 @@ fn main() {
     )]);
 
     // --- State Tracking Accuracy Test ---
-    let (target_interleaved_view, target_interleaved_tex) = create_target();
-    registry.insert_texture(TextureHandle(5), (target_interleaved_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let target_interleaved_tex = create_target();
+    registry.insert_owned_texture(
+        TextureHandle(5), target_interleaved_tex.clone(),
+        target_descriptor(wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC),
+        8192,
+    ).unwrap();
 
     let mut graph_interleaved = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(5),
