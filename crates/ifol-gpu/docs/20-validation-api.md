@@ -1,19 +1,16 @@
-# IFOL GPU: API validation hiá»‡n táº¡i
+# IFOL GPU: API validation hiện tại
 
-`RenderGraphExecutor::validate` kiá»ƒm tra graph trÆ°á»›c khi táº¡o command buffer vÃ  tráº£
-`RenderGraphValidationError` typed. `execute_checked` dÃ¹ng validation nÃ y rá»“i má»›i
-submit.
+`RenderGraphExecutor::validate` kiểm tra graph trước khi tạo command buffer và
+trả `RenderGraphValidationError` typed. `validate_with_device` và các API
+`execute_checked` dùng capability thực của adapter, gồm giới hạn bind-group.
 
-Các lỗi hiện được kiểm tra gồm:
+Các lỗi nền tảng được kiểm tra gồm resource/node thiếu, target không hợp lệ,
+bind-group slot, pipeline/mesh/bind group thiếu, copy range/format/aspect,
+resource usage, dependency và cycle.
 
-- resource hoặc node không tồn tại;
-- target offscreen có kích thước bằng zero;
-- bind-group slot ngoài phạm vi hỗ trợ;
-- pipeline, mesh hoặc bind group được command tham chiếu nhưng không có trong registry.
+`execute` vẫn được giữ cho compatibility prototype; host production nên dùng
+`execute_checked` hoặc API surface/profile checked để không phụ thuộc silent-skip.
 
-`execute` vẫn được giữ cho compatibility prototype. Host production nên chuyển sang
-`execute_checked` để không phụ thuộc behavior silent-skip của execution legacy.
+Phạm vi còn thiếu gồm pipeline layout compatibility đầy đủ, dynamic offset,
+attachment sample/format matrix theo backend và diagnostics giàu ngữ cảnh hơn.
 
-Phạm vi còn thiếu gồm pipeline layout compatibility, resource usage, dynamic offset,
-attachment sample/format và dependency/cycle diagnostics. Các phần này là task riêng,
-không được coi là đã hoàn thiện chỉ vì graph validation cơ bản đã có.
