@@ -618,18 +618,30 @@ impl RenderGraph {
     pub fn flatten(&self, pool: &RenderNodePool) -> Result<FlatRenderPlan, GraphFlattenError> {
         let mut plan = FlatRenderPlan::default();
         let mut active = Vec::new();
-        self.flatten_into(pool, &mut plan, &mut active, Vec::new())?;
-        self.apply_dependencies(&mut plan)?;
+        let mut usage_map = HashMap::new();
+        self.flatten_into(pool, &mut plan, &mut active, Vec::new(), &mut usage_map)?;
+        self.apply_dependencies(&mut plan, &usage_map)?;
         Ok(plan)
     }
 
-    fn apply_dependencies(&self, plan: &mut FlatRenderPlan) -> Result<(), GraphFlattenError> {
-        if self.dependencies.is_empty() || plan.nodes.len() < 2 {
+    fn apply_dependencies(
+        &self,
+        plan: &mut FlatRenderPlan,
+        usage_map: &HashMap<RenderNodeId, Vec<ResourceUsage>>,
+    ) -> Result<(), GraphFlattenError> {
+        if plan.nodes.len() < 2 {
             return Ok(());
         }
         let positions = plan.nodes.iter().enumerate().map(|(index, node)| (node.node_id, index)).collect::<HashMap<_, _>>();
         let mut edges = vec![Vec::new(); plan.nodes.len()];
         let mut indegree = vec![0usize; plan.nodes.len()];
+        let mut edge_set = HashSet::new();
+        let mut add_edge = |before: usize, after: usize| {
+            if edge_set.insert((before, after)) {
+                edges[before].push(after);
+                indegree[after] += 1;
+            }
+        };
         for dependency in &self.dependencies {
             let Some(&before) = positions.get(&dependency.before) else {
                 return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.before));
@@ -637,8 +649,17 @@ impl RenderGraph {
             let Some(&after) = positions.get(&dependency.after) else {
                 return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.after));
             };
-            edges[before].push(after);
-            indegree[after] += 1;
+            add_edge(before, after);
+        }
+
+        for before in 0..plan.nodes.len() {
+            for after in (before + 1)..plan.nodes.len() {
+                let before_usages = usage_map.get(&plan.nodes[before].node_id).map(Vec::as_slice).unwrap_or(&[]);
+                let after_usages = usage_map.get(&plan.nodes[after].node_id).map(Vec::as_slice).unwrap_or(&[]);
+                if before_usages.iter().any(|left| after_usages.iter().any(|right| left.resource == right.resource && accesses_conflict(left.access, right.access))) {
+                    add_edge(before, after);
+                }
+            }
         }
 
         let original = plan.nodes.clone();
@@ -665,17 +686,21 @@ impl RenderGraph {
         plan: &mut FlatRenderPlan,
         active: &mut Vec<RenderNodeId>,
         parent_path: Vec<RenderNodeId>,
+        usage_map: &mut HashMap<RenderNodeId, Vec<ResourceUsage>>,
     ) -> Result<(), GraphFlattenError> {
         for &node_id in &self.node_ids {
             if active.contains(&node_id) {
                 return Err(GraphFlattenError::Cycle(node_id));
             }
             let node = pool.get(node_id).ok_or(GraphFlattenError::MissingNode(node_id))?;
+            if let Some(usages) = self.resource_usages.get(&node_id) {
+                usage_map.insert(node_id, usages.clone());
+            }
             let mut path = parent_path.clone();
             path.push(node_id);
             if let RenderNode::SubGraph { graph, .. } = node {
                 active.push(node_id);
-                graph.flatten_into(pool, plan, active, path.clone())?;
+                graph.flatten_into(pool, plan, active, path.clone(), usage_map)?;
                 active.pop();
             }
             plan.nodes.push(FlatRenderNode { node_id, path });
@@ -836,5 +861,23 @@ mod tests {
         graph.add_dependency(reader, writer);
 
         assert!(matches!(graph.ordered_node_ids(&pool), Err(GraphFlattenError::Cycle(_))));
+    }
+
+    #[test]
+    fn flatten_applies_hazard_between_nested_and_root_nodes() {
+        let mut pool = RenderNodePool::new();
+        let nested_writer = pool.alloc_copy_batch(vec![]);
+        let mut child = RenderGraph::new(RenderTarget::Screen);
+        child.add_node_id(nested_writer);
+        child.declare_resource_usage(nested_writer, GraphResource::Texture(TextureHandle(10)), ResourceAccess::Write);
+        let subgraph = pool.alloc_subgraph("producer", child, vec![]);
+        let reader = pool.alloc_compute_batch(vec![]);
+        let mut root = RenderGraph::new(RenderTarget::Screen);
+        root.add_node_id(subgraph);
+        root.add_node_id(reader);
+        root.declare_resource_usage(reader, GraphResource::Texture(TextureHandle(10)), ResourceAccess::Read);
+
+        let plan = root.flatten(&pool).unwrap();
+        assert_eq!(plan.nodes.iter().map(|node| node.node_id).collect::<Vec<_>>(), vec![nested_writer, subgraph, reader]);
     }
 }
