@@ -55,7 +55,8 @@ hoặc policy dự kiến.
 
 ## Chưa implement
 
-- capability tier và fallback policy theo từng backend/platform;
+- capability tier và fallback policy chi tiết theo từng backend/platform; builder
+  đã có lựa chọn fallback adapter tường minh;
 - runtime cross-backend/device matrix tự động cho Windows, macOS, Web, Android
   và iOS; compile evidence cho WebAssembly và Windows MSVC đã có nhưng chưa
   thay thế runtime matrix;

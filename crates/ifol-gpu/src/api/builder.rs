@@ -21,6 +21,7 @@ pub struct GpuEngineBuilder<'a> {
     instance: wgpu::Instance,
     backends: Backends,
     power_preference: PowerPreference,
+    force_fallback_adapter: bool,
     required_features: Features,
     required_limits: Limits,
     surface: Option<wgpu::Surface<'a>>,
@@ -42,6 +43,7 @@ impl<'a> GpuEngineBuilder<'a> {
             }),
             backends,
             power_preference: PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
             required_features: Features::empty(),
             required_limits: Limits::downlevel_webgl2_defaults(),
             surface: None,
@@ -77,6 +79,13 @@ impl<'a> GpuEngineBuilder<'a> {
         self
     }
 
+    pub fn force_fallback_adapter(&self) -> bool { self.force_fallback_adapter }
+
+    pub fn with_force_fallback_adapter(mut self, force: bool) -> Self {
+        self.force_fallback_adapter = force;
+        self
+    }
+
     pub fn with_required_features(mut self, features: Features) -> Self {
         self.required_features = features;
         self
@@ -96,7 +105,7 @@ impl<'a> GpuEngineBuilder<'a> {
             .request_adapter(&RequestAdapterOptions {
                 power_preference: self.power_preference,
                 compatible_surface: self.surface.as_ref(),
-                force_fallback_adapter: false,
+                force_fallback_adapter: self.force_fallback_adapter,
                 apply_limit_buckets: false,
             })
             .await?;
@@ -153,6 +162,8 @@ mod tests {
         assert_eq!(builder.backends(), Backends::VULKAN | Backends::GL);
         assert_eq!(builder.required_features(), Features::INDIRECT_FIRST_INSTANCE);
         assert_eq!(builder.required_limits(), &limits);
+        assert!(!builder.force_fallback_adapter());
+        assert!(builder.with_force_fallback_adapter(true).force_fallback_adapter());
     }
 
     #[test]
@@ -182,6 +193,20 @@ mod tests {
             Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
             Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}
             Err(error) => panic!("unexpected DX12 backend setup error: {error}"),
+        }
+    }
+
+    #[test]
+    fn builder_fallback_adapter_policy_is_runtime_selectable() {
+        let result = pollster::block_on(
+            GpuEngineBuilder::new()
+                .with_force_fallback_adapter(true)
+                .build(),
+        );
+        match result {
+            Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
+            Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}
+            Err(error) => panic!("unexpected fallback adapter setup error: {error}"),
         }
     }
 }
