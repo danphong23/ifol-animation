@@ -2316,7 +2316,11 @@ mod tests {
         registry.insert_owned_texture(TextureHandle(1), make_texture("ordered_source"), descriptor, 1024).unwrap();
         registry.insert_owned_texture(TextureHandle(2), make_texture("ordered_copy_destination"), descriptor, 1024).unwrap();
         registry.insert_owned_texture(TextureHandle(3), make_texture("ordered_target"), descriptor, 1024).unwrap();
-        registry.insert_pipeline(PipelineHandle(1), pipeline);
+        registry.insert_pipeline_with_layout_descriptor(
+            PipelineHandle(1),
+            pipeline,
+            PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() },
+        );
         let mut pool = RenderNodePool::new();
         let mut graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(3), width: 2, height: 2 });
         graph.add_copy_batch(&mut pool, vec![CopyCommand::texture_to_texture(TextureHandle(1), TextureHandle(2), [2, 2, 1])]);
