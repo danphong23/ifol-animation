@@ -48,7 +48,7 @@ Phase chỉ hoàn thành khi:
 | Graph dependency/pass execution | Đạt nền tảng | flat graph, explicit + automatic hazard edges, mip/layer subresource hazard metadata và render/compute/copy segmented execution đã có test |
 | Frame memory submission-safe | Đạt nền tảng | ring, submission tracker, transient pools và `FrameContext` seal/reset đã có; present/profiling/registry integration còn thiếu |
 | Surface format không hard-code | Đạt nền tảng | format lấy từ surface config; checked resize/reconfigure đã có, present policy thuộc host |
-| Cache invalidation | Đạt nền tảng | resource versions và bundle key đã có; multi-context cache còn thiếu |
+| Cache invalidation | Đạt nền tảng | resource versions, bundle key và bind-group cache theo device limit đã có; multi-context cache còn thiếu |
 | Structured errors | Đạt | public `execute`/`execute_with_surface` trả `Result`; encoder unchecked chỉ chạy sau validation |
 | Cross-platform runtime matrix | Chưa đạt | host runtime đã đạt; compile evidence WebAssembly và Windows MSVC đã có, nhưng chưa chạy đủ Windows/macOS/Linux/Web/Android/iOS |
 | MSAA/resolve | Đạt một phần | color resolve, depth sample matching và stencil aspect cơ bản qua `OffscreenMsaa` đã có runtime test; subresource/capability matrix còn thiếu |

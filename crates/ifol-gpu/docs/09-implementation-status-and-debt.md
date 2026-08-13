@@ -42,7 +42,8 @@ hoặc policy dự kiến.
 - lock surface poisoning được xử lý không panic; builder reject surface không có
   configuration, `try_resize_surface` và `reconfigure_surface` đã có typed
   error; present/acquire retry policy vẫn thuộc host;
-- bind-group state cache hiện giới hạn bốn slot.
+- bind-group state cache đã cấp phát theo `max_bind_groups` của device; API
+  validate độc lập dùng default limits vì không có device context.
 
 - texture subresource/aspect hazard và MSAA boundary đã có ở mức nền tảng; copy
   aspect/range đầy đủ và capability matrix đa backend còn thiếu;

@@ -84,8 +84,8 @@ pub enum RenderGraphValidationError {
     InvalidIndirectRange { handle: BufferHandle, offset: u64, size: u64 },
     #[error("indexed indirect draw requires mesh {0:?} to have an index buffer")]
     MissingIndexBuffer(MeshHandle),
-    #[error("bind group slot {0} is outside the supported range 0..4")]
-    InvalidBindGroupSlot(u32),
+    #[error("bind group slot {slot} is outside the device limit {max_slots}")]
+    InvalidBindGroupSlot { slot: u32, max_slots: u32 },
     #[error("render target dimensions must be non-zero, got {width}x{height}")]
     InvalidTargetSize { width: u32, height: u32 },
     #[error("texture {handle:?} has descriptor size {actual_width}x{actual_height}, graph requested {width}x{height}")]
@@ -116,8 +116,8 @@ pub enum RenderGraphValidationError {
     DepthSampleCountMismatch { handle: TextureHandle, expected: u32, actual: u32 },
 }
 
-fn bind_group_slot_index(slot: u32) -> Option<usize> {
-    (slot < 4).then_some(slot as usize)
+fn bind_group_slot_index(slot: u32, max_slots: u32) -> Option<usize> {
+    (slot < max_slots).then_some(slot as usize)
 }
 
 fn format_has_stencil(format: wgpu::TextureFormat) -> bool {
@@ -174,7 +174,7 @@ impl RenderGraphExecutor {
         pool: &RenderNodePool,
         graph: &RenderGraph,
     ) -> Result<(), RenderGraphValidationError> {
-        validate_graph(registry, pool, graph)
+        validate_graph(registry, pool, graph, wgpu::Limits::default().max_bind_groups)
     }
 
     pub fn execute_checked(
@@ -216,7 +216,7 @@ impl RenderGraphExecutor {
         graph: &RenderGraph,
         surface_view: Option<&wgpu::TextureView>,
     ) -> Result<ExecutionReport, RenderGraphValidationError> {
-        self.validate(registry, pool, graph)?;
+        self.validate_for_bind_group_limit(registry, pool, graph, engine.capabilities().max_bind_groups)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             Self::execution_counts_for_graph(pool, graph)?;
         let submission = self.execute_unchecked(engine, registry, pool, graph, surface_view);
@@ -259,7 +259,7 @@ impl RenderGraphExecutor {
         resolve_buffer: &wgpu::Buffer,
         resolve_offset: u64,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.validate(registry, pool, graph)?;
+        self.validate_for_bind_group_limit(registry, pool, graph, engine.capabilities().max_bind_groups)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             Self::execution_counts_for_graph(pool, graph)?;
         let span = profiler.allocate_span()?;
@@ -283,6 +283,16 @@ impl RenderGraphExecutor {
             },
             span,
         })
+    }
+
+    fn validate_for_bind_group_limit(
+        &self,
+        registry: &ResourceRegistry,
+        pool: &RenderNodePool,
+        graph: &RenderGraph,
+        max_bind_groups: u32,
+    ) -> Result<(), RenderGraphValidationError> {
+        validate_graph(registry, pool, graph, max_bind_groups)
     }
 
     /// Biên dịch RenderGraph thành các lệnh gọi WGPU và đẩy xuống GPU Queue.
@@ -380,7 +390,7 @@ fn execute_non_render_nodes(
                     label: Some("RenderGraphComputePass"), timestamp_writes: None,
                 });
                 let mut current_pipeline = None;
-                let mut current_bind_groups = [None; 4];
+                let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
                 for command in node.compute_commands() {
                     if current_pipeline != Some(command.pipeline) {
                         if let Some(pipeline) = registry.compute_pipeline(&command.pipeline) {
@@ -389,7 +399,7 @@ fn execute_non_render_nodes(
                         } else { continue; }
                     }
                     for &(slot, bind_group, ref offsets) in &command.bind_groups {
-                        let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
                         if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
                             if let Some(group) = registry.bind_group(&bind_group) {
                                 compute_pass.set_bind_group(slot, group, offsets);
@@ -419,6 +429,7 @@ fn execute_non_render_nodes(
         resolve_view: Option<&wgpu::TextureView>,
         depth_stencil_info: Option<(&wgpu::TextureView, wgpu::TextureFormat)>,
         clear_color: Option<[f32; 4]>,
+        max_bind_groups: u32,
     ) {
         let mut rendered_any = false;
         for &node_id in node_ids {
@@ -426,7 +437,7 @@ fn execute_non_render_nodes(
             for command in node.copy_commands() {
                 encode_copy_command(encoder, registry, command);
             }
-            encode_compute_commands(encoder, registry, node.compute_commands());
+            encode_compute_commands(encoder, registry, node.compute_commands(), max_bind_groups);
             if node.commands().is_empty() { continue; }
 
             let color_attachments = [Some(wgpu::RenderPassColorAttachment {
@@ -461,7 +472,7 @@ fn execute_non_render_nodes(
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            encode_draw_commands(&mut render_pass, registry, node.commands());
+            encode_draw_commands(&mut render_pass, registry, node.commands(), max_bind_groups);
             drop(render_pass);
             rendered_any = true;
         }
@@ -534,6 +545,7 @@ fn execute_non_render_nodes(
                 resolve_view,
                 depth_stencil_info.map(|(view, format)| (view, *format)),
                 graph.clear_color,
+                engine.capabilities().max_bind_groups,
             );
             return;
         }
@@ -565,7 +577,7 @@ fn execute_non_render_nodes(
                 });
 
                 let mut current_pipeline = None;
-                let mut current_bind_groups = [None; 4];
+                let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
 
                 for cmd in node.commands() {
                     if current_pipeline != Some(cmd.pipeline) {
@@ -576,7 +588,7 @@ fn execute_non_render_nodes(
                     }
 
                     for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
-                        let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
                         // Rebind if changed, or if there are dynamic offsets (offsets mutate per instance)
                         if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
                             if let Some(bg) = registry.bind_group(&bg_handle) {
@@ -648,7 +660,7 @@ fn execute_non_render_nodes(
                 timestamp_writes: None,
             });
             let mut current_pipeline = None;
-            let mut current_bind_groups = [None; 4];
+            let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
             for command in node.compute_commands() {
                 if current_pipeline != Some(command.pipeline) {
                     if let Some(pipeline) = registry.compute_pipeline(&command.pipeline) {
@@ -657,7 +669,7 @@ fn execute_non_render_nodes(
                     } else { continue; }
                 }
                 for &(slot, bind_group, ref offsets) in &command.bind_groups {
-                    let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                    let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
                     if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
                         if let Some(group) = registry.bind_group(&bind_group) {
                             compute_pass.set_bind_group(slot, group, offsets);
@@ -709,7 +721,7 @@ fn execute_non_render_nodes(
         });
 
         let mut current_pipeline = None;
-        let mut current_bind_groups = [None; 4];
+        let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
 
         for &node_id in &node_ids {
             let Some(node) = pool.get(node_id) else { continue; };
@@ -719,7 +731,7 @@ fn execute_non_render_nodes(
                     render_pass.execute_bundles(std::iter::once(bundle));
                     // State is reset after execute_bundles
                     current_pipeline = None;
-                    current_bind_groups = [None; 4];
+                    current_bind_groups.fill(None);
                 }
             } else {
                 // IMMEDIATE MODE
@@ -732,7 +744,7 @@ fn execute_non_render_nodes(
                     }
 
                     for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
-                        let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else { continue; };
                         if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
                             if let Some(bg) = registry.bind_group(&bg_handle) {
                                 render_pass.set_bind_group(slot, bg, offsets);
@@ -779,11 +791,12 @@ fn encode_compute_commands(
     encoder: &mut wgpu::CommandEncoder,
     registry: &ResourceRegistry,
     commands: &[crate::render::graph::ComputeCommand],
+    max_bind_groups: u32,
 ) {
     if commands.is_empty() { return; }
     let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("RenderGraphComputePass"), timestamp_writes: None });
     let mut current_pipeline = None;
-    let mut current_bind_groups = [None; 4];
+    let mut current_bind_groups = vec![None; max_bind_groups as usize];
     for command in commands {
         if current_pipeline != Some(command.pipeline) {
             let Some(pipeline) = registry.compute_pipeline(&command.pipeline) else { continue; };
@@ -791,7 +804,7 @@ fn encode_compute_commands(
             current_pipeline = Some(command.pipeline);
         }
         for &(slot, bind_group, ref offsets) in &command.bind_groups {
-            let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+            let Some(slot_index) = bind_group_slot_index(slot, max_bind_groups) else { continue; };
             if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
                 let Some(group) = registry.bind_group(&bind_group) else { continue; };
                 compute_pass.set_bind_group(slot, group, offsets);
@@ -810,9 +823,10 @@ fn encode_draw_commands(
     render_pass: &mut wgpu::RenderPass<'_>,
     registry: &ResourceRegistry,
     commands: &[crate::render::graph::DrawCommand],
+    max_bind_groups: u32,
 ) {
     let mut current_pipeline = None;
-    let mut current_bind_groups = [None; 4];
+    let mut current_bind_groups = vec![None; max_bind_groups as usize];
     for command in commands {
         if current_pipeline != Some(command.pipeline) {
             let Some(pipeline) = registry.pipeline(&command.pipeline) else { continue; };
@@ -820,7 +834,7 @@ fn encode_draw_commands(
             current_pipeline = Some(command.pipeline);
         }
         for &(slot, bind_group, ref offsets) in &command.bind_groups {
-            let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+            let Some(slot_index) = bind_group_slot_index(slot, max_bind_groups) else { continue; };
             if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
                 let Some(group) = registry.bind_group(&bind_group) else { continue; };
                 render_pass.set_bind_group(slot, group, offsets);
@@ -859,6 +873,7 @@ fn validate_graph(
     registry: &ResourceRegistry,
     pool: &RenderNodePool,
     graph: &RenderGraph,
+    max_bind_groups: u32,
 ) -> Result<(), RenderGraphValidationError> {
     graph.flatten(pool).map_err(|error| match error {
         crate::render::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
@@ -987,8 +1002,8 @@ fn validate_graph(
                 return Err(RenderGraphValidationError::MissingPipeline(command.pipeline));
             }
             for &(slot, bind_group, _) in &command.bind_groups {
-                if bind_group_slot_index(slot).is_none() {
-                    return Err(RenderGraphValidationError::InvalidBindGroupSlot(slot));
+                if bind_group_slot_index(slot, max_bind_groups).is_none() {
+                    return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: max_bind_groups });
                 }
                 if !registry.contains_bind_group(&bind_group) {
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
@@ -1016,8 +1031,8 @@ fn validate_graph(
                 return Err(RenderGraphValidationError::MissingComputePipeline(command.pipeline));
             }
             for &(slot, bind_group, _) in &command.bind_groups {
-                if bind_group_slot_index(slot).is_none() {
-                    return Err(RenderGraphValidationError::InvalidBindGroupSlot(slot));
+                if bind_group_slot_index(slot, max_bind_groups).is_none() {
+                    return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: max_bind_groups });
                 }
                 if !registry.contains_bind_group(&bind_group) {
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
@@ -1057,7 +1072,7 @@ fn validate_graph(
             }
         }
         if let RenderNode::SubGraph { graph: child, .. } = node {
-            validate_graph(registry, pool, child)?;
+            validate_graph(registry, pool, child, max_bind_groups)?;
         }
     }
     Ok(())
@@ -1182,10 +1197,11 @@ mod tests {
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
-        assert_eq!(bind_group_slot_index(0), Some(0));
-        assert_eq!(bind_group_slot_index(3), Some(3));
-        assert_eq!(bind_group_slot_index(4), None);
-        assert_eq!(bind_group_slot_index(u32::MAX), None);
+        assert_eq!(bind_group_slot_index(0, 4), Some(0));
+        assert_eq!(bind_group_slot_index(3, 4), Some(3));
+        assert_eq!(bind_group_slot_index(4, 4), None);
+        assert_eq!(bind_group_slot_index(7, 8), Some(7));
+        assert_eq!(bind_group_slot_index(u32::MAX, 8), None);
     }
 
     #[test]
