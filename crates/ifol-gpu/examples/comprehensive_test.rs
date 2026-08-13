@@ -487,7 +487,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
     });
 
     registry.insert_pipeline(PipelineHandle(1), pipeline);
-    registry.meshes.insert(
+    registry.insert_mesh(
         MeshHandle(1),
         (
             engine.device().create_buffer(&wgpu::BufferDescriptor {
@@ -500,7 +500,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
             3,
         ),
     );
-    registry.meshes.insert(
+    registry.insert_mesh(
         MeshHandle(2),
         (
             engine.device().create_buffer(&wgpu::BufferDescriptor {

@@ -281,6 +281,16 @@ impl ResourceRegistry {
 
     pub fn contains_mesh(&self, handle: &MeshHandle) -> bool { self.meshes.contains_key(handle) }
 
+    pub fn insert_mesh(
+        &mut self,
+        handle: MeshHandle,
+        mesh: (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32),
+    ) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
+        let old = self.meshes.insert(handle, mesh);
+        Self::bump_version(&mut self.versions.meshes, handle);
+        old
+    }
+
     pub fn bind_group(&self, handle: &BindGroupHandle) -> Option<&wgpu::BindGroup> {
         self.bind_groups.get(handle)
     }
