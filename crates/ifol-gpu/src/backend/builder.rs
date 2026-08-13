@@ -97,7 +97,7 @@ impl<'a> GpuEngineBuilder<'a> {
     }
 
     /// Khởi tạo GpuEngine. Quá trình này hoàn toàn không dính dáng đến Cửa sổ (Window/Surface).
-    pub async fn build(self) -> Result<crate::api::engine::GpuEngine<'a>, GpuError> {
+    pub async fn build(self) -> Result<super::engine::GpuEngine<'a>, GpuError> {
         log::info!("Initializing GPU Instance with backends: {:?}", self.backends);
 
         log::info!("Requesting GPU Adapter...");
@@ -144,7 +144,7 @@ impl<'a> GpuEngineBuilder<'a> {
             surface_config = Some(config);
         }
 
-        Ok(crate::api::engine::GpuEngine::new(device, queue, capabilities, self.surface, surface_config))
+        Ok(super::engine::GpuEngine::new(device, queue, capabilities, self.surface, surface_config))
     }
 }
 

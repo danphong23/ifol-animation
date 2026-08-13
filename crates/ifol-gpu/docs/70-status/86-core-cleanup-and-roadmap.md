@@ -77,3 +77,6 @@ change phải có migration note và test contract.
   `src/api/` tiếp tục re-export type này để giữ public path tương thích. Đây là
   bước đầu của backend boundary; builder/engine và surface policy vẫn là task
   migration riêng.
+- Builder và engine backend đã được chuyển vào `src/backend/`; `src/api/` giờ
+  chỉ còn profiling cùng các re-export public. Các module graph/execution có thể
+  dùng backend boundary mà không phụ thuộc đường dẫn facade nội bộ.

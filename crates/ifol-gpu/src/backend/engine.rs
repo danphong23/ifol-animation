@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn headless_surface_lifecycle_returns_typed_errors() {
-        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let engine = pollster::block_on(crate::backend::GpuEngineBuilder::new().build()).unwrap();
         assert_eq!(engine.try_resize_surface(0, 8), Err(SurfaceResizeError::InvalidSize));
         assert_eq!(engine.try_resize_surface(8, 8), Err(SurfaceResizeError::Unavailable));
         assert_eq!(engine.reconfigure_surface(), Err(SurfaceResizeError::Unavailable));
@@ -334,7 +334,7 @@ mod tests {
 
     #[test]
     fn async_readback_ticket_resolves_after_submission() {
-        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let engine = pollster::block_on(crate::backend::GpuEngineBuilder::new().build()).unwrap();
         let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("async-readback-test"),
             size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
@@ -360,7 +360,7 @@ mod tests {
 
     #[test]
     fn checked_readback_rejects_unsupported_format_with_typed_error() {
-        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let engine = pollster::block_on(crate::backend::GpuEngineBuilder::new().build()).unwrap();
         let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("checked-readback-format-test"),
             size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn checked_texture_save_reports_encode_failure() {
-        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let engine = pollster::block_on(crate::backend::GpuEngineBuilder::new().build()).unwrap();
         let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("checked-save-error-test"),
             size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },

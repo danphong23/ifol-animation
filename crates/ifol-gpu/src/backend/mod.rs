@@ -6,5 +6,9 @@
 //! compatibility.
 
 pub mod capabilities;
+pub mod builder;
+pub mod engine;
 
+pub use builder::{GpuEngineBuilder, GpuError};
 pub use capabilities::{CapabilityError, GpuCapabilities};
+pub use engine::{GpuEngine, ReadbackError, ReadbackTicket, SurfaceResizeError, TextureSaveError};

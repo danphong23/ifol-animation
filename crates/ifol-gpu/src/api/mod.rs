@@ -1,8 +1,16 @@
-pub mod builder;
-pub mod engine;
+/// Compatibility path for hosts that imported `api::builder` directly.
+pub mod builder {
+    pub use crate::backend::builder::*;
+}
+
+/// Compatibility path for hosts that imported `api::engine` directly.
+pub mod engine {
+    pub use crate::backend::engine::*;
+}
+
 pub mod profiling;
 
-pub use builder::{GpuEngineBuilder, GpuError};
+pub use crate::backend::{GpuEngineBuilder, GpuError};
 pub use crate::backend::capabilities::{CapabilityError, GpuCapabilities};
-pub use engine::{GpuEngine, ReadbackError, ReadbackTicket, SurfaceResizeError, TextureSaveError};
+pub use crate::backend::{GpuEngine, ReadbackError, ReadbackTicket, SurfaceResizeError, TextureSaveError};
 pub use profiling::{ProfilingError, TimestampQueryPool, TimestampSpan};
