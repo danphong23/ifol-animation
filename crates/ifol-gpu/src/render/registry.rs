@@ -22,6 +22,36 @@ pub struct BufferResourceDescriptor {
     pub usage: wgpu::BufferUsages,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BindGroupResourceDescriptor {
+    pub dynamic_offset_count: u32,
+    pub dynamic_offset_alignment: u32,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum BindGroupDescriptorError {
+    #[error("dynamic offset alignment must be zero when there are no dynamic offsets")]
+    UnexpectedAlignmentWithoutOffsets,
+    #[error("dynamic offset alignment must be a non-zero power of two")]
+    InvalidAlignment,
+}
+
+impl BindGroupResourceDescriptor {
+    pub fn validate(&self) -> Result<(), BindGroupDescriptorError> {
+        if self.dynamic_offset_count == 0 {
+            return if self.dynamic_offset_alignment == 0 {
+                Ok(())
+            } else {
+                Err(BindGroupDescriptorError::UnexpectedAlignmentWithoutOffsets)
+            };
+        }
+        if self.dynamic_offset_alignment == 0 || !self.dynamic_offset_alignment.is_power_of_two() {
+            return Err(BindGroupDescriptorError::InvalidAlignment);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BufferDescriptorError {
     #[error("buffer size must be non-zero")]
@@ -112,6 +142,7 @@ pub struct ResourceRegistry {
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
     meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
     bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
+    bind_group_descriptors: HashMap<BindGroupHandle, BindGroupResourceDescriptor>,
     buffer_descriptors: HashMap<BufferHandle, BufferResourceDescriptor>,
     texture_descriptors: HashMap<TextureHandle, TextureResourceDescriptor>,
     owned_textures: HashMap<TextureHandle, OwnedTextureResource>,
@@ -313,8 +344,22 @@ impl ResourceRegistry {
 
     pub fn insert_bind_group(&mut self, handle: BindGroupHandle, bind_group: wgpu::BindGroup) -> Option<wgpu::BindGroup> {
         let old = self.bind_groups.insert(handle, bind_group);
+        self.bind_group_descriptors.remove(&handle);
         Self::bump_version(&mut self.versions.bind_groups, handle);
         old
+    }
+
+    pub fn insert_bind_group_with_descriptor(
+        &mut self,
+        handle: BindGroupHandle,
+        bind_group: wgpu::BindGroup,
+        descriptor: BindGroupResourceDescriptor,
+    ) -> Result<Option<wgpu::BindGroup>, BindGroupDescriptorError> {
+        descriptor.validate()?;
+        let old = self.bind_groups.insert(handle, bind_group);
+        self.bind_group_descriptors.insert(handle, descriptor);
+        Self::bump_version(&mut self.versions.bind_groups, handle);
+        Ok(old)
     }
 
     pub fn buffer_descriptor(&self, handle: &BufferHandle) -> Option<&BufferResourceDescriptor> {
@@ -358,6 +403,10 @@ impl ResourceRegistry {
         self.versions.bind_groups.get(handle).copied().unwrap_or(0)
     }
 
+    pub fn bind_group_descriptor(&self, handle: &BindGroupHandle) -> Option<&BindGroupResourceDescriptor> {
+        self.bind_group_descriptors.get(handle)
+    }
+
     pub fn mark_bind_group_changed(&mut self, handle: BindGroupHandle) {
         Self::bump_version(&mut self.versions.bind_groups, handle);
     }
@@ -390,6 +439,7 @@ impl ResourceRegistry {
 
     pub fn remove_bind_group(&mut self, handle: &BindGroupHandle) -> Option<wgpu::BindGroup> {
         let old = self.bind_groups.remove(handle);
+        self.bind_group_descriptors.remove(handle);
         if old.is_some() {
             Self::bump_version(&mut self.versions.bind_groups, *handle);
         }
@@ -468,6 +518,26 @@ mod tests {
         assert_eq!(BufferResourceDescriptor { size: 0, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Err(BufferDescriptorError::InvalidSize));
         assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::empty() }.validate(), Err(BufferDescriptorError::EmptyUsage));
         assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Ok(()));
+    }
+
+    #[test]
+    fn bind_group_descriptor_validates_dynamic_offset_contract() {
+        assert_eq!(
+            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0 }.validate(),
+            Ok(())
+        );
+        assert_eq!(
+            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 256 }.validate(),
+            Err(BindGroupDescriptorError::UnexpectedAlignmentWithoutOffsets)
+        );
+        assert_eq!(
+            BindGroupResourceDescriptor { dynamic_offset_count: 1, dynamic_offset_alignment: 0 }.validate(),
+            Err(BindGroupDescriptorError::InvalidAlignment)
+        );
+        assert_eq!(
+            BindGroupResourceDescriptor { dynamic_offset_count: 2, dynamic_offset_alignment: 256 }.validate(),
+            Ok(())
+        );
     }
 
     fn valid_descriptor() -> TextureResourceDescriptor {

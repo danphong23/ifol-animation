@@ -81,6 +81,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 74. [Registry và deferred ownership](74-registry-deferred-ownership.md)
 75. [FrameContext và owned deferred lifecycle](75-frame-owned-deferred-lifecycle.md)
 76. [Bundle cache và sample context](76-bundle-cache-sample-context.md)
+77. [Descriptor-aware dynamic offset validation](77-dynamic-offset-descriptor-validation.md)
 
 ## Từ vựng trạng thái
 

@@ -92,6 +92,10 @@ pub enum RenderGraphValidationError {
     MissingIndexBuffer(MeshHandle),
     #[error("bind group slot {slot} is outside the device limit {max_slots}")]
     InvalidBindGroupSlot { slot: u32, max_slots: u32 },
+    #[error("bind group {handle:?} expects {expected} dynamic offsets, got {actual}")]
+    InvalidDynamicOffsetCount { handle: BindGroupHandle, expected: u32, actual: u32 },
+    #[error("dynamic offset {offset} for bind group {handle:?} is not aligned to {alignment}")]
+    InvalidDynamicOffsetAlignment { handle: BindGroupHandle, offset: u32, alignment: u32 },
     #[error("render target dimensions must be non-zero, got {width}x{height}")]
     InvalidTargetSize { width: u32, height: u32 },
     #[error("texture {handle:?} has descriptor size {actual_width}x{actual_height}, graph requested {width}x{height}")]
@@ -124,6 +128,31 @@ pub enum RenderGraphValidationError {
 
 fn bind_group_slot_index(slot: u32, max_slots: u32) -> Option<usize> {
     (slot < max_slots).then_some(slot as usize)
+}
+
+fn validate_bind_group_offsets(
+    registry: &ResourceRegistry,
+    handle: BindGroupHandle,
+    offsets: &[u32],
+) -> Result<(), RenderGraphValidationError> {
+    let Some(descriptor) = registry.bind_group_descriptor(&handle) else { return Ok(()); };
+    if offsets.len() as u32 != descriptor.dynamic_offset_count {
+        return Err(RenderGraphValidationError::InvalidDynamicOffsetCount {
+            handle,
+            expected: descriptor.dynamic_offset_count,
+            actual: offsets.len() as u32,
+        });
+    }
+    for &offset in offsets {
+        if offset % descriptor.dynamic_offset_alignment != 0 {
+            return Err(RenderGraphValidationError::InvalidDynamicOffsetAlignment {
+                handle,
+                offset,
+                alignment: descriptor.dynamic_offset_alignment,
+            });
+        }
+    }
+    Ok(())
 }
 
 fn format_has_stencil(format: wgpu::TextureFormat) -> bool {
@@ -1074,13 +1103,14 @@ fn validate_graph(
             if !registry.contains_pipeline(&command.pipeline) {
                 return Err(RenderGraphValidationError::MissingPipeline(command.pipeline));
             }
-            for &(slot, bind_group, _) in &command.bind_groups {
+            for &(slot, bind_group, ref offsets) in &command.bind_groups {
                 if bind_group_slot_index(slot, max_bind_groups).is_none() {
                     return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: max_bind_groups });
                 }
                 if !registry.contains_bind_group(&bind_group) {
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
                 }
+                validate_bind_group_offsets(registry, bind_group, offsets)?;
             }
             if let DrawAction::Indexed { mesh, .. } = command.action {
                 if !registry.contains_mesh(&mesh) {
@@ -1103,13 +1133,14 @@ fn validate_graph(
             if !registry.contains_compute_pipeline(&command.pipeline) {
                 return Err(RenderGraphValidationError::MissingComputePipeline(command.pipeline));
             }
-            for &(slot, bind_group, _) in &command.bind_groups {
+            for &(slot, bind_group, ref offsets) in &command.bind_groups {
                 if bind_group_slot_index(slot, max_bind_groups).is_none() {
                     return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: max_bind_groups });
                 }
                 if !registry.contains_bind_group(&bind_group) {
                     return Err(RenderGraphValidationError::MissingBindGroup(bind_group));
                 }
+                validate_bind_group_offsets(registry, bind_group, offsets)?;
             }
             if let Some((buffer, offset)) = command.indirect {
                 validate_indirect_buffer(registry, buffer, offset, 12)?;
@@ -2017,5 +2048,85 @@ mod tests {
         receiver.recv().unwrap().unwrap();
         let bytes = slice.get_mapped_range().unwrap();
         assert_eq!(u32::from_ne_bytes(bytes[0..4].try_into().unwrap()), 1);
+    }
+
+    #[test]
+    fn validation_checks_descriptor_aware_dynamic_offsets() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().with_required_limits(wgpu::Limits::default()).build()).unwrap();
+        let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("dynamic_offset_validation_shader"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
+                "@group(0) @binding(0) var<uniform> value: u32; @compute @workgroup_size(1) fn main() { _ = value; }",
+            )),
+        });
+        let layout = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("dynamic_offset_validation_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let pipeline_layout = engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("dynamic_offset_validation_pipeline_layout"),
+            bind_group_layouts: &[Some(&layout)],
+            immediate_size: 0,
+        });
+        let pipeline = engine.device().create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("dynamic_offset_validation_pipeline"),
+            layout: Some(&pipeline_layout),
+            module: &shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+        let alignment = engine.capabilities().min_uniform_buffer_offset_alignment;
+        let buffer = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("dynamic_offset_validation_buffer"),
+            size: alignment as u64 * 2,
+            usage: wgpu::BufferUsages::UNIFORM,
+            mapped_at_creation: false,
+        });
+        let bind_group = engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("dynamic_offset_validation_bind_group"),
+            layout: &layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &buffer,
+                    offset: 0,
+                    size: std::num::NonZeroU64::new(4),
+                }),
+            }],
+        });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_compute_pipeline(ComputePipelineHandle(1), pipeline);
+        registry
+            .insert_bind_group_with_descriptor(
+                BindGroupHandle(1),
+                bind_group,
+                crate::render::BindGroupResourceDescriptor {
+                    dynamic_offset_count: 1,
+                    dynamic_offset_alignment: alignment,
+                },
+            )
+            .unwrap();
+        let mut pool = RenderNodePool::new();
+        let mut valid = RenderGraph::new(RenderTarget::Screen);
+        valid.add_compute_batch(&mut pool, vec![ComputeCommand::new(ComputePipelineHandle(1), [1, 1, 1]).with_bind_group(0, BindGroupHandle(1), vec![alignment])]);
+        assert_eq!(RenderGraphExecutor::new().validate_with_device(&engine, &registry, &pool, &valid), Ok(()));
+        let mut invalid = RenderGraph::new(RenderTarget::Screen);
+        invalid.add_compute_batch(&mut pool, vec![ComputeCommand::new(ComputePipelineHandle(1), [1, 1, 1]).with_bind_group(0, BindGroupHandle(1), vec![1])]);
+        assert_eq!(
+            RenderGraphExecutor::new().validate_with_device(&engine, &registry, &pool, &invalid),
+            Err(RenderGraphValidationError::InvalidDynamicOffsetAlignment {
+                handle: BindGroupHandle(1), offset: 1, alignment,
+            })
+        );
     }
 }
