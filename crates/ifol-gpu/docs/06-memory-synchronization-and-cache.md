@@ -12,6 +12,10 @@ Mỗi submission thuộc một execution context rõ ràng. Context sở hữu:
 
 Host không được bắt buộc gọi `reset()` không an toàn trong khi GPU vẫn có thể tham chiếu allocation cũ.
 
+`SubmissionTracker` hiện cung cấp identity monotonic và trạng thái completion tối
+thiểu ở tầng CPU. Nó là primitive để frame allocator hỏi `can_reuse_after`; nó chưa
+tự kết nối với callback/poll của `wgpu` và không được xem là fence GPU hoàn chỉnh.
+
 ## Ring buffer
 
 Ring buffer hiện align allocation và từ chối implicit wrap khi hết contiguous space, nên không tự ghi đè allocation cũ. Điều này loại bỏ một lỗi correctness rõ ràng nhưng chưa thay thế frame/submission-aware allocator. Implementation mục tiêu vẫn dùng frame segment, fence/submission completion hoặc allocator từ chối reuse cho tới khi GPU hoàn thành submission liên quan.

@@ -25,6 +25,9 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 19. [Flatten và Compile Graph](18-graph-flattening-and-compilation.md)
 20. [Sơ đồ kiến trúc và quan hệ](19-graph-architecture-diagram.md)
 
+21. [API validation hiện tại](20-validation-api.md)
+22. [Flat render plan API](21-flat-render-plan-api.md)
+
 ## Từ vựng trạng thái
 
 - **Đã implement**: đã có và được kiểm chứng trong crate hiện tại;

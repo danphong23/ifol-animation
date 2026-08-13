@@ -30,7 +30,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 - logical graph flatten plan vÃ  explicit dependency ordering cÆ¡ báº£n; resource hazard, usage vÃ  pass compilation váº«n chÆ°a implement;
 - compute/copy pass;
 - transient resource allocator;
-- frame memory an toàn theo submission;
+- submission tracker logic nền tảng; frame memory reuse an toàn theo submission vẫn chưa tích hợp;
 - structured validation/error cÆ¡ báº£n cho graph/resource/target; pipeline layout, usage vÃ  dynamic offset validation váº«n cÃ²n;
 - cross-backend test matrix;
 - MSAA/resolve và attachment model đầy đủ hơn;
