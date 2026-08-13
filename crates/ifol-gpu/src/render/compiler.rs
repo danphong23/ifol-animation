@@ -143,6 +143,53 @@ impl RenderGraphExecutor {
         engine.queue().submit(std::iter::once(encoder.finish()))
     }
 
+    fn execute_non_render_nodes(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        engine: &GpuEngine,
+        pool: &RenderNodePool,
+        registry: &ResourceRegistry,
+        node_ids: &[RenderNodeId],
+    ) {
+        for &node_id in node_ids {
+            let Some(node) = pool.get(node_id) else { continue; };
+            for command in node.copy_commands() {
+                let Some(source) = registry.buffers.get(&command.source) else { continue; };
+                let Some(destination) = registry.buffers.get(&command.destination) else { continue; };
+                encoder.copy_buffer_to_buffer(source, command.source_offset, destination, command.destination_offset, command.size);
+            }
+        }
+
+        for &node_id in node_ids {
+            let Some(node) = pool.get(node_id) else { continue; };
+            if node.compute_commands().is_empty() { continue; }
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("RenderGraphComputePass"), timestamp_writes: None,
+            });
+            let mut current_pipeline = None;
+            let mut current_bind_groups = [None; 4];
+            for command in node.compute_commands() {
+                if current_pipeline != Some(command.pipeline) {
+                    if let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) {
+                        compute_pass.set_pipeline(pipeline);
+                        current_pipeline = Some(command.pipeline);
+                    } else { continue; }
+                }
+                for &(slot, bind_group, ref offsets) in &command.bind_groups {
+                    let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                    if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
+                        if let Some(group) = registry.bind_groups.get(&bind_group) {
+                            compute_pass.set_bind_group(slot, group, offsets);
+                            current_bind_groups[slot_index] = Some(bind_group);
+                        }
+                    }
+                }
+                compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
+            }
+        }
+        let _ = engine;
+    }
+
     /// Thuật toán Biên dịch 2-Phase (1 RenderGraph = 1 RenderPass)
     fn compile_graph(
         &self,
@@ -172,6 +219,7 @@ impl RenderGraphExecutor {
         // -------------------------------------------------------------
         // PHASE 2: Mở 1 GPU RenderPass DUY NHẤT cho Target của Graph hiện tại
         // -------------------------------------------------------------
+        let ordered_ids = graph.ordered_node_ids(pool).unwrap_or_else(|_| graph.node_ids.clone());
         let target_view_info = match &graph.target {
             RenderTarget::Screen => {
                 // Surface format thuộc về surface configuration, không được đoán
@@ -184,6 +232,7 @@ impl RenderGraphExecutor {
         };
 
         let Some((color_view, color_format)) = target_view_info else {
+            self.execute_non_render_nodes(encoder, engine, pool, registry, &ordered_ids);
             return;
         };
 
@@ -193,7 +242,6 @@ impl RenderGraphExecutor {
         // -------------------------------------------------------------
         // 2.1 UPDATE BUNDLES (For nodes that have use_bundle == true)
         // -------------------------------------------------------------
-        let ordered_ids = graph.ordered_node_ids(pool).unwrap_or_else(|_| graph.node_ids.clone());
         let node_ids = if graph.reverse_draw_order {
             ordered_ids.iter().rev().copied().collect::<Vec<_>>()
         } else {
@@ -696,5 +744,38 @@ mod tests {
             validate_copy_range(BufferHandle(1), u64::MAX, 1, u64::MAX),
             Err(RenderGraphValidationError::InvalidCopyRange { .. })
         ));
+    }
+
+    #[test]
+    fn copy_only_graph_executes_without_render_target() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let source = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("copy_source"), size: 4,
+            usage: wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let destination = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("copy_destination"), size: 4,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        engine.queue().write_buffer(&source, 0, &[7, 8, 9, 10]);
+
+        let mut registry = ResourceRegistry::new();
+        registry.insert_buffer(BufferHandle(1), source);
+        registry.insert_buffer(BufferHandle(2), destination);
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 4)]);
+
+        let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission.clone()), timeout: None });
+        let destination = registry.buffer(&BufferHandle(2)).unwrap();
+        let slice = destination.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| { let _ = sender.send(result); });
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
+        receiver.recv().unwrap().unwrap();
+        assert_eq!(&*slice.get_mapped_range().unwrap(), &[7, 8, 9, 10]);
     }
 }
