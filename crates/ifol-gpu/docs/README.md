@@ -38,6 +38,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 30. [Graph không có render target](29-non-render-graph-execution.md)
 31. [Resource lifecycle API](30-resource-lifecycle-api.md)
 32. [Owned texture resource](31-owned-texture-resource.md)
+33. [Texture copy pass](32-texture-copy-pass.md)
 
 ## Từ vựng trạng thái
 

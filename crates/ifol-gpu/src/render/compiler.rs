@@ -1,7 +1,7 @@
 use thiserror::Error;
 use std::hash::{Hash, Hasher};
 use crate::api::GpuEngine;
-use crate::render::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
+use crate::render::graph::{CopyCommand, DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
 
@@ -23,6 +23,16 @@ pub enum RenderGraphValidationError {
     MissingComputePipeline(ComputePipelineHandle),
     #[error("buffer resource {0:?} is missing")]
     MissingBuffer(BufferHandle),
+    #[error("owned texture resource {0:?} is required for texture copy")]
+    MissingOwnedTexture(TextureHandle),
+    #[error("texture copy formats differ: source {source_handle:?}, destination {destination_handle:?}")]
+    TextureCopyFormatMismatch { source_handle: TextureHandle, destination_handle: TextureHandle },
+    #[error("texture copy extent must be non-zero, got {extent:?}")]
+    InvalidTextureCopyExtent { extent: [u32; 3] },
+    #[error("texture copy mip level {mip_level} is invalid for {handle:?} (mip count {mip_count})")]
+    InvalidTextureMipLevel { handle: TextureHandle, mip_level: u32, mip_count: u32 },
+    #[error("texture copy range for {handle:?} exceeds mip extent {mip_extent:?}: origin {origin:?}, extent {extent:?}")]
+    InvalidTextureCopyRange { handle: TextureHandle, origin: [u32; 3], extent: [u32; 3], mip_extent: [u32; 3] },
     #[error("copy range for buffer {handle:?} exceeds buffer size: offset {offset}, size {size}, buffer size {buffer_size}")]
     InvalidCopyRange { handle: BufferHandle, offset: u64, size: u64, buffer_size: u64 },
     #[error("mesh resource {0:?} is missing")]
@@ -154,9 +164,7 @@ impl RenderGraphExecutor {
         for &node_id in node_ids {
             let Some(node) = pool.get(node_id) else { continue; };
             for command in node.copy_commands() {
-                let Some(source) = registry.buffers.get(&command.source) else { continue; };
-                let Some(destination) = registry.buffers.get(&command.destination) else { continue; };
-                encoder.copy_buffer_to_buffer(source, command.source_offset, destination, command.destination_offset, command.size);
+                encode_copy_command(encoder, registry, command);
             }
             if !node.compute_commands().is_empty() {
                 let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -319,15 +327,7 @@ impl RenderGraphExecutor {
         for &node_id in &node_ids {
             let Some(node) = pool.get(node_id) else { continue; };
             for command in node.copy_commands() {
-                let Some(source) = registry.buffers.get(&command.source) else { continue; };
-                let Some(destination) = registry.buffers.get(&command.destination) else { continue; };
-                encoder.copy_buffer_to_buffer(
-                    source,
-                    command.source_offset,
-                    destination,
-                    command.destination_offset,
-                    command.size,
-                );
+                encode_copy_command(encoder, registry, command);
             }
         }
 
@@ -541,18 +541,102 @@ fn validate_graph(
             }
         }
         for command in node.copy_commands() {
-            let Some(source) = registry.buffers.get(&command.source) else {
-                return Err(RenderGraphValidationError::MissingBuffer(command.source));
-            };
-            let Some(destination) = registry.buffers.get(&command.destination) else {
-                return Err(RenderGraphValidationError::MissingBuffer(command.destination));
-            };
-            validate_copy_range(command.source, command.source_offset, command.size, source.size())?;
-            validate_copy_range(command.destination, command.destination_offset, command.size, destination.size())?;
+            match command {
+                CopyCommand::BufferToBuffer { source, destination, source_offset, destination_offset, size } => {
+                    let Some(source_buffer) = registry.buffers.get(source) else {
+                        return Err(RenderGraphValidationError::MissingBuffer(*source));
+                    };
+                    let Some(destination_buffer) = registry.buffers.get(destination) else {
+                        return Err(RenderGraphValidationError::MissingBuffer(*destination));
+                    };
+                    validate_copy_range(*source, *source_offset, *size, source_buffer.size())?;
+                    validate_copy_range(*destination, *destination_offset, *size, destination_buffer.size())?;
+                }
+                CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
+                    validate_texture_copy(registry, *source, *destination, *source_mip_level, *destination_mip_level, *source_origin, *destination_origin, *extent)?;
+                }
+            }
         }
         if let RenderNode::SubGraph { graph: child, .. } = node {
             validate_graph(registry, pool, child)?;
         }
+    }
+    Ok(())
+}
+
+fn encode_copy_command(encoder: &mut wgpu::CommandEncoder, registry: &ResourceRegistry, command: &CopyCommand) {
+    match command {
+        CopyCommand::BufferToBuffer { source, destination, source_offset, destination_offset, size } => {
+            let Some(source_buffer) = registry.buffers.get(source) else { return; };
+            let Some(destination_buffer) = registry.buffers.get(destination) else { return; };
+            encoder.copy_buffer_to_buffer(source_buffer, *source_offset, destination_buffer, *destination_offset, *size);
+        }
+        CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
+            let Some(source_texture) = registry.owned_texture(source) else { return; };
+            let Some(destination_texture) = registry.owned_texture(destination) else { return; };
+            let origin = |value: [u32; 3]| wgpu::Origin3d { x: value[0], y: value[1], z: value[2] };
+            let extent = wgpu::Extent3d { width: extent[0], height: extent[1], depth_or_array_layers: extent[2] };
+            encoder.copy_texture_to_texture(
+                wgpu::TexelCopyTextureInfo { texture: source_texture, mip_level: *source_mip_level, origin: origin(*source_origin), aspect: wgpu::TextureAspect::All },
+                wgpu::TexelCopyTextureInfo { texture: destination_texture, mip_level: *destination_mip_level, origin: origin(*destination_origin), aspect: wgpu::TextureAspect::All },
+                extent,
+            );
+        }
+    }
+}
+
+fn validate_texture_copy(
+    registry: &ResourceRegistry,
+    source: TextureHandle,
+    destination: TextureHandle,
+    source_mip_level: u32,
+    destination_mip_level: u32,
+    source_origin: [u32; 3],
+    destination_origin: [u32; 3],
+    extent: [u32; 3],
+) -> Result<(), RenderGraphValidationError> {
+    if !registry.textures.contains_key(&source) { return Err(RenderGraphValidationError::MissingTexture(source)); }
+    if !registry.textures.contains_key(&destination) { return Err(RenderGraphValidationError::MissingTexture(destination)); }
+    let Some(source_texture) = registry.owned_texture(&source) else { return Err(RenderGraphValidationError::MissingOwnedTexture(source)); };
+    let Some(destination_texture) = registry.owned_texture(&destination) else { return Err(RenderGraphValidationError::MissingOwnedTexture(destination)); };
+    let _ = (source_texture, destination_texture);
+    let source_descriptor = registry.texture_descriptor(&source).expect("owned texture has descriptor");
+    let destination_descriptor = registry.texture_descriptor(&destination).expect("owned texture has descriptor");
+    if source_descriptor.format != destination_descriptor.format {
+        return Err(RenderGraphValidationError::TextureCopyFormatMismatch { source_handle: source, destination_handle: destination });
+    }
+    let copy_src = wgpu::TextureUsages::COPY_SRC;
+    let copy_dst = wgpu::TextureUsages::COPY_DST;
+    if !source_descriptor.usage.contains(copy_src) {
+        return Err(RenderGraphValidationError::MissingTextureUsage { handle: source, required_usage: copy_src.bits(), actual_usage: source_descriptor.usage.bits() });
+    }
+    if !destination_descriptor.usage.contains(copy_dst) {
+        return Err(RenderGraphValidationError::MissingTextureUsage { handle: destination, required_usage: copy_dst.bits(), actual_usage: destination_descriptor.usage.bits() });
+    }
+    if extent.iter().any(|value| *value == 0) { return Err(RenderGraphValidationError::InvalidTextureCopyExtent { extent }); }
+    validate_texture_mip(source, source_mip_level, source_origin, extent, source_descriptor)?;
+    validate_texture_mip(destination, destination_mip_level, destination_origin, extent, destination_descriptor)?;
+    Ok(())
+}
+
+fn validate_texture_mip(
+    handle: TextureHandle,
+    mip_level: u32,
+    origin: [u32; 3],
+    extent: [u32; 3],
+    descriptor: &crate::render::registry::TextureResourceDescriptor,
+) -> Result<(), RenderGraphValidationError> {
+    if mip_level >= descriptor.mip_level_count {
+        return Err(RenderGraphValidationError::InvalidTextureMipLevel { handle, mip_level, mip_count: descriptor.mip_level_count });
+    }
+    let mip_extent = [
+        (descriptor.width >> mip_level).max(1),
+        (descriptor.height >> mip_level).max(1),
+        descriptor.depth_or_array_layers,
+    ];
+    let in_bounds = origin.iter().zip(extent).zip(mip_extent).all(|((origin, extent), dimension)| origin.checked_add(extent).is_some_and(|end| end <= dimension));
+    if !in_bounds {
+        return Err(RenderGraphValidationError::InvalidTextureCopyRange { handle, origin, extent, mip_extent });
     }
     Ok(())
 }
@@ -774,6 +858,90 @@ mod tests {
         let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
         receiver.recv().unwrap().unwrap();
         assert_eq!(&*slice.get_mapped_range().unwrap(), &[7, 8, 9, 10]);
+    }
+
+    #[test]
+    fn texture_copy_graph_executes_and_preserves_pixels() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let usage = wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST;
+        let descriptor = TextureResourceDescriptor {
+            width: 2,
+            height: 2,
+            depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage,
+            mip_level_count: 1,
+            sample_count: 1,
+        };
+        let create_texture = |label| engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d { width: 2, height: 2, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage,
+            view_formats: &[],
+        });
+        let source = create_texture("texture_copy_source");
+        let destination = create_texture("texture_copy_destination");
+        let pixels = [
+            255, 0, 0, 255, 0, 255, 0, 255,
+            0, 0, 255, 255, 255, 255, 255, 255,
+        ];
+        engine.queue().write_texture(
+            source.as_image_copy(),
+            &pixels,
+            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(8), rows_per_image: Some(2) },
+            wgpu::Extent3d { width: 2, height: 2, depth_or_array_layers: 1 },
+        );
+
+        let mut registry = ResourceRegistry::new();
+        registry.insert_owned_texture(TextureHandle(1), source, descriptor, 1024).unwrap();
+        registry.insert_owned_texture(TextureHandle(2), destination, descriptor, 1024).unwrap();
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::texture_to_texture(TextureHandle(1), TextureHandle(2), [2, 2, 1])]);
+
+        let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
+        let (actual, width, height) = engine.read_texture_to_bytes_with_format(registry.owned_texture(&TextureHandle(2)).unwrap(), wgpu::TextureFormat::Rgba8Unorm).unwrap();
+        assert_eq!((width, height), (2, 2));
+        assert_eq!(actual, pixels);
+    }
+
+    #[test]
+    fn texture_copy_validation_rejects_missing_ownership_and_out_of_bounds_extent() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let usage = wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST;
+        let descriptor = TextureResourceDescriptor {
+            width: 4, height: 4, depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8Unorm, usage,
+            mip_level_count: 1, sample_count: 1,
+        };
+        let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("validation_texture"),
+            size: wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+            mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm, usage, view_formats: &[],
+        });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_owned_texture(TextureHandle(1), texture, descriptor, 1024).unwrap();
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::texture_to_texture(TextureHandle(1), TextureHandle(2), [1, 1, 1])]);
+        assert_eq!(RenderGraphExecutor::new().validate(&registry, &pool, &graph), Err(RenderGraphValidationError::MissingTexture(TextureHandle(2))));
+
+        let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("validation_texture_destination"),
+            size: wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+            mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm, usage, view_formats: &[],
+        });
+        registry.insert_owned_texture(TextureHandle(2), texture, descriptor, 1024).unwrap();
+        graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::texture_to_texture(TextureHandle(1), TextureHandle(2), [5, 3, 1])]);
+        assert!(matches!(RenderGraphExecutor::new().validate(&registry, &pool, &graph), Err(RenderGraphValidationError::InvalidTextureCopyRange { .. })));
     }
 
     #[test]
