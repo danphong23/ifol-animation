@@ -96,6 +96,9 @@ impl ResourceRegistry {
         texture: (wgpu::TextureView, wgpu::TextureFormat),
     ) -> Option<(wgpu::TextureView, wgpu::TextureFormat)> {
         let old = self.textures.insert(handle, texture);
+        // Compatibility insert không có descriptor mới; không giữ metadata cũ
+        // để tránh validate graph dựa trên texture đã bị thay thế.
+        self.texture_descriptors.remove(&handle);
         self.bump_texture_version(handle);
         old
     }
@@ -188,6 +191,22 @@ impl ResourceRegistry {
 
     pub fn mark_buffer_changed(&mut self, handle: BufferHandle) {
         Self::bump_version(&mut self.versions.buffers, handle);
+    }
+
+    pub fn remove_buffer(&mut self, handle: &BufferHandle) -> Option<wgpu::Buffer> {
+        let old = self.buffers.remove(handle);
+        if old.is_some() {
+            Self::bump_version(&mut self.versions.buffers, *handle);
+        }
+        old
+    }
+
+    pub fn remove_compute_pipeline(&mut self, handle: &ComputePipelineHandle) -> Option<wgpu::ComputePipeline> {
+        let old = self.compute_pipelines.remove(handle);
+        if old.is_some() {
+            Self::bump_version(&mut self.versions.compute_pipelines, *handle);
+        }
+        old
     }
 
     pub fn mesh_version(&self, handle: &MeshHandle) -> ResourceVersion {
