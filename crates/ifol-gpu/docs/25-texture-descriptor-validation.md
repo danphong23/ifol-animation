@@ -10,3 +10,6 @@ thể dùng cho compatibility/lifetime validation về sau.
 
 API texture insert cũ vẫn tồn tại cho prototype compatibility; production path nên
 dùng API có descriptor.
+
+Khi descriptor đã có trong registry, `RenderGraphExecutor::validate` đối chiếu
+width/height của `RenderTarget::Offscreen` với descriptor và trả lỗi typed nếu lệch.

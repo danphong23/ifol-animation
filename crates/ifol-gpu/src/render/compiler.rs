@@ -27,6 +27,14 @@ pub enum RenderGraphValidationError {
     InvalidBindGroupSlot(u32),
     #[error("render target dimensions must be non-zero, got {width}x{height}")]
     InvalidTargetSize { width: u32, height: u32 },
+    #[error("texture {handle:?} has descriptor size {actual_width}x{actual_height}, graph requested {width}x{height}")]
+    TargetSizeMismatch {
+        handle: TextureHandle,
+        width: u32,
+        height: u32,
+        actual_width: u32,
+        actual_height: u32,
+    },
 }
 
 fn bind_group_slot_index(slot: u32) -> Option<usize> {
@@ -354,6 +362,17 @@ fn validate_graph(
             if !registry.textures.contains_key(&color) {
                 return Err(RenderGraphValidationError::MissingTexture(color));
             }
+            if let Some(descriptor) = registry.texture_descriptor(&color) {
+                if descriptor.width != width || descriptor.height != height {
+                    return Err(RenderGraphValidationError::TargetSizeMismatch {
+                        handle: color,
+                        width,
+                        height,
+                        actual_width: descriptor.width,
+                        actual_height: descriptor.height,
+                    });
+                }
+            }
         }
     }
 
@@ -393,7 +412,8 @@ fn validate_graph(
 #[cfg(test)]
 mod tests {
     use super::{bind_group_slot_index, bundle_cache_key, RenderGraphExecutor, RenderGraphValidationError};
-    use crate::render::{DrawAction, DrawCommand, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle};
+    use crate::api::GpuEngineBuilder;
+    use crate::render::{DrawAction, DrawCommand, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -450,5 +470,43 @@ mod tests {
         let second = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None);
 
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn validation_rejects_graph_target_dimension_mismatch() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("descriptor_test"),
+            size: wgpu::Extent3d { width: 128, height: 64, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_texture_with_descriptor(
+            TextureHandle(1),
+            texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            TextureResourceDescriptor {
+                width: 128,
+                height: 64,
+                depth_or_array_layers: 1,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                mip_level_count: 1,
+                sample_count: 1,
+            },
+            1024,
+        ).unwrap();
+        let graph = RenderGraph::new(RenderTarget::Offscreen { color: TextureHandle(1), width: 64, height: 64 });
+
+        assert_eq!(
+            RenderGraphExecutor::new().validate(&registry, &RenderNodePool::new(), &graph),
+            Err(RenderGraphValidationError::TargetSizeMismatch {
+                handle: TextureHandle(1), width: 64, height: 64, actual_width: 128, actual_height: 64,
+            })
+        );
     }
 }
