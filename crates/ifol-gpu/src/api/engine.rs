@@ -45,7 +45,7 @@ impl<'a> GpuEngine<'a> {
     pub fn resize_surface(&self, width: u32, height: u32) {
         if width > 0 && height > 0 {
             if let Some(surface) = &self.surface {
-                let mut config_lock = self.surface_config.write().unwrap();
+                let Ok(mut config_lock) = self.surface_config.write() else { return; };
                 if let Some(config) = config_lock.as_mut() {
                     config.width = width;
                     config.height = height;
@@ -56,7 +56,7 @@ impl<'a> GpuEngine<'a> {
     }
 
     pub fn surface_format(&self) -> Option<wgpu::TextureFormat> {
-        self.surface_config.read().unwrap().as_ref().map(|c| c.format)
+        self.surface_config.read().ok().and_then(|config| config.as_ref().map(|c| c.format))
     }
 
     /// Đọc toàn bộ byte của một Texture (2D) từ VRAM về CPU. Dùng để xuất file ảnh (PNG/JPEG) 

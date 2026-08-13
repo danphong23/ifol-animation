@@ -50,6 +50,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 42. [Mesh mutation qua registry API](41-mesh-migration.md)
 43. [Texture registration qua registry API](42-texture-registration-migration.md)
 44. [Private resource store](43-private-resource-store.md)
+45. [Surface lock không panic](44-no-panic-surface-locks.md)
 
 ## Từ vựng trạng thái
 
