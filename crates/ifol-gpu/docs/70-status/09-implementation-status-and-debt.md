@@ -35,7 +35,7 @@ hoạch. Snapshot chi tiết mới nhất nằm ở [audit hiện tại](../70-s
 
 ## Design debt còn lại
 
-- một số examples cũ còn warning hoặc `unwrap` phục vụ assertion;
+- examples dùng `unwrap` ở fixture chỉ để fail-fast khi invariant test bị phá;
 - readback/save boundary hiện chỉ còn checked typed-error API; host chịu trách
   nhiệm chuyển lỗi thành thông báo giao diện nếu cần;
 - cần tiếp tục audit các nhánh encoder sau validation khi command model mở rộng.
