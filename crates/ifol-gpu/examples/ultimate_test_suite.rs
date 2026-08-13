@@ -336,7 +336,7 @@ struct VertexOutput {
 
 fn run_tc01_empty(harness: &mut TestHarness) {
     let (target, tex) = harness.create_target("tc01");
-    let mut graph = RenderGraph::new(RenderTarget::Offscreen { color: target, width: harness.width, height: harness.height })
+    let graph = RenderGraph::new(RenderTarget::Offscreen { color: target, width: harness.width, height: harness.height })
         .with_clear_color([0.2, 0.2, 0.2, 1.0]);
     
     let start = Instant::now();
