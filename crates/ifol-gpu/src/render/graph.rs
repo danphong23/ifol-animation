@@ -172,6 +172,7 @@ pub enum ResourceAccess {
 pub enum ResourceSubresource {
     Whole,
     Texture { mip_level: u32, array_layer: u32 },
+    TextureRange { mip_start: u32, mip_end: u32, layer_start: u32, layer_end: u32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -192,6 +193,14 @@ fn subresources_overlap(left: ResourceSubresource, right: ResourceSubresource) -
             ResourceSubresource::Texture { mip_level: left_mip, array_layer: left_layer },
             ResourceSubresource::Texture { mip_level: right_mip, array_layer: right_layer },
         ) => left_mip == right_mip && left_layer == right_layer,
+        (ResourceSubresource::Texture { mip_level, array_layer }, ResourceSubresource::TextureRange { mip_start, mip_end, layer_start, layer_end })
+        | (ResourceSubresource::TextureRange { mip_start, mip_end, layer_start, layer_end }, ResourceSubresource::Texture { mip_level, array_layer }) => {
+            mip_level >= mip_start && mip_level < mip_end && array_layer >= layer_start && array_layer < layer_end
+        }
+        (
+            ResourceSubresource::TextureRange { mip_start: left_mip_start, mip_end: left_mip_end, layer_start: left_layer_start, layer_end: left_layer_end },
+            ResourceSubresource::TextureRange { mip_start: right_mip_start, mip_end: right_mip_end, layer_start: right_layer_start, layer_end: right_layer_end },
+        ) => left_mip_start < right_mip_end && right_mip_start < left_mip_end && left_layer_start < right_layer_end && right_layer_start < left_layer_end,
     }
 }
 
@@ -199,6 +208,16 @@ fn usages_conflict(left: &ResourceUsage, right: &ResourceUsage) -> bool {
     left.resource == right.resource
         && subresources_overlap(left.subresource, right.subresource)
         && accesses_conflict(left.access, right.access)
+}
+
+fn texture_subresource_range(mip_level: u32, origin: [u32; 3], extent: [u32; 3]) -> ResourceSubresource {
+    let Some(layer_end) = origin[2].checked_add(extent[2]) else { return ResourceSubresource::Whole; };
+    ResourceSubresource::TextureRange {
+        mip_start: mip_level,
+        mip_end: mip_level.saturating_add(1),
+        layer_start: origin[2],
+        layer_end,
+    }
 }
 
 /// ═══════════════════════════════════════════════════════════
@@ -573,6 +592,23 @@ impl RenderGraph {
         });
     }
 
+    pub fn declare_texture_subresource_range_usage(
+        &mut self,
+        node: RenderNodeId,
+        texture: TextureHandle,
+        mip_start: u32,
+        mip_end: u32,
+        layer_start: u32,
+        layer_end: u32,
+        access: ResourceAccess,
+    ) {
+        self.resource_usages.entry(node).or_default().push(ResourceUsage {
+            resource: GraphResource::Texture(texture),
+            access,
+            subresource: ResourceSubresource::TextureRange { mip_start, mip_end, layer_start, layer_end },
+        });
+    }
+
     pub fn resource_usages(&self, node: &RenderNodeId) -> &[ResourceUsage] {
         self.resource_usages.get(node).map(Vec::as_slice).unwrap_or(&[])
     }
@@ -586,9 +622,11 @@ impl RenderGraph {
                         usages.push(ResourceUsage { resource: GraphResource::Buffer(*source), access: ResourceAccess::Read, subresource: ResourceSubresource::Whole });
                         usages.push(ResourceUsage { resource: GraphResource::Buffer(*destination), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
                     }
-                    CopyCommand::TextureToTexture { source, destination, .. } => {
-                        usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read, subresource: ResourceSubresource::Whole });
-                        usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write, subresource: ResourceSubresource::Whole });
+                    CopyCommand::TextureToTexture { source, destination, source_mip_level, destination_mip_level, source_origin, destination_origin, extent } => {
+                        let source_subresource = texture_subresource_range(*source_mip_level, *source_origin, *extent);
+                        let destination_subresource = texture_subresource_range(*destination_mip_level, *destination_origin, *extent);
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read, subresource: source_subresource });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write, subresource: destination_subresource });
                     }
                 }
             }
@@ -963,6 +1001,24 @@ mod tests {
         graph.declare_resource_usage(later_read, GraphResource::Buffer(BufferHandle(2)), ResourceAccess::Read);
 
         assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![copy, later_read]);
+    }
+
+    #[test]
+    fn texture_copy_hazard_uses_mip_and_layer_range() {
+        let mut pool = RenderNodePool::new();
+        let copy = pool.alloc_copy_batch(vec![CopyCommand::TextureToTexture {
+            source: TextureHandle(1), destination: TextureHandle(2),
+            source_mip_level: 0, destination_mip_level: 0,
+            source_origin: [0, 0, 0], destination_origin: [0, 0, 0], extent: [4, 4, 2],
+        }]);
+        let later_writer = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(copy);
+        graph.add_node_id(later_writer);
+        graph.declare_texture_subresource_usage(later_writer, TextureHandle(1), 1, 0, ResourceAccess::Write);
+        graph.add_dependency(later_writer, copy);
+
+        assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![later_writer, copy]);
     }
 
     #[test]
