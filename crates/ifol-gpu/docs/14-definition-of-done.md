@@ -39,3 +39,22 @@ Phase chỉ hoàn thành khi:
 - examples không còn là cách duy nhất để chứng minh behavior;
 - toàn bộ test plan bắt buộc có owner/status;
 - không còn tài liệu tuyên bố capability chưa có bằng chứng.
+
+## Audit trạng thái hiện tại
+
+| Gate | Trạng thái | Evidence/ghi chú |
+|---|---|---|
+| Resource lifetime, stale handle | Đạt một phần | generational handle, owned resource, transient texture pool và submission-safe ring đã có test; deferred destruction tổng quát còn thiếu |
+| Graph dependency/pass execution | Đạt nền tảng | flat graph, explicit + automatic hazard edges, render/compute/copy segmented execution đã có test |
+| Frame memory submission-safe | Đạt một phần | ring reset gate và submission tracker đã có; frame context/transient buffer pool còn thiếu |
+| Surface format không hard-code | Đạt | format lấy từ surface config; surface lost/present lifecycle còn thiếu |
+| Cache invalidation | Đạt nền tảng | resource versions và bundle key đã có; multi-context cache còn thiếu |
+| Structured errors | Đạt nền tảng | validation/resource/capability errors đã có; legacy `execute` vẫn silent-skip |
+| Cross-platform runtime matrix | Chưa đạt | chỉ có evidence trên môi trường hiện tại; chưa chạy đủ Windows/macOS/Linux/Web/Android/iOS |
+| MSAA/resolve | Chưa đạt | hiện từ chối sample count khác 1 bằng typed error |
+| Indirect draw/dispatch | Chưa đạt | chưa implement |
+| Async readback/profiling | Chưa đạt | readback sync/format-aware hiện có, contract async/profiling hook còn thiếu |
+
+Vì các gate “Chưa đạt” và “Đạt một phần” còn tồn tại, core hiện chưa được gọi là
+release candidate. Mốc hiện tại là một nền tảng design/implementation có test
+regression mạnh trên host hiện tại.
