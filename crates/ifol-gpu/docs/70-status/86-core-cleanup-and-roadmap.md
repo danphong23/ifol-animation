@@ -104,8 +104,7 @@ các example/test fixture còn lại vẫn được theo dõi theo nhóm resourc
 `examples/visual_tests.rs` đã migrate toàn bộ texture target sang owned descriptor
 API và toàn bộ pipeline sang pipeline-layout descriptor API.
 `examples/ultimate_test_suite.rs` cũng đã migrate các helper texture, bind group
-và pipeline sang descriptor API; raw consumer còn lại tập trung ở
-`comprehensive_test.rs` và benchmark.
+và pipeline sang descriptor API; các example chính không còn raw consumer.
 Ba fixture đầu tiên trong `comprehensive_test.rs` (clear color, depth và alpha)
 đã chuyển texture sang owned descriptor API và pipeline sang layout descriptor;
 phần fixture còn lại sẽ tiếp tục migrate theo nhóm test.
@@ -123,8 +122,8 @@ bind group sang descriptor API; phần fixture 11 còn lại sẽ xử lý riên
 Fixture 11 extreme motion graphics đã chuyển toàn bộ texture target/background,
 pipeline và bind group sang descriptor API; mesh fixture vẫn là phần còn lại.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
-bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
-examples lớn và benchmark.
+bind group sang descriptor API; benchmark cũng đã chuyển texture, pipeline và
+bind group sang descriptor API qua helper dùng chung.
 `TextureCache` alias đã bị xóa vì không còn consumer; code dùng
 `TransientTexturePool` phải gọi đúng semantics.
 `Extension` node đã có representation trong graph và được flatten theo usage;

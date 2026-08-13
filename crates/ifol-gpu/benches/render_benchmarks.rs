@@ -2,8 +2,86 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
-use ifol_gpu::resources::{BindGroupHandle, PipelineHandle, ResourceRegistry, TextureHandle};
+use ifol_gpu::resources::{
+    BindGroupHandle, BindGroupResourceDescriptor, PipelineHandle,
+    PipelineLayoutResourceDescriptor, ResourceRegistry, TextureHandle,
+    TextureResourceDescriptor,
+};
 use std::borrow::Cow;
+
+fn register_color_texture(
+    registry: &mut ResourceRegistry,
+    handle: TextureHandle,
+    view: wgpu::TextureView,
+    width: u32,
+    height: u32,
+) {
+    registry.insert_texture_with_descriptor(
+        handle,
+        view,
+        TextureResourceDescriptor {
+            width,
+            height,
+            depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1,
+            sample_count: 1,
+        },
+        16384,
+    ).unwrap();
+}
+
+fn register_depth_texture(
+    registry: &mut ResourceRegistry,
+    handle: TextureHandle,
+    view: wgpu::TextureView,
+    width: u32,
+    height: u32,
+) {
+    registry.insert_texture_with_descriptor(
+        handle,
+        view,
+        TextureResourceDescriptor {
+            width,
+            height,
+            depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1,
+            sample_count: 1,
+        },
+        16384,
+    ).unwrap();
+}
+
+fn register_pipeline(
+    registry: &mut ResourceRegistry,
+    handle: PipelineHandle,
+    pipeline: wgpu::RenderPipeline,
+) {
+    registry.insert_pipeline_with_layout_descriptor(
+        handle,
+        pipeline,
+        PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() },
+    );
+}
+
+fn register_bind_group(
+    registry: &mut ResourceRegistry,
+    handle: BindGroupHandle,
+    bind_group: wgpu::BindGroup,
+) {
+    registry.insert_bind_group_with_descriptor(
+        handle,
+        bind_group,
+        BindGroupResourceDescriptor {
+            dynamic_offset_count: 0,
+            dynamic_offset_alignment: 0,
+            layout_signature: 0,
+        },
+    ).unwrap();
+}
 
 fn bench_clear_screen(c: &mut Criterion) {
     let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
@@ -28,7 +106,7 @@ fn bench_clear_screen(c: &mut Criterion) {
 
     let mut registry = ResourceRegistry::new();
     let tex_handle = TextureHandle(1);
-    registry.insert_texture(tex_handle, (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    register_color_texture(&mut registry, tex_handle, target_view, 800, 600);
 
     let graph = RenderGraph::new(RenderTarget::Offscreen {
         color: tex_handle,
@@ -86,9 +164,12 @@ fn bench_complex_graph(c: &mut Criterion) {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     });
-    registry.insert_texture(
+    register_color_texture(
+        &mut registry,
         TextureHandle(1),
-        (target_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb),
+        target_tex.create_view(&wgpu::TextureViewDescriptor::default()),
+        1,
+        1,
     );
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -128,8 +209,8 @@ fn bench_complex_graph(c: &mut Criterion) {
         multiview_mask: None,
         cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(1), pipeline.clone());
-    registry.insert_pipeline(PipelineHandle(2), pipeline);
+    register_pipeline(&mut registry, PipelineHandle(1), pipeline.clone());
+    register_pipeline(&mut registry, PipelineHandle(2), pipeline);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -309,9 +390,9 @@ fn bench_single_large_image(c: &mut Criterion) {
     });
 
     let mut registry = ResourceRegistry::new();
-    registry.insert_texture(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_pipeline(PipelineHandle(1), pipeline);
-    registry.insert_bind_group(BindGroupHandle(1), bg);
+    register_color_texture(&mut registry, TextureHandle(1), target_view, 1024, 1024);
+    register_pipeline(&mut registry, PipelineHandle(1), pipeline);
+    register_bind_group(&mut registry, BindGroupHandle(1), bg);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -346,7 +427,8 @@ fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
-    registry.insert_pipeline(
+    register_pipeline(
+        &mut registry,
         PipelineHandle(1),
         engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Dummy"),
@@ -404,7 +486,7 @@ fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
         view_formats: &[],
     });
     let target_view = target_tex.create_view(&wgpu::TextureViewDescriptor::default());
-    registry.insert_texture(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    register_color_texture(&mut registry, TextureHandle(1), target_view, 1, 1);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -441,7 +523,8 @@ fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
-    registry.insert_pipeline(
+    register_pipeline(
+        &mut registry,
         PipelineHandle(1),
         engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Dummy"),
@@ -499,7 +582,7 @@ fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
         view_formats: &[],
     });
     let target_view = target_tex.create_view(&wgpu::TextureViewDescriptor::default());
-    registry.insert_texture(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    register_color_texture(&mut registry, TextureHandle(1), target_view, 1, 1);
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -565,8 +648,8 @@ fn bench_z_buffer(c: &mut Criterion) {
     });
     let depth_view = depth_tex.create_view(&wgpu::TextureViewDescriptor::default());
 
-    registry.insert_texture(TextureHandle(1), (target_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(2), (depth_view, wgpu::TextureFormat::Depth32Float));
+    register_color_texture(&mut registry, TextureHandle(1), target_view, 1, 1);
+    register_depth_texture(&mut registry, TextureHandle(2), depth_view, 1, 1);
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -618,8 +701,8 @@ fn bench_z_buffer(c: &mut Criterion) {
         })
     };
 
-    registry.insert_pipeline(PipelineHandle(1), create_pipeline(false));
-    registry.insert_pipeline(PipelineHandle(2), create_pipeline(true));
+    register_pipeline(&mut registry, PipelineHandle(1), create_pipeline(false));
+    register_pipeline(&mut registry, PipelineHandle(2), create_pipeline(true));
 
     let mut graph_no_depth = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -688,9 +771,12 @@ fn bench_alpha_blending(c: &mut Criterion) {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     });
-    registry.insert_texture(
+    register_color_texture(
+        &mut registry,
         TextureHandle(1),
-        (target_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb),
+        target_tex.create_view(&wgpu::TextureViewDescriptor::default()),
+        1,
+        1,
     );
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -733,8 +819,8 @@ fn bench_alpha_blending(c: &mut Criterion) {
         })
     };
 
-    registry.insert_pipeline(PipelineHandle(1), create_pipeline(Some(wgpu::BlendState::REPLACE)));
-    registry.insert_pipeline(PipelineHandle(2), create_pipeline(Some(wgpu::BlendState::ALPHA_BLENDING)));
+    register_pipeline(&mut registry, PipelineHandle(1), create_pipeline(Some(wgpu::BlendState::REPLACE)));
+    register_pipeline(&mut registry, PipelineHandle(2), create_pipeline(Some(wgpu::BlendState::ALPHA_BLENDING)));
 
     let mut graph_replace = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
@@ -802,9 +888,12 @@ fn bench_pipeline_caching(c: &mut Criterion) {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     });
-    registry.insert_texture(
+    register_color_texture(
+        &mut registry,
         TextureHandle(1),
-        (target_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb),
+        target_tex.create_view(&wgpu::TextureViewDescriptor::default()),
+        1,
+        1,
     );
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -845,8 +934,8 @@ fn bench_pipeline_caching(c: &mut Criterion) {
         cache: None,
     });
 
-    registry.insert_pipeline(PipelineHandle(1), pipeline.clone());
-    registry.insert_pipeline(PipelineHandle(2), pipeline);
+    register_pipeline(&mut registry, PipelineHandle(1), pipeline.clone());
+    register_pipeline(&mut registry, PipelineHandle(2), pipeline);
 
     let mut graph_sorted = RenderGraph::new(RenderTarget::Offscreen {
         color: TextureHandle(1),
