@@ -1,4 +1,5 @@
 use thiserror::Error;
+use crate::memory::{SubmissionId, SubmissionTracker};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ProfilingError {
@@ -10,6 +11,8 @@ pub enum ProfilingError {
     InvalidQueryCount,
     #[error("timestamp query pool is exhausted")]
     Exhausted,
+    #[error("timestamp query pool is still in flight")]
+    InFlight,
     #[error("timestamp span does not belong to this query pool")]
     InvalidSpan,
     #[error("query resolve destination offset must be aligned to {alignment} bytes")]
@@ -35,6 +38,7 @@ pub struct TimestampQueryPool {
     query_count: u32,
     next_query: u32,
     encoder_timestamps_supported: bool,
+    in_flight_until: Option<SubmissionId>,
 }
 
 impl TimestampQueryPool {
@@ -54,18 +58,44 @@ impl TimestampQueryPool {
             query_count,
             next_query: 0,
             encoder_timestamps_supported: device.features().contains(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
+            in_flight_until: None,
         })
     }
 
     pub fn query_set(&self) -> &wgpu::QuerySet { &self.query_set }
 
     pub fn allocate_span(&mut self) -> Result<TimestampSpan, ProfilingError> {
+        if self.in_flight_until.is_some() {
+            return Err(ProfilingError::InFlight);
+        }
         if self.next_query + 1 >= self.query_count {
             return Err(ProfilingError::Exhausted);
         }
         let span = TimestampSpan { first: self.next_query, second: self.next_query + 1 };
         self.next_query += 2;
         Ok(span)
+    }
+
+    /// Gắn pool với submission chứa các query hiện tại.
+    pub fn mark_submitted(&mut self, submission: SubmissionId) -> Result<(), ProfilingError> {
+        if self.in_flight_until.is_some() {
+            return Err(ProfilingError::InFlight);
+        }
+        self.in_flight_until = Some(submission);
+        Ok(())
+    }
+
+    /// Reset slot sau khi submission cuối cùng đã hoàn tất. `Ok(false)` nghĩa
+    /// là host phải giữ pool và thử lại ở frame sau.
+    pub fn reset_after(&mut self, tracker: &SubmissionTracker) -> Result<bool, ProfilingError> {
+        if let Some(submission) = self.in_flight_until {
+            if !tracker.can_reuse_after(submission) {
+                return Ok(false);
+            }
+        }
+        self.next_query = 0;
+        self.in_flight_until = None;
+        Ok(true)
     }
 
     pub fn write_span(
@@ -115,6 +145,7 @@ impl Drop for TimestampQueryPool {
 #[cfg(test)]
 mod tests {
     use super::{ProfilingError, TimestampQueryPool};
+    use crate::memory::SubmissionTracker;
 
     #[test]
     fn timestamp_pool_rejects_invalid_shape_without_backend_assumptions() {
@@ -142,5 +173,20 @@ mod tests {
             }
             Err(error) => panic!("unexpected profiling setup error: {error:?}"),
         }
+    }
+
+    #[test]
+    fn timestamp_pool_reset_waits_for_submission_completion() {
+        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let Ok(mut pool) = TimestampQueryPool::new(engine.device(), 2) else { return; };
+        pool.allocate_span().unwrap();
+        let mut tracker = SubmissionTracker::new();
+        let submission = tracker.begin();
+        pool.mark_submitted(submission).unwrap();
+        assert_eq!(pool.allocate_span(), Err(ProfilingError::InFlight));
+        assert_eq!(pool.reset_after(&tracker), Ok(false));
+        tracker.mark_completed(submission);
+        assert_eq!(pool.reset_after(&tracker), Ok(true));
+        assert_eq!(pool.allocate_span().unwrap().first_query(), 0);
     }
 }
