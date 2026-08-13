@@ -103,6 +103,9 @@ di trú.
 các example/test fixture còn lại vẫn được theo dõi theo nhóm resource.
 `examples/visual_tests.rs` đã migrate toàn bộ texture target sang owned descriptor
 API và toàn bộ pipeline sang pipeline-layout descriptor API.
+`examples/ultimate_test_suite.rs` cũng đã migrate các helper texture, bind group
+và pipeline sang descriptor API; raw consumer còn lại tập trung ở
+`comprehensive_test.rs` và benchmark.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.

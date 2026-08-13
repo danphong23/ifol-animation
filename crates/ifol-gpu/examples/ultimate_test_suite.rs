@@ -3,7 +3,11 @@ use std::time::Instant;
 use ifol_gpu::api::{GpuEngineBuilder, GpuEngine};
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
-use ifol_gpu::resources::{BindGroupHandle, PipelineHandle, ResourceRegistry, TextureHandle};
+use ifol_gpu::resources::{
+    BindGroupHandle, BindGroupResourceDescriptor, PipelineHandle,
+    PipelineLayoutResourceDescriptor, ResourceRegistry, TextureHandle,
+    TextureResourceDescriptor,
+};
 use image::GenericImageView;
 
 struct TestHarness<'a> {
@@ -82,10 +86,14 @@ impl<'a> TestHarness<'a> {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-        let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
         let id = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.insert_texture(id, (view, wgpu::TextureFormat::Rgba8UnormSrgb));
+        self.registry.insert_owned_texture(id, tex.clone(), TextureResourceDescriptor {
+            width: self.width, height: self.height, depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
+            mip_level_count: 1, sample_count: 1,
+        }, 8192).unwrap();
         (id, tex)
     }
 
@@ -100,10 +108,14 @@ impl<'a> TestHarness<'a> {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
-        let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
         let id = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.insert_texture(id, (view, wgpu::TextureFormat::Depth32Float));
+        self.registry.insert_owned_texture(id, tex.clone(), TextureResourceDescriptor {
+            width: self.width, height: self.height, depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1, sample_count: 1,
+        }, 8192).unwrap();
         (id, tex)
     }
 
@@ -140,10 +152,14 @@ impl<'a> TestHarness<'a> {
             size,
         );
 
-        let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
         let t_handle = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.insert_texture(t_handle, (view, wgpu::TextureFormat::Rgba8UnormSrgb));
+        self.registry.insert_owned_texture(t_handle, tex, TextureResourceDescriptor {
+            width: w, height: h, depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            mip_level_count: 1, sample_count: 1,
+        }, 8192).unwrap();
         
         // Create BindGroup
         let view_ref = &self.registry.texture(&t_handle).unwrap().0;
@@ -164,7 +180,9 @@ impl<'a> TestHarness<'a> {
 
         let bg_id = BindGroupHandle(self.next_bg_id);
         self.next_bg_id += 1;
-        self.registry.insert_bind_group(bg_id, bind_group);
+        self.registry.insert_bind_group_with_descriptor(bg_id, bind_group, BindGroupResourceDescriptor {
+            dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1,
+        }).unwrap();
         bg_id
     }
 
@@ -230,7 +248,9 @@ impl<'a> TestHarness<'a> {
 
         let id = PipelineHandle(self.next_pipe_id);
         self.next_pipe_id += 1;
-        self.registry.insert_pipeline(id, pipe);
+        self.registry.insert_pipeline_with_layout_descriptor(id, pipe, PipelineLayoutResourceDescriptor {
+            bind_group_layout_signatures: if uses_texture { vec![Some(1)] } else { Vec::new() },
+        });
         id
     }
 }
