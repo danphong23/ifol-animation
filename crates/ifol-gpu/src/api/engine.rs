@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use thiserror::Error;
 use crate::api::capabilities::GpuCapabilities;
 
 pub struct GpuEngine<'a> {
@@ -16,6 +17,20 @@ pub enum SurfaceResizeError {
     LockPoisoned,
 }
 
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ReadbackError {
+    #[error("texture dimensions must be non-zero")]
+    InvalidExtent,
+    #[error("texture format {0:?} is not supported by core readback")]
+    UnsupportedFormat(wgpu::TextureFormat),
+    #[error("readback layout arithmetic overflowed")]
+    ArithmeticOverflow,
+    #[error("GPU readback buffer mapping failed")]
+    MapFailed,
+    #[error("GPU readback buffer could not be accessed")]
+    AccessFailed,
+}
+
 pub struct ReadbackTicket {
     buffer: wgpu::Buffer,
     receiver: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
@@ -28,20 +43,34 @@ pub struct ReadbackTicket {
 
 impl ReadbackTicket {
     pub fn resolve(self, device: &wgpu::Device) -> Result<(Vec<u8>, u32, u32), &'static str> {
+        self.resolve_checked(device).map_err(|error| match error {
+            ReadbackError::InvalidExtent => "Invalid texture extent for readback",
+            ReadbackError::UnsupportedFormat(_) => "Unsupported texture format for readback",
+            ReadbackError::ArithmeticOverflow => "Readback layout arithmetic overflowed",
+            ReadbackError::MapFailed => "Failed to map buffer for readback",
+            ReadbackError::AccessFailed => "Failed to access mapped readback buffer",
+        })
+    }
+
+    pub fn resolve_checked(self, device: &wgpu::Device) -> Result<(Vec<u8>, u32, u32), ReadbackError> {
         let _ = device.poll(wgpu::PollType::Wait { submission_index: Some(self.submission), timeout: None });
         match self.receiver.recv() {
             Ok(Ok(())) => {}
-            _ => return Err("Failed to map buffer for readback"),
+            _ => return Err(ReadbackError::MapFailed),
         }
         let data = self
             .buffer
             .slice(..)
             .get_mapped_range()
-            .map_err(|_| "Failed to access mapped readback buffer")?;
-        let mut pixels = Vec::with_capacity((self.width * self.height * self.bytes_per_pixel) as usize);
+            .map_err(|_| ReadbackError::AccessFailed)?;
+        let row_bytes = self.width.checked_mul(self.bytes_per_pixel).ok_or(ReadbackError::ArithmeticOverflow)?;
+        let capacity = row_bytes.checked_mul(self.height).ok_or(ReadbackError::ArithmeticOverflow)? as usize;
+        let mut pixels = Vec::with_capacity(capacity);
         for row in 0..self.height {
-            let start = (row * self.padded_bytes_per_row) as usize;
-            pixels.extend_from_slice(&data[start..start + (self.width * self.bytes_per_pixel) as usize]);
+            let start = row.checked_mul(self.padded_bytes_per_row).ok_or(ReadbackError::ArithmeticOverflow)? as usize;
+            let end = start.checked_add(row_bytes as usize).ok_or(ReadbackError::ArithmeticOverflow)?;
+            let Some(row_data) = data.get(start..end) else { return Err(ReadbackError::AccessFailed); };
+            pixels.extend_from_slice(row_data);
         }
         drop(data);
         self.buffer.unmap();
@@ -125,16 +154,33 @@ impl<'a> GpuEngine<'a> {
         texture: &wgpu::Texture,
         format: wgpu::TextureFormat,
     ) -> Result<ReadbackTicket, &'static str> {
+        self.begin_texture_readback_checked(texture, format).map_err(|error| match error {
+            ReadbackError::InvalidExtent => "Invalid texture extent for readback",
+            ReadbackError::UnsupportedFormat(_) => "Unsupported texture format for readback",
+            ReadbackError::ArithmeticOverflow => "Readback layout arithmetic overflowed",
+            ReadbackError::MapFailed | ReadbackError::AccessFailed => "Failed to initialize readback",
+        })
+    }
+
+    pub fn begin_texture_readback_checked(
+        &self,
+        texture: &wgpu::Texture,
+        format: wgpu::TextureFormat,
+    ) -> Result<ReadbackTicket, ReadbackError> {
         let width = texture.size().width;
         let height = texture.size().height;
+        if width == 0 || height == 0 {
+            return Err(ReadbackError::InvalidExtent);
+        }
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-        let bytes_per_pixel = texture_format_bytes_per_pixel(format).ok_or("Unsupported texture format for readback")?;
-        let unpadded_bytes = width * bytes_per_pixel;
-        let padded_bytes = (unpadded_bytes + align - 1) & !(align - 1);
+        let bytes_per_pixel = texture_format_bytes_per_pixel(format).ok_or(ReadbackError::UnsupportedFormat(format))?;
+        let unpadded_bytes = width.checked_mul(bytes_per_pixel).ok_or(ReadbackError::ArithmeticOverflow)?;
+        let padded_bytes = unpadded_bytes.checked_add(align - 1).ok_or(ReadbackError::ArithmeticOverflow)? & !(align - 1);
+        let buffer_size = padded_bytes.checked_mul(height).ok_or(ReadbackError::ArithmeticOverflow)? as u64;
         
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("ReadbackBuffer"),
-            size: (padded_bytes * height) as u64,
+            size: buffer_size,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
@@ -176,7 +222,21 @@ impl<'a> GpuEngine<'a> {
         texture: &wgpu::Texture,
         format: wgpu::TextureFormat,
     ) -> Result<(Vec<u8>, u32, u32), &'static str> {
-        self.begin_texture_readback(texture, format)?.resolve(&self.device)
+        self.read_texture_to_bytes_with_format_checked(texture, format).map_err(|error| match error {
+            ReadbackError::InvalidExtent => "Invalid texture extent for readback",
+            ReadbackError::UnsupportedFormat(_) => "Unsupported texture format for readback",
+            ReadbackError::ArithmeticOverflow => "Readback layout arithmetic overflowed",
+            ReadbackError::MapFailed => "Failed to map buffer for readback",
+            ReadbackError::AccessFailed => "Failed to access mapped readback buffer",
+        })
+    }
+
+    pub fn read_texture_to_bytes_with_format_checked(
+        &self,
+        texture: &wgpu::Texture,
+        format: wgpu::TextureFormat,
+    ) -> Result<(Vec<u8>, u32, u32), ReadbackError> {
+        self.begin_texture_readback_checked(texture, format)?.resolve_checked(&self.device)
     }
 
     /// Đọc kết quả từ VRAM và lưu trực tiếp ra file ảnh trên ổ cứng.
@@ -224,7 +284,7 @@ fn texture_format_bytes_per_pixel(format: wgpu::TextureFormat) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{texture_format_bytes_per_pixel, SurfaceResizeError};
+    use super::{texture_format_bytes_per_pixel, ReadbackError, SurfaceResizeError};
 
     #[test]
     fn readback_format_width_is_explicit() {
@@ -266,5 +326,24 @@ mod tests {
         let (pixels, width, height) = ticket.resolve(engine.device()).unwrap();
         assert_eq!((width, height), (1, 1));
         assert_eq!(pixels, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn checked_readback_rejects_unsupported_format_with_typed_error() {
+        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("checked-readback-format-test"),
+            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        assert!(matches!(
+            engine.begin_texture_readback_checked(&texture, wgpu::TextureFormat::Depth32Float),
+            Err(ReadbackError::UnsupportedFormat(wgpu::TextureFormat::Depth32Float))
+        ));
     }
 }

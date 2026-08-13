@@ -5,5 +5,5 @@ pub mod profiling;
 
 pub use builder::{GpuEngineBuilder, GpuError};
 pub use capabilities::{CapabilityError, GpuCapabilities};
-pub use engine::{GpuEngine, ReadbackTicket, SurfaceResizeError};
+pub use engine::{GpuEngine, ReadbackError, ReadbackTicket, SurfaceResizeError};
 pub use profiling::{ProfilingError, TimestampQueryPool, TimestampSpan};
