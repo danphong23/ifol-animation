@@ -273,6 +273,7 @@ pub struct RenderGraph {
 
     /// Duyệt từ cuối lên đầu thay vì từ đầu tới cuối (Reverse Draw Order)
     pub reverse_draw_order: bool,
+    pub dependencies: Vec<GraphDependency>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -287,12 +288,20 @@ pub struct FlatRenderPlan {
     pub nodes: Vec<FlatRenderNode>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GraphDependency {
+    pub before: RenderNodeId,
+    pub after: RenderNodeId,
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum GraphFlattenError {
     #[error("render node {0:?} does not exist in the node pool")]
     MissingNode(RenderNodeId),
     #[error("cycle detected while flattening render graph at node {0:?}")]
     Cycle(RenderNodeId),
+    #[error("dependency references node {0:?} outside the graph")]
+    DependencyNodeOutsideGraph(RenderNodeId),
 }
 
 impl FlatRenderPlan {
@@ -308,6 +317,7 @@ impl RenderGraph {
             depth_stencil: None,
             node_ids: Vec::new(),
             reverse_draw_order: false,
+            dependencies: Vec::new(),
         }
     }
 
@@ -330,6 +340,10 @@ impl RenderGraph {
         self.node_ids.push(id);
     }
 
+    pub fn add_dependency(&mut self, before: RenderNodeId, after: RenderNodeId) {
+        self.dependencies.push(GraphDependency { before, after });
+    }
+
     pub fn add_batch(&mut self, pool: &mut RenderNodePool, commands: Vec<DrawCommand>) -> RenderNodeId {
         let id = pool.alloc_batch(commands);
         self.node_ids.push(id);
@@ -348,7 +362,44 @@ impl RenderGraph {
         let mut plan = FlatRenderPlan::default();
         let mut active = Vec::new();
         self.flatten_into(pool, &mut plan, &mut active, Vec::new())?;
+        self.apply_dependencies(&mut plan)?;
         Ok(plan)
+    }
+
+    fn apply_dependencies(&self, plan: &mut FlatRenderPlan) -> Result<(), GraphFlattenError> {
+        if self.dependencies.is_empty() || plan.nodes.len() < 2 {
+            return Ok(());
+        }
+        let positions = plan.nodes.iter().enumerate().map(|(index, node)| (node.node_id, index)).collect::<HashMap<_, _>>();
+        let mut edges = vec![Vec::new(); plan.nodes.len()];
+        let mut indegree = vec![0usize; plan.nodes.len()];
+        for dependency in &self.dependencies {
+            let Some(&before) = positions.get(&dependency.before) else {
+                return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.before));
+            };
+            let Some(&after) = positions.get(&dependency.after) else {
+                return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.after));
+            };
+            edges[before].push(after);
+            indegree[after] += 1;
+        }
+
+        let original = plan.nodes.clone();
+        let mut ordered = Vec::with_capacity(original.len());
+        let mut emitted = vec![false; original.len()];
+        while ordered.len() < original.len() {
+            let Some(index) = (0..original.len()).find(|&index| !emitted[index] && indegree[index] == 0) else {
+                let cycle = original.iter().find(|node| !emitted[positions[&node.node_id]]).map(|node| node.node_id).unwrap_or(RenderNodeId(0));
+                return Err(GraphFlattenError::Cycle(cycle));
+            };
+            emitted[index] = true;
+            ordered.push(original[index].clone());
+            for &next in &edges[index] {
+                indegree[next] -= 1;
+            }
+        }
+        plan.nodes = ordered;
+        Ok(())
     }
 
     fn flatten_into(
@@ -458,5 +509,33 @@ mod tests {
             graph.flatten(&RenderNodePool::new()),
             Err(GraphFlattenError::MissingNode(RenderNodeId(99)))
         );
+    }
+
+    #[test]
+    fn flatten_applies_explicit_dependency_with_declaration_order_tiebreaker() {
+        let mut pool = RenderNodePool::new();
+        let first = pool.alloc_batch(vec![]);
+        let second = pool.alloc_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(first);
+        graph.add_node_id(second);
+        graph.add_dependency(second, first);
+
+        let plan = graph.flatten(&pool).unwrap();
+        assert_eq!(plan.nodes.iter().map(|node| node.node_id).collect::<Vec<_>>(), vec![second, first]);
+    }
+
+    #[test]
+    fn flatten_rejects_dependency_cycle() {
+        let mut pool = RenderNodePool::new();
+        let first = pool.alloc_batch(vec![]);
+        let second = pool.alloc_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(first);
+        graph.add_node_id(second);
+        graph.add_dependency(first, second);
+        graph.add_dependency(second, first);
+
+        assert!(matches!(graph.flatten(&pool), Err(GraphFlattenError::Cycle(_))));
     }
 }
