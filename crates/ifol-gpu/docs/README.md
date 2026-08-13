@@ -28,6 +28,9 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 21. [API validation hiện tại](20-validation-api.md)
 22. [Flat render plan API](21-flat-render-plan-api.md)
 
+23. [Execution dependency order](22-execution-dependency-order.md)
+24. [Readback theo format](23-readback-format-api.md)
+
 ## Từ vựng trạng thái
 
 - **Đã implement**: đã có và được kiểm chứng trong crate hiện tại;
