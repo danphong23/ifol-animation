@@ -1,6 +1,7 @@
 use thiserror::Error;
 use std::hash::{Hash, Hasher};
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
+use crate::memory::{SubmissionId, SubmissionTracker};
 use crate::render::graph::{CopyCommand, DrawAction, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
@@ -26,6 +27,9 @@ pub struct ExecutionReport {
 pub struct ProfiledExecution {
     pub report: ExecutionReport,
     pub span: TimestampSpan,
+    /// Submission identity used by the optional host-side completion tracker.
+    /// `None` means the untracked profiling API was used.
+    pub tracking_submission: Option<SubmissionId>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -258,8 +262,27 @@ impl RenderGraphExecutor {
         resolve_buffer: &wgpu::Buffer,
         resolve_offset: u64,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.execute_with_surface_checked_with_timestamp(
-            engine, registry, pool, graph, None, profiler, resolve_buffer, resolve_offset,
+        self.execute_timestamped(
+            engine, registry, pool, graph, None, profiler, resolve_buffer, resolve_offset, None,
+        )
+    }
+
+    /// Biên dịch và submit graph có profiling, đồng thời đăng ký query pool với
+    /// `SubmissionTracker` trước khi submit. Host vẫn chịu trách nhiệm gọi
+    /// `mark_completed` khi GPU hoàn tất submission.
+    pub fn execute_checked_with_timestamp_tracked(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        profiler: &mut TimestampQueryPool,
+        resolve_buffer: &wgpu::Buffer,
+        resolve_offset: u64,
+        tracker: &mut SubmissionTracker,
+    ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
+        self.execute_timestamped(
+            engine, registry, pool, graph, None, profiler, resolve_buffer, resolve_offset, Some(tracker),
         )
     }
 
@@ -274,6 +297,41 @@ impl RenderGraphExecutor {
         resolve_buffer: &wgpu::Buffer,
         resolve_offset: u64,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
+        self.execute_timestamped(
+            engine, registry, pool, graph, surface_view, profiler, resolve_buffer, resolve_offset, None,
+        )
+    }
+
+    /// Bản profiling có surface và lifecycle submission được tracker quản lý.
+    pub fn execute_with_surface_checked_with_timestamp_tracked(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        surface_view: Option<&wgpu::TextureView>,
+        profiler: &mut TimestampQueryPool,
+        resolve_buffer: &wgpu::Buffer,
+        resolve_offset: u64,
+        tracker: &mut SubmissionTracker,
+    ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
+        self.execute_timestamped(
+            engine, registry, pool, graph, surface_view, profiler, resolve_buffer, resolve_offset, Some(tracker),
+        )
+    }
+
+    fn execute_timestamped(
+        &self,
+        engine: &GpuEngine,
+        registry: &ResourceRegistry,
+        pool: &mut RenderNodePool,
+        graph: &RenderGraph,
+        surface_view: Option<&wgpu::TextureView>,
+        profiler: &mut TimestampQueryPool,
+        resolve_buffer: &wgpu::Buffer,
+        resolve_offset: u64,
+        mut tracker: Option<&mut SubmissionTracker>,
+    ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
         self.validate_with_device(engine, registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             Self::execution_counts_for_graph(pool, graph)?;
@@ -285,6 +343,13 @@ impl RenderGraphExecutor {
         self.compile_graph(&mut encoder, engine, pool, graph, registry, surface_view);
         profiler.write_span(&mut encoder, span)?;
         profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
+        let tracking_submission = if let Some(tracker) = tracker.as_deref_mut() {
+            let submission = tracker.begin();
+            profiler.mark_submitted(submission)?;
+            Some(submission)
+        } else {
+            None
+        };
         let submission = engine.queue().submit(std::iter::once(encoder.finish()));
         Ok(ProfiledExecution {
             report: ExecutionReport {
@@ -297,6 +362,7 @@ impl RenderGraphExecutor {
                 declared_usages,
             },
             span,
+            tracking_submission,
         })
     }
 
@@ -1254,6 +1320,7 @@ fn validate_indirect_buffer(
 mod tests {
     use super::{bind_group_slot_index, bundle_cache_key, format_has_stencil, texture_supports_aspect, validate_copy_range, validate_indirect_buffer, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
+    use crate::memory::SubmissionTracker;
     use crate::render::{BindGroupHandle, BufferHandle, BufferResourceDescriptor, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, GraphResource, PipelineHandle, RenderGraph, RenderNode, RenderNodeId, RenderNodePool, RenderTarget, ResourceAccess, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
@@ -1290,6 +1357,43 @@ mod tests {
             Ok(profiled) => assert_eq!(profiled.report.flattened_nodes, 0),
             Err(RenderGraphProfilingError::Profiling(crate::api::ProfilingError::UnsupportedEncoderTimestamps)) => {}
             Err(error) => panic!("unexpected profiled execution error: {error:?}"),
+        }
+    }
+
+    #[test]
+    fn tracked_profiled_execution_reserves_pool_until_host_completion() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let Ok(mut profiler) = crate::api::TimestampQueryPool::new(engine.device(), 2) else {
+            return;
+        };
+        let resolve_buffer = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("tracked-profiling-resolve-test"),
+            size: 16,
+            usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let mut tracker = SubmissionTracker::new();
+        let result = RenderGraphExecutor::new().execute_checked_with_timestamp_tracked(
+            &engine,
+            &ResourceRegistry::new(),
+            &mut RenderNodePool::new(),
+            &RenderGraph::new(RenderTarget::Screen),
+            &mut profiler,
+            &resolve_buffer,
+            0,
+            &mut tracker,
+        );
+        match result {
+            Ok(profiled) => {
+                let submission = profiled.tracking_submission.expect("tracked API must reserve a submission");
+                assert_eq!(submission, crate::memory::SubmissionId(1));
+                assert_eq!(profiler.allocate_span(), Err(crate::api::ProfilingError::InFlight));
+                assert!(!profiler.reset_after(&tracker).unwrap());
+                tracker.mark_completed(submission);
+                assert!(profiler.reset_after(&tracker).unwrap());
+            }
+            Err(RenderGraphProfilingError::Profiling(crate::api::ProfilingError::UnsupportedEncoderTimestamps)) => {}
+            Err(error) => panic!("unexpected tracked profiling error: {error:?}"),
         }
     }
 

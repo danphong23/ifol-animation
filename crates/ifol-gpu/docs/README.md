@@ -77,6 +77,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 70. [Bind-group limit theo capability](70-dynamic-bind-group-limit.md)
 71. [Texture copy theo aspect](71-texture-copy-aspect.md)
 72. [Fallback adapter policy](72-fallback-adapter-policy.md)
+73. [Lifecycle profiling có tracker](73-tracked-profiling-lifecycle.md)
 
 ## Từ vựng trạng thái
 
