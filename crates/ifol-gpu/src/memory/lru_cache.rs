@@ -98,10 +98,6 @@ impl TransientTexturePool {
     }
 }
 
-/// Tên cũ được giữ để source compatibility; semantics hiện tại là transient pool,
-/// không còn là LRU và acquire/release đều yêu cầu submission contract.
-pub type TextureCache = TransientTexturePool;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BufferDescriptorKey {
     pub size: u64,

@@ -60,7 +60,7 @@ path chỉ vì đổi thư mục nội bộ.
 ## Chưa đạt
 
 - source layout chưa phản ánh ba tầng;
-- compatibility insert API và alias `TextureCache` còn tồn tại;
+- compatibility insert API và migration fixture chưa hoàn tất;
 - private encoder còn silent skip ở một số nhánh;
 - docs migration/status còn stale;
 - pipeline layout mới là host metadata, chưa có shader reflection;
@@ -99,5 +99,7 @@ cho consumer cũ.
 Examples, benchmark và integration test của crate cũng đã chuyển sang public
 module mới; compatibility facade hiện chỉ còn phục vụ consumer bên ngoài chưa
 di trú.
+`TextureCache` alias đã bị xóa vì không còn consumer; code dùng
+`TransientTexturePool` phải gọi đúng semantics.
 `Extension` node đã có representation trong graph và được flatten theo usage;
 executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.
