@@ -5,15 +5,16 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 ## Muc luc theo nhom
 
 ### 00-foundation
-1. [scope and non goals](00-foundation/00-scope-and-non-goals.md)
-2. [architecture](00-foundation/01-architecture.md)
-3. [validation errors and diagnostics](00-foundation/07-validation-errors-and-diagnostics.md)
-4. [testing and platform matrix](00-foundation/08-testing-and-platform-matrix.md)
-5. [upgrade strategy](00-foundation/10-upgrade-strategy.md)
-6. [test plan](00-foundation/11-test-plan.md)
-7. [edge case matrix](00-foundation/12-edge-case-matrix.md)
-8. [task plan](00-foundation/13-task-plan.md)
-9. [definition of done](00-foundation/14-definition-of-done.md)
+1. [quy ước tổ chức tài liệu](00-foundation/02-docs-organization.md)
+2. [scope and non goals](00-foundation/00-scope-and-non-goals.md)
+3. [architecture](00-foundation/01-architecture.md)
+4. [validation errors and diagnostics](00-foundation/07-validation-errors-and-diagnostics.md)
+5. [testing and platform matrix](00-foundation/08-testing-and-platform-matrix.md)
+6. [upgrade strategy](00-foundation/10-upgrade-strategy.md)
+7. [test plan](00-foundation/11-test-plan.md)
+8. [edge case matrix](00-foundation/12-edge-case-matrix.md)
+9. [task plan](00-foundation/13-task-plan.md)
+10. [definition of done](00-foundation/14-definition-of-done.md)
 
 ### 10-graph
 1. [graph and pass model](10-graph/04-graph-and-pass-model.md)
@@ -117,3 +118,4 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 - **Mot phan**: da co nhung chua day du hoac con gioi han;
 - **Da len ke hoach**: muc tieu thiet ke, chua phai behavior hien tai;
 - **Policy**: lua chon cua host, khong phai invariant vinh vien.
+> Quy ước cấu trúc và quy trình cập nhật docs: [02-docs-organization](00-foundation/02-docs-organization.md).
