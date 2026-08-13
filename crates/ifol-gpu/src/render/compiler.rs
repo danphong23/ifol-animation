@@ -158,33 +158,30 @@ impl RenderGraphExecutor {
                 let Some(destination) = registry.buffers.get(&command.destination) else { continue; };
                 encoder.copy_buffer_to_buffer(source, command.source_offset, destination, command.destination_offset, command.size);
             }
-        }
-
-        for &node_id in node_ids {
-            let Some(node) = pool.get(node_id) else { continue; };
-            if node.compute_commands().is_empty() { continue; }
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("RenderGraphComputePass"), timestamp_writes: None,
-            });
-            let mut current_pipeline = None;
-            let mut current_bind_groups = [None; 4];
-            for command in node.compute_commands() {
-                if current_pipeline != Some(command.pipeline) {
-                    if let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) {
-                        compute_pass.set_pipeline(pipeline);
-                        current_pipeline = Some(command.pipeline);
-                    } else { continue; }
-                }
-                for &(slot, bind_group, ref offsets) in &command.bind_groups {
-                    let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
-                    if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
-                        if let Some(group) = registry.bind_groups.get(&bind_group) {
-                            compute_pass.set_bind_group(slot, group, offsets);
-                            current_bind_groups[slot_index] = Some(bind_group);
+            if !node.compute_commands().is_empty() {
+                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("RenderGraphComputePass"), timestamp_writes: None,
+                });
+                let mut current_pipeline = None;
+                let mut current_bind_groups = [None; 4];
+                for command in node.compute_commands() {
+                    if current_pipeline != Some(command.pipeline) {
+                        if let Some(pipeline) = registry.compute_pipelines.get(&command.pipeline) {
+                            compute_pass.set_pipeline(pipeline);
+                            current_pipeline = Some(command.pipeline);
+                        } else { continue; }
+                    }
+                    for &(slot, bind_group, ref offsets) in &command.bind_groups {
+                        let Some(slot_index) = bind_group_slot_index(slot) else { continue; };
+                        if current_bind_groups[slot_index] != Some(bind_group) || !offsets.is_empty() {
+                            if let Some(group) = registry.bind_groups.get(&bind_group) {
+                                compute_pass.set_bind_group(slot, group, offsets);
+                                current_bind_groups[slot_index] = Some(bind_group);
+                            }
                         }
                     }
+                    compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
                 }
-                compute_pass.dispatch_workgroups(command.workgroups[0], command.workgroups[1], command.workgroups[2]);
             }
         }
         let _ = engine;
@@ -579,7 +576,7 @@ fn validate_copy_range(
 mod tests {
     use super::{bind_group_slot_index, bundle_cache_key, validate_copy_range, RenderGraphExecutor, RenderGraphValidationError};
     use crate::api::GpuEngineBuilder;
-    use crate::render::{BufferHandle, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
+    use crate::render::{BindGroupHandle, BufferHandle, ComputeCommand, CopyCommand, DrawAction, DrawCommand, ComputePipelineHandle, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -777,5 +774,71 @@ mod tests {
         let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
         receiver.recv().unwrap().unwrap();
         assert_eq!(&*slice.get_mapped_range().unwrap(), &[7, 8, 9, 10]);
+    }
+
+    #[test]
+    fn compute_only_graph_executes_storage_update_without_render_target() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().with_required_limits(wgpu::Limits::default()).build()).unwrap();
+        let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("compute_test"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
+                "@group(0) @binding(0) var<storage, read_write> data: array<u32>; @compute @workgroup_size(1) fn main() { data[0] = data[0] + 1u; }",
+            )),
+        });
+        let layout = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("compute_test_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let pipeline_layout = engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("compute_test_pipeline_layout"), bind_group_layouts: &[Some(&layout)], immediate_size: 0,
+        });
+        let pipeline = engine.device().create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("compute_test_pipeline"), layout: Some(&pipeline_layout), module: &shader,
+            entry_point: Some("main"), compilation_options: Default::default(), cache: None,
+        });
+        let buffer = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("compute_test_buffer"), size: 4,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let staging = engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("compute_test_staging"), size: 4,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        engine.queue().write_buffer(&buffer, 0, bytemuck::bytes_of(&0u32));
+        let bind_group = engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("compute_test_bind_group"), layout: &layout,
+            entries: &[wgpu::BindGroupEntry { binding: 0, resource: buffer.as_entire_binding() }],
+        });
+        let mut registry = ResourceRegistry::new();
+        registry.insert_buffer(BufferHandle(1), buffer);
+        registry.insert_buffer(BufferHandle(2), staging);
+        registry.insert_compute_pipeline(ComputePipelineHandle(1), pipeline);
+        registry.bind_groups.insert(BindGroupHandle(1), bind_group);
+        let mut pool = RenderNodePool::new();
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_compute_batch(&mut pool, vec![ComputeCommand::new(ComputePipelineHandle(1), [1, 1, 1]).with_bind_group(0, BindGroupHandle(1), vec![])]);
+        graph.add_copy_batch(&mut pool, vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 4)]);
+
+        let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission.clone()), timeout: None });
+        let staging = registry.buffer(&BufferHandle(2)).unwrap();
+        let slice = staging.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| { let _ = sender.send(result); });
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
+        receiver.recv().unwrap().unwrap();
+        let bytes = slice.get_mapped_range().unwrap();
+        assert_eq!(u32::from_ne_bytes(bytes[0..4].try_into().unwrap()), 1);
     }
 }
