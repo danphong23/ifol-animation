@@ -90,6 +90,7 @@ pub enum RenderNode {
         is_dirty: bool,
         use_bundle: bool,
         bundle: Option<wgpu::RenderBundle>,
+        bundle_key: Option<u64>,
     },
 
     /// Danh sách lệnh vẽ phẳng trên cùng 1 target.
@@ -98,6 +99,7 @@ pub enum RenderNode {
         is_dirty: bool,
         use_bundle: bool,
         bundle: Option<wgpu::RenderBundle>,
+        bundle_key: Option<u64>,
     },
 }
 
@@ -108,6 +110,7 @@ impl RenderNode {
             is_dirty: true,
             use_bundle: true, // Default to bundle enabled
             bundle: None,
+            bundle_key: None,
         }
     }
 
@@ -119,6 +122,7 @@ impl RenderNode {
             is_dirty: true,
             use_bundle: true,
             bundle: None,
+            bundle_key: None,
         }
     }
 
@@ -140,6 +144,18 @@ impl RenderNode {
         match self {
             Self::SubGraph { bundle, .. } => bundle.as_ref(),
             Self::DrawBatch { bundle, .. } => bundle.as_ref(),
+        }
+    }
+
+    pub fn bundle_key(&self) -> Option<u64> {
+        match self {
+            Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key,
+        }
+    }
+
+    pub fn set_bundle_key(&mut self, key: u64) {
+        match self {
+            Self::SubGraph { bundle_key, .. } | Self::DrawBatch { bundle_key, .. } => *bundle_key = Some(key),
         }
     }
 
@@ -223,15 +239,17 @@ impl RenderNodePool {
     pub fn update_commands(&mut self, id: RenderNodeId, commands: Vec<DrawCommand>) -> bool {
         if let Some(node) = self.nodes.get_mut(&id) {
             match node {
-                RenderNode::DrawBatch { commands: cmds, is_dirty, bundle, .. } => {
+                RenderNode::DrawBatch { commands: cmds, is_dirty, bundle, bundle_key, .. } => {
                     *cmds = commands;
                     *is_dirty = true;
                     *bundle = None;
+                    *bundle_key = None;
                 }
-                RenderNode::SubGraph { commands: cmds, is_dirty, bundle, .. } => {
+                RenderNode::SubGraph { commands: cmds, is_dirty, bundle, bundle_key, .. } => {
                     *cmds = commands;
                     *is_dirty = true;
                     *bundle = None;
+                    *bundle_key = None;
                 }
             }
             true
@@ -243,10 +261,11 @@ impl RenderNodePool {
     pub fn mark_dirty(&mut self, id: RenderNodeId) {
         if let Some(node) = self.nodes.get_mut(&id) {
             match node {
-                RenderNode::DrawBatch { is_dirty, bundle, .. } |
-                RenderNode::SubGraph { is_dirty, bundle, .. } => {
+                RenderNode::DrawBatch { is_dirty, bundle, bundle_key, .. } |
+                RenderNode::SubGraph { is_dirty, bundle, bundle_key, .. } => {
                     *is_dirty = true;
                     *bundle = None;
+                    *bundle_key = None;
                 }
             }
         }

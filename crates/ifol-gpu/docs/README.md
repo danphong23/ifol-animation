@@ -30,6 +30,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 
 23. [Execution dependency order](22-execution-dependency-order.md)
 24. [Readback theo format](23-readback-format-api.md)
+25. [Bundle cache key](24-bundle-cache-key.md)
 
 ## Từ vựng trạng thái
 

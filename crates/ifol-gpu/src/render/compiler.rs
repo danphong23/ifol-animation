@@ -1,4 +1,5 @@
 use thiserror::Error;
+use std::hash::{Hash, Hasher};
 use crate::api::GpuEngine;
 use crate::render::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
@@ -30,6 +31,32 @@ pub enum RenderGraphValidationError {
 
 fn bind_group_slot_index(slot: u32) -> Option<usize> {
     (slot < 4).then_some(slot as usize)
+}
+
+fn bundle_cache_key(
+    node: &RenderNode,
+    registry: &ResourceRegistry,
+    color_format: wgpu::TextureFormat,
+    depth_format: Option<wgpu::TextureFormat>,
+) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    color_format.hash(&mut hasher);
+    depth_format.hash(&mut hasher);
+    for command in node.commands() {
+        command.pipeline.0.hash(&mut hasher);
+        registry.pipeline_version(&command.pipeline).hash(&mut hasher);
+        for &(slot, bind_group, ref offsets) in &command.bind_groups {
+            slot.hash(&mut hasher);
+            bind_group.0.hash(&mut hasher);
+            registry.bind_group_version(&bind_group).hash(&mut hasher);
+            offsets.hash(&mut hasher);
+        }
+        if let DrawAction::Indexed { mesh, .. } = command.action {
+            mesh.0.hash(&mut hasher);
+            registry.mesh_version(&mesh).hash(&mut hasher);
+        }
+    }
+    hasher.finish()
 }
 
 impl Default for RenderGraphExecutor {
@@ -154,8 +181,10 @@ impl RenderGraphExecutor {
         };
 
         for &node_id in &node_ids {
+            let expected_bundle_key = pool.get(node_id)
+                .map(|node| bundle_cache_key(node, registry, color_format, depth_format));
             let Some(node) = pool.get_mut(node_id) else { continue; };
-            if node.use_bundle() && (node.is_dirty() || node.bundle().is_none()) {
+            if node.use_bundle() && (node.is_dirty() || node.bundle().is_none() || node.bundle_key() != expected_bundle_key) {
                 let mut bundle_encoder = engine.device().create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
                     label: Some("RenderBundleEncoder"),
                     color_formats: &[Some(color_format)],
@@ -215,6 +244,7 @@ impl RenderGraphExecutor {
                         *is_dirty = false;
                     }
                 }
+                node.set_bundle_key(expected_bundle_key.unwrap_or(0));
             }
         }
 
@@ -362,8 +392,8 @@ fn validate_graph(
 
 #[cfg(test)]
 mod tests {
-    use super::{bind_group_slot_index, RenderGraphExecutor, RenderGraphValidationError};
-    use crate::render::{RenderGraph, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle};
+    use super::{bind_group_slot_index, bundle_cache_key, RenderGraphExecutor, RenderGraphValidationError};
+    use crate::render::{DrawAction, DrawCommand, PipelineHandle, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceRegistry, TextureHandle};
 
     #[test]
     fn invalid_bind_group_slot_does_not_index_state_cache() {
@@ -406,5 +436,19 @@ mod tests {
             result,
             Err(RenderGraphValidationError::InvalidTargetSize { width: 0, height: 64 })
         );
+    }
+
+    #[test]
+    fn bundle_key_changes_when_pipeline_version_changes() {
+        let node = RenderNode::new_batch(vec![DrawCommand::new(
+            PipelineHandle(7),
+            DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
+        )]);
+        let mut registry = ResourceRegistry::new();
+        let first = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None);
+        registry.mark_pipeline_changed(PipelineHandle(7));
+        let second = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None);
+
+        assert_ne!(first, second);
     }
 }
