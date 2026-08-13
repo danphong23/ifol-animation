@@ -75,6 +75,8 @@ pub enum RenderGraphValidationError {
     ResolveFormatMismatch { color: wgpu::TextureFormat, resolve: wgpu::TextureFormat },
     #[error("MSAA color and resolve dimensions differ: color {color_width}x{color_height}, resolve {resolve_width}x{resolve_height}")]
     ResolveSizeMismatch { color_width: u32, color_height: u32, resolve_width: u32, resolve_height: u32 },
+    #[error("depth texture {handle:?} sample count mismatch: expected {expected}, got {actual}")]
+    DepthSampleCountMismatch { handle: TextureHandle, expected: u32, actual: u32 },
 }
 
 fn bind_group_slot_index(slot: u32) -> Option<usize> {
@@ -721,6 +723,10 @@ fn validate_graph(
         }
     }
 
+    let target_sample_count = match graph.target {
+        RenderTarget::OffscreenMsaa { color, .. } => registry.texture_descriptor(&color).map_or(1, |descriptor| descriptor.sample_count),
+        _ => 1,
+    };
     if let Some(depth) = graph.depth_stencil {
         if !registry.contains_texture(&depth) {
             return Err(RenderGraphValidationError::MissingTexture(depth));
@@ -734,8 +740,10 @@ fn validate_graph(
                     actual_usage: descriptor.usage.bits(),
                 });
             }
-            if descriptor.sample_count != 1 {
-                return Err(RenderGraphValidationError::UnsupportedSampleCount { handle: depth, actual: descriptor.sample_count });
+            if descriptor.sample_count != target_sample_count {
+                return Err(RenderGraphValidationError::DepthSampleCountMismatch {
+                    handle: depth, expected: target_sample_count, actual: descriptor.sample_count,
+                });
             }
         }
     }
@@ -1140,6 +1148,39 @@ mod tests {
             TextureResourceDescriptor { width: 8, height: 8, depth_or_array_layers: 1, format: wgpu::TextureFormat::Rgba8Unorm, usage, mip_level_count: 1, sample_count: 1 }, 1024,
         ).unwrap();
         let graph = RenderGraph::new(RenderTarget::OffscreenMsaa { color: TextureHandle(20), resolve: TextureHandle(21), width: 8, height: 8 });
+        let submission = RenderGraphExecutor::new().execute(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();
+        let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
+    }
+
+    #[test]
+    fn execute_msaa_target_with_matching_depth_attachment() {
+        let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
+        let color_usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
+        let color = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("msaa_depth_color"), size: wgpu::Extent3d { width: 8, height: 8, depth_or_array_layers: 1 },
+            mip_level_count: 1, sample_count: 4, dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm, usage: color_usage, view_formats: &[],
+        });
+        let resolve = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("msaa_depth_resolve"), size: wgpu::Extent3d { width: 8, height: 8, depth_or_array_layers: 1 },
+            mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm, usage: color_usage, view_formats: &[],
+        });
+        let depth = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("msaa_depth_attachment"), size: wgpu::Extent3d { width: 8, height: 8, depth_or_array_layers: 1 },
+            mip_level_count: 1, sample_count: 4, dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth24Plus, usage: color_usage, view_formats: &[],
+        });
+        let mut registry = ResourceRegistry::new();
+        let descriptor = |format, sample_count| TextureResourceDescriptor {
+            width: 8, height: 8, depth_or_array_layers: 1, format, usage: color_usage,
+            mip_level_count: 1, sample_count,
+        };
+        registry.insert_texture_with_descriptor(TextureHandle(30), color.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Rgba8Unorm, 4), 1024).unwrap();
+        registry.insert_texture_with_descriptor(TextureHandle(31), resolve.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Rgba8Unorm, 1), 1024).unwrap();
+        registry.insert_texture_with_descriptor(TextureHandle(32), depth.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Depth24Plus, 4), 1024).unwrap();
+        let mut graph = RenderGraph::new(RenderTarget::OffscreenMsaa { color: TextureHandle(30), resolve: TextureHandle(31), width: 8, height: 8 });
+        graph.depth_stencil = Some(TextureHandle(32));
         let submission = RenderGraphExecutor::new().execute(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();
         let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
     }
