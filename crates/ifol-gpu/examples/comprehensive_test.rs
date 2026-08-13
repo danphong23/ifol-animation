@@ -954,9 +954,9 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         (tex.create_view(&wgpu::TextureViewDescriptor::default()), tex)
     };
 
-    let (master_view, master_tex) = create_tex("MasterTarget");       // TextureHandle(1)
-    let (effect_view, _effect_tex) = create_tex("EffectTarget");       // TextureHandle(2)
-    let (char_view, _char_tex) = create_tex("CharTarget");             // TextureHandle(3)
+    let master_tex = create_tex("MasterTarget").1;       // TextureHandle(1)
+    let effect_tex = create_tex("EffectTarget").1;       // TextureHandle(2)
+    let char_tex = create_tex("CharTarget").1;           // TextureHandle(3)
 
     let char_depth_tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("CharDepth"), size: wgpu::Extent3d { width: 1024, height: 1024, depth_or_array_layers: 1 },
@@ -964,10 +964,21 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         format: wgpu::TextureFormat::Depth32Float, usage: wgpu::TextureUsages::RENDER_ATTACHMENT, view_formats: &[],
     });
 
-    registry.insert_texture(TextureHandle(1), (master_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(2), (effect_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(3), (char_view, wgpu::TextureFormat::Rgba8UnormSrgb));
-    registry.insert_texture(TextureHandle(4), (char_depth_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Depth32Float));
+    let color_descriptor = TextureResourceDescriptor {
+        width: 1024, height: 1024, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST,
+        mip_level_count: 1, sample_count: 1,
+    };
+    registry.insert_owned_texture(TextureHandle(1), master_tex.clone(), color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(2), effect_tex, color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(3), char_tex, color_descriptor, 8192).unwrap();
+    registry.insert_owned_texture(TextureHandle(4), char_depth_tex, TextureResourceDescriptor {
+        width: 1024, height: 1024, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     // Load ảnh thật (ai_demo_large.png) làm Background
     let ai_img_data = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/assets/ai_demo_large.png")).expect("Thiếu file ảnh demo");
@@ -987,7 +998,12 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * dims.0), rows_per_image: Some(dims.1) },
         wgpu::Extent3d { width: dims.0, height: dims.1, depth_or_array_layers: 1 },
     );
-    registry.insert_texture(TextureHandle(5), (bg_tex.create_view(&wgpu::TextureViewDescriptor::default()), wgpu::TextureFormat::Rgba8UnormSrgb));
+    registry.insert_owned_texture(TextureHandle(5), bg_tex, TextureResourceDescriptor {
+        width: dims.0, height: dims.1, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     // Sampler chung
     let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor {
@@ -1027,7 +1043,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Less), stencil: Default::default(), bias: Default::default() }),
         multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(1), pipe_3d);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), pipe_3d, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
 
     // Shader 2 (Lớp 2 - Middle): 10.000 Procedural Particles
     let shader_particles = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1057,7 +1073,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         fragment: Some(wgpu::FragmentState { module: &shader_particles, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(2), pipe_particles);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(2), pipe_particles, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
 
     // BindGroupLayout & Shader cho Composite Texture (Sampler + Texture)
     let bgl_tex = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -1096,7 +1112,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         fragment: Some(wgpu::FragmentState { module: &shader_comp_char, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(3), pipe_comp_char);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(3), pipe_comp_char, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] });
 
     // Composite Shader 2 (Lớp Master): Lấy Ảnh Thật BG (5) làm nền + Lấy EffectTarget (2) đè lên với Vignette Post-FX
     let shader_final_post = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1127,7 +1143,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
         fragment: Some(wgpu::FragmentState { module: &shader_final_post, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(4), pipe_final_post);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(4), pipe_final_post, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] });
 
     // Bind Groups
     let make_bg = |_handle_id: u64, tex_handle: TextureHandle| {
@@ -1146,9 +1162,10 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
     let bg_effect = make_bg(2, TextureHandle(2)); // Texture 2 (EffectTarget)
     let bg_real_img = make_bg(3, TextureHandle(5)); // Texture 5 (RealImageBG)
 
-    registry.insert_bind_group(BindGroupHandle(1), bg_char);
-    registry.insert_bind_group(BindGroupHandle(2), bg_effect);
-    registry.insert_bind_group(BindGroupHandle(3), bg_real_img);
+    let bind_group_descriptor = BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1 };
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(1), bg_char, bind_group_descriptor.clone()).unwrap();
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(2), bg_effect, bind_group_descriptor.clone()).unwrap();
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(3), bg_real_img, bind_group_descriptor).unwrap();
 
     // DỰNG ĐỒ THỊ ĐỆ QUY 3 CẤP ĐỘ (3-LEVEL RECURSIVE RENDER GRAPH)
     

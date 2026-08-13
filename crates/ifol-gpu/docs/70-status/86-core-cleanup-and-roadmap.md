@@ -118,6 +118,8 @@ Fixture complex-frame và multi-graph-cache cũng đã chuyển texture target v
 pipeline sang descriptor API.
 Fixture nested-graph compositing đã chuyển hai texture target, hai pipeline và
 bind group composite sang descriptor API.
+Fixture ultimate-master compositing đã chuyển năm texture, bốn pipeline và ba
+bind group sang descriptor API; phần fixture 11 còn lại sẽ xử lý riêng.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.
