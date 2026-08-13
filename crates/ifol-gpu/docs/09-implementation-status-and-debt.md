@@ -55,7 +55,8 @@ hoặc policy dự kiến.
 - cross-backend/device matrix tự động cho Windows, macOS, Web, Android và iOS;
 - frame context mở rộng cho profiling/present lifecycle và deferred destruction
   integration sâu với registry;
-- async readback contract tổng quát và profiling/diagnostics hook đầy đủ;
+- async readback ticket format-aware đã có; queue nhiều frame, worker scheduling
+  và profiling/diagnostics hook đầy đủ vẫn còn thiếu;
 - context-aware bundle cache cho nhiều viewport/device.
 
 ## Design debt hiện tại

@@ -68,6 +68,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 61. [Deferred destruction](61-deferred-destruction.md)
 62. [Frame context](62-frame-context.md)
 63. [Surface reconfigure](63-surface-reconfigure.md)
+64. [Readback bất đồng bộ](64-async-readback.md)
 
 ## Từ vựng trạng thái
 

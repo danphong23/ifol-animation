@@ -16,6 +16,39 @@ pub enum SurfaceResizeError {
     LockPoisoned,
 }
 
+pub struct ReadbackTicket {
+    buffer: wgpu::Buffer,
+    receiver: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
+    submission: wgpu::SubmissionIndex,
+    width: u32,
+    height: u32,
+    bytes_per_pixel: u32,
+    padded_bytes_per_row: u32,
+}
+
+impl ReadbackTicket {
+    pub fn resolve(self, device: &wgpu::Device) -> Result<(Vec<u8>, u32, u32), &'static str> {
+        let _ = device.poll(wgpu::PollType::Wait { submission_index: Some(self.submission), timeout: None });
+        match self.receiver.recv() {
+            Ok(Ok(())) => {}
+            _ => return Err("Failed to map buffer for readback"),
+        }
+        let data = self
+            .buffer
+            .slice(..)
+            .get_mapped_range()
+            .map_err(|_| "Failed to access mapped readback buffer")?;
+        let mut pixels = Vec::with_capacity((self.width * self.height * self.bytes_per_pixel) as usize);
+        for row in 0..self.height {
+            let start = (row * self.padded_bytes_per_row) as usize;
+            pixels.extend_from_slice(&data[start..start + (self.width * self.bytes_per_pixel) as usize]);
+        }
+        drop(data);
+        self.buffer.unmap();
+        Ok((pixels, self.width, self.height))
+    }
+}
+
 impl<'a> GpuEngine<'a> {
     pub(crate) fn new(
         device: wgpu::Device, 
@@ -87,11 +120,11 @@ impl<'a> GpuEngine<'a> {
 
     /// Readback theo format thật của texture. Core không tự đoán channel count
     /// từ texture handle vì `wgpu::Texture` không expose descriptor sau khi tạo.
-    pub fn read_texture_to_bytes_with_format(
+    pub fn begin_texture_readback(
         &self,
         texture: &wgpu::Texture,
         format: wgpu::TextureFormat,
-    ) -> Result<(Vec<u8>, u32, u32), &'static str> {
+    ) -> Result<ReadbackTicket, &'static str> {
         let width = texture.size().width;
         let height = texture.size().height;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
@@ -126,22 +159,24 @@ impl<'a> GpuEngine<'a> {
         slice.map_async(wgpu::MapMode::Read, move |v| {
             let _ = tx.send(v);
         });
-        
-        // Cần poll device để WGPU thực thi lệnh copy và map buffer.
-        let _ = self.device.poll(wgpu::PollType::Wait { submission_index: Some(submission_index), timeout: None });
-        
-        if rx.recv().is_err() {
-            return Err("Failed to map buffer (receiver dropped)");
-        }
-        
-        let data = slice.get_mapped_range().map_err(|_| "Failed to access mapped readback buffer")?;
-        let mut pixels = Vec::with_capacity((width * height * bytes_per_pixel) as usize);
-        for row in 0..height {
-            let start = (row * padded_bytes) as usize;
-            pixels.extend_from_slice(&data[start..start + (width * bytes_per_pixel) as usize]);
-        }
-        
-        Ok((pixels, width, height))
+
+        Ok(ReadbackTicket {
+            buffer,
+            receiver: rx,
+            submission: submission_index,
+            width,
+            height,
+            bytes_per_pixel,
+            padded_bytes_per_row: padded_bytes,
+        })
+    }
+
+    pub fn read_texture_to_bytes_with_format(
+        &self,
+        texture: &wgpu::Texture,
+        format: wgpu::TextureFormat,
+    ) -> Result<(Vec<u8>, u32, u32), &'static str> {
+        self.begin_texture_readback(texture, format)?.resolve(&self.device)
     }
 
     /// Đọc kết quả từ VRAM và lưu trực tiếp ra file ảnh trên ổ cứng.
@@ -205,5 +240,31 @@ mod tests {
         assert_eq!(engine.try_resize_surface(0, 8), Err(SurfaceResizeError::InvalidSize));
         assert_eq!(engine.try_resize_surface(8, 8), Err(SurfaceResizeError::Unavailable));
         assert_eq!(engine.reconfigure_surface(), Err(SurfaceResizeError::Unavailable));
+    }
+
+    #[test]
+    fn async_readback_ticket_resolves_after_submission() {
+        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some("async-readback-test"),
+            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        engine.queue().write_texture(
+            texture.as_image_copy(),
+            &[1, 2, 3, 4],
+            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4), rows_per_image: Some(1) },
+            texture.size(),
+        );
+
+        let ticket = engine.begin_texture_readback(&texture, wgpu::TextureFormat::Rgba8Unorm).unwrap();
+        let (pixels, width, height) = ticket.resolve(engine.device()).unwrap();
+        assert_eq!((width, height), (1, 1));
+        assert_eq!(pixels, vec![1, 2, 3, 4]);
     }
 }
