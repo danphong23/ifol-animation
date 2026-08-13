@@ -56,14 +56,14 @@ path chỉ vì đổi thư mục nội bộ.
 - resource version/lifetime và submission-safe memory;
 - surface/MSAA/resolve/readback/profiling primitives;
 - capability policy và baseline compile/test evidence.
+- mọi resource registration nội bộ đi qua descriptor contract; raw insertion API
+  đã bị xóa khỏi `ResourceRegistry`.
 
 ## Chưa đạt
 
-- raw registry insertion đã bị loại khỏi core; resource registration hiện đi qua
-  descriptor contract;
 - draw/compute/copy encoder ở flat-plan, segmented, legacy `compile_graph` và
   render-bundle path đã trả typed error;
-- docs migration/status còn stale;
+- migration/status docs đã được đồng bộ với cleanup hiện tại;
 - pipeline layout mới là host metadata, chưa có shader reflection;
 - capability/format matrix và runtime matrix đa platform chưa đủ evidence;
 - extension boundary cho custom graph operation đã có registry, context, validation
