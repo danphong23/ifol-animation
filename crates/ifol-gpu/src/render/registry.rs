@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use thiserror::Error;
-use crate::render::handle::{BindGroupHandle, MeshHandle, PipelineHandle, TextureHandle};
+use crate::render::handle::{BindGroupHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle};
 
 type ResourceVersion = u64;
 
@@ -63,6 +63,7 @@ impl TextureResourceDescriptor {
 struct ResourceVersions {
     textures: HashMap<TextureHandle, ResourceVersion>,
     pipelines: HashMap<PipelineHandle, ResourceVersion>,
+    compute_pipelines: HashMap<ComputePipelineHandle, ResourceVersion>,
     meshes: HashMap<MeshHandle, ResourceVersion>,
     bind_groups: HashMap<BindGroupHandle, ResourceVersion>,
 }
@@ -72,6 +73,7 @@ struct ResourceVersions {
 pub struct ResourceRegistry {
     pub textures: HashMap<TextureHandle, (wgpu::TextureView, wgpu::TextureFormat)>,
     pub pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
+    pub compute_pipelines: HashMap<ComputePipelineHandle, wgpu::ComputePipeline>,
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
     pub meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>, 
     pub bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
@@ -146,6 +148,28 @@ impl ResourceRegistry {
 
     pub fn mark_pipeline_changed(&mut self, handle: PipelineHandle) {
         self.bump_pipeline_version(handle);
+    }
+
+    pub fn insert_compute_pipeline(
+        &mut self,
+        handle: ComputePipelineHandle,
+        pipeline: wgpu::ComputePipeline,
+    ) -> Option<wgpu::ComputePipeline> {
+        let old = self.compute_pipelines.insert(handle, pipeline);
+        Self::bump_version(&mut self.versions.compute_pipelines, handle);
+        old
+    }
+
+    pub fn compute_pipeline(&self, handle: &ComputePipelineHandle) -> Option<&wgpu::ComputePipeline> {
+        self.compute_pipelines.get(handle)
+    }
+
+    pub fn compute_pipeline_version(&self, handle: &ComputePipelineHandle) -> ResourceVersion {
+        self.versions.compute_pipelines.get(handle).copied().unwrap_or(0)
+    }
+
+    pub fn mark_compute_pipeline_changed(&mut self, handle: ComputePipelineHandle) {
+        Self::bump_version(&mut self.versions.compute_pipelines, handle);
     }
 
     pub fn mesh_version(&self, handle: &MeshHandle) -> ResourceVersion {
@@ -240,6 +264,16 @@ mod tests {
         assert_eq!(registry.pipeline_version(&PipelineHandle(1)), 1);
         assert_eq!(registry.texture_version(&TextureHandle(2)), 0);
         assert_eq!(registry.pipeline_version(&PipelineHandle(2)), 0);
+    }
+
+    #[test]
+    fn compute_pipeline_versions_are_independent_from_render_pipelines() {
+        let mut registry = ResourceRegistry::new();
+        registry.mark_pipeline_changed(PipelineHandle(1));
+        registry.mark_compute_pipeline_changed(ComputePipelineHandle(1));
+
+        assert_eq!(registry.pipeline_version(&PipelineHandle(1)), 1);
+        assert_eq!(registry.compute_pipeline_version(&ComputePipelineHandle(1)), 1);
     }
 
     fn valid_descriptor() -> TextureResourceDescriptor {

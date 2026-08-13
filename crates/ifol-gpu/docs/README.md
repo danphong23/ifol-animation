@@ -32,6 +32,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 24. [Readback theo format](23-readback-format-api.md)
 25. [Bundle cache key](24-bundle-cache-key.md)
 26. [Texture descriptor validation](25-texture-descriptor-validation.md)
+27. [Compute pipeline namespace](26-compute-pipeline-namespace.md)
 
 ## Từ vựng trạng thái
 
