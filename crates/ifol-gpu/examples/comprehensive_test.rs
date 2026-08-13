@@ -5,7 +5,7 @@ use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{
-    BindGroupHandle, BindGroupResourceDescriptor, MeshHandle, PipelineHandle, PipelineLayoutResourceDescriptor,
+    BindGroupHandle, BindGroupResourceDescriptor, MeshHandle, MeshResourceDescriptor, PipelineHandle, PipelineLayoutResourceDescriptor,
     ResourceRegistry, TextureHandle, TextureResourceDescriptor,
 };
 
@@ -523,7 +523,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
         PipelineHandle(1), pipeline,
         PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() },
     );
-    registry.insert_mesh(
+    registry.insert_mesh_with_descriptor(
         MeshHandle(1),
         (
             engine.device().create_buffer(&wgpu::BufferDescriptor {
@@ -535,8 +535,14 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
             None,
             3,
         ),
-    );
-    registry.insert_mesh(
+        MeshResourceDescriptor {
+            vertex_buffer_size: 4,
+            vertex_count: 3,
+            index_buffer_size: None,
+            index_format: None,
+        },
+    ).unwrap();
+    registry.insert_mesh_with_descriptor(
         MeshHandle(2),
         (
             engine.device().create_buffer(&wgpu::BufferDescriptor {
@@ -548,7 +554,13 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
             None,
             3,
         ),
-    );
+        MeshResourceDescriptor {
+            vertex_buffer_size: 4,
+            vertex_count: 3,
+            index_buffer_size: None,
+            index_format: None,
+        },
+    ).unwrap();
 
     registry.remove_mesh(&MeshHandle(2));
 

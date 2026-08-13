@@ -23,6 +23,44 @@ pub struct BufferResourceDescriptor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MeshResourceDescriptor {
+    pub vertex_buffer_size: u64,
+    pub vertex_count: u32,
+    pub index_buffer_size: Option<u64>,
+    pub index_format: Option<wgpu::IndexFormat>,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum MeshDescriptorError {
+    #[error("mesh vertex buffer size must be non-zero")]
+    InvalidVertexBufferSize,
+    #[error("mesh vertex count must be non-zero")]
+    InvalidVertexCount,
+    #[error("mesh index buffer size must be non-zero when present")]
+    InvalidIndexBufferSize,
+    #[error("mesh index format requires an index buffer")]
+    IndexFormatWithoutBuffer,
+}
+
+impl MeshResourceDescriptor {
+    pub fn validate(&self) -> Result<(), MeshDescriptorError> {
+        if self.vertex_buffer_size == 0 {
+            return Err(MeshDescriptorError::InvalidVertexBufferSize);
+        }
+        if self.vertex_count == 0 {
+            return Err(MeshDescriptorError::InvalidVertexCount);
+        }
+        if self.index_buffer_size == Some(0) {
+            return Err(MeshDescriptorError::InvalidIndexBufferSize);
+        }
+        if self.index_format.is_some() && self.index_buffer_size.is_none() {
+            return Err(MeshDescriptorError::IndexFormatWithoutBuffer);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BindGroupResourceDescriptor {
     pub dynamic_offset_count: u32,
     pub dynamic_offset_alignment: u32,
@@ -165,6 +203,7 @@ pub struct ResourceRegistry {
     buffers: HashMap<BufferHandle, wgpu::Buffer>,
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
     meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
+    mesh_descriptors: HashMap<MeshHandle, MeshResourceDescriptor>,
     bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
     bind_group_descriptors: HashMap<BindGroupHandle, BindGroupResourceDescriptor>,
     buffer_descriptors: HashMap<BufferHandle, BufferResourceDescriptor>,
@@ -390,8 +429,26 @@ impl ResourceRegistry {
         mesh: (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32),
     ) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
         let old = self.meshes.insert(handle, mesh);
+        self.mesh_descriptors.remove(&handle);
         Self::bump_version(&mut self.versions.meshes, handle);
         old
+    }
+
+    pub fn insert_mesh_with_descriptor(
+        &mut self,
+        handle: MeshHandle,
+        mesh: (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32),
+        descriptor: MeshResourceDescriptor,
+    ) -> Result<Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>, MeshDescriptorError> {
+        descriptor.validate()?;
+        let old = self.meshes.insert(handle, mesh);
+        self.mesh_descriptors.insert(handle, descriptor);
+        Self::bump_version(&mut self.versions.meshes, handle);
+        Ok(old)
+    }
+
+    pub fn mesh_descriptor(&self, handle: &MeshHandle) -> Option<&MeshResourceDescriptor> {
+        self.mesh_descriptors.get(handle)
     }
 
     pub fn bind_group(&self, handle: &BindGroupHandle) -> Option<&wgpu::BindGroup> {
@@ -491,6 +548,7 @@ impl ResourceRegistry {
 
     pub fn remove_mesh(&mut self, handle: &MeshHandle) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
         let old = self.meshes.remove(handle);
+        self.mesh_descriptors.remove(handle);
         if old.is_some() {
             Self::bump_version(&mut self.versions.meshes, *handle);
         }
@@ -578,6 +636,30 @@ mod tests {
         assert_eq!(BufferResourceDescriptor { size: 0, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Err(BufferDescriptorError::InvalidSize));
         assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::empty() }.validate(), Err(BufferDescriptorError::EmptyUsage));
         assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Ok(()));
+    }
+
+    #[test]
+    fn mesh_descriptor_rejects_inconsistent_metadata() {
+        assert_eq!(
+            MeshResourceDescriptor { vertex_buffer_size: 0, vertex_count: 3, index_buffer_size: None, index_format: None }.validate(),
+            Err(MeshDescriptorError::InvalidVertexBufferSize)
+        );
+        assert_eq!(
+            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 0, index_buffer_size: None, index_format: None }.validate(),
+            Err(MeshDescriptorError::InvalidVertexCount)
+        );
+        assert_eq!(
+            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 3, index_buffer_size: Some(0), index_format: Some(wgpu::IndexFormat::Uint16) }.validate(),
+            Err(MeshDescriptorError::InvalidIndexBufferSize)
+        );
+        assert_eq!(
+            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 3, index_buffer_size: None, index_format: Some(wgpu::IndexFormat::Uint16) }.validate(),
+            Err(MeshDescriptorError::IndexFormatWithoutBuffer)
+        );
+        assert_eq!(
+            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 3, index_buffer_size: Some(6), index_format: Some(wgpu::IndexFormat::Uint16) }.validate(),
+            Ok(())
+        );
     }
 
     #[test]

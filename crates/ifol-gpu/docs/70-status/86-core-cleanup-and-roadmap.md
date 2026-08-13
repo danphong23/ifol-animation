@@ -131,3 +131,9 @@ examples lớn và benchmark.
 executor hiện chủ động trả `UnsupportedExtension` cho node chưa có dispatch.
 Mọi draw/compute/copy encoder hiện fail-closed khi thiếu pipeline, bind group,
 mesh, buffer hoặc owned texture; test missing-resource đã được thêm.
+
+Mesh registry cleanup: core đã có `MeshResourceDescriptor` và
+`insert_mesh_with_descriptor`. Descriptor này ghi nhận metadata tối thiểu của
+vertex/index buffer và validate quan hệ giữa index buffer với index format.
+Hai mesh trong fixture garbage-collection đã migrate sang API này; raw mesh
+insertion không còn là phần bắt buộc của fixture đó.
