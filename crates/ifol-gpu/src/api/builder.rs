@@ -1,6 +1,6 @@
 use thiserror::Error;
 use wgpu::{Backends, DeviceDescriptor, Features, InstanceDescriptor, Limits, MemoryHints, PowerPreference, RequestAdapterOptions};
-use crate::api::capabilities::GpuCapabilities;
+use crate::backend::capabilities::GpuCapabilities;
 
 
 #[derive(Error, Debug)]
@@ -12,7 +12,7 @@ pub enum GpuError {
     #[error("Failed to request device: {0}")]
     DeviceRequestFailed(#[from] wgpu::RequestDeviceError),
     #[error("GPU adapter does not satisfy requested capabilities: {0}")]
-    InsufficientCapabilities(#[from] crate::api::capabilities::CapabilityError),
+    InsufficientCapabilities(#[from] crate::backend::capabilities::CapabilityError),
     #[error("selected adapter cannot configure the provided surface")]
     SurfaceUnsupported,
 }

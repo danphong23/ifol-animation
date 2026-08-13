@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use thiserror::Error;
-use crate::api::capabilities::GpuCapabilities;
+use crate::backend::capabilities::GpuCapabilities;
 
 pub struct GpuEngine<'a> {
     device: Arc<wgpu::Device>,

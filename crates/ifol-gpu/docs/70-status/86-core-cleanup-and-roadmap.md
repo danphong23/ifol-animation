@@ -73,3 +73,7 @@ path chỉ vì đổi thư mục nội bộ.
 
 Engine bên ngoài chỉ phụ thuộc public facade và revision/tag ổn định. Breaking
 change phải có migration note và test contract.
+- Capability snapshot đã được tách vật lý vào `src/backend/capabilities.rs`.
+  `src/api/` tiếp tục re-export type này để giữ public path tương thích. Đây là
+  bước đầu của backend boundary; builder/engine và surface policy vẫn là task
+  migration riêng.

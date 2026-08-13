@@ -2,6 +2,11 @@
 
 ## Abstraction backend
 
+Trong source, các capability lấy từ adapter/device thuộc module
+`src/backend/`. `src/api/` chỉ là lớp API host và re-export capability để giữ
+tương thích. Không đưa graph semantic, window event loop hoặc domain engine
+vào `backend`.
+
 `wgpu` là lớp portability. `ifol-gpu` không được giả định một native backend, channel order, surface format hay cơ chế presentation cụ thể.
 
 Builder phải cho phép chọn backend rõ ràng và thực sự sử dụng lựa chọn đó khi tạo `wgpu::Instance`. Một field cấu hình không được dùng trong quá trình tạo instance là lỗi correctness.
