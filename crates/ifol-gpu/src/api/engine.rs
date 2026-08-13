@@ -61,12 +61,22 @@ impl<'a> GpuEngine<'a> {
 
     /// Đọc toàn bộ byte của một Texture (2D) từ VRAM về CPU. Dùng để xuất file ảnh (PNG/JPEG) 
     /// phục vụ Automated Snapshot Testing hoặc kết xuất video (Offline Rendering).
-    /// Hỗ trợ format `Rgba8UnormSrgb` (hoặc các format 4 byte/pixel tương tự).
+    /// API legacy giả định `Rgba8UnormSrgb`.
     pub fn read_texture_to_bytes(&self, texture: &wgpu::Texture) -> Result<(Vec<u8>, u32, u32), &'static str> {
+        self.read_texture_to_bytes_with_format(texture, wgpu::TextureFormat::Rgba8UnormSrgb)
+    }
+
+    /// Readback theo format thật của texture. Core không tự đoán channel count
+    /// từ texture handle vì `wgpu::Texture` không expose descriptor sau khi tạo.
+    pub fn read_texture_to_bytes_with_format(
+        &self,
+        texture: &wgpu::Texture,
+        format: wgpu::TextureFormat,
+    ) -> Result<(Vec<u8>, u32, u32), &'static str> {
         let width = texture.size().width;
         let height = texture.size().height;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-        let bytes_per_pixel = 4;
+        let bytes_per_pixel = texture_format_bytes_per_pixel(format).ok_or("Unsupported texture format for readback")?;
         let unpadded_bytes = width * bytes_per_pixel;
         let padded_bytes = (unpadded_bytes + align - 1) & !(align - 1);
         
@@ -131,5 +141,42 @@ impl<'a> GpuEngine<'a> {
             return Err("Failed to save image to disk");
         }
         Ok(())
+    }
+}
+
+fn texture_format_bytes_per_pixel(format: wgpu::TextureFormat) -> Option<u32> {
+    match format {
+        wgpu::TextureFormat::R8Unorm | wgpu::TextureFormat::R8Snorm |
+        wgpu::TextureFormat::R8Uint | wgpu::TextureFormat::R8Sint => Some(1),
+        wgpu::TextureFormat::R16Uint | wgpu::TextureFormat::R16Sint |
+        wgpu::TextureFormat::R16Float => Some(2),
+        wgpu::TextureFormat::Rg8Unorm | wgpu::TextureFormat::Rg8Snorm |
+        wgpu::TextureFormat::Rg8Uint | wgpu::TextureFormat::Rg8Sint |
+        wgpu::TextureFormat::R32Uint | wgpu::TextureFormat::R32Sint |
+        wgpu::TextureFormat::R32Float | wgpu::TextureFormat::Rgba8Unorm |
+        wgpu::TextureFormat::Rgba8UnormSrgb | wgpu::TextureFormat::Rgba8Snorm |
+        wgpu::TextureFormat::Rgba8Uint | wgpu::TextureFormat::Rgba8Sint |
+        wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => Some(4),
+        wgpu::TextureFormat::Rg16Uint | wgpu::TextureFormat::Rg16Sint |
+        wgpu::TextureFormat::Rg16Float | wgpu::TextureFormat::Rgba16Uint |
+        wgpu::TextureFormat::Rgba16Sint | wgpu::TextureFormat::Rgba16Float |
+        wgpu::TextureFormat::Rg32Uint | wgpu::TextureFormat::Rg32Sint |
+        wgpu::TextureFormat::Rg32Float => Some(8),
+        wgpu::TextureFormat::Rgba32Uint | wgpu::TextureFormat::Rgba32Sint |
+        wgpu::TextureFormat::Rgba32Float => Some(16),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::texture_format_bytes_per_pixel;
+
+    #[test]
+    fn readback_format_width_is_explicit() {
+        assert_eq!(texture_format_bytes_per_pixel(wgpu::TextureFormat::R8Unorm), Some(1));
+        assert_eq!(texture_format_bytes_per_pixel(wgpu::TextureFormat::Rgba8UnormSrgb), Some(4));
+        assert_eq!(texture_format_bytes_per_pixel(wgpu::TextureFormat::Rgba16Float), Some(8));
+        assert_eq!(texture_format_bytes_per_pixel(wgpu::TextureFormat::Depth32Float), None);
     }
 }
