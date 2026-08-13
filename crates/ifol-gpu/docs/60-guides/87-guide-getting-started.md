@@ -20,9 +20,20 @@ validation và cache.
 create wgpu resource → insert_*_with_descriptor → giữ handle → graph tham chiếu
 ```
 
+Các API resource chính là:
+
+- texture view: `insert_texture_with_descriptor`;
+- texture có ownership/lifetime cho copy hoặc resolve: `insert_owned_texture`;
+- buffer: `insert_buffer_with_descriptor`;
+- render/compute pipeline: API `*_with_layout_descriptor` tương ứng;
+- bind group: `insert_bind_group_with_descriptor`;
+- mesh: `insert_mesh_with_descriptor`.
+
+Raw insertion không còn là API của core; mọi resource phải đi kèm metadata cần
+cho validation và cache invalidation.
+
 ## Xây và chạy graph
 
 ```text
 RenderGraph → add node/pass → declare usage/dependency → execute_checked
 ```
-

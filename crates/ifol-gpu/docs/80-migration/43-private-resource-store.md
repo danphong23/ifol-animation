@@ -6,7 +6,7 @@ ownership bookkeeping.
 
 Public contract hiện gồm:
 
-- `insert_*`/`remove_*` cho mutation;
+- API `insert_*_with_descriptor`/owned-resource và `remove_*` cho mutation;
 - getter và `contains_*` cho lookup;
 - `*_version`/`mark_*_changed` cho cache invalidation;
 - descriptor/owned-resource API cho validation và lifetime.
