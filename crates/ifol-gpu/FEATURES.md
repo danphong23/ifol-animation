@@ -1,140 +1,75 @@
-# ifol-gpu Feature Matrix
+# Trạng thái tính năng IFOL GPU
 
-Tài liệu này theo dõi các tính năng hiện có của lõi GPU, được cập nhật liên tục bởi AI Agent theo **Feature Tracking Rule**. Các module bên ngoài có thể tham chiếu tài liệu này để biết lõi GPU đang có năng lực gì.
+Đây là bảng trạng thái, không phải tài liệu đặc tả kiến trúc. Thiết kế chính thức nằm trong [`docs/README.md`](docs/README.md).
 
-## 1. Khởi Tạo Engine (Initialization) - Đã hoàn thành
-- `[x]` **Headless Builder (`GpuEngineBuilder`)**: Hỗ trợ khởi tạo hệ thống GPU mù lòa (không cần Window). Cho phép yêu cầu Backend cụ thể (Vulkan/Metal/DX12/WebGPU).
-- `[x]` **Fallback Mechanism**: Tự động lùi về chuẩn đồ họa thấp hơn nếu cấu hình cao hơn không được phần cứng hỗ trợ.
-- `[x]` **Hardware Capabilities Scanning (`GpuCapabilities`)**: Bọc lại `wgpu::Limits` thành cấu trúc an toàn. Lấy ra được các cực trị phần cứng (`max_texture_dimension_2d`, `max_bind_groups`, `min_uniform_buffer_offset_alignment`).
+## Chú thích trạng thái
 
-## 2. Quản Lý Đồ Thị Render (Arena Pattern & 2-Phase Render Graph) - Đã hoàn thành
-- `[x]` **Resource & Node Handles** (`TextureHandle`, `PipelineHandle`, `MeshHandle`, `BindGroupHandle`, `BufferHandle`, `RenderNodeId`): Đóng gói con trỏ tài nguyên và Node thành ID nguyên thủy (u64) nhằm tối ưu bộ nhớ và bảo đảm tính an toàn khi truyền qua Command Bus / ECS.
-- `[x]` **Arena Node Pool (`RenderNodePool`)**: Quản lý tập trung toàn bộ `RenderNode` trong Arena HashMap, hỗ trợ $O(1)$ lookup, cờ `is_dirty`, và cho phép multi-viewport chia sẻ chung Node.
-- `[x]` **Target-Agnostic Single Shader Architecture**: Shader đọc từ `@binding(N)` và nhả ra `@location(0)`, hoàn toàn mù quáng về nguồn gốc Texture và Target đích đến.
-- `[x]` **DrawAction Enum (`Indexed` & `Procedural`)**: Phân tách rạch ròi hành động vẽ theo Mesh trong VRAM hoặc vẽ Procedural Fullscreen Quad bằng Vertex Shader mà không bị hard-code.
-- `[x]` **DrawCommand Struct**: Đóng gói `pipeline`, `bind_groups` (slot, handle, dynamic_offsets cho Ring Buffer) và `action`.
-- `[x]` **SubGraph & DrawBatch (`RenderNode`)**: Hỗ trợ đồ thị đệ quy (Cây lồng nhau) phục vụ cho Pre-comp, Grouping, Group Alpha/Blur như After Effects.
-- `[x]` **3D-Ready RenderGraph**: Tích hợp `depth_stencil: Option<TextureHandle>` và `clear_color` trực tiếp ở cấp Graph, sẵn sàng cho Z-Buffer 3D và 2.5D hybrid rendering.
-- `[x]` **2-Phase Compiler (1 Graph = 1 RenderPass)**:
-  - **Phase 1 (Bottom-Up)**: Đệ quy xử lý SubGraph con ra Offscreen Texture trước khi mở RenderPass cha.
-  - **Phase 2 (Top-Level)**: Mở 1 `wgpu::RenderPass` duy nhất cho Target hiện tại, phát tất cả `RenderBundle` (`execute_bundles`).
-- `[x]` **Surface View Binding (`execute_with_surface`)**: Cho phép render trực tiếp ra cửa sổ `winit` thông qua `RenderTarget::Screen`.
+- **Prototype đã implement**: đã có và được chạy trong crate hiện tại;
+- **Một phần**: đã có nhưng chưa an toàn production hoặc chưa hoàn chỉnh;
+- **Đã lên kế hoạch**: mục tiêu thiết kế, chưa implement;
+- **Ngoài phạm vi**: thuộc crate cấp cao hơn.
 
-## 3. Quản Lý Bộ Nhớ & Performance - Đã hoàn thành
-- `[x]` **Uniform Ring Buffer**: Cấp phát động dữ liệu Uniform với cơ chế quay vòng. Tự động tính toán Padding theo giới hạn căn lề chuẩn của phần cứng (`min_uniform_buffer_offset_alignment`).
-- `[x]` **RenderBundle Caching (per-Batch Chunking)**: Lưu `wgpu::RenderBundle` trong RenderNode. Transform Animation KHÔNG làm dirty bundle nhờ Dynamic Offset.
-- `[x]` **Resource Registry (`IndexFormat` 3D/2D)**: Ánh xạ linh hoạt từ Handle siêu nhẹ ra các thực thể VRAM thực thụ. Mesh hỗ trợ cả `IndexFormat::Uint16` lẫn `Uint32`.
-- `[x]` **Texture Utility**: Hàm đọc ảnh từ VRAM về RAM (`save_texture_to_file`) hỗ trợ chụp ảnh màn hình và Snapshot Testing.
+## Backend và device
 
----
+| Khả năng | Trạng thái | Ghi chú |
+|---|---|---|
+| Khởi tạo `wgpu` device/queue | Prototype đã implement | Đã có headless initialization. |
+| Adapter capability snapshot | Một phần | Cần feature negotiation và capability model đầy đủ hơn. |
+| Chọn backend rõ ràng | Một phần | Builder lưu cấu hình nhưng instance creation phải thực sự dùng nó. |
+| Cấu hình required feature/limit | Một phần | Field nội bộ có nhưng public builder API chưa đủ. |
+| Surface/presentation integration | Một phần | Cần thiết kế lại lifecycle và format handling. |
+| Ma trận Windows/macOS/Linux/Web/mobile | Đã lên kế hoạch | Có nền tảng `wgpu`, chưa có platform validation đầy đủ. |
 
-## Hướng Dẫn Sử Dụng (Usage Examples)
+## Resource và memory
 
-### 1. Khởi Tạo Engine (Headless)
+| Khả năng | Trạng thái | Ghi chú |
+|---|---|---|
+| Texture/pipeline/mesh/bind-group handle | Prototype đã implement | Handle số đơn giản; generational handle là kế hoạch. |
+| Resource registry | Một phần | Raw map public phù hợp thử nghiệm, chưa phải API cuối. |
+| Uniform ring buffer | Một phần | Alignment hoạt động; thiếu synchronization với GPU in-flight. |
+| Texture pool/cache | Một phần | Chỉ là exact-match free-list, chưa phải LRU hay VRAM eviction. |
+| Transient resource allocator | Đã lên kế hoạch | Cần graph lifetime analysis và submission tracking. |
+| Structured resource error | Đã lên kế hoạch | API hiện còn string error và silent skip. |
 
-```rust
-use ifol_gpu::api::GpuEngineBuilder;
+## Graph và execution
 
-async fn init_gpu() {
-    let engine = GpuEngineBuilder::new()
-        .build()
-        .await
-        .expect("Lỗi: Không tìm thấy Card đồ họa tương thích!");
+| Khả năng | Trạng thái | Ghi chú |
+|---|---|---|
+| Ordered render graph | Prototype đã implement | Graph hiện là ordered node list có nesting. |
+| Indexed/procedural draw | Prototype đã implement | Map tới draw call cơ bản của `wgpu`. |
+| Offscreen target | Prototype đã implement | Cần validate descriptor thật sự. |
+| Depth attachment | Prototype đã implement | MSAA/stencil/resolve model rộng hơn là kế hoạch. |
+| Render bundle cache | Một phần | Context key và dynamic-data invalidation chưa đầy đủ. |
+| Dependency-aware graph compiler | Đã lên kế hoạch | Cần cho multi-pass, compute và transient resource. |
+| Compute pass | Đã lên kế hoạch | Phải dùng chung resource/dependency model với render pass. |
+| Copy/resolve/mipmap pass | Đã lên kế hoạch | Cần cho GPU work composition đầy đủ. |
+| Indirect draw/dispatch | Đã lên kế hoạch | Phụ thuộc capability. |
+| Nhiều submission trong một frame | Policy đã lên kế hoạch | API không được bắt buộc single submission. |
 
-    let caps = engine.capabilities();
-    println!("Max Texture Size hỗ trợ: {}", caps.max_texture_dimension_2d);
-}
-```
+## Validation và testing
 
-### 2. Xây Dựng & Thực Thi Render Graph Với `RenderNodePool` (Arena Pattern)
+| Khả năng | Trạng thái | Ghi chú |
+|---|---|---|
+| Unit test cơ bản | Prototype đã implement | Coverage hiện còn nhỏ. |
+| Headless/device integration test | Một phần | Phụ thuộc môi trường. |
+| Visual snapshot example | Prototype đã implement | Examples chưa phải test suite authoritative sạch. |
+| Cross-backend test matrix | Đã lên kế hoạch | Cần cho portability claim. |
+| Structured validation diagnostic | Đã lên kế hoạch | Phải thay silent missing-resource skip. |
+| Tách benchmark theo từng giai đoạn | Một phần | Benchmark hiện trộn encoding, submission và GPU wait. |
 
-```rust
-use ifol_gpu::render::{
-    RenderGraph, RenderNodePool, RenderTarget, ResourceRegistry,
-    TextureHandle, PipelineHandle, MeshHandle, BindGroupHandle,
-    DrawCommand, DrawAction, RenderGraphExecutor,
-};
+## Ngoài phạm vi
 
-fn render_frame(engine: &ifol_gpu::api::GpuEngine) {
-    let executor = RenderGraphExecutor::new();
-    let mut registry = ResourceRegistry::new();
-    let mut pool = RenderNodePool::new();
+- ECS và scene management;
+- animation và timeline system;
+- asset import, video decode và project file;
+- UI/editor/MCP command bus;
+- gameplay, physics, audio và domain-specific fallback.
 
-    // 1. Đăng ký tài nguyên VRAM vào Registry
-    // registry.textures.insert(TextureHandle(1), offscreen_view);
-    // registry.pipelines.insert(PipelineHandle(10), blur_pipeline);
+## Milestone core tiếp theo
 
-    // 2. Tạo SubGraph con (vẽ nhân vật ra Offscreen Texture 1024x1024)
-    let mut char_subgraph = RenderGraph::new(RenderTarget::Offscreen {
-        color: TextureHandle(1),
-        width: 1024,
-        height: 1024,
-    })
-    .with_clear_color([0.0, 0.0, 0.0, 0.0]);
-
-    // Thêm các lệnh vẽ bộ phận nhân vật (Tay, Chân, Đầu) vào Pool
-    char_subgraph.add_batch(
-        &mut pool,
-        vec![
-            DrawCommand::new(
-                PipelineHandle(1),
-                DrawAction::Indexed {
-                    mesh: MeshHandle(100),
-                    index_range: 0..36,
-                    instance_range: 0..1,
-                },
-            ),
-        ],
-    );
-
-    // 3. Tạo RootGraph chính (Target: Screen) với Z-Buffer cho 3D
-    let mut root_graph = RenderGraph::new(RenderTarget::Screen)
-        .with_clear_color([0.1, 0.1, 0.1, 1.0])
-        .with_depth_stencil(TextureHandle(2));
-
-    // Nhét SubGraph "CharPass" vào RootGraph qua Pool, kèm DrawCommand áp Blur
-    root_graph.add_subgraph(
-        &mut pool,
-        "CharPass",
-        char_subgraph,
-        vec![
-            DrawCommand::new(
-                PipelineHandle(10), // Blur pipeline
-                DrawAction::Procedural {
-                    vertex_count: 6, // 2 triangles for Fullscreen Quad
-                    instance_range: 0..1,
-                },
-            )
-            .with_bind_group(0, BindGroupHandle(1), vec![]), // Bind texture offscreen (TextureHandle 1)
-        ],
-    );
-
-    // 4. Biên dịch 2-Phase (1 Pass per Graph) và nộp xuống GPU 1 lần duy nhất
-    let idx = executor.execute(&engine, &registry, &mut pool, &root_graph);
-    let _ = engine.device().poll(wgpu::PollType::Wait {
-        submission_index: Some(idx),
-        timeout: None,
-    });
-}
-```
-
-### 3. Cấp Phát Động Uniform Data (Ring Buffer)
-
-```rust
-use ifol_gpu::memory::UniformRingBuffer;
-
-fn update_uniforms(engine: &ifol_gpu::api::GpuEngine) {
-    let alignment = engine.capabilities().min_uniform_buffer_offset_alignment;
-    let mut ring = UniformRingBuffer::new(engine.device(), 1024 * 1024, alignment);
-
-    let my_matrix_data = [1.0f32; 16]; 
-    let offset = ring.write(engine.queue(), &my_matrix_data).unwrap();
-
-    // Truyền offset này vào DrawCommand để GPU đọc đúng vị trí
-    let _cmd = DrawCommand::new(
-        PipelineHandle(1),
-        DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 },
-    )
-    .with_bind_group(0, BindGroupHandle(1), vec![offset]);
-}
-```
+1. Chốt public contract cho resource/handle/error.
+2. Sửa backend selection và surface format handling.
+3. Làm frame memory và resource reuse an toàn theo submission.
+4. Tách logical graph khỏi compiled/cache state.
+5. Thiết kế dependency-aware render/compute/copy graph.
+6. Sửa toàn bộ example và thiết lập integration-test baseline đáng tin cậy.
