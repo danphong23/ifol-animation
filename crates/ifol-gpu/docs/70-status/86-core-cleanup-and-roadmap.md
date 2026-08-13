@@ -116,6 +116,8 @@ vẫn dùng API hiện tại vì core chưa định nghĩa descriptor/usage cont
 cho mesh.
 Fixture complex-frame và multi-graph-cache cũng đã chuyển texture target và
 pipeline sang descriptor API.
+Fixture nested-graph compositing đã chuyển hai texture target, hai pipeline và
+bind group composite sang descriptor API.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.

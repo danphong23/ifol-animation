@@ -5,7 +5,7 @@ use ifol_gpu::api::GpuEngineBuilder;
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{
-    BindGroupHandle, MeshHandle, PipelineHandle, PipelineLayoutResourceDescriptor,
+    BindGroupHandle, BindGroupResourceDescriptor, MeshHandle, PipelineHandle, PipelineLayoutResourceDescriptor,
     ResourceRegistry, TextureHandle, TextureResourceDescriptor,
 };
 
@@ -803,12 +803,18 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
     let mut registry = ResourceRegistry::new();
 
     // Target chính (Root Target - Offscreen Texture 1)
-    let (root_view, root_tex) = create_target(engine);
-    registry.insert_texture(TextureHandle(1), (root_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let (_root_view, root_tex) = create_target(engine);
+    let target_descriptor = TextureResourceDescriptor {
+        width: 800, height: 600, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        mip_level_count: 1, sample_count: 1,
+    };
+    registry.insert_owned_texture(TextureHandle(1), root_tex.clone(), target_descriptor, 8192).unwrap();
 
     // Target của SubGraph (Offscreen Texture 2 - 800x600)
-    let (sub_view, _sub_tex) = create_target(engine);
-    registry.insert_texture(TextureHandle(2), (sub_view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let sub_tex = create_target(engine).1;
+    registry.insert_owned_texture(TextureHandle(2), sub_tex, target_descriptor, 8192).unwrap();
 
     // Shader vẽ Tam giác Đỏ trong SubGraph
     let inner_shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -832,7 +838,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
         fragment: Some(wgpu::FragmentState { module: &inner_shader, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: None, write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(1), inner_pipeline);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), inner_pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: Vec::new() });
 
     // Shader Composite ở Graph Cha (Lấy Texture 2 vẽ đè lên Target 1 với hiệu ứng Tint Xanh Lục)
     let composite_shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -876,7 +882,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
         fragment: Some(wgpu::FragmentState { module: &composite_shader, entry_point: Some("fs_main"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::REPLACE), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
         primitive: Default::default(), depth_stencil: None, multisample: Default::default(), multiview_mask: None, cache: None,
     });
-    registry.insert_pipeline(PipelineHandle(2), composite_pipeline);
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(2), composite_pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] });
 
     // BindGroup kết nối TextureHandle(2) (Offscreen của SubGraph) vào Shader Composite của Graph Cha
     let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor::default());
@@ -889,7 +895,9 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
         ],
         label: None,
     });
-    registry.insert_bind_group(BindGroupHandle(1), composite_bg);
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(1), composite_bg, BindGroupResourceDescriptor {
+        dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1,
+    }).unwrap();
 
     // DỰNG ĐỒ THỊ ĐỆ QUY SubGraph
     let mut inner_graph = RenderGraph::new(RenderTarget::Offscreen {
