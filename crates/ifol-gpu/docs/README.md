@@ -78,6 +78,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 71. [Texture copy theo aspect](71-texture-copy-aspect.md)
 72. [Fallback adapter policy](72-fallback-adapter-policy.md)
 73. [Lifecycle profiling có tracker](73-tracked-profiling-lifecycle.md)
+74. [Registry và deferred ownership](74-registry-deferred-ownership.md)
 
 ## Từ vựng trạng thái
 
