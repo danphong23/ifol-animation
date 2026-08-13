@@ -140,10 +140,12 @@ fn bundle_cache_key(
     registry: &ResourceRegistry,
     color_format: wgpu::TextureFormat,
     depth_format: Option<wgpu::TextureFormat>,
+    sample_count: u32,
 ) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     color_format.hash(&mut hasher);
     depth_format.hash(&mut hasher);
+    sample_count.hash(&mut hasher);
     for command in node.commands() {
         command.pipeline.0.hash(&mut hasher);
         registry.pipeline_version(&command.pipeline).hash(&mut hasher);
@@ -632,7 +634,7 @@ fn execute_non_render_nodes(
 
         for &node_id in &node_ids {
             let expected_bundle_key = pool.get(node_id)
-                .map(|node| bundle_cache_key(node, registry, color_format, depth_format));
+                .map(|node| bundle_cache_key(node, registry, color_format, depth_format, sample_count));
             let Some(node) = pool.get_mut(node_id) else { continue; };
             if node.use_bundle() && (node.is_dirty() || node.bundle().is_none() || node.bundle_key() != expected_bundle_key) {
                 let mut bundle_encoder = engine.device().create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
@@ -1528,11 +1530,14 @@ mod tests {
             DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
         )]);
         let mut registry = ResourceRegistry::new();
-        let first = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None);
+        let first = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1);
         registry.mark_pipeline_changed(PipelineHandle(7));
-        let second = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None);
+        let second = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1);
 
         assert_ne!(first, second);
+        let single_sample = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1);
+        let msaa = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 4);
+        assert_ne!(single_sample, msaa);
     }
 
     #[test]
