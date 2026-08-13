@@ -531,6 +531,33 @@ impl RenderGraph {
         self.resource_usages.get(node).map(Vec::as_slice).unwrap_or(&[])
     }
 
+    fn effective_resource_usages(&self, node_id: RenderNodeId, pool: &RenderNodePool) -> Vec<ResourceUsage> {
+        let mut usages = self.resource_usages(&node_id).to_vec();
+        if let Some(node) = pool.get(node_id) {
+            for command in node.copy_commands() {
+                match command {
+                    CopyCommand::BufferToBuffer { source, destination, .. } => {
+                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*source), access: ResourceAccess::Read });
+                        usages.push(ResourceUsage { resource: GraphResource::Buffer(*destination), access: ResourceAccess::Write });
+                    }
+                    CopyCommand::TextureToTexture { source, destination, .. } => {
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*source), access: ResourceAccess::Read });
+                        usages.push(ResourceUsage { resource: GraphResource::Texture(*destination), access: ResourceAccess::Write });
+                    }
+                }
+            }
+            if !node.commands().is_empty() {
+                if let RenderTarget::Offscreen { color, .. } = self.target {
+                    usages.push(ResourceUsage { resource: GraphResource::Texture(color), access: ResourceAccess::Write });
+                }
+                if let Some(depth) = self.depth_stencil {
+                    usages.push(ResourceUsage { resource: GraphResource::Texture(depth), access: ResourceAccess::Write });
+                }
+            }
+        }
+        usages
+    }
+
     /// Trả về thứ tự của các node trực tiếp thuộc graph sau khi áp dụng
     /// dependency. Declaration order là tie-breaker ổn định.
     pub fn ordered_node_ids(&self, pool: &RenderNodePool) -> Result<Vec<RenderNodeId>, GraphFlattenError> {
@@ -564,8 +591,8 @@ impl RenderGraph {
         // node when at least one side writes it.
         for before in 0..self.node_ids.len() {
             for after in (before + 1)..self.node_ids.len() {
-                let before_usages = self.resource_usages(&self.node_ids[before]);
-                let after_usages = self.resource_usages(&self.node_ids[after]);
+                let before_usages = self.effective_resource_usages(self.node_ids[before], pool);
+                let after_usages = self.effective_resource_usages(self.node_ids[after], pool);
                 let conflict = before_usages.iter().any(|left| {
                     after_usages.iter().any(|right| left.resource == right.resource && accesses_conflict(left.access, right.access))
                 });
@@ -693,9 +720,7 @@ impl RenderGraph {
                 return Err(GraphFlattenError::Cycle(node_id));
             }
             let node = pool.get(node_id).ok_or(GraphFlattenError::MissingNode(node_id))?;
-            if let Some(usages) = self.resource_usages.get(&node_id) {
-                usage_map.insert(node_id, usages.clone());
-            }
+            usage_map.insert(node_id, self.effective_resource_usages(node_id, pool));
             let mut path = parent_path.clone();
             path.push(node_id);
             if let RenderNode::SubGraph { graph, .. } = node {
@@ -846,6 +871,19 @@ mod tests {
         graph.declare_resource_usage(reader, GraphResource::Buffer(BufferHandle(1)), ResourceAccess::Read);
 
         assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![writer, reader]);
+    }
+
+    #[test]
+    fn copy_commands_infer_source_read_and_destination_write_hazard() {
+        let mut pool = RenderNodePool::new();
+        let copy = pool.alloc_copy_batch(vec![CopyCommand::buffer_to_buffer(BufferHandle(1), BufferHandle(2), 4)]);
+        let later_read = pool.alloc_compute_batch(vec![]);
+        let mut graph = RenderGraph::new(RenderTarget::Screen);
+        graph.add_node_id(copy);
+        graph.add_node_id(later_read);
+        graph.declare_resource_usage(later_read, GraphResource::Buffer(BufferHandle(2)), ResourceAccess::Read);
+
+        assert_eq!(graph.ordered_node_ids(&pool).unwrap(), vec![copy, later_read]);
     }
 
     #[test]

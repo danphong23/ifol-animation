@@ -53,6 +53,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 45. [Surface lock không panic](44-no-panic-surface-locks.md)
 46. [Khai báo resource usage trong graph](45-graph-resource-usage.md)
 47. [Automatic hazard edges](46-automatic-hazard-edges.md)
+48. [Inferred usage cho pass built-in](47-inferred-pass-usage.md)
 
 ## Từ vựng trạng thái
 
