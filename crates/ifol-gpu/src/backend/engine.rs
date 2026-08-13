@@ -155,28 +155,6 @@ impl<'a> GpuEngine<'a> {
         self.surface_config.read().ok().and_then(|config| config.as_ref().map(|c| c.format))
     }
 
-    /// Đọc toàn bộ byte của một Texture (2D) từ VRAM về CPU. Dùng để xuất file ảnh (PNG/JPEG) 
-    /// phục vụ Automated Snapshot Testing hoặc kết xuất video (Offline Rendering).
-    /// API legacy giả định `Rgba8UnormSrgb`.
-    pub fn read_texture_to_bytes(&self, texture: &wgpu::Texture) -> Result<(Vec<u8>, u32, u32), &'static str> {
-        self.read_texture_to_bytes_with_format(texture, wgpu::TextureFormat::Rgba8UnormSrgb)
-    }
-
-    /// Readback theo format thật của texture. Core không tự đoán channel count
-    /// từ texture handle vì `wgpu::Texture` không expose descriptor sau khi tạo.
-    pub fn begin_texture_readback(
-        &self,
-        texture: &wgpu::Texture,
-        format: wgpu::TextureFormat,
-    ) -> Result<ReadbackTicket, &'static str> {
-        self.begin_texture_readback_checked(texture, format).map_err(|error| match error {
-            ReadbackError::InvalidExtent => "Invalid texture extent for readback",
-            ReadbackError::UnsupportedFormat(_) => "Unsupported texture format for readback",
-            ReadbackError::ArithmeticOverflow => "Readback layout arithmetic overflowed",
-            ReadbackError::MapFailed | ReadbackError::AccessFailed => "Failed to initialize readback",
-        })
-    }
-
     pub fn begin_texture_readback_checked(
         &self,
         texture: &wgpu::Texture,
@@ -232,44 +210,12 @@ impl<'a> GpuEngine<'a> {
         })
     }
 
-    pub fn read_texture_to_bytes_with_format(
-        &self,
-        texture: &wgpu::Texture,
-        format: wgpu::TextureFormat,
-    ) -> Result<(Vec<u8>, u32, u32), &'static str> {
-        self.read_texture_to_bytes_with_format_checked(texture, format).map_err(|error| match error {
-            ReadbackError::InvalidExtent => "Invalid texture extent for readback",
-            ReadbackError::UnsupportedFormat(_) => "Unsupported texture format for readback",
-            ReadbackError::ArithmeticOverflow => "Readback layout arithmetic overflowed",
-            ReadbackError::MapFailed => "Failed to map buffer for readback",
-            ReadbackError::AccessFailed => "Failed to access mapped readback buffer",
-        })
-    }
-
     pub fn read_texture_to_bytes_with_format_checked(
         &self,
         texture: &wgpu::Texture,
         format: wgpu::TextureFormat,
     ) -> Result<(Vec<u8>, u32, u32), ReadbackError> {
         self.begin_texture_readback_checked(texture, format)?.resolve_checked(&self.device)
-    }
-
-    /// Đọc kết quả từ VRAM và lưu trực tiếp ra file ảnh trên ổ cứng.
-    /// Bạn có thể truyền đường dẫn và tên file tùy ý. Đuôi file (.png, .jpg) sẽ tự định dạng loại ảnh.
-    pub fn save_texture_to_file<P: AsRef<std::path::Path>>(&self, texture: &wgpu::Texture, path: P) -> Result<(), &'static str> {
-        let (pixels, width, height) = self.read_texture_to_bytes(texture)?;
-        
-        // Đảm bảo thư mục tồn tại trước khi lưu
-        if let Some(parent) = path.as_ref().parent() {
-            if !parent.exists() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-        }
-        
-        if image::save_buffer(path, &pixels, width, height, image::ColorType::Rgba8).is_err() {
-            return Err("Failed to save image to disk");
-        }
-        Ok(())
     }
 
     pub fn save_texture_to_file_checked<P: AsRef<std::path::Path>>(
@@ -357,7 +303,7 @@ mod tests {
             texture.size(),
         );
 
-        let ticket = engine.begin_texture_readback(&texture, wgpu::TextureFormat::Rgba8Unorm).unwrap();
+        let ticket = engine.begin_texture_readback_checked(&texture, wgpu::TextureFormat::Rgba8Unorm).unwrap();
         let (pixels, width, height) = ticket.resolve(engine.device()).unwrap();
         assert_eq!((width, height), (1, 1));
         assert_eq!(pixels, vec![1, 2, 3, 4]);

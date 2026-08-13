@@ -2,10 +2,8 @@
 
 ## Contract
 
-Readback có hai lớp API:
-
-- API legacy trả `&'static str` để giữ compatibility;
-- API `_checked` trả `ReadbackError` có cấu trúc.
+Readback chỉ còn API checked trả `ReadbackError` có cấu trúc. Các wrapper trả
+`&'static str` đã bị loại khỏi core để không làm mất nguyên nhân lỗi.
 
 `ReadbackError` phân biệt:
 
@@ -16,8 +14,8 @@ Readback có hai lớp API:
 - `AccessFailed`: mapped range không truy cập được hoặc không đủ dữ liệu.
 
 `ReadbackTicket::resolve_checked` cũng kiểm tra row bounds trước khi copy bytes,
-không panic khi dữ liệu staging không khớp layout kỳ vọng. Wrapper legacy chỉ
-chuyển lỗi typed thành message ổn định.
+không panic khi dữ liệu staging không khớp layout kỳ vọng. Host có thể tự
+chuyển typed error thành message theo policy giao diện của mình.
 
 ## Phạm vi
 

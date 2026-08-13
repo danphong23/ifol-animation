@@ -2250,7 +2250,7 @@ mod tests {
 
         let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
         let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
-        let (actual, width, height) = engine.read_texture_to_bytes_with_format(registry.owned_texture(&TextureHandle(2)).unwrap(), wgpu::TextureFormat::Rgba8Unorm).unwrap();
+        let (actual, width, height) = engine.read_texture_to_bytes_with_format_checked(registry.owned_texture(&TextureHandle(2)).unwrap(), wgpu::TextureFormat::Rgba8Unorm).unwrap();
         assert_eq!((width, height), (2, 2));
         assert_eq!(actual, pixels);
     }
@@ -2327,7 +2327,7 @@ mod tests {
         graph.add_batch(&mut pool, vec![DrawCommand::new(PipelineHandle(1), DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 })]);
         let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
         let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
-        let (pixels, _, _) = engine.read_texture_to_bytes_with_format(registry.owned_texture(&TextureHandle(3)).unwrap(), wgpu::TextureFormat::Rgba8Unorm).unwrap();
+        let (pixels, _, _) = engine.read_texture_to_bytes_with_format_checked(registry.owned_texture(&TextureHandle(3)).unwrap(), wgpu::TextureFormat::Rgba8Unorm).unwrap();
         assert_eq!(&pixels[0..4], &[255, 0, 0, 255]);
     }
 

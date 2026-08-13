@@ -189,7 +189,7 @@ impl<'a> TestHarness<'a> {
     fn save_texture(&self, texture: &wgpu::Texture, filename: &str) {
         let path = std::path::Path::new("examples/outputs").join(filename);
         std::fs::create_dir_all("examples/outputs").unwrap();
-        self.engine.save_texture_to_file(texture, &path).expect("Lỗi lưu ảnh");
+        self.engine.save_texture_to_file_checked(texture, &path).expect("Lỗi lưu ảnh");
         println!("Saved output to {:?}", path);
     }
 

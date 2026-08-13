@@ -8,16 +8,16 @@ bắt buộc host phải chờ ngay sau khi phát lệnh copy.
 
 ## API
 
-`GpuEngine::begin_texture_readback(texture, format)` phát lệnh copy và trả về
+`GpuEngine::begin_texture_readback_checked(texture, format)` phát lệnh copy và trả về
 `ReadbackTicket`. Ticket sở hữu buffer map, submission index, kích thước ảnh,
 bytes-per-pixel và stride đã padding theo `wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`.
 
 Host có thể tiếp tục xây dựng hoặc submit công việc khác, sau đó gọi
-`ReadbackTicket::resolve(device)`. `resolve` chờ submission hoàn tất, nhận kết
+`ReadbackTicket::resolve_checked(device)`. `resolve_checked` chờ submission hoàn tất, nhận kết
 quả map, loại padding từng hàng, unmap buffer và trả `(pixels, width, height)`.
 
-`read_texture_to_bytes_with_format` là wrapper đồng bộ của đúng contract này;
-`read_texture_to_bytes` tiếp tục giữ format mặc định để tương thích API cũ.
+`read_texture_to_bytes_with_format_checked` là wrapper đồng bộ của đúng
+contract này và trả typed `ReadbackError`.
 
 ## Invariant và giới hạn
 
@@ -33,4 +33,3 @@ quả map, loại padding từng hàng, unmap buffer và trả `(pixels, width, 
 Test runtime tạo texture 1×1, ghi dữ liệu, bắt đầu readback bất đồng bộ và xác
 nhận ticket resolve đúng pixel. Test format width tiếp tục bảo vệ bảng kích
 thước byte của các format được hỗ trợ.
-
