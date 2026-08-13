@@ -130,10 +130,6 @@ impl<'a> GpuEngine<'a> {
         self.surface.as_ref()
     }
 
-    pub fn resize_surface(&self, width: u32, height: u32) {
-        let _ = self.try_resize_surface(width, height);
-    }
-
     pub fn try_resize_surface(&self, width: u32, height: u32) -> Result<(), SurfaceResizeError> {
         if width == 0 || height == 0 {
             return Err(SurfaceResizeError::InvalidSize);

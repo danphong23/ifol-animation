@@ -217,7 +217,9 @@ impl<'a> ApplicationHandler for App<'a> {
                             event_loop.exit();
                         }
                         WindowEvent::Resized(physical_size) => {
-                            engine.resize_surface(physical_size.width, physical_size.height);
+                            if let Err(error) = engine.try_resize_surface(physical_size.width, physical_size.height) {
+                                log::warn!("Surface resize failed: {error:?}");
+                            }
                             window.request_redraw();
                         }
                         WindowEvent::RedrawRequested => {
