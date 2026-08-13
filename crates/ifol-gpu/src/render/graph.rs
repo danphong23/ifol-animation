@@ -647,14 +647,16 @@ impl RenderGraph {
         let mut active = Vec::new();
         let mut usage_map = HashMap::new();
         self.flatten_into(pool, &mut plan, &mut active, Vec::new(), &mut usage_map)?;
-        self.apply_dependencies(&mut plan, &usage_map)?;
+        let mut dependencies = Vec::new();
+        self.collect_dependencies(pool, &mut dependencies)?;
+        Self::apply_dependencies(&mut plan, &usage_map, &dependencies)?;
         Ok(plan)
     }
 
     fn apply_dependencies(
-        &self,
         plan: &mut FlatRenderPlan,
         usage_map: &HashMap<RenderNodeId, Vec<ResourceUsage>>,
+        dependencies: &[GraphDependency],
     ) -> Result<(), GraphFlattenError> {
         if plan.nodes.len() < 2 {
             return Ok(());
@@ -669,7 +671,7 @@ impl RenderGraph {
                 indegree[after] += 1;
             }
         };
-        for dependency in &self.dependencies {
+        for dependency in dependencies {
             let Some(&before) = positions.get(&dependency.before) else {
                 return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.before));
             };
@@ -704,6 +706,30 @@ impl RenderGraph {
             }
         }
         plan.nodes = ordered;
+        Ok(())
+    }
+
+    fn collect_dependencies(
+        &self,
+        pool: &RenderNodePool,
+        dependencies: &mut Vec<GraphDependency>,
+    ) -> Result<(), GraphFlattenError> {
+        let node_set: HashSet<_> = self.node_ids.iter().copied().collect();
+        for dependency in &self.dependencies {
+            if !node_set.contains(&dependency.before) {
+                return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.before));
+            }
+            if !node_set.contains(&dependency.after) {
+                return Err(GraphFlattenError::DependencyNodeOutsideGraph(dependency.after));
+            }
+            dependencies.push(*dependency);
+        }
+        for &node_id in &self.node_ids {
+            let node = pool.get(node_id).ok_or(GraphFlattenError::MissingNode(node_id))?;
+            if let RenderNode::SubGraph { graph, .. } = node {
+                graph.collect_dependencies(pool, dependencies)?;
+            }
+        }
         Ok(())
     }
 
@@ -917,5 +943,22 @@ mod tests {
 
         let plan = root.flatten(&pool).unwrap();
         assert_eq!(plan.nodes.iter().map(|node| node.node_id).collect::<Vec<_>>(), vec![nested_writer, subgraph, reader]);
+    }
+
+    #[test]
+    fn flatten_applies_explicit_dependency_inside_nested_graph() {
+        let mut pool = RenderNodePool::new();
+        let first = pool.alloc_batch(vec![]);
+        let second = pool.alloc_batch(vec![]);
+        let mut child = RenderGraph::new(RenderTarget::Screen);
+        child.add_node_id(first);
+        child.add_node_id(second);
+        child.add_dependency(second, first);
+        let subgraph = pool.alloc_subgraph("ordered_child", child, vec![]);
+        let mut root = RenderGraph::new(RenderTarget::Screen);
+        root.add_node_id(subgraph);
+
+        let plan = root.flatten(&pool).unwrap();
+        assert_eq!(plan.nodes.iter().map(|node| node.node_id).collect::<Vec<_>>(), vec![second, first, subgraph]);
     }
 }
