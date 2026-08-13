@@ -282,8 +282,13 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
 fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
-    let (view, tex) = create_target(engine);
-    registry.insert_texture(TextureHandle(1), (view, wgpu::TextureFormat::Rgba8UnormSrgb));
+    let (_view, tex) = create_target(engine);
+    registry.insert_owned_texture(TextureHandle(1), tex.clone(), TextureResourceDescriptor {
+        width: 800, height: 600, depth_or_array_layers: 1,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        mip_level_count: 1, sample_count: 1,
+    }, 8192).unwrap();
 
     let shader = engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -379,8 +384,9 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
         cache: None,
     });
 
-    registry.insert_pipeline(PipelineHandle(1), pipe_alpha);
-    registry.insert_pipeline(PipelineHandle(2), pipe_solid);
+    let pipeline_descriptor = || PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1)] };
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), pipe_alpha, pipeline_descriptor());
+    registry.insert_pipeline_with_layout_descriptor(PipelineHandle(2), pipe_solid, pipeline_descriptor());
 
     for i in 0..4 {
         let offset = [f32::from(i as i16) * 0.5 - 0.75, 0.0_f32];
@@ -397,7 +403,12 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
             }],
             label: None,
         });
-        registry.insert_bind_group(ifol_gpu::resources::BindGroupHandle(i + 1), bg);
+        registry.insert_bind_group_with_descriptor(
+            ifol_gpu::resources::BindGroupHandle(i + 1), bg,
+            ifol_gpu::resources::BindGroupResourceDescriptor {
+                dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1,
+            },
+        ).unwrap();
     }
 
     let mut graph = RenderGraph::new(RenderTarget::Offscreen {

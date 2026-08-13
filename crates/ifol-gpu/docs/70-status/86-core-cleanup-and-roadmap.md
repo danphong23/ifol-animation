@@ -109,6 +109,8 @@ và pipeline sang descriptor API; raw consumer còn lại tập trung ở
 Ba fixture đầu tiên trong `comprehensive_test.rs` (clear color, depth và alpha)
 đã chuyển texture sang owned descriptor API và pipeline sang layout descriptor;
 phần fixture còn lại sẽ tiếp tục migrate theo nhóm test.
+Fixture interleaved đã chuyển thêm uniform bind group, pipeline layout metadata
+và texture target sang descriptor API.
 Các execution fixture cho copy/compute graph cũng đã migrate buffer, pipeline và
 bind group sang descriptor API; raw registry consumer còn lại chủ yếu nằm ở
 examples lớn và benchmark.
