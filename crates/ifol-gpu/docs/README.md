@@ -83,6 +83,7 @@ Thư mục này là nguồn thiết kế chính thức của crate `ifol-gpu`. N
 76. [Bundle cache và sample context](76-bundle-cache-sample-context.md)
 77. [Descriptor-aware dynamic offset validation](77-dynamic-offset-descriptor-validation.md)
 78. [Pipeline-layout signature validation](78-pipeline-layout-signature-validation.md)
+79. [Context-aware bundle cache](79-context-aware-bundle-cache.md)
 
 ## Từ vựng trạng thái
 

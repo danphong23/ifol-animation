@@ -6,7 +6,9 @@ use crate::render::graph::{CopyCommand, DrawAction, GraphResource, RenderGraph, 
 use crate::render::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, RenderNodeId, TextureHandle};
 use crate::render::registry::ResourceRegistry;
 
-pub struct RenderGraphExecutor;
+pub struct RenderGraphExecutor {
+    context_key: u64,
+}
 
 /// Thống kê cấu trúc của một lần thực thi graph.
 ///
@@ -214,11 +216,13 @@ fn bundle_cache_key(
     color_format: wgpu::TextureFormat,
     depth_format: Option<wgpu::TextureFormat>,
     sample_count: u32,
+    context_key: u64,
 ) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     color_format.hash(&mut hasher);
     depth_format.hash(&mut hasher);
     sample_count.hash(&mut hasher);
+    context_key.hash(&mut hasher);
     for command in node.commands() {
         command.pipeline.0.hash(&mut hasher);
         registry.pipeline_version(&command.pipeline).hash(&mut hasher);
@@ -244,7 +248,17 @@ impl Default for RenderGraphExecutor {
 
 impl RenderGraphExecutor {
     pub fn new() -> Self {
-        Self
+        Self { context_key: 0 }
+    }
+
+    /// Gán identity ổn định cho device/viewport mà host đang dùng. Hai context
+    /// khác nhau không được dùng chung bundle dù logical node giống nhau.
+    pub fn with_context_key(context_key: u64) -> Self {
+        Self { context_key }
+    }
+
+    pub fn context_key(&self) -> u64 {
+        self.context_key
     }
 
     /// Kiểm tra graph trước khi tạo command buffer. Đây là API được khuyến nghị
@@ -707,7 +721,7 @@ fn execute_non_render_nodes(
 
         for &node_id in &node_ids {
             let expected_bundle_key = pool.get(node_id)
-                .map(|node| bundle_cache_key(node, registry, color_format, depth_format, sample_count));
+                .map(|node| bundle_cache_key(node, registry, color_format, depth_format, sample_count, self.context_key));
             let Some(node) = pool.get_mut(node_id) else { continue; };
             if node.use_bundle() && (node.is_dirty() || node.bundle().is_none() || node.bundle_key() != expected_bundle_key) {
                 let mut bundle_encoder = engine.device().create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
@@ -1607,14 +1621,17 @@ mod tests {
             DrawAction::Procedural { vertex_count: 3, instance_range: 0..1 },
         )]);
         let mut registry = ResourceRegistry::new();
-        let first = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1);
+        let first = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1, 0);
         registry.mark_pipeline_changed(PipelineHandle(7));
-        let second = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1);
+        let second = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1, 0);
 
         assert_ne!(first, second);
-        let single_sample = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1);
-        let msaa = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 4);
+        let single_sample = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1, 0);
+        let msaa = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 4, 0);
         assert_ne!(single_sample, msaa);
+        let context_a = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1, 11);
+        let context_b = bundle_cache_key(&node, &registry, wgpu::TextureFormat::Rgba8Unorm, None, 1, 22);
+        assert_ne!(context_a, context_b);
     }
 
     #[test]
