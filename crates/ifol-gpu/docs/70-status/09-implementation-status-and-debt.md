@@ -18,8 +18,8 @@ hoạch. Snapshot chi tiết mới nhất nằm ở [audit hiện tại](../70-s
 
 ## Đã có nhưng còn giới hạn
 
-- compatibility registry API có thể thiếu descriptor/ownership nên validation
-  sâu chỉ áp dụng cho resource đăng ký bằng descriptor API;
+- view-only texture không giữ ownership; path cần copy/resolve/lifetime phải
+  dùng owned texture descriptor API;
 - layout signature là metadata do host cấp, chưa phải shader reflection;
 - bundle fast path và segmented path có policy khác nhau; correctness ưu tiên
   validation trước tối ưu;
@@ -36,7 +36,8 @@ hoạch. Snapshot chi tiết mới nhất nằm ở [audit hiện tại](../70-s
 ## Design debt còn lại
 
 - một số examples cũ còn warning hoặc `unwrap` phục vụ assertion;
-- compatibility API cũ cần migrate dần sang descriptor API;
+- các wrapper legacy readback/save vẫn được giữ ở public boundary để tránh
+  phá caller; implementation core mới dùng checked typed-error API;
 - cần tiếp tục audit các nhánh encoder sau validation khi command model mở rộng.
 
 Không rewrite toàn bộ crate. Graph model, handle, resource registry, memory
