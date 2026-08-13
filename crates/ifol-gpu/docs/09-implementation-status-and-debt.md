@@ -38,7 +38,7 @@ Tài liệu này ngăn prototype behavior bị hiểu nhầm là contract đã h
 
 ## Design debt hiện tại
 
-- surface format bị hard-code;
+- surface format hard-code đã được loại bỏ khỏi compiler; lifecycle surface/resize/lost vẫn chưa hoàn chỉnh;
 - state cache bind group cố định bốn slot;
 - ring buffer wrap không đồng bộ với GPU in-flight;
 - raw resource map public;
