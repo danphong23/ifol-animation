@@ -126,3 +126,7 @@ path = "tests/desktop/tc24_distortion_mesh.rs"
 [[test]]
 name = "tc25_desktop"
 path = "tests/desktop/tc25_shadow_rimlight.rs"
+
+[[test]]
+name = "tc26_desktop"
+path = "tests/desktop/tc26_glitch.rs"
