@@ -1,4 +1,7 @@
-# Hướng dẫn nhanh: dùng `ifol-gpu`
+# 1. Bắt đầu nhanh với `ifol-gpu`
+
+Đây là tài liệu đầu tiên trong [public usage guide](README.md). Sau trang này,
+đọc [đăng ký resource](91-guide-resource-registration.md).
 
 ## Khởi tạo engine
 
@@ -37,3 +40,6 @@ cho validation và cache invalidation.
 ```text
 RenderGraph → add node/pass → declare usage/dependency → execute_checked
 ```
+
+Graph không chứa shader semantic hoặc dữ liệu domain; nó chỉ giữ command, handle
+và usage để core sắp xếp, validate rồi execute.

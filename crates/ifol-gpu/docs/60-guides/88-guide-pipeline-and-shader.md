@@ -1,4 +1,7 @@
-# Hướng dẫn: pipeline và shader
+# 3. Pipeline và shader
+
+Đây là phần thứ ba của [public usage guide](README.md). Resource registration
+được mô tả ở [trang trước](91-guide-resource-registration.md).
 
 `ifol-gpu` không biên dịch shader domain và không tự suy luận material. Host
 tạo shader module, bind-group layout, pipeline layout và pipeline bằng `wgpu`.

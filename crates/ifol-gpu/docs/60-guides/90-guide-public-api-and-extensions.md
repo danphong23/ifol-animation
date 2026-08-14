@@ -1,4 +1,7 @@
-# Hướng dẫn: public API và extension boundary
+# 6. Public API và extension boundary
+
+Đây là phần cuối của [public usage guide](README.md). Extension chỉ cần đọc
+sau khi đã nắm resource, graph và execution lifecycle.
 
 ## Contract operation và resource usage
 

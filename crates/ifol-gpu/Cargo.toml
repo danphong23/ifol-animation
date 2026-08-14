@@ -17,7 +17,12 @@ pollster = "1.0.1"
 env_logger = "0.10.0"
 criterion = "0.5.1"
 log = "0.4.33"
+serde_json = "1.0"
 
 [[bench]]
 name = "render_benchmarks"
 harness = false
+
+[[test]]
+name = "tc01_desktop"
+path = "tests/desktop/tc01_empty.rs"

@@ -1,5 +1,14 @@
 # Quy ước tổ chức tài liệu
 
+## Phân loại theo audience
+
+`60-guides/` là public documentation. Người dùng bên ngoài chỉ cần bắt đầu từ
+`60-guides/README.md` và đọc learning path ở đó.
+
+Các nhóm `00-foundation`, `10-graph`, `20-resources`, `30-execution`,
+`40-memory`, `50-platform`, `70-status` và `80-migration` là design/maintenance
+documentation dành cho contributor, maintainer và người cần debug internals.
+
 Tài liệu của `ifol-gpu` được tổ chức theo nhóm kiến trúc, không đặt thành một
 danh sách file phẳng ở thư mục `docs/`. `docs/README.md` là mục lục chính và
 phải được cập nhật khi thêm, đổi tên hoặc di chuyển tài liệu.

@@ -1,4 +1,7 @@
-# Hướng dẫn: xây dựng một graph
+# 4. Xây dựng một graph
+
+Đây là phần thứ tư của [public usage guide](README.md). Sau graph, đọc
+[execute và lifecycle](92-guide-execution-and-lifecycle.md).
 
 1. Chọn `RenderTarget` hoặc graph không có render target nếu chỉ compute/copy.
 2. Đăng ký texture/buffer/pipeline/bind group ở host.

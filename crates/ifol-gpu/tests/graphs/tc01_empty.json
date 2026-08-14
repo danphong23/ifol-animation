@@ -1,0 +1,10 @@
+{
+  "clear_color": [
+    0.2,
+    0.2,
+    0.2,
+    1.0
+  ],
+  "nodes": [],
+  "test_case": "TC01 - Empty Render"
+}
