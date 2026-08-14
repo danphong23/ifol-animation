@@ -106,3 +106,23 @@ path = "tests/desktop/tc19_audio_viz.rs"
 [[test]]
 name = "tc20_desktop"
 path = "tests/desktop/tc20_perspective.rs"
+
+[[test]]
+name = "tc21_desktop"
+path = "tests/desktop/tc21_masking.rs"
+
+[[test]]
+name = "tc22_desktop"
+path = "tests/desktop/tc22_particles_instanced.rs"
+
+[[test]]
+name = "tc23_desktop"
+path = "tests/desktop/tc23_color_replace.rs"
+
+[[test]]
+name = "tc24_desktop"
+path = "tests/desktop/tc24_distortion_mesh.rs"
+
+[[test]]
+name = "tc25_desktop"
+path = "tests/desktop/tc25_shadow_rimlight.rs"

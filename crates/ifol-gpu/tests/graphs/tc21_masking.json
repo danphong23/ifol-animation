@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Procedural SDF Masking",
+    "Avatar Portrait clipping",
+    "Texture UV projection"
+  ],
+  "test_case": "TC21 - SDF Masking & Chroma Key"
+}
