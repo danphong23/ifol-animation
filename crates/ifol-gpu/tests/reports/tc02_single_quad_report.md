@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC02_SINGLE_QUAD trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 11.6793ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 998.2µs
+- **Thời gian Render (Cold Start - Lần đầu):** 4.5713ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1899ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC02_SINGLE_QUAD Desktop Render](../outputs/desktop/tc02_single_quad.png)

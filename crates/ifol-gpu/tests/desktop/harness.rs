@@ -95,9 +95,9 @@ impl<'a> DesktopTestHarness<'a> {
         });
 
         let sampler = engine.device().create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
@@ -348,6 +348,42 @@ impl<'a> DesktopTestHarness<'a> {
         bg_id
     }
 
+    pub fn create_custom_uniform_bind_group<T: bytemuck::Pod>(&mut self, uniform: T, label: &str) -> BindGroupHandle {
+        let size = std::mem::size_of::<T>() as u64;
+        let buf = self.engine.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(label),
+            contents: bytemuck::bytes_of(&uniform),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let buf_id = BufferHandle(self.next_buf_id);
+        self.next_buf_id += 1;
+        self.registry.insert_buffer_with_descriptor(buf_id, buf, BufferResourceDescriptor {
+            size,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        }).unwrap();
+
+        let buf_ref = self.registry.buffer(&buf_id).unwrap();
+        let bind_group = self.engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.uniform_bg_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buf_ref.as_entire_binding(),
+                },
+            ],
+            label: Some(label),
+        });
+
+        let bg_id = BindGroupHandle(self.next_bg_id);
+        self.next_bg_id += 1;
+        self.registry.insert_bind_group_with_descriptor(bg_id, bind_group, BindGroupResourceDescriptor {
+            dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 2,
+        }).unwrap();
+
+        bg_id
+    }
+
     pub fn register_pipeline(
         &mut self,
         shader_filename: &str,
@@ -423,6 +459,222 @@ impl<'a> DesktopTestHarness<'a> {
             },
         );
         pipe_id
+    }
+
+    pub fn register_custom_pipeline(
+        &mut self,
+        shader_filename: &str,
+        blend: Option<wgpu::BlendState>,
+        depth: bool,
+        bgl_signatures: Vec<Option<u64>>,
+        bgl_refs: Vec<Option<&wgpu::BindGroupLayout>>,
+    ) -> PipelineHandle {
+        let shader_path = Path::new("tests/shared_assets/shaders").join(shader_filename);
+        let shader_code = fs::read_to_string(&shader_path)
+            .unwrap_or_else(|e| panic!("Failed to read shader {:?}: {}", shader_path, e));
+
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(shader_filename),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&shader_code)),
+        });
+
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some(shader_filename),
+            bind_group_layouts: &bgl_refs,
+            immediate_size: 0,
+        });
+
+        let depth_stencil = if depth {
+            Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            })
+        } else {
+            None
+        };
+
+        let pipeline = self.engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some(shader_filename),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let p_handle = PipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(
+            p_handle,
+            pipeline,
+            PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: bgl_signatures,
+            },
+        );
+
+        p_handle
+    }
+
+    pub fn register_sky_pipeline(&mut self) -> PipelineHandle {
+        let shader_path = Path::new("tests/shared_assets/shaders/sky_composite.wgsl");
+        let shader_code = fs::read_to_string(shader_path)
+            .unwrap_or_else(|e| panic!("Failed to read sky shader: {}", e));
+
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("sky_composite.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&shader_code)),
+        });
+
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("sky_pipeline_layout"),
+            bind_group_layouts: &[
+                Some(&self.texture_bg_layout),
+                Some(&self.texture_bg_layout),
+                Some(&self.uniform_bg_layout),
+            ],
+            immediate_size: 0,
+        });
+
+        let pipeline = self.engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("sky_pipeline"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let p_handle = PipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(
+            p_handle,
+            pipeline,
+            PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: vec![Some(1), Some(1), Some(2)],
+            },
+        );
+
+        p_handle
+    }
+
+    pub fn register_moon_pipeline(&mut self) -> PipelineHandle {
+        let shader_path = Path::new("tests/shared_assets/shaders/moon_surface.wgsl");
+        let shader_code = fs::read_to_string(shader_path)
+            .unwrap_or_else(|e| panic!("Failed to read moon shader: {}", e));
+
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("moon_surface.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&shader_code)),
+        });
+
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("moon_pipeline_layout"),
+            bind_group_layouts: &[
+                Some(&self.texture_bg_layout),
+                Some(&self.texture_bg_layout),
+                Some(&self.uniform_bg_layout),
+            ],
+            immediate_size: 0,
+        });
+
+        let pipeline = self.engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("moon_pipeline"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let p_handle = PipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(
+            p_handle,
+            pipeline,
+            PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: vec![Some(1), Some(1), Some(2)],
+            },
+        );
+
+        p_handle
     }
 
     pub fn execute_and_record(

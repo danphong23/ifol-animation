@@ -1,0 +1,6 @@
+{
+  "background": "bg_nightsky.jpeg",
+  "instances": 10000,
+  "shader": "particles_10k.wgsl",
+  "test_case": "TC08 - Massive Draw Commands VS Massive Instances (10,000 particles)"
+}

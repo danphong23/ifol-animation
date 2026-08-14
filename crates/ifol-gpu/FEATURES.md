@@ -18,7 +18,12 @@ Thư viện `ifol-gpu` là một Lõi Đồ Họa & GPU Task Graph Engine thuầ
 | **Graph Engine** | Topological Graph Compiler | **Đã hoàn thành** | Tự động duỗi phẳng đồ thị đệ quy |
 | **Graph Engine** | Automatic Hazard Edge Modeling | **Đã hoàn thành** | Tự động dò xung đột Read/Write theo Mip/Layer/Aspect |
 | **Graph Engine** | Automatic Pass Segmentation | **Đã hoàn thành** | Gom nhóm lệnh cùng Target vào duy nhất 1 RenderPass |
-| **Testing Suite** | Automated Cross-Platform Visual Testing (TC01-TC05) | **Đã hoàn thành** | Test Harness đo lường Cold/Warm execution & sinh báo cáo |
+| **Testing Suite** | Automated Cross-Platform Visual Testing (TC01-TC10) | **Đã hoàn thành** | Test Harness đo lường Cold/Warm execution, Memory GC & Caching |
+| **Compositing** | Deep 5-Level Recursion SubGraph Compositor | **Đã hoàn thành** | Duỗi phẳng 5 cấp đồ thị đệ quy không tràn stack |
+| **Stress & Caching** | TC08 - Massive Multi-Instance Particle Grid (10k) | **Đã hoàn thành** | 10,000 hạt sao instanced rendering qua `particles_10k.wgsl` |
+| **Stress & Caching** | TC08.5 - Modular Anime Night Sky Prefab Scene | **Đã hoàn thành** | 100% Procedural Shaders cho bầu trời đêm (Bloom, Moon, Cloud, Stars) |
+| **Stress & Caching** | TC09 - Pipeline Caching & RenderBundle Execution | **Đã hoàn thành** | Lặp 10 frame, latency ~980µs cho 10,000 instance |
+| **Resilience** | Zero-Panic Error Resilience & Fallback Pipeline | **Đã hoàn thành** | Bắt lỗi Typed Error khi thiếu tài nguyên và kích hoạt Magenta Fallback |
 | **Compositing** | GPU Chroma Key & UV Crop Pipeline | **Đã hoàn thành** | Shader bóc tách phông xanh lá và trích xuất Sprite UV |
 | **Compositing** | Depth Testing & Alpha Blending Interaction | **Đã hoàn thành** | Kiểm thử Z-Buffer culling và translucent blending |
 | **Compositing** | Multi-Pass Chained SubGraph Compositor | **Đã hoàn thành** | Chuỗi 3 pass liên hoàn kết hợp background và props |

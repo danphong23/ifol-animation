@@ -602,6 +602,18 @@ impl RenderNodePool {
             }
         }
     }
+
+    pub fn remove(&mut self, id: RenderNodeId) -> Option<RenderNode> {
+        self.nodes.remove(&id)
+    }
+
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
 }
 
 /// ═══════════════════════════════════════════════════════════

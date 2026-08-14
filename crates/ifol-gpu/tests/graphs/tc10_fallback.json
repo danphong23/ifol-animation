@@ -1,0 +1,11 @@
+{
+  "fallback_color": [
+    1.0,
+    0.0,
+    1.0,
+    1.0
+  ],
+  "panic_occurred": false,
+  "test_case": "TC10 - Missing Resource Safe Error Handling & Magenta Fallback",
+  "tested_error": "RenderGraphValidationError::MissingBindGroup(999999)"
+}

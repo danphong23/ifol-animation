@@ -1,0 +1,6 @@
+{
+  "depth": 5,
+  "hierarchy": "Root (Chest) -> Sub B (Wizard) -> Sub C (Golem) -> Sub D (Tree) -> Sub E (Background)",
+  "target": "Offscreen 800x600",
+  "test_case": "TC07 - Deep Recursion SubGraphs (5 Levels)"
+}

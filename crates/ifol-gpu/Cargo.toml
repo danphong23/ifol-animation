@@ -42,3 +42,27 @@ path = "tests/desktop/tc04_alpha_blend.rs"
 [[test]]
 name = "tc05_desktop"
 path = "tests/desktop/tc05_interleaved.rs"
+
+[[test]]
+name = "tc06_desktop"
+path = "tests/desktop/tc06_gc.rs"
+
+[[test]]
+name = "tc07_desktop"
+path = "tests/desktop/tc07_recursion.rs"
+
+[[test]]
+name = "tc08_desktop"
+path = "tests/desktop/tc08_massive.rs"
+
+[[test]]
+name = "tc08_5_desktop"
+path = "tests/desktop/tc08_5_nightsky.rs"
+
+[[test]]
+name = "tc09_desktop"
+path = "tests/desktop/tc09_caching.rs"
+
+[[test]]
+name = "tc10_desktop"
+path = "tests/desktop/tc10_fallback.rs"

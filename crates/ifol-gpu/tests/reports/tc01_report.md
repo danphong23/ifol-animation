@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC01 trên các nền tảng khác nhau.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.8633ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 572.2µs
+- **Thời gian Render (Cold Start - Lần đầu):** 2.7578ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 388µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC01 Desktop Render](../outputs/desktop/tc01_empty.png)
