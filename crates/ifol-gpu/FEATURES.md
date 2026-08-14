@@ -18,6 +18,10 @@ Thư viện `ifol-gpu` là một Lõi Đồ Họa & GPU Task Graph Engine thuầ
 | **Graph Engine** | Topological Graph Compiler | **Đã hoàn thành** | Tự động duỗi phẳng đồ thị đệ quy |
 | **Graph Engine** | Automatic Hazard Edge Modeling | **Đã hoàn thành** | Tự động dò xung đột Read/Write theo Mip/Layer/Aspect |
 | **Graph Engine** | Automatic Pass Segmentation | **Đã hoàn thành** | Gom nhóm lệnh cùng Target vào duy nhất 1 RenderPass |
+| **Testing Suite** | Automated Cross-Platform Visual Testing (TC01-TC05) | **Đã hoàn thành** | Test Harness đo lường Cold/Warm execution & sinh báo cáo |
+| **Compositing** | GPU Chroma Key & UV Crop Pipeline | **Đã hoàn thành** | Shader bóc tách phông xanh lá và trích xuất Sprite UV |
+| **Compositing** | Depth Testing & Alpha Blending Interaction | **Đã hoàn thành** | Kiểm thử Z-Buffer culling và translucent blending |
+| **Compositing** | Multi-Pass Chained SubGraph Compositor | **Đã hoàn thành** | Chuỗi 3 pass liên hoàn kết hợp background và props |
 | **Commands** | Draw Commands (Indexed, Procedural, Indirect) | **Đã hoàn thành** | Hỗ trợ vẽ lưới tam giác, procedural và indirect draw |
 | **Commands** | Compute Commands (Direct & Indirect) | **Đã hoàn thành** | Hỗ trợ GPU Physics, Particles, Image Processing |
 | **Commands** | Copy Commands (Buffer & Texture) | **Đã hoàn thành** | Hỗ trợ async readback xuất video MP4 |

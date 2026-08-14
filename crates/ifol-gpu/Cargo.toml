@@ -26,3 +26,19 @@ harness = false
 [[test]]
 name = "tc01_desktop"
 path = "tests/desktop/tc01_empty.rs"
+
+[[test]]
+name = "tc02_desktop"
+path = "tests/desktop/tc02_single_quad.rs"
+
+[[test]]
+name = "tc03_desktop"
+path = "tests/desktop/tc03_zbuffer.rs"
+
+[[test]]
+name = "tc04_desktop"
+path = "tests/desktop/tc04_alpha_blend.rs"
+
+[[test]]
+name = "tc05_desktop"
+path = "tests/desktop/tc05_interleaved.rs"

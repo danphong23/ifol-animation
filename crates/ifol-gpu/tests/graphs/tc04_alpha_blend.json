@@ -1,0 +1,29 @@
+{
+  "clear_color": [
+    0.08,
+    0.08,
+    0.1,
+    1.0
+  ],
+  "objects": [
+    {
+      "blend": "Replace",
+      "name": "Opaque Chest",
+      "write_depth": true,
+      "z_depth": 0.5
+    },
+    {
+      "blend": "AlphaBlend",
+      "expected": "Occluded",
+      "name": "Behind Potion",
+      "z_depth": 0.8
+    },
+    {
+      "blend": "AlphaBlend",
+      "expected": "Translucent over Chest",
+      "name": "Front Scroll",
+      "z_depth": 0.2
+    }
+  ],
+  "test_case": "TC04 - Alpha Blending & Depth Interaction"
+}

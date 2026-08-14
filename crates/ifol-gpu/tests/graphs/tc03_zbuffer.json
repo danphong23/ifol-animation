@@ -1,0 +1,27 @@
+{
+  "clear_color": [
+    0.1,
+    0.12,
+    0.15,
+    1.0
+  ],
+  "depth_stencil": "Depth32Float",
+  "layers": [
+    {
+      "name": "Tree",
+      "status": "In Front",
+      "z_depth": 0.2
+    },
+    {
+      "name": "Golem",
+      "status": "Middle",
+      "z_depth": 0.5
+    },
+    {
+      "name": "Warrior",
+      "status": "Behind",
+      "z_depth": 0.8
+    }
+  ],
+  "test_case": "TC03 - Z-Buffer Culling & Depth Testing"
+}

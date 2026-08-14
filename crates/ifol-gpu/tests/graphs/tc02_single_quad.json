@@ -1,0 +1,25 @@
+{
+  "clear_color": [
+    0.05,
+    0.05,
+    0.08,
+    1.0
+  ],
+  "nodes": [
+    {
+      "crop_uv": [
+        0.25,
+        0.0,
+        0.5,
+        1.0
+      ],
+      "pipeline": "chroma_key_cropped.wgsl",
+      "position": [
+        0.0,
+        0.0
+      ],
+      "sprite": "Wizard (sprites_heroes.jpeg)"
+    }
+  ],
+  "test_case": "TC02 - Single Quad Sprite with Chroma Key"
+}
