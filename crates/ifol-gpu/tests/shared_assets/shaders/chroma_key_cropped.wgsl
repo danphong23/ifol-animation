@@ -50,13 +50,23 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = textureSample(t_texture, s_sampler, in.uv);
     
-    // Dynamic Chroma Key with exact sampled key_color
+    // Dynamic Chroma Key
     let dist = distance(color.rgb, sprite.key_color);
-    
-    let alpha = smoothstep(sprite.tolerance - sprite.smoothness, sprite.tolerance + sprite.smoothness, dist);
-    if (alpha <= 0.02) {
+    let edge_low = sprite.tolerance - sprite.smoothness * 0.5;
+    let edge_high = sprite.tolerance + sprite.smoothness * 0.5;
+
+    if (dist < edge_low) {
         discard;
     }
 
-    return vec4<f32>(color.rgb, color.a * alpha * sprite.opacity);
+    let alpha = smoothstep(edge_low, edge_high, dist) * sprite.opacity;
+
+    // Green Despill Filter
+    var base_color = color.rgb;
+    let max_rb = max(base_color.r, base_color.b);
+    if (base_color.g > max_rb) {
+        base_color.g = max_rb;
+    }
+
+    return vec4<f32>(base_color, alpha);
 }

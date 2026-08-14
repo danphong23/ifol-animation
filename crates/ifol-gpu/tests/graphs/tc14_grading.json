@@ -1,0 +1,13 @@
+{
+  "color_pipeline": {
+    "color_temperature": "Golden Hour Warm (+0.65)",
+    "split_toning": {
+      "highlights": "Warm Golden Amber [0.25, 0.16, 0.04]",
+      "shadows": "Deep Indigo Violet [0.08, 0.03, 0.18]"
+    },
+    "tone_mapping": "ACES Filmic (Narkowicz Curve)",
+    "vignette": "Active (0.28 strength)"
+  },
+  "target": "Offscreen 800x600",
+  "test_case": "TC14 - Cinematic Color Grading & ACES Filmic Tone Mapping"
+}

@@ -1,0 +1,11 @@
+{
+  "bokeh_depth_of_field": "Active",
+  "passes": [
+    "Pass 1: Render Background Forest Environment (Target A)",
+    "Pass 2: Horizontal 9-Tap Gaussian Blur (Target A -> Target B)",
+    "Pass 3: Vertical 9-Tap Gaussian Blur (Target B -> Target A Ping-Pong)",
+    "Pass 4: Blit Blurred Background + Composite Razor-Sharp Foreground Heroes"
+  ],
+  "target": "Offscreen 800x600",
+  "test_case": "TC13 - 2-Pass Gaussian Blur Filter & Cinematic Depth of Field"
+}

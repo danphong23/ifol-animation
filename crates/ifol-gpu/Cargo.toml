@@ -66,3 +66,23 @@ path = "tests/desktop/tc09_caching.rs"
 [[test]]
 name = "tc10_desktop"
 path = "tests/desktop/tc10_fallback.rs"
+
+[[test]]
+name = "tc11_desktop"
+path = "tests/desktop/tc11_viewport.rs"
+
+[[test]]
+name = "tc12_desktop"
+path = "tests/desktop/tc12_chroma.rs"
+
+[[test]]
+name = "tc13_desktop"
+path = "tests/desktop/tc13_blur.rs"
+
+[[test]]
+name = "tc14_desktop"
+path = "tests/desktop/tc14_grading.rs"
+
+[[test]]
+name = "tc15_desktop"
+path = "tests/desktop/tc15_snow.rs"

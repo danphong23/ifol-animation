@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::Instant;
 use ifol_gpu::api::{GpuEngine, GpuEngineBuilder};
 use ifol_gpu::execution::RenderGraphExecutor;
-use ifol_gpu::graph::{RenderGraph, RenderNodePool};
+use ifol_gpu::graph::{RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{
     BindGroupHandle, BindGroupResourceDescriptor, BufferHandle, BufferResourceDescriptor,
     PipelineHandle, PipelineLayoutResourceDescriptor, ResourceRegistry, TextureHandle,
@@ -132,15 +132,73 @@ impl<'a> DesktopTestHarness<'a> {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-        let id = TextureHandle(self.next_tex_id);
-        self.next_tex_id += 1;
-        self.registry.insert_owned_texture(id, tex.clone(), TextureResourceDescriptor {
-            width: self.width, height: self.height, depth_or_array_layers: 1,
+        let tex_clone = self.engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d { width: self.width, height: self.height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
-            mip_level_count: 1, sample_count: 1,
+            view_formats: &[],
+        });
+        let t_handle = TextureHandle(self.next_tex_id);
+        self.next_tex_id += 1;
+        self.registry.insert_owned_texture(t_handle, tex_clone, TextureResourceDescriptor {
+            width: self.width,
+            height: self.height,
+            depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+            mip_level_count: 1,
+            sample_count: 1,
         }, 8192).unwrap();
-        (id, tex)
+
+        (t_handle, tex)
+    }
+
+    pub fn create_custom_target(&mut self, width: u32, height: u32, label: &str) -> (TextureHandle, wgpu::Texture) {
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        let tex = self.engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+
+        let tex_clone = self.engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(&format!("{}_internal", label)),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+
+        let t_handle = TextureHandle(self.next_tex_id);
+        self.next_tex_id += 1;
+        self.registry.insert_owned_texture(t_handle, tex_clone, TextureResourceDescriptor {
+            width,
+            height,
+            depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+            mip_level_count: 1,
+            sample_count: 1,
+        }, 8192).unwrap();
+
+        (t_handle, tex)
     }
 
     pub fn create_depth_target(&mut self, label: &str) -> (TextureHandle, wgpu::Texture) {
@@ -677,6 +735,72 @@ impl<'a> DesktopTestHarness<'a> {
         p_handle
     }
 
+    pub fn register_splitscreen_pipeline(&mut self) -> PipelineHandle {
+        let shader_path = Path::new("tests/shared_assets/shaders/splitscreen_composite.wgsl");
+        let shader_code = fs::read_to_string(shader_path)
+            .unwrap_or_else(|e| panic!("Failed to read splitscreen shader: {}", e));
+
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("splitscreen_composite.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&shader_code)),
+        });
+
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("splitscreen_pipeline_layout"),
+            bind_group_layouts: &[
+                Some(&self.texture_bg_layout),
+                Some(&self.texture_bg_layout),
+            ],
+            immediate_size: 0,
+        });
+
+        let pipeline = self.engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("splitscreen_pipeline"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let p_handle = PipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(
+            p_handle,
+            pipeline,
+            PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: vec![Some(1), Some(1)],
+            },
+        );
+
+        p_handle
+    }
+
     pub fn execute_and_record(
         &mut self,
         graph: &RenderGraph,
@@ -706,11 +830,17 @@ impl<'a> DesktopTestHarness<'a> {
         });
         let elapsed_warm = t_warm_start.elapsed();
 
-        // Save output PNG
+        // Save output PNG from the actual rendered target in registry
         fs::create_dir_all("tests/outputs/desktop").unwrap();
         let output_img_name = format!("{}.png", tc_id);
         let output_img_path = Path::new("tests/outputs/desktop").join(&output_img_name);
-        self.engine.save_texture_to_file_checked(target_tex, &output_img_path)
+
+        let actual_rendered_tex = match graph.target {
+            RenderTarget::Offscreen { color, .. } => self.registry.owned_texture(&color).unwrap_or(target_tex),
+            _ => target_tex,
+        };
+
+        self.engine.save_texture_to_file_checked(actual_rendered_tex, &output_img_path)
             .expect("Failed to save output texture to file");
 
         // Save report MD

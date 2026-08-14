@@ -1,0 +1,21 @@
+{
+  "environment_props": [
+    "Icy Midnight Procedural Gradient Sky",
+    "Full Moon with Lunar Maria & Limb Glow",
+    "Wispy Cloud with Silver Lining",
+    "Winter Pine Trees",
+    "Paladin Hero in Winter Realm"
+  ],
+  "particle_system": {
+    "instance_count": 200,
+    "physics": [
+      "Gravity fall",
+      "Sinusoidal wind drift",
+      "Individual spin rotation",
+      "Depth-based size & opacity"
+    ],
+    "shader": "snow_physics_instanced.wgsl"
+  },
+  "target": "Offscreen 800x600",
+  "test_case": "TC15 - Animated Particle Physics Simulator (Winter Snow Scene)"
+}
