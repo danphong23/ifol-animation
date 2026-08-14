@@ -48,6 +48,7 @@ pub struct DesktopTestHarness<'a> {
     next_bg_id: u64,
     next_buf_id: u64,
     pub texture_bg_layout: wgpu::BindGroupLayout,
+    pub dual_texture_bg_layout: wgpu::BindGroupLayout,
     pub uniform_bg_layout: wgpu::BindGroupLayout,
     pub sampler: wgpu::Sampler,
 }
@@ -76,6 +77,16 @@ impl<'a> DesktopTestHarness<'a> {
                 },
             ],
             label: Some("texture_bg_layout"),
+        });
+
+        let dual_texture_bg_layout = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { multisampled: false, view_dimension: wgpu::TextureViewDimension::D2, sample_type: wgpu::TextureSampleType::Float { filterable: true } }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
+                wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { multisampled: false, view_dimension: wgpu::TextureViewDimension::D2, sample_type: wgpu::TextureSampleType::Float { filterable: true } }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 3, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
+            ],
+            label: Some("dual_texture_bg_layout"),
         });
 
         let uniform_bg_layout = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -116,6 +127,7 @@ impl<'a> DesktopTestHarness<'a> {
             next_bg_id: 10,
             next_buf_id: 10,
             texture_bg_layout,
+            dual_texture_bg_layout,
             uniform_bg_layout,
             sampler,
         }
@@ -371,6 +383,28 @@ impl<'a> DesktopTestHarness<'a> {
         bg_id
     }
 
+    pub fn create_dual_texture_bind_group(&mut self, t_handle_a: TextureHandle, t_handle_b: TextureHandle, label: &str) -> BindGroupHandle {
+        let view_a = &self.registry.texture(&t_handle_a).unwrap().0;
+        let view_b = &self.registry.texture(&t_handle_b).unwrap().0;
+        let bind_group = self.engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.dual_texture_bg_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(view_a) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.sampler) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(view_b) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.sampler) },
+            ],
+            label: Some(label),
+        });
+
+        let bg_id = BindGroupHandle(self.next_bg_id);
+        self.next_bg_id += 1;
+        self.registry.insert_bind_group_with_descriptor(bg_id, bind_group, BindGroupResourceDescriptor {
+            dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 2,
+        }).unwrap();
+        bg_id
+    }
+
     pub fn create_sprite_uniform_bind_group(&mut self, uniform: SpriteUniform) -> BindGroupHandle {
         let buffer = self.engine.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("SpriteUniformBuffer"),
@@ -615,7 +649,6 @@ impl<'a> DesktopTestHarness<'a> {
             label: Some("sky_pipeline_layout"),
             bind_group_layouts: &[
                 Some(&self.texture_bg_layout),
-                Some(&self.texture_bg_layout),
                 Some(&self.uniform_bg_layout),
             ],
             immediate_size: 0,
@@ -661,7 +694,73 @@ impl<'a> DesktopTestHarness<'a> {
             p_handle,
             pipeline,
             PipelineLayoutResourceDescriptor {
-                bind_group_layout_signatures: vec![Some(1), Some(1), Some(2)],
+                bind_group_layout_signatures: vec![Some(1), Some(2)],
+            },
+        );
+
+        p_handle
+    }
+
+    pub fn register_transition_pipeline(&mut self) -> PipelineHandle {
+        let shader_path = Path::new("tests/shared_assets/shaders/transition.wgsl");
+        let shader_code = fs::read_to_string(shader_path)
+            .unwrap_or_else(|e| panic!("Failed to read transition shader: {}", e));
+
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("transition.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&shader_code)),
+        });
+
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("transition_pipeline_layout"),
+            bind_group_layouts: &[
+                Some(&self.dual_texture_bg_layout),
+                Some(&self.uniform_bg_layout),
+            ],
+            immediate_size: 0,
+        });
+
+        let pipeline = self.engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("transition_pipeline"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let p_handle = PipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(
+            p_handle,
+            pipeline,
+            PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: vec![Some(2), Some(2)], // Signature 2 means dual texture, and 2 for custom uniform? Wait, harness `register_custom_pipeline` uses Some(1) for texture, Some(2) for uniform.
             },
         );
 

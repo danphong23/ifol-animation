@@ -86,3 +86,23 @@ path = "tests/desktop/tc14_grading.rs"
 [[test]]
 name = "tc15_desktop"
 path = "tests/desktop/tc15_snow.rs"
+
+[[test]]
+name = "tc16_desktop"
+path = "tests/desktop/tc16_sdf.rs"
+
+[[test]]
+name = "tc17_desktop"
+path = "tests/desktop/tc17_outline.rs"
+
+[[test]]
+name = "tc18_desktop"
+path = "tests/desktop/tc18_transition.rs"
+
+[[test]]
+name = "tc19_desktop"
+path = "tests/desktop/tc19_audio_viz.rs"
+
+[[test]]
+name = "tc20_desktop"
+path = "tests/desktop/tc20_perspective.rs"
