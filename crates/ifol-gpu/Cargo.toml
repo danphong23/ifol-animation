@@ -312,11 +312,22 @@ path = "tests/desktop/tc69_deformation.rs"
 name = "tc70_desktop"
 path = "tests/desktop/tc70_culling.rs"
 
+[[test]]
+name = "tc71_desktop"
+path = "tests/desktop/tc71_bitonic_sort.rs"
 
+[[test]]
+name = "tc72_desktop"
+path = "tests/desktop/tc72_spatial_hash.rs"
 
+[[test]]
+name = "tc73_desktop"
+path = "tests/desktop/tc73_morphology.rs"
 
+[[test]]
+name = "tc74_desktop"
+path = "tests/desktop/tc74_yuv.rs"
 
-
-
-
-
+[[test]]
+name = "tc75_desktop"
+path = "tests/desktop/tc75_fft.rs"

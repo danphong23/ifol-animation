@@ -151,9 +151,9 @@ fn run_compute_task(
 
 ---
 
-## 4. Ma Trận Kiểm Chứng Hệ Thống (Verification Matrix - 65 Desktop TCs)
+## 4. Ma Trận Kiểm Chứng Hệ Thống (Verification Matrix - 75 Desktop TCs)
 
-Tất cả 65 bài kiểm thử Desktop (60 Render TCs + 5 Compute TCs) đều được tự động đo lường hiệu năng (Cold/Warm run), kiểm tra lỗi GPU, xác thực số học và trích xuất hình ảnh kiểm chứng trực quan:
+Tất cả 75 bài kiểm thử Desktop (60 Render TCs + 15 Compute TCs) đều được tự động đo lường hiệu năng (Cold/Warm run), kiểm tra lỗi GPU, xác thực số học và trích xuất hình ảnh kiểm chứng trực quan:
 
 | Nhóm Kiểm Thử | Dải Test Cases | Khả năng kiểm chứng | Báo cáo chi tiết |
 | :--- | :--- | :--- | :--- |
@@ -163,7 +163,9 @@ Tất cả 65 bài kiểm thử Desktop (60 Render TCs + 5 Compute TCs) đều �
 | **Stylization & Filters** | TC31 $\rightarrow$ TC40 | Light sweep, Page curl, Pixelation, Directional blur, Halftone, Radial blur, Chromatic aberration, Kaleidoscope, Scanlines, Vignette. | [`tests/reports/tc31_light_sweep_report.md`](tests/reports/tc31_light_sweep_report.md) $\rightarrow$ `tc40` |
 | **VFX Cao Cấp & Tone Mapping** | TC41 $\rightarrow$ TC50 | Aspect ratio fill, HDR bloom, Luma/Alpha matte, Anamorphic flare, Glassmorphism, Selective color, Motion echo, Bokeh DOF, Trim paths, Exposure heatmap. | [`tests/reports/tc41_aspect_fill_report.md`](tests/reports/tc41_aspect_fill_report.md) $\rightarrow$ `tc50` |
 | **Phần Cứng & Edge Cases** | TC51 $\rightarrow$ TC60 | Atlas half-texel clamp, Soft particles, 8 Blend modes, 3D flag mesh, Dual Kawase blur, Dynamic target resize, Stencil mask, MRT G-Buffer, Sampler wrapping, Ping-Pong loop. | [`tests/reports/tc51_atlas_clamp_report.md`](tests/reports/tc51_atlas_clamp_report.md) $\rightarrow$ `tc60` |
-| **GPGPU & Compute Pipeline** | **TC61 $\rightarrow$ TC65** | **Storage Buffer Arithmetic (10k threads), 2D Storage Texture Read/Write (Sobel/Invert), 100k Galaxy Particle Simulation, Audio FFT 64-Bin Spectrum, Workgroup Shared Memory (`var<workgroup>`) Fast Blur.** | [`tests/reports/tc61_compute_buffer_math_report.md`](tests/reports/tc61_compute_buffer_math_report.md) $\rightarrow$ [`tc65`](tests/reports/tc65_workgroup_blur_report.md) |
+| **GPGPU & Compute Pipeline** | **TC61 $\rightarrow$ TC65** | **Storage Buffer Arithmetic (10k threads), 2D Storage Texture Read/Write (Sobel/Invert), 100k Galaxy Particle Simulation, Data packing, Workgroup Shared Memory (`var<workgroup>`) Fast Blur.** | [`tests/reports/tc61_compute_buffer_math_report.md`](tests/reports/tc61_compute_buffer_math_report.md) $\rightarrow$ [`tc65`](tests/reports/tc65_workgroup_blur_report.md) |
+| **Compute & Algorithms** | **TC66 $\rightarrow$ TC70** | **Cellular Automata (Conway's Game of Life), Ray Marching (SDF Boolean Ops), Reaction-Diffusion (Turing Pattern), Fractal Generation (Mandelbrot Deep Zoom), Parallel Prefix Sum (Scan) & Stream Compaction.** | [`tests/reports/tc66_game_of_life_report.md`](tests/reports/tc66_game_of_life_report.md) $\rightarrow$ [`tc70`](tests/reports/tc70_prefix_sum_report.md) |
+| **Advanced Compute & Sim** | **TC71 $\rightarrow$ TC75** | **GPU Bitonic Sort (Alpha Blend Depth Sort), Spatial Hashing (Fluid/Boids Collision), Morphological Ops (Mask Dilation/Erosion), YUV 4:2:0 to RGBA Video Conversion, Audio FFT 256-Point Spectrum Visualization.** | [`tests/reports/tc71_bitonic_sort_report.md`](tests/reports/tc71_bitonic_sort_report.md) $\rightarrow$ [`tc75`](tests/reports/tc75_fft_report.md) |
 
-> 💡 **Chi tiết ảnh render và số liệu benchmark:** Xem toàn bộ 65 báo cáo độc lập tại thư mục [`crates/ifol-gpu/tests/reports/`](tests/reports/).
+> 💡 **Chi tiết ảnh render và số liệu benchmark:** Xem toàn bộ 75 báo cáo độc lập tại thư mục [`crates/ifol-gpu/tests/reports/`](tests/reports/).
 
