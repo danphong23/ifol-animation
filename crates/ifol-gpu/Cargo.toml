@@ -147,3 +147,24 @@ path = "tests/desktop/tc29_crt_vhs.rs"
 name = "tc30_desktop"
 path = "tests/desktop/tc30_dissolve.rs"
 
+
+[[test]]
+name = "tc31_desktop"
+path = "tests/desktop/tc31_light_sweep.rs"
+
+[[test]]
+name = "tc32_desktop"
+path = "tests/desktop/tc32_page_curl.rs"
+
+[[test]]
+name = "tc33_desktop"
+path = "tests/desktop/tc33_pixelation.rs"
+
+[[test]]
+name = "tc34_desktop"
+path = "tests/desktop/tc34_directional_blur.rs"
+
+[[test]]
+name = "tc35_desktop"
+path = "tests/desktop/tc35_halftone.rs"
+

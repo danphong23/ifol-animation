@@ -1,0 +1,7 @@
+{
+  "features": [
+    "Vector-based Sampling Loop",
+    "Speed simulation blur"
+  ],
+  "test_case": "TC34 - Directional Motion Blur"
+}

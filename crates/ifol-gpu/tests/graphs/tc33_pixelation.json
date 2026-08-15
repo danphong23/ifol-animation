@@ -1,0 +1,7 @@
+{
+  "features": [
+    "Screen Coordinate Snapping",
+    "Resolution Independent Block Size"
+  ],
+  "test_case": "TC33 - Pixelation / Mosaic Filter"
+}

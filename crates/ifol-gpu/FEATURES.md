@@ -132,3 +132,9 @@ fn cleanup_texture(
     registry.defer_owned_texture_destruction(&texture_handle, last_used_submission, queue);
 }
 ```
+## Hỗ Trợ Đồ Họa Nâng Cao (VFX / Motion Graphics)
+- **Light Sweep (TC31):** Quét sáng góc chéo sử dụng Additive Blending và toán học.
+- **Page Curl 3D (TC32):** Biến dạng Cylinder Projection tạo hiệu ứng lật trang 3D với đổ bóng.
+- **Pixelation/Mosaic (TC33):** Screen coordinate snapping bằng thuật toán Floor.
+- **Directional Blur (TC34):** Vòng lặp lấy mẫu dọc theo vector đa hướng.
+- **Halftone Comic Filter (TC35):** Chuyển đổi Luminance thành chấm đen sử dụng SDF.

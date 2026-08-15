@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Luminance-based Dot Radius mapping",
+    "Screen space Grid rotation",
+    "SDF anti-aliasing for dots"
+  ],
+  "test_case": "TC35 - Halftone / Comic Print Filter"
+}
