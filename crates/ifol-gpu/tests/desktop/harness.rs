@@ -7,7 +7,7 @@ use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{
     BindGroupHandle, BindGroupResourceDescriptor, BufferHandle, BufferResourceDescriptor,
-    PipelineHandle, PipelineLayoutResourceDescriptor, ResourceRegistry, TextureHandle,
+    PipelineHandle, ComputePipelineHandle, MeshHandle, PipelineLayoutResourceDescriptor, ResourceRegistry, TextureHandle,
     TextureResourceDescriptor,
 };
 use image::GenericImageView;
@@ -639,6 +639,45 @@ impl<'a> DesktopTestHarness<'a> {
         p_handle
     }
 
+    pub fn insert_mesh(
+        &mut self,
+        vertex_buffer: wgpu::Buffer,
+        index_buffer: Option<(wgpu::Buffer, wgpu::IndexFormat)>,
+        vertex_count: u32,
+    ) -> MeshHandle {
+        use ifol_gpu::resources::MeshResourceDescriptor;
+        use ifol_gpu::resources::handle::MeshHandle;
+        
+        let id = MeshHandle(self.next_pipe_id); // Reusing ID counter for simplicity
+        self.next_pipe_id += 1;
+        
+        let index_buffer_size = index_buffer.as_ref().map(|(b, _)| b.size());
+        let index_format = index_buffer.as_ref().map(|(_, f)| *f);
+        
+        self.registry.insert_mesh_with_descriptor(
+            id,
+            (vertex_buffer, index_buffer, vertex_count),
+            MeshResourceDescriptor {
+                vertex_buffer_size: 1, // Dummy
+                vertex_count,
+                index_buffer_size: index_buffer_size.or(Some(1)), // Dummy
+                index_format,
+            }
+        ).unwrap();
+        id
+    }
+
+    pub fn insert_compute_pipeline(
+        &mut self,
+        pipeline: wgpu::ComputePipeline,
+        bgl_signatures: Vec<Option<u64>>,
+    ) -> ComputePipelineHandle {
+        let id = ComputePipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_compute_pipeline_with_layout_descriptor(id, pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: bgl_signatures });
+        id
+    }
+
     pub fn register_sky_pipeline(&mut self) -> PipelineHandle {
         let shader_path = Path::new("tests/shared_assets/shaders/sky_composite.wgsl");
         let shader_code = fs::read_to_string(shader_path)
@@ -1158,7 +1197,7 @@ impl<'a> DesktopTestHarness<'a> {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
         let id = TextureHandle(self.next_tex_id);

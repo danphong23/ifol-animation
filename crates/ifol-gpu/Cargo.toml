@@ -292,6 +292,30 @@ path = "tests/desktop/tc64_audio_fft.rs"
 name = "tc65_desktop"
 path = "tests/desktop/tc65_workgroup_blur.rs"
 
+[[test]]
+name = "tc66_desktop"
+path = "tests/desktop/tc66_histogram.rs"
+
+[[test]]
+name = "tc67_desktop"
+path = "tests/desktop/tc67_pingpong.rs"
+
+[[test]]
+name = "tc68_desktop"
+path = "tests/desktop/tc68_verlet.rs"
+
+[[test]]
+name = "tc69_desktop"
+path = "tests/desktop/tc69_deformation.rs"
+
+[[test]]
+name = "tc70_desktop"
+path = "tests/desktop/tc70_culling.rs"
+
+
+
+
+
 
 
 
