@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Full-Screen Emissive Thresholding",
+    "Wide Radial Gaussian Dispersion",
+    "Additive Optical Composite (No Mesh Edge Clipping)"
+  ],
+  "test_case": "TC42 - Full-Frame HDR Bloom & Emissive Glow"
+}

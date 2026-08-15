@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Backdrop Fetch & Frosted Gaussian Blur",
+    "SDF Rounded Box Gradient Refraction",
+    "Directional Specular Rim Lighting (Fresnel Effect)"
+  ],
+  "test_case": "TC45 - Frosted Glassmorphism Panel"
+}

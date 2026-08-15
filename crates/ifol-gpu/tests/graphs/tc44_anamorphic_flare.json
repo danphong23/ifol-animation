@@ -1,0 +1,8 @@
+{
+  "features": [
+    "1D Horizontal Exponential Kernel",
+    "Spectral Dispersion Color Tinting",
+    "Edge Boundary Clamping & Falloff Smoothing"
+  ],
+  "test_case": "TC44 - Anamorphic Lens Flare & Horizontal Streaks"
+}

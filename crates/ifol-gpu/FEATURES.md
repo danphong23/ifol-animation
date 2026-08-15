@@ -145,3 +145,33 @@ fn cleanup_texture(
 - **Kaleidoscope (TC38):** Phản chiếu hình ảnh theo hệ tọa độ cực tạo kính vạn hoa.
 - **Scanlines Hologram (TC39):** Giả lập sọc ngang màn hình CRT/Hologram bằng sóng sine.
 - **Vignette & Film Grain (TC40):** Tối góc và nhiễu phim cổ điển.
+
+## Tính năng Compositor Nâng cao & Thích ứng Đồ họa (Phase 7: TC41-TC45)
+- **Auto Aspect Ratio & Background Blur Fill (TC41):** Tự động chuyển đổi tỷ lệ khung hình ngang (16:9) sang dọc (9:16) bằng thuật toán phóng đại nền, làm mờ Gaussian và đổ bóng lên khung trung tâm.
+- **Full-Frame HDR Bloom & Emissive Glow (TC42):** Trích xuất vùng phát sáng (Emissive) và làm mờ lan tỏa ra toàn bộ màn hình (800x600), cộng dồn màu quang học (Additive Blending) không bị cản viền vuông.
+- **Dual-Layer Track Matte (TC43):** Hỗ trợ 4 chế độ mặt nạ Stencil giữa 2 texture động độc lập: Alpha Matte, Inverted Alpha, Luma Matte, Inverted Luma.
+- **Anamorphic Lens Flare & Streak (TC44):** Lấy mẫu quang sai trục ngang 1D dải rộng (33 taps) có khử viền đen biên UV (Boundary Falloff Clamping).
+- **Frosted Glassmorphism Panel (TC45):** Lấy mẫu ngược khung cảnh nền (Backdrop), làm mờ kính mờ kết hợp khúc xạ viền SDF và phản xạ viền Specular Fresnel.
+
+### Hướng dẫn sử dụng Track Matte & Glassmorphism (Usage Examples)
+
+```rust
+// 1. Áp dụng Track Matte (Layer A dùng Layer B làm mặt nạ trong suốt)
+let dual_bg = harness.create_dual_texture_bind_group(tex_base, tex_matte_mask, "TrackMatte");
+let matte_uniform = TrackMatteUniform {
+    matte_type: 0.0, // 0 = Alpha Matte, 2 = Luma Matte
+    opacity: 1.0,
+    _pad0: 0.0,
+    _pad1: 0.0,
+};
+
+// 2. Áp dụng Glassmorphism UI Panel trên nền Backdrop
+let glass_uniform = GlassUniform {
+    panel_center: [0.5, 0.5],
+    panel_size: [0.25, 0.25],
+    corner_radius: 0.03,
+    blur_amount: 3.0,
+    refraction_strength: 0.02,
+    border_thickness: 0.005,
+};
+```

@@ -189,3 +189,24 @@ path = "tests/desktop/tc39_scanlines.rs"
 name = "tc40_desktop"
 path = "tests/desktop/tc40_vignette_grain.rs"
 
+
+[[test]]
+name = "tc41_desktop"
+path = "tests/desktop/tc41_aspect_fill.rs"
+
+[[test]]
+name = "tc42_desktop"
+path = "tests/desktop/tc42_hdr_bloom.rs"
+
+[[test]]
+name = "tc43_desktop"
+path = "tests/desktop/tc43_track_matte.rs"
+
+[[test]]
+name = "tc44_desktop"
+path = "tests/desktop/tc44_anamorphic_flare.rs"
+
+[[test]]
+name = "tc45_desktop"
+path = "tests/desktop/tc45_glassmorphism.rs"
+

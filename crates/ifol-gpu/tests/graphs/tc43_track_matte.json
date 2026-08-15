@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Dual-Texture BindGroup Pipeline",
+    "Dynamic Alpha & Luma Track Masking",
+    "Video Compositor Stencil Silhouette"
+  ],
+  "test_case": "TC43 - Dual-Layer Track Matte (Luma & Alpha Masking)"
+}
