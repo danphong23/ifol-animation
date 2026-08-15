@@ -1,0 +1,7 @@
+{
+  "features": [
+    "Sin/Cos UV Displacement",
+    "Distance-based damping"
+  ],
+  "test_case": "TC28 - Ripple (Water/Shockwave Distortion)"
+}

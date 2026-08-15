@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Barrel Distortion (Lens Curvature)",
+    "Scanlines & Vignette",
+    "RGB Split"
+  ],
+  "test_case": "TC29 - CRT & VHS Filter"
+}

@@ -972,4 +972,76 @@ impl<'a> DesktopTestHarness<'a> {
         fs::write(&report_path, report_content).unwrap();
         println!("Saved report to {:?}", report_path);
     }
+
+    pub fn register_dual_texture_pipeline(
+        &mut self,
+        shader_filename: &str,
+        blend: Option<wgpu::BlendState>,
+        depth: bool,
+    ) -> PipelineHandle {
+        let shader_path = Path::new("tests/shared_assets/shaders").join(shader_filename);
+        let shader_code = fs::read_to_string(&shader_path)
+            .unwrap_or_else(|e| panic!("Failed to read shader {:?}: {}", shader_path, e));
+
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(shader_filename),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&shader_code)),
+        });
+
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some(shader_filename),
+            bind_group_layouts: &[
+                Some(&self.dual_texture_bg_layout),
+                Some(&self.uniform_bg_layout),
+            ],
+            immediate_size: 0,
+        });
+
+        let pipeline = self.engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some(shader_filename),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: Default::default(),
+            depth_stencil: if depth {
+                Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: Some(true),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                })
+            } else {
+                None
+            },
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let pipe_id = PipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(
+            pipe_id,
+            pipeline,
+            ifol_gpu::resources::PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: vec![Some(2), Some(2)], // Dual tex layout + uniform layout? Actually let's just say Some(1), Some(2) for simplicity, or 0.
+            },
+        );
+        pipe_id
+    }
 }

@@ -130,3 +130,20 @@ path = "tests/desktop/tc25_shadow_rimlight.rs"
 [[test]]
 name = "tc26_desktop"
 path = "tests/desktop/tc26_glitch.rs"
+
+[[test]]
+name = "tc27_desktop"
+path = "tests/desktop/tc27_godrays.rs"
+
+[[test]]
+name = "tc28_desktop"
+path = "tests/desktop/tc28_ripple.rs"
+
+[[test]]
+name = "tc29_desktop"
+path = "tests/desktop/tc29_crt_vhs.rs"
+
+[[test]]
+name = "tc30_desktop"
+path = "tests/desktop/tc30_dissolve.rs"
+
