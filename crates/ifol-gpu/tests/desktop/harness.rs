@@ -1044,4 +1044,57 @@ impl<'a> DesktopTestHarness<'a> {
         );
         pipe_id
     }
+
+    pub fn register_stencil_pipeline(&mut self, shader_filename: &str, stencil_state: wgpu::StencilState, color_write: wgpu::ColorWrites) -> PipelineHandle {
+        let shader_path = std::path::Path::new("tests/shared_assets/shaders").join(shader_filename);
+        let shader_code = std::fs::read_to_string(&shader_path).unwrap();
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(shader_filename), source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(&shader_code)),
+        });
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some(shader_filename), bind_group_layouts: &[Some(&self.texture_bg_layout), Some(&self.uniform_bg_layout)], immediate_size: 0,
+        });
+        let pipeline = self.engine.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some(shader_filename), layout: Some(&layout),
+            vertex: wgpu::VertexState { module: &shader, entry_point: Some("vs_main"), buffers: &[], compilation_options: Default::default() },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader, entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8UnormSrgb, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: color_write })],
+                compilation_options: Default::default(),
+            }),
+            primitive: Default::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: stencil_state, bias: Default::default(),
+            }),
+            multisample: Default::default(), multiview_mask: None, cache: None,
+        });
+        let pipe_id = PipelineHandle(self.next_pipe_id); self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(pipe_id, pipeline, ifol_gpu::resources::PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![Some(1), Some(2)] });
+        pipe_id
+    }
+
+    pub fn create_depth_stencil_target(&mut self, label: &str) -> (TextureHandle, wgpu::Texture) {
+        let tex = self.engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d { width: self.width, height: self.height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth24PlusStencil8,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        let id = TextureHandle(self.next_tex_id);
+        self.next_tex_id += 1;
+        self.registry.insert_owned_texture(id, tex.clone(), TextureResourceDescriptor {
+            width: self.width, height: self.height, depth_or_array_layers: 1,
+            format: wgpu::TextureFormat::Depth24PlusStencil8,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1, sample_count: 1,
+        }, 8192).unwrap();
+        (id, tex)
+    }
 }

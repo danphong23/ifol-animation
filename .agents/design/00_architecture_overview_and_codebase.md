@@ -9,22 +9,20 @@ Tài liệu này là **Bản đồ chỉ đường (Entry Point)** cho toàn b�
 Dự án được chi phối bởi 10 tài liệu kiến trúc, chia thành 3 lớp từ thấp lên cao. Bạn phải tuân thủ nghiêm ngặt ranh giới của các lớp này:
 
 *   **Lớp 1: Core Engine (Lõi Hệ Thống)**
-    *   `01_ecs_manifest.md`: Khung xương ECS thuần túy.
-    *   `gpu_engine/01_render_graph_and_command.md`: Cấu trúc mảng RenderNode và Hệ thống Handle.
-    *   `gpu_engine/02_pipeline_and_shader.md`: Bản chất Shader Code, Shader Graph và quyền năng tạo WGSL của AI.
-    *   `gpu_engine/03_memory_and_performance.md`: Ring Buffer (Zero-allocation), LRU Cache và Fast Texture Update.
-    *   `gpu_engine/04_ecs_to_gpu_bridge.md`: Ranh giới trách nhiệm (Xử lý Video, Dịch Material Component ra Node).
-    *   `04_render_execution_trace.md`: Câu chuyện mô phỏng luồng chạy 1 frame.
+    *   `01_ecs_manifest.md`: Khung xương ECS thuần túy (`ifol-ecs`).
+    *   `crates/ifol-gpu/docs/`: Hệ thống tài liệu kỹ thuật 9 chuyên đề chính thức của `ifol-gpu` (Foundation, Graph, Resources, Execution, Memory, Platform, Guides, Status, Migration).
+    *   `03_scene_to_drawcall_translation.md`: Ranh giới chuyển đổi từ ECS Scene sang Draw Call.
+    *   `04_render_execution_trace.md`: Luồng chạy thực thi 1 frame.
     *   `05_resource_lifecycle_and_ui_integration.md`: Khởi tạo Singleton, VRAM Cache, và Output ra màn hình.
 *   **Lớp 2: Application Shell (Lớp Vỏ Ứng Dụng)**
-    *   `01_platform_strategy.md`: Đa nền tảng (App, Web, Mobile).
-    *   `02_ui_and_mcp_command_bus.md`: Cổng giao tiếp Command Bus, Live Sync giữa UI và AI.
-    *   `03_project_and_asset_management.md`: Đóng gói Bundle `.ifol`, Đường dẫn tương đối, VFS.
+    *   `application_shell/01_platform_strategy.md`: Đa nền tảng (App, Web, Mobile).
+    *   `application_shell/02_ui_and_mcp_command_bus.md`: Cổng giao tiếp Command Bus, Live Sync giữa UI và AI.
+    *   `application_shell/03_project_and_asset_management.md`: Đóng gói Bundle `.ifol`, Đường dẫn tương đối, VFS.
 *   **Lớp 3: Ecosystem (Hệ Sinh Thái Mở Rộng)**
-    *   `01_plugin_architecture.md`: Cơ chế cắm Shader và Node từ bên ngoài.
-    *   `02_versioning_and_migration.md`: Nâng cấp tương thích ngược file Project.
+    *   `ecosystem/01_plugin_architecture.md`: Cơ chế cắm Shader và Node từ bên ngoài.
+    *   `ecosystem/02_versioning_and_migration.md`: Nâng cấp tương thích ngược file Project.
 
-*(Tất cả các tài liệu trên đều bọc lót cho nhau, không có tài liệu nào thừa thãi, chúng phối hợp tạo thành một kiến trúc đóng gói hoàn hảo).*
+*(Mỗi Crate tự lưu trữ tài liệu kỹ thuật chi tiết của chính nó trong `crates/<crate-name>/docs/`. Thư mục `.agents/design/` chỉ nắm giữ các bản thiết kế kiến trúc toàn cục).*
 
 ---
 

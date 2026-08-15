@@ -252,3 +252,22 @@ path = "tests/desktop/tc54_flag_mesh.rs"
 name = "tc55_desktop"
 path = "tests/desktop/tc55_dual_kawase.rs"
 
+[[test]]
+name = "tc56_desktop"
+path = "tests/desktop/tc56_dynamic_resize.rs"
+
+[[test]]
+name = "tc57_desktop"
+path = "tests/desktop/tc57_stencil_mask.rs"
+
+[[test]]
+name = "tc58_desktop"
+path = "tests/desktop/tc58_mrt_gbuffer.rs"
+
+[[test]]
+name = "tc59_desktop"
+path = "tests/desktop/tc59_sampler_modes.rs"
+
+[[test]]
+name = "tc60_desktop"
+path = "tests/desktop/tc60_pingpong_feedback.rs"
