@@ -117,11 +117,43 @@ fn render_frame(
 - **Hardware Stencil Portal:** Cấu hình `wgpu::StencilState` với `IncrementClamp` (ghi mặt nạ) và `NotEqual` (vẽ nội dung bị giới hạn) để cắt tỉa hình học không cần alpha blend.
 - **Multi-Pass Ping-Pong Loop:** Khởi tạo RenderGraph với `clear_color: None` để kích hoạt `wgpu::LoadOp::Load`, luân chuyển Texture giữa 2 Target tạo vệt đuôi Motion Trail / Blur.
 
+### Recipe 4: Tính Toán Song Song Trên GPU (GPGPU Compute Pipeline)
+```rust
+use ifol_gpu::graph::{ComputeCommand, RenderGraph, RenderNodePool, RenderTarget};
+use ifol_gpu::resources::handle::ComputePipelineHandle;
+
+fn run_compute_task(
+    engine: &ifol_gpu::api::GpuEngine,
+    registry: &ifol_gpu::resources::ResourceRegistry,
+    executor: &mut ifol_gpu::execution::RenderGraphExecutor,
+    pool: &mut RenderNodePool,
+    compute_pipeline: ComputePipelineHandle,
+    storage_bind_group: ifol_gpu::resources::BindGroupHandle,
+    element_count: u32,
+) {
+    let mut graph = RenderGraph::new(RenderTarget::Screen);
+
+    // 1. Điều phối Workgroups (Ví dụ: 64 threads / workgroup)
+    let workgroups_x = (element_count + 63) / 64;
+    graph.add_compute_batch(pool, vec![
+        ComputeCommand::new(compute_pipeline, [workgroups_x, 1, 1])
+            .with_bind_group(0, storage_bind_group, Vec::new()),
+    ]);
+
+    // 2. Thực thi Compute Batch không qua Rasterizer
+    let submission_index = executor.execute(engine, registry, pool, &graph).expect("Compute execution failed");
+    engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission_index),
+        timeout: None,
+    });
+}
+```
+
 ---
 
-## 4. Ma Trận Kiểm Chứng Hệ Thống (Verification Matrix - 60 Desktop TCs)
+## 4. Ma Trận Kiểm Chứng Hệ Thống (Verification Matrix - 65 Desktop TCs)
 
-Tất cả 60 bài kiểm thử Render Desktop đều được tự động đo lường hiệu năng (Cold/Warm run), kiểm tra lỗi GPU và trích xuất hình ảnh kiểm chứng trực quan:
+Tất cả 65 bài kiểm thử Desktop (60 Render TCs + 5 Compute TCs) đều được tự động đo lường hiệu năng (Cold/Warm run), kiểm tra lỗi GPU, xác thực số học và trích xuất hình ảnh kiểm chứng trực quan:
 
 | Nhóm Kiểm Thử | Dải Test Cases | Khả năng kiểm chứng | Báo cáo chi tiết |
 | :--- | :--- | :--- | :--- |
@@ -131,5 +163,7 @@ Tất cả 60 bài kiểm thử Render Desktop đều được tự động đo 
 | **Stylization & Filters** | TC31 $\rightarrow$ TC40 | Light sweep, Page curl, Pixelation, Directional blur, Halftone, Radial blur, Chromatic aberration, Kaleidoscope, Scanlines, Vignette. | [`tests/reports/tc31_light_sweep_report.md`](tests/reports/tc31_light_sweep_report.md) $\rightarrow$ `tc40` |
 | **VFX Cao Cấp & Tone Mapping** | TC41 $\rightarrow$ TC50 | Aspect ratio fill, HDR bloom, Luma/Alpha matte, Anamorphic flare, Glassmorphism, Selective color, Motion echo, Bokeh DOF, Trim paths, Exposure heatmap. | [`tests/reports/tc41_aspect_fill_report.md`](tests/reports/tc41_aspect_fill_report.md) $\rightarrow$ `tc50` |
 | **Phần Cứng & Edge Cases** | TC51 $\rightarrow$ TC60 | Atlas half-texel clamp, Soft particles, 8 Blend modes, 3D flag mesh, Dual Kawase blur, Dynamic target resize, Stencil mask, MRT G-Buffer, Sampler wrapping, Ping-Pong loop. | [`tests/reports/tc51_atlas_clamp_report.md`](tests/reports/tc51_atlas_clamp_report.md) $\rightarrow$ `tc60` |
+| **GPGPU & Compute Pipeline** | **TC61 $\rightarrow$ TC65** | **Storage Buffer Arithmetic (10k threads), 2D Storage Texture Read/Write (Sobel/Invert), 100k Galaxy Particle Simulation, Audio FFT 64-Bin Spectrum, Workgroup Shared Memory (`var<workgroup>`) Fast Blur.** | [`tests/reports/tc61_compute_buffer_math_report.md`](tests/reports/tc61_compute_buffer_math_report.md) $\rightarrow$ [`tc65`](tests/reports/tc65_workgroup_blur_report.md) |
 
-> 💡 **Chi tiết ảnh render và số liệu benchmark:** Xem toàn bộ 60 báo cáo độc lập tại thư mục [`crates/ifol-gpu/tests/reports/`](tests/reports/).
+> 💡 **Chi tiết ảnh render và số liệu benchmark:** Xem toàn bộ 65 báo cáo độc lập tại thư mục [`crates/ifol-gpu/tests/reports/`](tests/reports/).
+

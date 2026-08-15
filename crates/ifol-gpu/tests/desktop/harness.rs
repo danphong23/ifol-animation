@@ -55,7 +55,11 @@ pub struct DesktopTestHarness<'a> {
 
 impl<'a> DesktopTestHarness<'a> {
     pub async fn new(width: u32, height: u32) -> Self {
-        let engine = GpuEngineBuilder::new().build().await.expect("Failed to build engine");
+        let engine = GpuEngineBuilder::new()
+            .with_required_limits(wgpu::Limits::default())
+            .build()
+            .await
+            .expect("Failed to build engine");
 
         let texture_bg_layout = engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -1096,5 +1100,165 @@ impl<'a> DesktopTestHarness<'a> {
             mip_level_count: 1, sample_count: 1,
         }, 8192).unwrap();
         (id, tex)
+    }
+
+    pub fn register_compute_pipeline(
+        &mut self,
+        shader_filename: &str,
+        bind_group_layouts: &[&wgpu::BindGroupLayout],
+    ) -> ifol_gpu::resources::ComputePipelineHandle {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let shader_path = std::path::Path::new(manifest_dir)
+            .join("tests")
+            .join("shared_assets")
+            .join("shaders")
+            .join(shader_filename);
+        let shader_code = std::fs::read_to_string(&shader_path).unwrap();
+        let shader = self.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(shader_filename),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(&shader_code)),
+        });
+        let bgl_options: Vec<Option<&wgpu::BindGroupLayout>> = bind_group_layouts.iter().map(|l| Some(*l)).collect();
+        let layout = self.engine.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some(shader_filename),
+            bind_group_layouts: &bgl_options,
+            immediate_size: 0,
+        });
+        let pipeline = self.engine.device().create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some(shader_filename),
+            layout: Some(&layout),
+            module: &shader,
+            entry_point: Some("cs_main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+        let pipe_id = ifol_gpu::resources::ComputePipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_compute_pipeline_with_layout_descriptor(
+            pipe_id,
+            pipeline,
+            ifol_gpu::resources::PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: (0..bind_group_layouts.len()).map(|i| Some(i as u64 + 1)).collect(),
+            },
+        );
+        pipe_id
+    }
+
+    pub fn create_storage_texture(
+        &mut self,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+        label: &str,
+    ) -> (TextureHandle, wgpu::Texture) {
+        let tex = self.engine.device().create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        let id = TextureHandle(self.next_tex_id);
+        self.next_tex_id += 1;
+        self.registry.insert_owned_texture(id, tex.clone(), TextureResourceDescriptor {
+            width,
+            height,
+            depth_or_array_layers: 1,
+            format,
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1,
+            sample_count: 1,
+        }, 8192).unwrap();
+        (id, tex)
+    }
+
+    pub fn create_storage_buffer<T: bytemuck::Pod>(
+        &mut self,
+        data: &[T],
+        label: &str,
+        extra_usage: wgpu::BufferUsages,
+    ) -> (BufferHandle, wgpu::Buffer) {
+        let buffer = self.engine.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(label),
+            contents: bytemuck::cast_slice(data),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST | extra_usage,
+        });
+        let id = BufferHandle(self.next_buf_id);
+        self.next_buf_id += 1;
+        self.registry.insert_buffer_with_descriptor(id, buffer.clone(), ifol_gpu::resources::BufferResourceDescriptor {
+            size: (data.len() * std::mem::size_of::<T>()) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST | extra_usage,
+        }).unwrap();
+        (id, buffer)
+    }
+
+    pub fn insert_bind_group(
+        &mut self,
+        bind_group: wgpu::BindGroup,
+        layout_signature: u64,
+    ) -> BindGroupHandle {
+        let id = BindGroupHandle(self.next_bg_id);
+        self.next_bg_id += 1;
+        self.registry.insert_bind_group_with_descriptor(
+            id,
+            bind_group,
+            ifol_gpu::resources::BindGroupResourceDescriptor {
+                dynamic_offset_count: 0,
+                dynamic_offset_alignment: 0,
+                layout_signature,
+            },
+        ).unwrap();
+        id
+    }
+
+    pub fn insert_pipeline(
+        &mut self,
+        pipeline: wgpu::RenderPipeline,
+        layout_signatures: Vec<Option<u64>>,
+    ) -> PipelineHandle {
+        let id = PipelineHandle(self.next_pipe_id);
+        self.next_pipe_id += 1;
+        self.registry.insert_pipeline_with_layout_descriptor(
+            id,
+            pipeline,
+            ifol_gpu::resources::PipelineLayoutResourceDescriptor {
+                bind_group_layout_signatures: layout_signatures,
+            },
+        );
+        id
+    }
+
+    pub fn readback_storage_buffer<T: bytemuck::Pod + Clone>(&self, buffer: &wgpu::Buffer, count: usize) -> Vec<T> {
+        let size = (count * std::mem::size_of::<T>()) as u64;
+        let staging = self.engine.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("storage_readback_staging"),
+            size,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self.engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("readback_encoder"),
+        });
+        encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, size);
+        let sub = self.engine.queue().submit(Some(encoder.finish()));
+        let slice = staging.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |res| {
+            tx.send(res).unwrap();
+        });
+        self.engine.device().poll(wgpu::PollType::Wait {
+            submission_index: Some(sub),
+            timeout: None,
+        });
+        rx.recv().unwrap().unwrap();
+        let mapped = slice.get_mapped_range().unwrap();
+        let data: &[T] = bytemuck::cast_slice(&mapped);
+        let result = data.to_vec();
+        drop(mapped);
+        staging.unmap();
+        result
     }
 }

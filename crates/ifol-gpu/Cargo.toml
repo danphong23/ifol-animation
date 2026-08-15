@@ -271,3 +271,28 @@ path = "tests/desktop/tc59_sampler_modes.rs"
 [[test]]
 name = "tc60_desktop"
 path = "tests/desktop/tc60_pingpong_feedback.rs"
+
+[[test]]
+name = "tc61_desktop"
+path = "tests/desktop/tc61_compute_buffer_math.rs"
+
+[[test]]
+name = "tc62_desktop"
+path = "tests/desktop/tc62_storage_texture.rs"
+
+[[test]]
+name = "tc63_desktop"
+path = "tests/desktop/tc63_particles_100k.rs"
+
+[[test]]
+name = "tc64_desktop"
+path = "tests/desktop/tc64_audio_fft.rs"
+
+[[test]]
+name = "tc65_desktop"
+path = "tests/desktop/tc65_workgroup_blur.rs"
+
+
+
+
+
