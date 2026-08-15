@@ -331,3 +331,43 @@ path = "tests/desktop/tc74_yuv.rs"
 [[test]]
 name = "tc75_desktop"
 path = "tests/desktop/tc75_fft.rs"
+
+[[test]]
+name = "tc76_desktop"
+path = "tests/desktop/tc76_voronoi.rs"
+
+[[test]]
+name = "tc77_desktop"
+path = "tests/desktop/tc77_compute_skinning.rs"
+
+[[test]]
+name = "tc78_desktop"
+path = "tests/desktop/tc78_cloth_sim.rs"
+
+[[test]]
+name = "tc79_desktop"
+path = "tests/desktop/tc79_bezier.rs"
+
+[[test]]
+name = "tc80_desktop"
+path = "tests/desktop/tc80_msdf_text.rs"
+
+[[test]]
+name = "tc81_desktop"
+path = "tests/desktop/tc81_separable_blur.rs"
+
+[[test]]
+name = "tc82_desktop"
+path = "tests/desktop/tc82_raymarching_3d.rs"
+
+[[test]]
+name = "tc83_desktop"
+path = "tests/desktop/tc83_eulerian_fluid.rs"
+
+[[test]]
+name = "tc84_desktop"
+path = "tests/desktop/tc84_skeletal_anim.rs"
+
+[[test]]
+name = "tc85_desktop"
+path = "tests/desktop/tc85_prefix_sum.rs"
