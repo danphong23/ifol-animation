@@ -138,3 +138,10 @@ fn cleanup_texture(
 - **Pixelation/Mosaic (TC33):** Screen coordinate snapping bằng thuật toán Floor.
 - **Directional Blur (TC34):** Vòng lặp lấy mẫu dọc theo vector đa hướng.
 - **Halftone Comic Filter (TC35):** Chuyển đổi Luminance thành chấm đen sử dụng SDF.
+
+## Bộ Lọc Đặc Biệt & Biến Dạng (Distortion & Post-processing)
+- **Radial Blur (TC36):** Làm nhòe theo hướng tỏa ra từ tâm màn hình.
+- **Chromatic Aberration (TC37):** Phân tách 3 kênh RGB mô phỏng quang sai ống kính.
+- **Kaleidoscope (TC38):** Phản chiếu hình ảnh theo hệ tọa độ cực tạo kính vạn hoa.
+- **Scanlines Hologram (TC39):** Giả lập sọc ngang màn hình CRT/Hologram bằng sóng sine.
+- **Vignette & Film Grain (TC40):** Tối góc và nhiễu phim cổ điển.

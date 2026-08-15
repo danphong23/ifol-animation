@@ -1,0 +1,7 @@
+{
+  "features": [
+    "Sine wave frequency generator",
+    "Alpha channel modulation"
+  ],
+  "test_case": "TC39 - Hologram Scanlines"
+}

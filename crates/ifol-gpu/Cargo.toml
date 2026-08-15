@@ -168,3 +168,24 @@ path = "tests/desktop/tc34_directional_blur.rs"
 name = "tc35_desktop"
 path = "tests/desktop/tc35_halftone.rs"
 
+
+[[test]]
+name = "tc36_desktop"
+path = "tests/desktop/tc36_radial_blur.rs"
+
+[[test]]
+name = "tc37_desktop"
+path = "tests/desktop/tc37_chromatic_aberration.rs"
+
+[[test]]
+name = "tc38_desktop"
+path = "tests/desktop/tc38_kaleidoscope.rs"
+
+[[test]]
+name = "tc39_desktop"
+path = "tests/desktop/tc39_scanlines.rs"
+
+[[test]]
+name = "tc40_desktop"
+path = "tests/desktop/tc40_vignette_grain.rs"
+

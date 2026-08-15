@@ -1,0 +1,7 @@
+{
+  "features": [
+    "Radial distance sampling",
+    "Weight decay for smoother blur"
+  ],
+  "test_case": "TC36 - Radial Blur (Zoom Blur)"
+}

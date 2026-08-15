@@ -1,0 +1,7 @@
+{
+  "features": [
+    "Radial distance color separation",
+    "Independent RGB Channel Sampling"
+  ],
+  "test_case": "TC37 - Chromatic Aberration (RGB Split)"
+}

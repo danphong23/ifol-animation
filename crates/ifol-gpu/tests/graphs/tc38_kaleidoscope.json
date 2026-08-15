@@ -1,0 +1,7 @@
+{
+  "features": [
+    "Polar Coordinate mapping",
+    "Angular Modulo Folding"
+  ],
+  "test_case": "TC38 - Kaleidoscope"
+}
