@@ -175,3 +175,31 @@ let glass_uniform = GlassUniform {
     border_thickness: 0.005,
 };
 ```
+
+## Tính năng Phân tích & Đồ họa Điện ảnh Chuyên nghiệp (Phase 8: TC46-TC50)
+- **Selective Color Isolation (TC46):** Phân tích không gian màu HSV và góc Hue hình tròn để tách màu chọn lọc (Sin City Effect), chuyển toàn cảnh sang Grayscale và giữ lại màu giáp đỏ/hồng.
+- **Motion Echo & Afterimage Ghosting (TC47):** Giả lập tàn ảnh tốc độ cao với 5 lớp bóng ma phân rã mờ dần (Exponential Decay) và xoay chuyển sắc thái màu quang học (Spectral Hue Trail).
+- **Cinematic Bokeh Depth of Field (TC48):** Tính toán mặt phẳng hội tụ tiêu cự (Circle of Confusion CoC) kết hợp lấy mẫu đĩa xoắn Fermat Golden Angle làm các đốm sáng bung nở thành đĩa tròn Bokeh quang học.
+- **Animated Trim Paths & Dashed Vector Stroke (TC49):** Mô phỏng tính năng Trim Paths của After Effects với đường viền nét đứt neon tự động chạy và cắt theo tỷ lệ phần trăm chu vi SDF.
+- **Exposure Inspector (Zebra Stripes & False Color) (TC50):** Bộ công cụ phân tích quang học chuyên dụng: Quét mức IRE phơi sáng, tô màu nhiệt giả lập (ARRI False Color Heatmap) và vẽ sọc ngựa vằn chuyển động tại vùng cháy sáng (> 80% IRE).
+
+### Hướng dẫn sử dụng Bokeh DoF & Exposure Inspector (Usage Examples)
+
+```rust
+// 1. Áp dụng Cinematic Bokeh Depth of Field
+let bokeh_uniform = BokehUniform {
+    focus_point: [0.5, 0.5], // Vùng tâm sắc nét
+    focus_radius: 0.2,       // Bán kính vùng nét
+    max_blur: 3.5,           // Kích thước đĩa Bokeh
+    highlight_boost: 6.0,    // Độ rực của đĩa sáng Bokeh
+    _pad0: 0.0,
+};
+
+// 2. Bật công cụ đo phơi sáng False Color & Zebra
+let exposure_uniform = ExposureUniform {
+    zebra_threshold: 0.80,   // Sọc ngựa vằn tại vùng sáng > 80%
+    zebra_speed: 2.0,        // Tốc độ chuyển động vạch sọc
+    time: 1.0,
+    mode: 0.0,               // 0 = Chia đôi màn hình (Trái: Zebra, Phải: False Color)
+};
+```

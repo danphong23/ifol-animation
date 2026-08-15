@@ -210,3 +210,24 @@ path = "tests/desktop/tc44_anamorphic_flare.rs"
 name = "tc45_desktop"
 path = "tests/desktop/tc45_glassmorphism.rs"
 
+
+[[test]]
+name = "tc46_desktop"
+path = "tests/desktop/tc46_selective_color.rs"
+
+[[test]]
+name = "tc47_desktop"
+path = "tests/desktop/tc47_motion_echo.rs"
+
+[[test]]
+name = "tc48_desktop"
+path = "tests/desktop/tc48_bokeh_dof.rs"
+
+[[test]]
+name = "tc49_desktop"
+path = "tests/desktop/tc49_trim_paths.rs"
+
+[[test]]
+name = "tc50_desktop"
+path = "tests/desktop/tc50_exposure_inspector.rs"
+

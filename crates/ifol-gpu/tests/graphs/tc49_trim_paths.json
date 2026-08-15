@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Parametric Arc Length Along SDF Boundary",
+    "Procedural Dash and Gap Generation",
+    "Trim Paths Start and End Truncation with Neon Glow"
+  ],
+  "test_case": "TC49 - Animated Trim Paths & Dashed Vector Stroke"
+}

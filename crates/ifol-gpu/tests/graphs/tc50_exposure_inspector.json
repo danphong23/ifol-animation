@@ -1,0 +1,8 @@
+{
+  "features": [
+    "IRE Luminance Histogram Analysis",
+    "Procedural Diagonal Zebra Stripes Animation",
+    "ARRI / DaVinci Professional False Color Heatmap"
+  ],
+  "test_case": "TC50 - False Color & Zebra Exposure Inspector"
+}
