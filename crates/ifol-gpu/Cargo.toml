@@ -408,6 +408,26 @@ path = "tests/desktop/tc93_storage_texture_3d.rs"
 name = "tc94_desktop"
 path = "tests/desktop/tc94_parallel_reduction.rs"
 
+[[test]]
+name = "tc96_desktop"
+path = "tests/desktop/tc96_memory_pressure.rs"
+
+[[test]]
+name = "tc97_desktop"
+path = "tests/desktop/tc97_deep_subgraph_dag.rs"
+
+[[test]]
+name = "tc98_desktop"
+path = "tests/desktop/tc98_ring_buffer_stress.rs"
+
+[[test]]
+name = "tc99_desktop"
+path = "tests/desktop/tc99_video_nv12_pipeline.rs"
+
+[[test]]
+name = "tc100_desktop"
+path = "tests/desktop/tc100_resilience_fallback.rs"
+
 [[bench]]
 name = "compute_benchmarks"
 harness = false
