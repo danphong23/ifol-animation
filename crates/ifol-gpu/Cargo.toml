@@ -428,6 +428,26 @@ path = "tests/desktop/tc99_video_nv12_pipeline.rs"
 name = "tc100_desktop"
 path = "tests/desktop/tc100_resilience_fallback.rs"
 
+[[test]]
+name = "tc101_desktop"
+path = "tests/desktop/tc101_texture_copy.rs"
+
+[[test]]
+name = "tc102_desktop"
+path = "tests/desktop/tc102_buffer_copy.rs"
+
+[[test]]
+name = "tc103_desktop"
+path = "tests/desktop/tc103_depth_aspect_copy.rs"
+
+[[test]]
+name = "tc104_desktop"
+path = "tests/desktop/tc104_extension_dispatch.rs"
+
+[[test]]
+name = "tc105_desktop"
+path = "tests/desktop/tc105_pingpong_echo.rs"
+
 [[bench]]
 name = "compute_benchmarks"
 harness = false
