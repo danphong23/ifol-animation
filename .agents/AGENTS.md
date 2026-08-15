@@ -41,12 +41,7 @@ Sau khi đọc file `00` ở trên, nó sẽ chỉ dẫn bạn đọc tiếp 10 
 
 ---
 
-## 4. Kiểm kê tính năng (Feature Tracking & Usage Rule)
-- Mỗi Crate cốt lõi (như `ifol-gpu`, `ifol-ecs`) **BẮT BUỘC** phải có một file `FEATURES.md` đặt ở thư mục gốc của Crate đó.
-- Mỗi khi hoàn thành code xong một tính năng mới (dù nhỏ hay lớn), Agent **PHẢI TỰ ĐỘNG** cập nhật file `FEATURES.md` này.
-- **BẮT BUỘC:** Phải luôn đính kèm một đoạn code mẫu (Snippet) vào mục "Hướng dẫn sử dụng (Usage Examples)" bên trong chính file `FEATURES.md` đó để các Crate bên ngoài biết cách gọi hàm. Việc gom chung Tính năng và Hướng dẫn vào 1 file `FEATURES.md` giúp tài liệu không bị phân mảnh.
-
-## 5. Quy Tắc Chuyển Giai Đoạn (Git Milestone Rule)
+## 4. Quy Tắc Chuyển Giai Đoạn (Git Milestone Rule)
 - Việc `commit` code cho một Giai đoạn CHỈ ĐƯỢC THỰC HIỆN KHI NGƯỜI DÙNG XÁC NHẬN (chẳng hạn khi người dùng gõ `proceed` để bắt đầu Giai đoạn tiếp theo).
 - Nếu người dùng chưa xác nhận, tuyệt đối không được tự ý commit, vì họ có thể đang cần kiểm tra và sửa đổi thêm.
 - Ngay khi người dùng `proceed` sang Phase mới, Agent phải dùng terminal để `git add .` và `git commit -m "..."` cho Phase cũ (nếu có thay đổi) trước khi bắt tay vào viết code mới.

@@ -151,9 +151,9 @@ fn run_compute_task(
 
 ---
 
-## 4. Ma Trận Kiểm Chứng Hệ Thống (Verification Matrix - 75 Desktop TCs)
+## 4. Ma Trận Kiểm Chứng Hệ Thống (Verification Matrix - 90 Desktop TCs)
 
-Tất cả 75 bài kiểm thử Desktop (60 Render TCs + 15 Compute TCs) đều được tự động đo lường hiệu năng (Cold/Warm run), kiểm tra lỗi GPU, xác thực số học và trích xuất hình ảnh kiểm chứng trực quan:
+Tất cả 90 bài kiểm thử Desktop (60 Render TCs + 30 Compute TCs) đều được tự động đo lường hiệu năng (Cold/Warm run), kiểm tra lỗi GPU, xác thực số học và trích xuất hình ảnh kiểm chứng trực quan:
 
 | Nhóm Kiểm Thử | Dải Test Cases | Khả năng kiểm chứng | Báo cáo chi tiết |
 | :--- | :--- | :--- | :--- |
@@ -164,8 +164,12 @@ Tất cả 75 bài kiểm thử Desktop (60 Render TCs + 15 Compute TCs) đều 
 | **VFX Cao Cấp & Tone Mapping** | TC41 $\rightarrow$ TC50 | Aspect ratio fill, HDR bloom, Luma/Alpha matte, Anamorphic flare, Glassmorphism, Selective color, Motion echo, Bokeh DOF, Trim paths, Exposure heatmap. | [`tests/reports/tc41_aspect_fill_report.md`](tests/reports/tc41_aspect_fill_report.md) $\rightarrow$ `tc50` |
 | **Phần Cứng & Edge Cases** | TC51 $\rightarrow$ TC60 | Atlas half-texel clamp, Soft particles, 8 Blend modes, 3D flag mesh, Dual Kawase blur, Dynamic target resize, Stencil mask, MRT G-Buffer, Sampler wrapping, Ping-Pong loop. | [`tests/reports/tc51_atlas_clamp_report.md`](tests/reports/tc51_atlas_clamp_report.md) $\rightarrow$ `tc60` |
 | **GPGPU & Compute Pipeline** | **TC61 $\rightarrow$ TC65** | **Storage Buffer Arithmetic (10k threads), 2D Storage Texture Read/Write (Sobel/Invert), 100k Galaxy Particle Simulation, Data packing, Workgroup Shared Memory (`var<workgroup>`) Fast Blur.** | [`tests/reports/tc61_compute_buffer_math_report.md`](tests/reports/tc61_compute_buffer_math_report.md) $\rightarrow$ [`tc65`](tests/reports/tc65_workgroup_blur_report.md) |
-| **Compute & Algorithms** | **TC66 $\rightarrow$ TC70** | **Cellular Automata (Conway's Game of Life), Ray Marching (SDF Boolean Ops), Reaction-Diffusion (Turing Pattern), Fractal Generation (Mandelbrot Deep Zoom), Parallel Prefix Sum (Scan) & Stream Compaction.** | [`tests/reports/tc66_game_of_life_report.md`](tests/reports/tc66_game_of_life_report.md) $\rightarrow$ [`tc70`](tests/reports/tc70_prefix_sum_report.md) |
+| **Compute & Algorithms** | **TC66 $\rightarrow$ TC70** | **Histogram Equalization, Multi-Pass Ping-Pong Diffusion, Verlet Integration Rope, Compute Mesh Deformation, GPU Frustum Culling.** | [`tests/reports/tc66_histogram_report.md`](tests/reports/tc66_histogram_report.md) $\rightarrow$ [`tc70`](tests/reports/tc70_culling_report.md) |
 | **Advanced Compute & Sim** | **TC71 $\rightarrow$ TC75** | **GPU Bitonic Sort (Alpha Blend Depth Sort), Spatial Hashing (Fluid/Boids Collision), Morphological Ops (Mask Dilation/Erosion), YUV 4:2:0 to RGBA Video Conversion, Audio FFT 256-Point Spectrum Visualization.** | [`tests/reports/tc71_bitonic_sort_report.md`](tests/reports/tc71_bitonic_sort_report.md) $\rightarrow$ [`tc75`](tests/reports/tc75_fft_report.md) |
+| **Simulation & Specialized** | **TC76 $\rightarrow$ TC80** | **Voronoi Tessellation, GPU Compute Skinning (Bone Matrix), Cloth Simulation (Mass-Spring PBD), Bézier Curve Tessellation, MSDF Text Rendering.** | [`tests/reports/tc76_voronoi_report.md`](tests/reports/tc76_voronoi_report.md) $\rightarrow$ [`tc80`](tests/reports/tc80_msdf_text_report.md) |
+| **Advanced VFX & Physics** | **TC81 $\rightarrow$ TC85** | **Separable Blur (Compute 2-Pass), Raymarching 3D SDF Scenes, Eulerian Fluid Simulation (Navier-Stokes), Skeletal Animation (Multi-Bone), Parallel Prefix Sum (Blelloch Scan).** | [`tests/reports/tc81_separable_blur_report.md`](tests/reports/tc81_separable_blur_report.md) $\rightarrow$ [`tc85`](tests/reports/tc85_prefix_sum_report.md) |
+| **Edge Cases, Stress & Atomic** | **TC86 $\rightarrow$ TC90** | **Out-of-Bounds Boundary Guard (1024 threads / 1000 valid), Zero & Max Dispatch Limits (65,535 WGs), Write-After-Write Hazard Sync (Multi-Pass Barrier), 1M Particle Stress (2.66 GB/s VRAM), Workgroup Atomic Histogram (102,400 threads → 256 bins, 100% match).** | [`tests/reports/tc86_compute_oob_report.md`](tests/reports/tc86_compute_oob_report.md) $\rightarrow$ [`tc90`](tests/reports/tc90_atomic_histogram_report.md) |
 
-> 💡 **Chi tiết ảnh render và số liệu benchmark:** Xem toàn bộ 75 báo cáo độc lập tại thư mục [`crates/ifol-gpu/tests/reports/`](tests/reports/).
+> 💡 **Chi tiết ảnh render và số liệu benchmark:** Xem toàn bộ 90 báo cáo độc lập tại thư mục [`crates/ifol-gpu/tests/reports/`](tests/reports/).
+
 

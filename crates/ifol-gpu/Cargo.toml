@@ -371,3 +371,24 @@ path = "tests/desktop/tc84_skeletal_anim.rs"
 [[test]]
 name = "tc85_desktop"
 path = "tests/desktop/tc85_prefix_sum.rs"
+
+[[test]]
+name = "tc86_desktop"
+path = "tests/desktop/tc86_compute_oob.rs"
+
+[[test]]
+name = "tc87_desktop"
+path = "tests/desktop/tc87_zero_max_dispatch.rs"
+
+[[test]]
+name = "tc88_desktop"
+path = "tests/desktop/tc88_hazard_sync.rs"
+
+[[test]]
+name = "tc89_desktop"
+path = "tests/desktop/tc89_1m_particles.rs"
+
+[[test]]
+name = "tc90_desktop"
+path = "tests/desktop/tc90_atomic_histogram.rs"
+
