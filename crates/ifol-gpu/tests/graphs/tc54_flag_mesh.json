@@ -1,0 +1,8 @@
+{
+  "features": [
+    "32x32 Grid Mesh (1089 Vertices, 6144 Indices)",
+    "Vertex & Index Buffer Hardware Binding",
+    "Vertex Shader 3D Wave Displacement & Normal Lighting"
+  ],
+  "test_case": "TC54 - High-Density Procedural 3D Flag Mesh"
+}

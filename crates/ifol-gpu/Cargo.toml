@@ -231,3 +231,24 @@ path = "tests/desktop/tc49_trim_paths.rs"
 name = "tc50_desktop"
 path = "tests/desktop/tc50_exposure_inspector.rs"
 
+
+[[test]]
+name = "tc51_desktop"
+path = "tests/desktop/tc51_atlas_clamp.rs"
+
+[[test]]
+name = "tc52_desktop"
+path = "tests/desktop/tc52_soft_particles.rs"
+
+[[test]]
+name = "tc53_desktop"
+path = "tests/desktop/tc53_blend_modes.rs"
+
+[[test]]
+name = "tc54_desktop"
+path = "tests/desktop/tc54_flag_mesh.rs"
+
+[[test]]
+name = "tc55_desktop"
+path = "tests/desktop/tc55_dual_kawase.rs"
+

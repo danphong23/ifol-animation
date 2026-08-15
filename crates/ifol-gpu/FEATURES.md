@@ -203,3 +203,33 @@ let exposure_uniform = ExposureUniform {
     mode: 0.0,               // 0 = Chia đôi màn hình (Trái: Zebra, Phải: False Color)
 };
 ```
+
+## Tính năng Render Pipeline Chuyên sâu & Edge Cases (Phase 9: TC51-TC55)
+- **Texture Atlas Sub-pixel Bleed Prevention (TC51):** Kỹ thuật kẹp nửa Texel (`Half-Texel UV Inset Clamping`) loại bỏ hoàn toàn hiện tượng lem viền giữa các Sprite kề nhau trên cùng một Atlas Sheet khi nội suy tuyến tính (Linear Filtering).
+- **Soft Particle Depth Fading (TC52):** Mô phỏng quả cầu năng lượng plasma tiếp xúc và giao thoa mềm mại với hình học nhân vật, khử vết cắt cứng (Hard Intersection) qua Z-buffer Depth Attachment.
+- **Advanced 8 Blend Modes Matrix (TC53):** Ma trận 8 chế độ hòa trộn lớp chuẩn After Effects / Photoshop: Normal, Multiply, Screen, Overlay, Hard Light, Soft Light, Color Dodge, Difference.
+- **High-Density Procedural 3D Flag Mesh (TC54):** Nạp và thực thi `VertexBuffer` + `IndexBuffer` thực tế (32x32 lưới = 1,089 đỉnh, 6,144 chỉ số) kết hợp biến dạng sóng 3D trong Vertex Shader và chiếu sáng bề mặt Phong Lighting.
+- **Dual Kawase Fast Bloom Filter (TC55):** Thuật toán làm mờ phân cấp 2 tầng (Downsample 400x300 và Upsample 800x600) lấy mẫu 8 điểm đa hướng, đạt hiệu ứng phát sáng diện rộng cực nhanh ở 60+ FPS.
+
+### Hướng dẫn sử dụng Mesh 3D & Blend Modes (Usage Examples)
+
+```rust
+// 1. Đăng ký Mesh đa giác với Vertex & Index Buffer
+harness.registry.insert_mesh_with_descriptor(
+    mesh_id,
+    (vertex_buffer, Some((index_buffer, wgpu::IndexFormat::Uint16)), index_count),
+    MeshResourceDescriptor {
+        vertex_buffer_size: vb_size,
+        vertex_count: num_vertices,
+        index_buffer_size: Some(ib_size),
+        index_format: Some(wgpu::IndexFormat::Uint16),
+    },
+)?;
+
+// 2. Gọi lệnh vẽ Indexed Draw
+let draw_cmd = DrawCommand::new(pipeline_id, DrawAction::Indexed {
+    mesh: mesh_id,
+    index_range: 0..index_count,
+    instance_range: 0..1,
+});
+```

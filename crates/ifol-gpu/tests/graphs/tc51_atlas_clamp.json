@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Half-Texel Boundary Inset Clamping",
+    "Sub-pixel Bilinear Filtering Guard",
+    "Side-by-side Atlas Sprite Isolation"
+  ],
+  "test_case": "TC51 - Texture Atlas Sub-pixel Bleed Prevention"
+}

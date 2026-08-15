@@ -1,0 +1,8 @@
+{
+  "features": [
+    "Depth Buffer Interaction with Geometry",
+    "Volumetric Spherical Thickness Modeling",
+    "Smooth Radial Falloff & Additive Plasma Blending"
+  ],
+  "test_case": "TC52 - Soft Particle Depth Fading & Volumetric Energy Sphere"
+}

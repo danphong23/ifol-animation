@@ -1,0 +1,8 @@
+{
+  "features": [
+    "4x2 Split Screen Tile Comparison",
+    "8 Industrial Blend Equations (Normal, Multiply, Screen, Overlay, HardLight, SoftLight, ColorDodge, Difference)",
+    "Sub-tile Aspect-Ratio Corrected Hero Sampling"
+  ],
+  "test_case": "TC53 - Advanced 8 Blend Modes Matrix"
+}
