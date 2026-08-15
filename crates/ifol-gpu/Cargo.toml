@@ -392,3 +392,24 @@ path = "tests/desktop/tc89_1m_particles.rs"
 name = "tc90_desktop"
 path = "tests/desktop/tc90_atomic_histogram.rs"
 
+[[test]]
+name = "tc91_desktop"
+path = "tests/desktop/tc91_unaligned_offset.rs"
+
+[[test]]
+name = "tc92_desktop"
+path = "tests/desktop/tc92_compute_indirect.rs"
+
+[[test]]
+name = "tc93_desktop"
+path = "tests/desktop/tc93_storage_texture_3d.rs"
+
+[[test]]
+name = "tc94_desktop"
+path = "tests/desktop/tc94_parallel_reduction.rs"
+
+[[bench]]
+name = "compute_benchmarks"
+harness = false
+
+
