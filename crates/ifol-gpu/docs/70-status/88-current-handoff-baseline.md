@@ -105,6 +105,8 @@ chỉ từ compile hoặc test trên Windows.
 - `src/graph/usage_overlap.rs` chứa resource access conflict và subresource/aspect
   overlap matching; `graph/usage.rs` giữ usage types, range constructors và
   facade re-export;
+- `src/graph/node_pool.rs` chứa `RenderNodePool` storage, allocation, mutation
+  và removal; `graph/nodes.rs` giữ `RenderNode` model/behavior;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -117,7 +119,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E35: audit tiếp graph/resource/backend facades theo
+Task E36: audit resource registry và backend capability/builder boundaries theo
 responsibility/cohesion, sau đó xử lý từng boundary một lần
 mà không đổi behavior. Giữ facade public và render/graph semantics nguyên vẹn.
 

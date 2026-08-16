@@ -195,6 +195,10 @@ graph files còn lớn theo responsibility/cohesion. Phase E34 tách resource
 subresource overlap/hazard matching khỏi `graph/usage.rs` vào
 `graph/usage_overlap.rs`, giữ nguyên usage types, facade re-exports và hazard
 semantics. Bước kế tiếp là E35: audit tiếp graph/resource/backend facades.
+Phase E35 tách `RenderNodePool` storage/mutation khỏi `graph/nodes.rs` vào
+`graph/node_pool.rs`, giữ nguyên `graph::{RenderNode, RenderNodePool}` facade
+và node lifecycle behavior. Bước kế tiếp là E36: audit resource registry và
+backend capability/builder boundaries.
 
 ## Phase E — Public API và cleanup
 

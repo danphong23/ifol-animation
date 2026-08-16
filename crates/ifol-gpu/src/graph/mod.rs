@@ -8,12 +8,14 @@ pub(crate) use usage::aspects_overlap;
 pub use usage::{GraphResource, ResourceAccess, ResourceSubresource, ResourceUsage, TextureAspect};
 mod flatten;
 pub use flatten::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenError};
+mod commands;
 mod ordering;
 mod resource_usage;
-mod commands;
 pub use commands::{ComputeCommand, CopyCommand, DrawAction, DrawCommand};
+mod node_pool;
 mod nodes;
-pub use nodes::{RenderNode, RenderNodePool};
+pub use node_pool::RenderNodePool;
+pub use nodes::RenderNode;
 mod graph;
 pub use graph::RenderGraph;
 
