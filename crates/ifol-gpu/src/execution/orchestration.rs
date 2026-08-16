@@ -83,7 +83,15 @@ pub(crate) fn compile_nested_graphs(
         };
 
         if let Some(inner) = inner_graph {
-            executor.compile_graph(encoder, engine, pool, &inner, registry, surface_view)?;
+            super::compiler::compile_graph(
+                executor,
+                encoder,
+                engine,
+                pool,
+                &inner,
+                registry,
+                surface_view,
+            )?;
         }
     }
     Ok(())
@@ -190,7 +198,15 @@ pub(crate) fn compile_flat_graph(
             .zip(&graph.node_ids)
             .all(|(flat, direct)| flat.node_id == *direct);
     if is_direct_plan {
-        return executor.compile_graph(encoder, engine, pool, graph, registry, surface_view);
+        return super::compiler::compile_graph(
+            executor,
+            encoder,
+            engine,
+            pool,
+            graph,
+            registry,
+            surface_view,
+        );
     }
     let mut last_draw_index = std::collections::HashMap::<Vec<RenderNodeId>, usize>::new();
     for (index, flat_node) in plan.nodes.iter().enumerate() {

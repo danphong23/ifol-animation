@@ -11,17 +11,17 @@ mod validation;
 pub use validation::RenderGraphValidationError;
 use validation::{format_has_stencil, validate_graph};
 mod render;
-use render::{encode_draw_commands, encode_graph_render_pass, prepare_render_nodes};
+use render::encode_draw_commands;
 mod compute;
 use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
 mod segments;
-use segments::{execute_graph_prepass, execute_non_render_nodes, execute_ordered_target_nodes};
 mod profiling;
 use profiling::execute_timestamped;
+mod compiler;
 mod orchestration;
-use orchestration::{compile_flat_graph, compile_nested_graphs, execution_counts_for_graph, map_graph_flatten_error, resolve_target_views};
+use orchestration::execution_counts_for_graph;
 #[cfg(test)]
 pub(crate) use render::bundle_cache_key;
 #[cfg(test)]
@@ -186,7 +186,7 @@ impl RenderGraphExecutor {
         self.validate_with_device(engine, registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
             execution_counts_for_graph(pool, graph)?;
-        let submission = self.execute_unchecked(engine, registry, pool, graph, surface_view)?;
+        let submission = compiler::execute_unchecked(self, engine, registry, pool, graph, surface_view)?;
         Ok(ExecutionReport {
             submission,
             flattened_nodes,
@@ -295,111 +295,8 @@ impl RenderGraphExecutor {
         self.execute_with_surface_checked(engine, registry, pool, graph, surface_view)
     }
 
-    fn execute_unchecked(
-        &self,
-        engine: &GpuEngine,
-        registry: &ResourceRegistry,
-        pool: &mut RenderNodePool,
-        graph: &RenderGraph,
-        surface_view: Option<&wgpu::TextureView>,
-    ) -> Result<wgpu::SubmissionIndex, RenderGraphValidationError> {
-        let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("RenderGraphEncoder"),
-        });
 
-        // Duyệt 2-Phase cây RenderGraph
-        compile_flat_graph(self, &mut encoder, engine, pool, graph, registry, surface_view)?;
 
-        // Submit toàn bộ khối lệnh (Command Buffer) lên GPU 1 lần duy nhất
-        Ok(engine.queue().submit(std::iter::once(encoder.finish())))
-}
-
-    /// Thuật toán Biên dịch 2-Phase (1 RenderGraph = 1 RenderPass)
-    fn compile_graph(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        engine: &GpuEngine,
-        pool: &mut RenderNodePool,
-        graph: &RenderGraph,
-        registry: &ResourceRegistry,
-        surface_view: Option<&wgpu::TextureView>,
-    ) -> Result<(), RenderGraphValidationError> {
-        // -------------------------------------------------------------
-        // PHASE 1: Đệ quy xử lý tất cả SubGraph con (Bottom-Up)
-        // Vẽ các nhánh con ra Offscreen Texture trước khi mở Pass cha
-        // -------------------------------------------------------------
-        compile_nested_graphs(self, encoder, engine, pool, graph, registry, surface_view)?;
-
-        // -------------------------------------------------------------
-        // PHASE 2: Mở 1 GPU RenderPass DUY NHẤT cho Target của Graph hiện tại
-        // -------------------------------------------------------------
-        let ordered_ids = graph.ordered_node_ids(pool).map_err(map_graph_flatten_error)?;
-        let Some(target_views) = resolve_target_views(&graph.target, engine, registry, surface_view) else {
-            execute_non_render_nodes(self, encoder, engine, pool, registry, &ordered_ids)?;
-            return Ok(());
-        };
-        let orchestration::TargetViews { color_view, color_format, sample_count, resolve_view } = target_views;
-
-        let depth_stencil_info = graph.depth_stencil.and_then(|handle| registry.texture(&handle));
-        let depth_format = depth_stencil_info.map(|(_, f)| *f);
-
-        let has_draw = ordered_ids.iter().any(|id| pool.get(*id).is_some_and(|node| !node.commands().is_empty()));
-        let has_non_render = ordered_ids.iter().any(|id| pool.get(*id).is_some_and(|node| !node.copy_commands().is_empty() || !node.compute_commands().is_empty()));
-        if has_draw && has_non_render {
-            execute_ordered_target_nodes(
-                self,
-                encoder,
-                engine,
-                pool,
-                registry,
-                &ordered_ids,
-                color_view,
-                color_format,
-                resolve_view,
-                depth_stencil_info.map(|(view, format)| (view, *format)),
-                graph.clear_color,
-                engine.capabilities().max_bind_groups,
-            )?;
-            return Ok(());
-        }
-
-        // -------------------------------------------------------------
-        // 2.1 UPDATE BUNDLES (For nodes that have use_bundle == true)
-        // -------------------------------------------------------------
-        let node_ids = prepare_render_nodes(
-            engine.device(),
-            pool,
-            registry,
-            ordered_ids,
-            graph.reverse_draw_order,
-            color_format,
-            depth_format,
-            sample_count,
-            self.context_key,
-            engine.capabilities().max_bind_groups,
-        )?;
-
-        // Copy nodes được submit trước compute/render pass của graph hiện tại.
-        // Khi graph có interleave compute/render semantics, pass model đầy đủ sẽ
-        // tách chúng thành execution segments ở compiler tiếp theo.
-        execute_graph_prepass(self, encoder, engine, pool, registry, &node_ids)?;
-
-        // -------------------------------------------------------------
-        // 2.2 EXECUTE RENDER PASS
-        // -------------------------------------------------------------
-        encode_graph_render_pass(
-            encoder,
-            pool,
-            registry,
-            &node_ids,
-            color_view,
-            resolve_view,
-            depth_stencil_info.map(|(view, format)| (view, *format)),
-            graph.clear_color,
-            engine.capabilities().max_bind_groups,
-        )?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]
