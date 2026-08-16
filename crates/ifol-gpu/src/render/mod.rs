@@ -6,7 +6,7 @@ pub mod handle {
 }
 
 pub mod registry {
-    pub use crate::resources::registry::*;
+    pub use crate::resources::*;
 }
 
 /// Compatibility facade for the execution layer during source migration.
