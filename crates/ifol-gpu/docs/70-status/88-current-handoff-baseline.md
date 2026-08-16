@@ -75,7 +75,8 @@ chỉ từ compile hoặc test trên Windows.
 - `src/render/` compatibility facade đã được loại bỏ; render implementation
   canonical nằm trong `execution/render_pass.rs` và `execution/render_bundles.rs`;
 - `src/extensions/validation.rs` chứa validation resource-usage của extension;
-  `extensions/mod.rs` giữ contract, registry và dispatch orchestration;
+  `extensions/mod.rs` giữ contract/context/errors; `extensions/registry.rs`
+  giữ extension và dispatcher registry state/lookup;
 - `src/graph/flatten.rs` chứa `FlatRenderPlan`, `FlatRenderNode`, dependency và
   flatten error types; `graph/mod.rs` giữ public graph exports;
 - `src/graph/ordering.rs` chứa dependency/hazard ordering của graph;
@@ -137,7 +138,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F8: tiếp tục structure/file-size audit; giữ graph/render semantics
+Task F9: tiếp tục structure/file-size audit; giữ graph/render semantics
 nguyên vẹn và chỉ tách thêm khi boundary responsibility đã rõ.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,

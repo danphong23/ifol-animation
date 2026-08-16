@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 
 struct TestExtension {
     descriptor: ExtensionDescriptor,
