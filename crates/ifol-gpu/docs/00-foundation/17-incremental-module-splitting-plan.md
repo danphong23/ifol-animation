@@ -188,6 +188,10 @@ Phase E32 tách render, compute và copy command validation khỏi
 `execution/validation_compute.rs` và `execution/validation_copy.rs`, giữ nguyên
 validation order và error contract. Bước kế tiếp là E33: tiếp tục audit các
 boundary còn lại trong execution/backend/graph theo kích thước và cohesion.
+Phase E33 tách readback ticket lifecycle khỏi `backend/readback.rs` vào
+`backend/readback_ticket.rs`, giữ nguyên `ReadbackTicket` public path, checked
+readback API và raw-byte contract. Bước kế tiếp là E34: audit tiếp backend và
+graph files còn lớn theo responsibility/cohesion.
 
 ## Phase E — Public API và cleanup
 

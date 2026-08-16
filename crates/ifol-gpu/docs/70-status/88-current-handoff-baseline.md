@@ -99,6 +99,9 @@ chỉ từ compile hoặc test trên Windows.
 - `src/execution/validation_compute.rs` chứa validation của compute commands;
 - `src/execution/validation_copy.rs` chứa validation của copy commands cùng các
   copy/range helpers;
+- `src/backend/readback_ticket.rs` chứa mapping, submission wait và row-padding
+  resolution của `ReadbackTicket`; `backend/readback.rs` giữ facade/API bắt đầu
+  readback;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -111,8 +114,8 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E33: tiếp tục audit các boundary còn lại trong execution/backend/graph theo
-kích thước và cohesion, sau đó xử lý từng boundary một lần
+Task E34: audit tiếp backend và graph files còn lớn theo responsibility/cohesion,
+sau đó xử lý từng boundary một lần
 mà không đổi behavior. Giữ facade public và render/graph semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
