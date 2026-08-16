@@ -285,7 +285,11 @@ validation regression tests khỏi `execution/tests.rs` vào
 đổi. F27 đã tách copy execution/validation và copy-draw segment regression
 tests khỏi `execution/tests.rs` vào `execution/copy_execution_tests.rs`; copy
 ordering và readback behavior không đổi. Bước tiếp theo là F28: tiếp tục audit
-compute execution và pipeline-layout test boundaries.
+compute execution và pipeline-layout test boundaries. F28 đã tách compute-only
+và nested-compute ordering regression tests khỏi `execution/tests.rs` vào
+`execution/compute_execution_tests.rs`; compute execution behavior không đổi.
+Bước tiếp theo là F29: tiếp tục audit pipeline-layout và render/indirect
+validation test boundaries.
 
 ## Không nằm trong đợt tách file đầu tiên
 
