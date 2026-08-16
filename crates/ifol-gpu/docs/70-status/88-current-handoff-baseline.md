@@ -77,8 +77,10 @@ chỉ từ compile hoặc test trên Windows.
 - `src/graph/ordering.rs` chứa dependency/hazard ordering của graph;
   `RenderGraph::effective_resource_usages` là internal helper dùng chung;
 - `src/graph/resource_usage.rs` chứa resource declaration/accessor API của
-  `RenderGraph` và effective usage derivation; storage hiện được mở ở mức
-  `pub(crate)` cho các graph modules;
+  `RenderGraph`; storage hiện được mở ở mức `pub(crate)` cho các graph modules;
+- `src/graph/effective_usage.rs` chứa effective usage derivation từ copy/draw/
+  compute commands và render target; `resource_usage.rs` chỉ giữ declaration
+  và accessor API;
 - `src/execution/executor.rs` chứa public `RenderGraphExecutor`, execution
   report và profiling result facade; `execution/mod.rs` giữ module wiring và
   test-only aliases;
@@ -128,7 +130,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F4: structure/file-size audit tiếp theo; giữ graph/render semantics
+Task F5: tiếp tục structure/file-size audit; giữ graph/render semantics
 nguyên vẹn và chỉ tách thêm khi boundary responsibility đã rõ.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,

@@ -11,6 +11,7 @@ pub use flatten::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenE
 mod commands;
 mod ordering;
 mod resource_usage;
+mod effective_usage;
 pub use commands::{ComputeCommand, CopyCommand, DrawAction, DrawCommand};
 mod node_pool;
 mod nodes;

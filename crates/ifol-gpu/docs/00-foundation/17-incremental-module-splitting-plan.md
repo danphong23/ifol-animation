@@ -153,8 +153,9 @@ còn lại trong graph. Phase E23 tách resource declaration/accessor API khỏi
 `graph/graph.rs` vào `graph/resource_usage.rs`, giữ nguyên các public
 `RenderGraph::declare_*_usage` methods. Bước kế tiếp là E24: tách effective
 usage derivation của command, extension và render target. Phase E24 chuyển
-`RenderGraph::effective_resource_usages` vào `graph/resource_usage.rs`, giữ
-nguyên internal call sites và hazard semantics. Bước kế tiếp là E25: audit
+`RenderGraph::effective_resource_usages` vào `graph/resource_usage.rs`, sau đó
+F4 chuyển tiếp phần derivation vào `graph/effective_usage.rs`, giữ nguyên
+internal call sites và hazard semantics. Bước kế tiếp là E25: audit
 remaining graph orchestration và execution boundaries. Phase E25 tách public
 executor facade khỏi `execution/mod.rs` vào `execution/executor.rs`, giữ
 nguyên `RenderGraphExecutor`, report/profiling types và canonical exports.
@@ -219,7 +220,10 @@ migrate resource/render consumers, xóa `resources::registry`, `render/`, các
 `api` compatibility modules và tuple readback API cũ. F3 đã migrate toàn bộ
 consumer khỏi alias execution `execute`/`execute_with_surface`, cập nhật docs
 theo canonical contract và chạy crate verification. Bước kế tiếp là F4:
-structure/file-size audit cuối trước khi tiếp tục split responsibility.
+structure/file-size audit. F4 đã tách effective usage derivation khỏi
+`graph/resource_usage.rs` vào `graph/effective_usage.rs`; declaration/accessor
+API và hazard semantics không đổi. Bước kế tiếp là F5: audit các production
+hotspot còn lại trước khi chọn responsibility tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
 
