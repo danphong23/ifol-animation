@@ -1,7 +1,50 @@
 use crate::graph::{DrawAction, DrawCommand};
 use crate::resources::registry::ResourceRegistry;
 
-use super::validation::{bind_group_slot_index, RenderGraphValidationError};
+use super::validation::{bind_group_slot_index, format_has_stencil, RenderGraphValidationError};
+
+pub(crate) fn with_render_pass<T>(
+    encoder: &mut wgpu::CommandEncoder,
+    color_view: &wgpu::TextureView,
+    resolve_view: Option<&wgpu::TextureView>,
+    depth_stencil_info: Option<(&wgpu::TextureView, wgpu::TextureFormat)>,
+    color_load: wgpu::LoadOp<wgpu::Color>,
+    depth_load: wgpu::LoadOp<f32>,
+    stencil_load: wgpu::LoadOp<u32>,
+    label: &'static str,
+    encode: impl FnOnce(&mut wgpu::RenderPass<'_>) -> Result<T, RenderGraphValidationError>,
+) -> Result<T, RenderGraphValidationError> {
+    let color_attachments = [Some(wgpu::RenderPassColorAttachment {
+        view: color_view,
+        depth_slice: None,
+        resolve_target: resolve_view,
+        ops: wgpu::Operations {
+            load: color_load,
+            store: wgpu::StoreOp::Store,
+        },
+    })];
+    let depth_stencil_attachment =
+        depth_stencil_info.map(|(view, format)| wgpu::RenderPassDepthStencilAttachment {
+            view,
+            depth_ops: Some(wgpu::Operations {
+                load: depth_load,
+                store: wgpu::StoreOp::Store,
+            }),
+            stencil_ops: format_has_stencil(format).then_some(wgpu::Operations {
+                load: stencil_load,
+                store: wgpu::StoreOp::Store,
+            }),
+        });
+    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some(label),
+        color_attachments: &color_attachments,
+        depth_stencil_attachment,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
+    encode(&mut render_pass)
+}
 
 pub(crate) fn encode_draw_commands(
     render_pass: &mut wgpu::RenderPass<'_>,

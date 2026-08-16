@@ -13,7 +13,7 @@ mod validation;
 pub use validation::RenderGraphValidationError;
 use validation::{bind_group_slot_index, format_has_stencil, validate_graph};
 mod render;
-use render::encode_draw_commands;
+use render::{encode_draw_commands, with_render_pass};
 #[cfg(test)]
 pub(crate) use validation::texture_supports_aspect;
 
@@ -467,40 +467,34 @@ fn execute_non_render_nodes(
             encode_compute_commands(encoder, registry, node.compute_commands(), max_bind_groups)?;
             if node.commands().is_empty() { continue; }
 
-            let color_attachments = [Some(wgpu::RenderPassColorAttachment {
-                view: color_view,
-                depth_slice: None,
-                resolve_target: resolve_view,
-                ops: wgpu::Operations {
-                    load: if !rendered_any {
-                        clear_color.map(|c| wgpu::LoadOp::Clear(wgpu::Color { r: c[0] as f64, g: c[1] as f64, b: c[2] as f64, a: c[3] as f64 })).unwrap_or(wgpu::LoadOp::Load)
-                    } else {
-                        wgpu::LoadOp::Load
-                    },
-                    store: wgpu::StoreOp::Store,
+            let should_clear = !rendered_any && clear_color.is_some();
+            with_render_pass(
+                encoder,
+                color_view,
+                resolve_view,
+                depth_stencil_info,
+                clear_color
+                    .map(|c| wgpu::LoadOp::Clear(wgpu::Color {
+                        r: c[0] as f64,
+                        g: c[1] as f64,
+                        b: c[2] as f64,
+                        a: c[3] as f64,
+                    }))
+                    .filter(|_| should_clear)
+                    .unwrap_or(wgpu::LoadOp::Load),
+                if should_clear {
+                    wgpu::LoadOp::Clear(1.0)
+                } else {
+                    wgpu::LoadOp::Load
                 },
-            })];
-            let depth_stencil_attachment = depth_stencil_info.map(|(view, format)| wgpu::RenderPassDepthStencilAttachment {
-                view,
-                depth_ops: Some(wgpu::Operations {
-                    load: if !rendered_any && clear_color.is_some() { wgpu::LoadOp::Clear(1.0) } else { wgpu::LoadOp::Load },
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: format_has_stencil(format).then_some(wgpu::Operations {
-                    load: if !rendered_any && clear_color.is_some() { wgpu::LoadOp::Clear(0) } else { wgpu::LoadOp::Load },
-                    store: wgpu::StoreOp::Store,
-                }),
-            });
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("RenderGraphSegmentPass"),
-                color_attachments: &color_attachments,
-                depth_stencil_attachment,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            encode_draw_commands(&mut render_pass, registry, node.commands(), max_bind_groups)?;
-            drop(render_pass);
+                if should_clear {
+                    wgpu::LoadOp::Clear(0)
+                } else {
+                    wgpu::LoadOp::Load
+                },
+                "RenderGraphSegmentPass",
+                |render_pass| encode_draw_commands(render_pass, registry, node.commands(), max_bind_groups),
+            )?;
             rendered_any = true;
         }
         let _ = (color_format, rendered_any);
@@ -846,47 +840,44 @@ fn execute_non_render_nodes(
             wgpu::LoadOp::Clear(wgpu::Color { r: c[0] as f64, g: c[1] as f64, b: c[2] as f64, a: c[3] as f64 })
         } else { wgpu::LoadOp::Load };
 
-        let color_attachments = [Some(wgpu::RenderPassColorAttachment {
-            view: color_view,
-            depth_slice: None,
-            resolve_target: resolve_view,
-            ops: wgpu::Operations { load: load_op, store: wgpu::StoreOp::Store },
-        })];
-
-        let depth_stencil_attachment = depth_stencil_info.map(|(view, format)| wgpu::RenderPassDepthStencilAttachment {
-            view,
-            depth_ops: Some(wgpu::Operations {
-                load: if graph.clear_color.is_some() { wgpu::LoadOp::Clear(1.0) } else { wgpu::LoadOp::Load },
-                store: wgpu::StoreOp::Store,
-            }),
-            stencil_ops: format_has_stencil(*format).then_some(wgpu::Operations {
-                load: if graph.clear_color.is_some() { wgpu::LoadOp::Clear(0) } else { wgpu::LoadOp::Load },
-                store: wgpu::StoreOp::Store,
-            }),
-        });
-
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("RenderGraphPass"),
-            color_attachments: &color_attachments,
-            depth_stencil_attachment,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
-
-        for &node_id in &node_ids {
-            let Some(node) = pool.get(node_id) else {
-                return Err(RenderGraphValidationError::MissingNode(node_id));
-            };
-            
-            if node.use_bundle() {
-                if let Some(bundle) = node.bundle() {
-                    render_pass.execute_bundles(std::iter::once(bundle));
-                }
+        with_render_pass(
+            encoder,
+            color_view,
+            resolve_view,
+            depth_stencil_info.map(|(view, format)| (view, *format)),
+            load_op,
+            if graph.clear_color.is_some() {
+                wgpu::LoadOp::Clear(1.0)
             } else {
-                encode_draw_commands(&mut render_pass, registry, node.commands(), engine.capabilities().max_bind_groups)?;
-            }
-        }
+                wgpu::LoadOp::Load
+            },
+            if graph.clear_color.is_some() {
+                wgpu::LoadOp::Clear(0)
+            } else {
+                wgpu::LoadOp::Load
+            },
+            "RenderGraphPass",
+            |render_pass| {
+                for &node_id in &node_ids {
+                    let Some(node) = pool.get(node_id) else {
+                        return Err(RenderGraphValidationError::MissingNode(node_id));
+                    };
+                    if node.use_bundle() {
+                        if let Some(bundle) = node.bundle() {
+                            render_pass.execute_bundles(std::iter::once(bundle));
+                        }
+                    } else {
+                        encode_draw_commands(
+                            render_pass,
+                            registry,
+                            node.commands(),
+                            engine.capabilities().max_bind_groups,
+                        )?;
+                    }
+                }
+                Ok(())
+            },
+        )?;
         Ok(())
     }
 }
