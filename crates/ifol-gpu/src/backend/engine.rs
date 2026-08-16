@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use crate::backend::capabilities::GpuCapabilities;
 pub use super::readback::{RawTextureReadback, ReadbackError, ReadbackTicket};
+#[cfg(feature = "image-encode")]
 pub use super::texture_save::TextureSaveError;
 
 pub struct GpuEngine<'a> {

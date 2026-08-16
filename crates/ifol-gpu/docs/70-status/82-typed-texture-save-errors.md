@@ -5,6 +5,9 @@ API checked cho offline rendering
 và visual snapshot. Nó dùng readback RGBA8 sRGB legacy contract, sau đó báo lỗi
 typed:
 
+API này thuộc feature `image-encode`, được bật mặc định; core GPU có thể được
+build bằng `--no-default-features` mà không kéo dependency `image`.
+
 - `TextureSaveError::Readback(ReadbackError)` khi GPU readback lỗi;
 - `TextureSaveError::CreateDirectory` khi không tạo được thư mục cha;
 - `TextureSaveError::Encode` khi image backend không ghi được file.

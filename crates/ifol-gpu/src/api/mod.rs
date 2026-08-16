@@ -12,10 +12,9 @@ pub mod profiling;
 
 pub use crate::backend::{GpuEngineBuilder, GpuError};
 pub use crate::backend::capabilities::{CapabilityError, GpuCapabilities};
-pub use crate::backend::{
-    GpuEngine, RawTextureReadback, ReadbackError, ReadbackTicket, SurfaceResizeError,
-    TextureSaveError,
-};
+pub use crate::backend::{GpuEngine, RawTextureReadback, ReadbackError, ReadbackTicket, SurfaceResizeError};
+#[cfg(feature = "image-encode")]
+pub use crate::backend::TextureSaveError;
 pub use crate::extensions::{
     ExtensionDescriptor, ExtensionDispatchRegistry, ExtensionDispatchRegistrationError,
     ExtensionDispatcher, ExtensionExecutionContext, ExtensionExecutionError, ExtensionId,

@@ -76,8 +76,10 @@ thành `backend/readback.rs`, giữ nguyên checked API và compatibility re-exp
 Bước raw readback kèm `format` đã được khóa bằng `RawTextureReadback`; tuple
 API cũ vẫn có compatibility wrapper. Save/encode boundary cũng đã được tách
 thành `backend/texture_save.rs`; hardcoded output policy hiện được cô lập ở
-module này. Bước kế tiếp là đánh giá dependency `image` và boundary higher
-layer mà không làm thay đổi checked error contract.
+module này. Feature `image-encode` giờ bật mặc định để giữ behavior, nhưng
+`--no-default-features --lib` đã compile mà không kéo image vào core GPU.
+Boundary dependency đã rõ; bước kế tiếp là đánh giá higher-layer encoder mà
+không làm thay đổi checked error contract.
 
 Chỉ bắt đầu sau khi A-C đã pass:
 

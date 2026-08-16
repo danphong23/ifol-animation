@@ -3,6 +3,10 @@ name = "ifol-gpu"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["image-encode"]
+image-encode = ["dep:image"]
+
 [dependencies]
 bytemuck = "1.25.2"
 log = "0.4.33"
@@ -10,7 +14,7 @@ pollster = "1.0.1"
 thiserror = "2.0.20"
 wgpu = "30.0.0"
 winit = { version = "0.30.13", features = ["rwh_06"] }
-image = "0.24.9"
+image = { version = "0.24.9", optional = true }
 
 [dev-dependencies]
 pollster = "1.0.1"
@@ -451,5 +455,4 @@ path = "tests/desktop/tc105_pingpong_echo.rs"
 [[bench]]
 name = "compute_benchmarks"
 harness = false
-
 
