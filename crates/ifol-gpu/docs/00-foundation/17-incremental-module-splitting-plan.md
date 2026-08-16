@@ -52,8 +52,9 @@ kiến trúc riêng sau khi extraction đã ổn định.
 Tiến độ hiện tại: C1 đã hoàn tất; phần version state của C3 đã được tách
 thành `src/resources/versions.rs`; nhóm lookup của C2 đã được tách thành
 `src/resources/lookup.rs`, giữ nguyên API/behavior. Bước kế tiếp là tách các
-operation mutation insert/remove khỏi registry core, mỗi nhóm vẫn phải đi qua
-compile và toàn bộ regression test trước khi commit.
+operation mutation insert/remove của C2 thành `src/resources/mutation.rs`,
+giữ nguyên API/behavior. Sau đó mới tiếp tục xử lý ownership/lifetime của C4;
+mỗi nhóm vẫn phải đi qua compile và toàn bộ regression test trước khi commit.
 
 | Task | Trách nhiệm | Test chính |
 |---|---|---|
