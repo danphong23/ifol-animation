@@ -50,9 +50,10 @@ kiến trúc riêng sau khi extraction đã ổn định.
 ## Phase C — Tách resources
 
 Tiến độ hiện tại: C1 đã hoàn tất; phần version state của C3 đã được tách
-thành `src/resources/versions.rs` và giữ nguyên API/behavior. Bước kế tiếp là
-tách registry core theo các operation lookup/insert/remove, mỗi nhóm vẫn phải
-đi qua compile và toàn bộ regression test trước khi commit.
+thành `src/resources/versions.rs`; nhóm lookup của C2 đã được tách thành
+`src/resources/lookup.rs`, giữ nguyên API/behavior. Bước kế tiếp là tách các
+operation mutation insert/remove khỏi registry core, mỗi nhóm vẫn phải đi qua
+compile và toàn bộ regression test trước khi commit.
 
 | Task | Trách nhiệm | Test chính |
 |---|---|---|
