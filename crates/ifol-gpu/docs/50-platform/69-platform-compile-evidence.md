@@ -13,10 +13,10 @@ Môi trường audit ngày 2026-08-13:
 | Target | Lệnh | Kết quả | Phạm vi |
 |---|---|---|---|
 | Host Windows GNU | serialized `cargo test -p ifol-gpu --lib --tests --examples -- --test-threads=1` + benchmark riêng | Đạt | 104 unit tests, integration, examples, benchmark compile |
-| Host Vulkan probe | `cargo test -p ifol-gpu api::builder::tests --lib -- --test-threads=1` | Đạt | builder policy reaches Vulkan adapter request and exposes selected adapter identity |
-| Host GL probe | `cargo test -p ifol-gpu api::builder::tests --lib -- --test-threads=1` | Đạt | GL adapter request succeeds hoặc trả optional no-adapter outcome |
-| Host DX12 probe | `cargo test -p ifol-gpu api::builder::tests --lib -- --test-threads=1` | Đạt | DX12 adapter request succeeds hoặc trả optional no-adapter outcome |
-| Host fallback probe | `cargo test -p ifol-gpu api::builder::tests --lib -- --test-threads=1` | Đạt | fallback policy reaches adapter request; availability remains adapter-dependent |
+| Host Vulkan probe | `cargo test -p ifol-gpu backend::builder::tests --lib -- --test-threads=1` | Đạt | builder policy reaches Vulkan adapter request and exposes selected adapter identity |
+| Host GL probe | `cargo test -p ifol-gpu backend::builder::tests --lib -- --test-threads=1` | Đạt | GL adapter request succeeds hoặc trả optional no-adapter outcome |
+| Host DX12 probe | `cargo test -p ifol-gpu backend::builder::tests --lib -- --test-threads=1` | Đạt | DX12 adapter request succeeds hoặc trả optional no-adapter outcome |
+| Host fallback probe | `cargo test -p ifol-gpu backend::builder::tests --lib -- --test-threads=1` | Đạt | fallback policy reaches adapter request; availability remains adapter-dependent |
 | WebAssembly | `cargo check -p ifol-gpu --target wasm32-unknown-unknown` | Đạt | compile crate, chưa chạy browser |
 | Windows MSVC | `cargo check -p ifol-gpu --target x86_64-pc-windows-msvc` | Đạt | compile crate, chưa chạy MSVC runtime |
 

@@ -1,7 +1,4 @@
-mod compatibility;
 pub mod profiling;
-
-pub use compatibility::{builder, compiler, engine, graph, handle, registry};
 
 pub use crate::backend::capabilities::{CapabilityError, GpuCapabilities};
 #[cfg(feature = "image-encode")]

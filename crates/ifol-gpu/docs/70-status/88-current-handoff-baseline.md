@@ -66,8 +66,8 @@ chỉ từ compile hoặc test trên Windows.
 - Internal crate, examples, tests và benchmark code đã dùng canonical
   `resources::*` re-exports; registry implementation không còn public qua
   `resources::registry::*`;
-- `src/api/compatibility.rs` chứa API builder/engine compatibility modules;
-  `api/mod.rs` giữ public exports và re-export các legacy paths;
+- `src/api/compatibility.rs` đã được loại bỏ; `api/mod.rs` chỉ còn profiling
+  functionality và explicit canonical re-exports;
 - `src/render/` compatibility facade đã được loại bỏ; render implementation
   canonical nằm trong `execution/render_pass.rs` và `execution/render_bundles.rs`;
 - `src/extensions/validation.rs` chứa validation resource-usage của extension;
