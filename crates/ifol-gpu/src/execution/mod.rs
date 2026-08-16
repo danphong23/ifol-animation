@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::extensions::{ExtensionDispatchRegistry, ExtensionExecutionContext};
 use crate::memory::{SubmissionId, SubmissionTracker};
-use crate::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
+use crate::graph::{RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::resources::handle::{RenderNodeId, TextureHandle};
 use crate::resources::registry::ResourceRegistry;
 
@@ -17,6 +17,8 @@ mod compute;
 use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
+mod orchestration;
+use orchestration::{execution_counts_for_graph, map_graph_flatten_error};
 #[cfg(test)]
 pub(crate) use render::bundle_cache_key;
 #[cfg(test)]
@@ -180,7 +182,7 @@ impl RenderGraphExecutor {
     ) -> Result<ExecutionReport, RenderGraphValidationError> {
         self.validate_with_device(engine, registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
-            Self::execution_counts_for_graph(pool, graph)?;
+            execution_counts_for_graph(pool, graph)?;
         let submission = self.execute_unchecked(engine, registry, pool, graph, surface_view)?;
         Ok(ExecutionReport {
             submission,
@@ -277,7 +279,7 @@ impl RenderGraphExecutor {
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
         self.validate_with_device(engine, registry, pool, graph)?;
         let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
-            Self::execution_counts_for_graph(pool, graph)?;
+            execution_counts_for_graph(pool, graph)?;
         let span = profiler.allocate_span()?;
         let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("RenderGraphProfiledEncoder"),
@@ -349,52 +351,6 @@ impl RenderGraphExecutor {
 
         // Submit toàn bộ khối lệnh (Command Buffer) lên GPU 1 lần duy nhất
         Ok(engine.queue().submit(std::iter::once(encoder.finish())))
-}
-
-fn execution_counts_for_graph(
-    pool: &RenderNodePool,
-    graph: &RenderGraph,
-) -> Result<(usize, usize, usize, usize, usize, usize), RenderGraphValidationError> {
-    let plan = graph.flatten(pool).map_err(|error| match error {
-        crate::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
-        crate::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
-        crate::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
-    })?;
-    let mut draws = 0;
-    let mut computes = 0;
-    let mut copies = 0;
-    let mut indirect = 0;
-    let usages = Self::declared_usage_count(pool, graph);
-    for flat_node in &plan.nodes {
-        let Some(node) = pool.get(flat_node.node_id) else {
-            return Err(RenderGraphValidationError::MissingNode(flat_node.node_id));
-        };
-        draws += node.commands().len();
-        computes += node.compute_commands().len();
-        copies += node.copy_commands().len();
-        indirect += node.commands().iter().filter(|command| matches!(command.action, DrawAction::Indirect { .. } | DrawAction::IndexedIndirect { .. })).count();
-        indirect += node.compute_commands().iter().filter(|command| command.indirect.is_some()).count();
-    }
-    Ok((plan.nodes.len(), draws, computes, copies, indirect, usages))
-}
-
-fn map_graph_flatten_error(error: crate::graph::GraphFlattenError) -> RenderGraphValidationError {
-    match error {
-        crate::graph::GraphFlattenError::MissingNode(node) => RenderGraphValidationError::MissingNode(node),
-        crate::graph::GraphFlattenError::Cycle(node) => RenderGraphValidationError::DependencyCycle(node),
-        crate::graph::GraphFlattenError::DependencyNodeOutsideGraph(node) => RenderGraphValidationError::DependencyOutsideGraph(node),
-    }
-}
-
-fn declared_usage_count(pool: &RenderNodePool, graph: &RenderGraph) -> usize {
-    graph.node_ids.iter().fold(0, |count, node_id| {
-        let nested = match pool.get(*node_id) {
-            Some(RenderNode::SubGraph { graph: child, .. }) => Self::declared_usage_count(pool, child),
-            _ => 0,
-        };
-        let extension_usage_count = pool.get(*node_id).map_or(0, |node| node.extension_usages().len());
-        count + graph.resource_usages(node_id).len() + extension_usage_count + nested
-    })
 }
 
 fn execute_non_render_nodes(
@@ -510,7 +466,7 @@ fn execute_non_render_nodes(
         registry: &ResourceRegistry,
         surface_view: Option<&wgpu::TextureView>,
     ) -> Result<(), RenderGraphValidationError> {
-        let plan = graph.flatten(pool).map_err(Self::map_graph_flatten_error)?;
+        let plan = graph.flatten(pool).map_err(map_graph_flatten_error)?;
         let is_direct_plan = plan.nodes.len() == graph.node_ids.len()
             && plan.nodes.iter().zip(&graph.node_ids).all(|(flat, direct)| flat.node_id == *direct);
         if is_direct_plan {
@@ -638,7 +594,7 @@ fn execute_non_render_nodes(
         // -------------------------------------------------------------
         // PHASE 2: Mở 1 GPU RenderPass DUY NHẤT cho Target của Graph hiện tại
         // -------------------------------------------------------------
-        let ordered_ids = graph.ordered_node_ids(pool).map_err(Self::map_graph_flatten_error)?;
+        let ordered_ids = graph.ordered_node_ids(pool).map_err(map_graph_flatten_error)?;
         let target_view_info = match &graph.target {
             RenderTarget::Screen => {
                 // Surface format thuộc về surface configuration, không được đoán
@@ -775,7 +731,7 @@ fn execute_non_render_nodes(
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
-    use super::{bind_group_slot_index, bundle_cache_key, encode_compute_commands, encode_copy_command, encode_draw_commands, format_has_stencil, texture_supports_aspect, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
+    use super::{bind_group_slot_index, bundle_cache_key, encode_compute_commands, encode_copy_command, encode_draw_commands, execution_counts_for_graph, format_has_stencil, texture_supports_aspect, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use super::validation::{validate_copy_range, validate_indirect_buffer};
     use crate::api::GpuEngineBuilder;
     use crate::memory::SubmissionTracker;
@@ -984,7 +940,7 @@ mod tests {
         graph.declare_resource_usage(draw, GraphResource::Buffer(BufferHandle(5)), ResourceAccess::Read);
         graph.declare_resource_usage(compute, GraphResource::Buffer(BufferHandle(6)), ResourceAccess::Write);
 
-        let counts = RenderGraphExecutor::execution_counts_for_graph(&pool, &graph).unwrap();
+        let counts = execution_counts_for_graph(&pool, &graph).unwrap();
         assert_eq!(counts, (3, 1, 1, 1, 0, 2));
     }
 
