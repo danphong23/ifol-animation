@@ -9,6 +9,7 @@ use crate::resources::registry::ResourceRegistry;
 mod validation;
 mod validation_errors;
 mod validation_copy;
+mod validation_target;
 pub use validation::RenderGraphValidationError;
 use validation::{format_has_stencil, validate_graph};
 mod render;

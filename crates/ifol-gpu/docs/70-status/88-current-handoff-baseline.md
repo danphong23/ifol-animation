@@ -52,6 +52,8 @@ chỉ từ compile hoặc test trên Windows.
   `validation.rs` giữ algorithms và re-export compatibility;
 - `src/execution/validation_copy.rs` chứa copy, texture-aspect, buffer-range
   và indirect-range validation helpers;
+- `src/execution/validation_target.rs` chứa render-target và depth/stencil
+  validation helpers; `validation.rs` giữ graph-validation orchestration;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -64,7 +66,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E12: tách render-target/depth validation helpers khỏi
+Task E13: audit bind-group/pipeline-layout validation helpers trong
 `execution/validation.rs`, sau đó xử lý từng production boundary một lần mà
 không đổi behavior. Giữ facade public và execution semantics nguyên vẹn.
 

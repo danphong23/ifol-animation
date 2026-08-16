@@ -116,7 +116,10 @@ validation algorithms vào `execution/validation_errors.rs`, giữ nguyên
 public re-export và error semantics. Phase E11 tách copy, texture-aspect,
 buffer-range và indirect-range helpers khỏi `execution/validation.rs` vào
 `execution/validation_copy.rs`; validation behavior không đổi. Bước kế tiếp
-là E12: tách render-target/depth validation helpers.
+là E12: tách render-target/depth validation helpers. Phase E12 tách các
+helper này vào `execution/validation_target.rs`; graph validation flow chỉ
+orchestrate target/depth checks và node traversal, không đổi error semantics.
+Bước kế tiếp là E13: audit bind-group/pipeline-layout validation helpers.
 
 ## Phase E — Public API và cleanup
 
