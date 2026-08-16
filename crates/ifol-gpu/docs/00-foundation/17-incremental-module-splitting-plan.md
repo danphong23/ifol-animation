@@ -120,6 +120,10 @@ là E12: tách render-target/depth validation helpers. Phase E12 tách các
 helper này vào `execution/validation_target.rs`; graph validation flow chỉ
 orchestrate target/depth checks và node traversal, không đổi error semantics.
 Bước kế tiếp là E13: audit bind-group/pipeline-layout validation helpers.
+Phase E13 tách slot, dynamic-offset và render/compute pipeline-layout
+validation vào `execution/validation_layout.rs`; public error paths và
+validation semantics không đổi. Bước kế tiếp là E14: audit graph traversal
+validation còn lại.
 
 ## Phase E — Public API và cleanup
 
