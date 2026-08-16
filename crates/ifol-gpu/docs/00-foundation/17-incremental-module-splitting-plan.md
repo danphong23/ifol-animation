@@ -183,6 +183,11 @@ tách ba execution phases khỏi `execution/segments.rs` vào
 `execution/non_render.rs`, `execution/prepass.rs` và
 `execution/target_segments.rs`, giữ nguyên compiler/segment behavior. Bước kế
 tiếp là E32: audit remaining execution kernels và final file-size/facade audit.
+Phase E32 tách render, compute và copy command validation khỏi
+`execution/validation_node.rs` vào `execution/validation_render.rs`,
+`execution/validation_compute.rs` và `execution/validation_copy.rs`, giữ nguyên
+validation order và error contract. Bước kế tiếp là E33: tiếp tục audit các
+boundary còn lại trong execution/backend/graph theo kích thước và cohesion.
 
 ## Phase E — Public API và cleanup
 

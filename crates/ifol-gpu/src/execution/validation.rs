@@ -6,9 +6,9 @@ use crate::resources::ResourceRegistry;
 
 #[cfg(test)]
 pub(crate) use super::validation_copy::texture_supports_aspect;
-pub(crate) use super::validation_copy::{
-    format_has_stencil, validate_copy_range, validate_indirect_buffer, validate_texture_copy,
-};
+#[cfg(test)]
+pub(crate) use super::validation_copy::validate_copy_range;
+pub(crate) use super::validation_copy::{format_has_stencil, validate_indirect_buffer};
 pub(crate) use super::validation_layout::{
     bind_group_slot_index, validate_bind_group_offsets, validate_compute_pipeline_layout,
     validate_render_pipeline_layout,

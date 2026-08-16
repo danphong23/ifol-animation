@@ -1,8 +1,99 @@
-use crate::graph::TextureAspect;
+use crate::graph::{CopyCommand, RenderNode, TextureAspect};
 use crate::resources::handle::{BufferHandle, TextureHandle};
 use crate::resources::{ResourceRegistry, TextureResourceDescriptor};
 
 use super::validation::RenderGraphValidationError;
+
+pub(crate) fn validate_copy_commands(
+    registry: &ResourceRegistry,
+    node: &RenderNode,
+) -> Result<(), RenderGraphValidationError> {
+    for command in node.copy_commands() {
+        match command {
+            CopyCommand::BufferToBuffer {
+                source,
+                destination,
+                source_offset,
+                destination_offset,
+                size,
+            } => {
+                let Some(source_buffer) = registry.buffer(source) else {
+                    return Err(RenderGraphValidationError::MissingBuffer(*source));
+                };
+                let Some(destination_buffer) = registry.buffer(destination) else {
+                    return Err(RenderGraphValidationError::MissingBuffer(*destination));
+                };
+                if let Some(descriptor) = registry.buffer_descriptor(source) {
+                    let required = wgpu::BufferUsages::COPY_SRC;
+                    if !descriptor.usage.contains(required) {
+                        return Err(RenderGraphValidationError::MissingBufferUsage {
+                            handle: *source,
+                            required_usage: required.bits(),
+                            actual_usage: descriptor.usage.bits(),
+                        });
+                    }
+                }
+                if let Some(descriptor) = registry.buffer_descriptor(destination) {
+                    let required = wgpu::BufferUsages::COPY_DST;
+                    if !descriptor.usage.contains(required) {
+                        return Err(RenderGraphValidationError::MissingBufferUsage {
+                            handle: *destination,
+                            required_usage: required.bits(),
+                            actual_usage: descriptor.usage.bits(),
+                        });
+                    }
+                }
+                validate_copy_range(*source, *source_offset, *size, source_buffer.size())?;
+                validate_copy_range(
+                    *destination,
+                    *destination_offset,
+                    *size,
+                    destination_buffer.size(),
+                )?;
+            }
+            CopyCommand::TextureToTexture {
+                source,
+                destination,
+                source_mip_level,
+                destination_mip_level,
+                source_origin,
+                destination_origin,
+                extent,
+            } => validate_texture_copy(
+                registry,
+                *source,
+                *destination,
+                *source_mip_level,
+                *destination_mip_level,
+                *source_origin,
+                *destination_origin,
+                *extent,
+                TextureAspect::All,
+            )?,
+            CopyCommand::TextureToTextureAspect {
+                source,
+                destination,
+                source_mip_level,
+                destination_mip_level,
+                source_origin,
+                destination_origin,
+                extent,
+                aspect,
+            } => validate_texture_copy(
+                registry,
+                *source,
+                *destination,
+                *source_mip_level,
+                *destination_mip_level,
+                *source_origin,
+                *destination_origin,
+                *extent,
+                *aspect,
+            )?,
+        }
+    }
+    Ok(())
+}
 
 pub(crate) fn format_has_stencil(format: wgpu::TextureFormat) -> bool {
     matches!(
