@@ -3,9 +3,67 @@ use super::{
     encode_compute_commands, encode_copy_command, encode_draw_commands, format_has_stencil,
     RenderGraphExecutor,
 };
+use crate::api::GpuEngine;
 use crate::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::resources::handle::{RenderNodeId, TextureHandle};
 use crate::resources::registry::ResourceRegistry;
+
+pub(crate) struct TargetViews<'a> {
+    pub(crate) color_view: &'a wgpu::TextureView,
+    pub(crate) color_format: wgpu::TextureFormat,
+    pub(crate) sample_count: u32,
+    pub(crate) resolve_view: Option<&'a wgpu::TextureView>,
+}
+
+pub(crate) fn resolve_target_views<'a>(
+    target: &RenderTarget,
+    engine: &'a GpuEngine,
+    registry: &'a ResourceRegistry,
+    surface_view: Option<&'a wgpu::TextureView>,
+) -> Option<TargetViews<'a>> {
+    match target {
+        RenderTarget::Screen => surface_view
+            .zip(engine.surface_format())
+            .map(|(view, format)| TargetViews {
+                color_view: view,
+                color_format: format,
+                sample_count: 1,
+                resolve_view: None,
+            })
+            .or_else(|| {
+                registry
+                    .texture(&TextureHandle(0))
+                    .map(|(view, format)| TargetViews {
+                        color_view: view,
+                        color_format: *format,
+                        sample_count: 1,
+                        resolve_view: None,
+                    })
+            }),
+        RenderTarget::Offscreen { color, .. } => {
+            registry.texture(color).map(|(view, format)| TargetViews {
+                color_view: view,
+                color_format: *format,
+                sample_count: 1,
+                resolve_view: None,
+            })
+        }
+        RenderTarget::OffscreenMsaa { color, resolve, .. } => {
+            registry.texture(color).and_then(|(color_view, format)| {
+                registry
+                    .texture(resolve)
+                    .map(|(resolve_view, _)| TargetViews {
+                        color_view,
+                        color_format: *format,
+                        sample_count: registry
+                            .texture_descriptor(color)
+                            .map_or(1, |descriptor| descriptor.sample_count),
+                        resolve_view: Some(resolve_view),
+                    })
+            })
+        }
+    }
+}
 
 pub(crate) fn execution_counts_for_graph(
     pool: &RenderNodePool,
@@ -142,36 +200,17 @@ pub(crate) fn compile_flat_graph(
             continue;
         }
 
-        let target_view_info = match &owner.target {
-            RenderTarget::Screen => surface_view
-                .zip(engine.surface_format())
-                .map(|(view, format)| (view, format, 1, None))
-                .or_else(|| {
-                    registry
-                        .texture(&TextureHandle(0))
-                        .map(|(view, format)| (view, *format, 1, None))
-                }),
-            RenderTarget::Offscreen { color, .. } => registry
-                .texture(color)
-                .map(|(view, format)| (view, *format, 1, None)),
-            RenderTarget::OffscreenMsaa { color, resolve, .. } => {
-                registry.texture(color).and_then(|(color_view, format)| {
-                    registry.texture(resolve).map(|(resolve_view, _)| {
-                        (
-                            color_view,
-                            *format,
-                            registry
-                                .texture_descriptor(color)
-                                .map_or(1, |descriptor| descriptor.sample_count),
-                            Some(resolve_view),
-                        )
-                    })
-                })
-            }
-        };
-        let Some((color_view, color_format, sample_count, resolve_view)) = target_view_info else {
+        let Some(target_views) =
+            resolve_target_views(&owner.target, engine, registry, surface_view)
+        else {
             continue;
         };
+        let TargetViews {
+            color_view,
+            color_format,
+            sample_count,
+            resolve_view,
+        } = target_views;
         let depth_stencil_info = owner
             .depth_stencil
             .and_then(|handle| registry.texture(&handle));

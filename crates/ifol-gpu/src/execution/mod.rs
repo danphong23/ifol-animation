@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::extensions::{ExtensionDispatchRegistry, ExtensionExecutionContext};
 use crate::memory::{SubmissionId, SubmissionTracker};
-use crate::graph::{RenderGraph, RenderNode, RenderNodePool, RenderTarget};
-use crate::resources::handle::{RenderNodeId, TextureHandle};
+use crate::graph::{RenderGraph, RenderNode, RenderNodePool};
+use crate::resources::handle::RenderNodeId;
 use crate::resources::registry::ResourceRegistry;
 
 mod validation;
@@ -17,7 +17,7 @@ use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
 mod orchestration;
-use orchestration::{compile_flat_graph, execution_counts_for_graph, map_graph_flatten_error};
+use orchestration::{compile_flat_graph, execution_counts_for_graph, map_graph_flatten_error, resolve_target_views};
 #[cfg(test)]
 pub(crate) use render::bundle_cache_key;
 #[cfg(test)]
@@ -463,25 +463,11 @@ fn execute_non_render_nodes(
         // PHASE 2: Mở 1 GPU RenderPass DUY NHẤT cho Target của Graph hiện tại
         // -------------------------------------------------------------
         let ordered_ids = graph.ordered_node_ids(pool).map_err(map_graph_flatten_error)?;
-        let target_view_info = match &graph.target {
-            RenderTarget::Screen => {
-                // Surface format thuộc về surface configuration, không được đoán
-                // theo backend hoặc theo format mặc định của một cửa sổ cụ thể.
-                surface_view
-                    .zip(engine.surface_format())
-                    .map(|(view, format)| (view, format, 1, None))
-                    .or_else(|| registry.texture(&TextureHandle(0)).map(|(v, f)| (v, *f, 1, None)))
-            }
-            RenderTarget::Offscreen { color, .. } => registry.texture(color).map(|(v, f)| (v, *f, 1, None)),
-            RenderTarget::OffscreenMsaa { color, resolve, .. } => registry.texture(color).and_then(|(color_view, format)| {
-                registry.texture(resolve).map(|(resolve_view, _)| (color_view, *format, registry.texture_descriptor(color).map_or(1, |d| d.sample_count), Some(resolve_view)))
-            }),
-        };
-
-        let Some((color_view, color_format, sample_count, resolve_view)) = target_view_info else {
+        let Some(target_views) = resolve_target_views(&graph.target, engine, registry, surface_view) else {
             self.execute_non_render_nodes(encoder, engine, pool, registry, &ordered_ids)?;
             return Ok(());
         };
+        let orchestration::TargetViews { color_view, color_format, sample_count, resolve_view } = target_views;
 
         let depth_stencil_info = graph.depth_stencil.and_then(|handle| registry.texture(&handle));
         let depth_format = depth_stencil_info.map(|(_, f)| *f);
