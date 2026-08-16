@@ -111,8 +111,10 @@ và tracker contracts không đổi. Phase E8 tách regression tests inline kh�
 `memory/deferred.rs` vào `memory/deferred_tests.rs`; deferred destruction
 queue contract không đổi. Phase E9 tách headless initialization regression
 test khỏi root `lib.rs` vào `lib_tests.rs`; crate module declarations và
-public facade không đổi. Bước kế tiếp là E10: tách responsibility rõ ràng
-trong `execution/validation.rs`.
+public facade không đổi. Phase E10 tách `RenderGraphValidationError` khỏi
+validation algorithms vào `execution/validation_errors.rs`, giữ nguyên
+public re-export và error semantics. Bước kế tiếp là E11: tách copy/range
+validation helpers khỏi `execution/validation.rs`.
 
 ## Phase E — Public API và cleanup
 

@@ -7,6 +7,7 @@ use crate::graph::{RenderGraph, RenderNodePool};
 use crate::resources::registry::ResourceRegistry;
 
 mod validation;
+mod validation_errors;
 pub use validation::RenderGraphValidationError;
 use validation::{format_has_stencil, validate_graph};
 mod render;

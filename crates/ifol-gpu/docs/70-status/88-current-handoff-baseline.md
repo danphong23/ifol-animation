@@ -48,6 +48,8 @@ chỉ từ compile hoặc test trên Windows.
   production module chỉ giữ queue và completion-gated drain contract;
 - `src/lib_tests.rs` chứa headless initialization regression test; root
   `lib.rs` chỉ giữ crate module declarations và public facade;
+- `src/execution/validation_errors.rs` chứa typed validation error contract;
+  `validation.rs` giữ algorithms và re-export compatibility;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -60,9 +62,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E10: tách responsibility rõ ràng trong `execution/validation.rs`, sau
-đó xử lý từng production boundary một lần mà không đổi behavior. Giữ facade
-public và execution semantics nguyên vẹn.
+Task E11: tách copy/range validation helpers khỏi
+`execution/validation.rs`, sau đó xử lý từng production boundary một lần mà
+không đổi behavior. Giữ facade public và execution semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task E5.
