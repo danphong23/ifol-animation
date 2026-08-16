@@ -9,6 +9,7 @@ pub use usage::{GraphResource, ResourceAccess, ResourceSubresource, ResourceUsag
 mod flatten;
 pub use flatten::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenError};
 mod ordering;
+mod resource_usage;
 mod commands;
 pub use commands::{ComputeCommand, CopyCommand, DrawAction, DrawCommand};
 mod nodes;

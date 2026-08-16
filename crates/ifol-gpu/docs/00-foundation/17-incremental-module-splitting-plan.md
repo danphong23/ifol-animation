@@ -152,7 +152,10 @@ flatten và private state của graph trước khi quyết định split lớn h
 tách dependency/hazard ordering khỏi `graph/graph.rs` vào `graph/ordering.rs`,
 giữ nguyên `RenderGraph::ordered_node_ids` và chỉ mở internal usage helper cần
 thiết cho module ordering. Bước kế tiếp là E23: audit resource-usage derivation
-còn lại trong graph.
+còn lại trong graph. Phase E23 tách resource declaration/accessor API khỏi
+`graph/graph.rs` vào `graph/resource_usage.rs`, giữ nguyên các public
+`RenderGraph::declare_*_usage` methods. Bước kế tiếp là E24: tách effective
+usage derivation của command, extension và render target.
 
 ## Phase E — Public API và cleanup
 
