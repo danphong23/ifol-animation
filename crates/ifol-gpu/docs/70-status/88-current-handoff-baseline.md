@@ -32,7 +32,8 @@ chỉ từ compile hoặc test trên Windows.
 
 - `src/execution/tests.rs` chứa regression suite lớn nhưng đã tách khỏi
   execution facade;
-- `src/graph/mod.rs` còn chứa nhiều responsibility;
+- `src/graph/tests.rs` chứa graph regression suite; `src/graph/mod.rs` hiện
+  là production facade nhỏ với `RenderTarget` và các re-export public;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -45,11 +46,12 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E2: audit/tách graph facade còn nhiều responsibility mà không đổi
-behavior. Giữ facade public và graph semantics nguyên vẹn.
+Task E3: audit extensions facade và tách test boundary hoặc responsibility
+rõ ràng tiếp theo mà không đổi behavior. Giữ facade public và extension
+semantics nguyên vẹn.
 
-Không đồng thời sửa graph semantics, resource behavior hoặc color behavior
-trong Task E2.
+Không đồng thời sửa extension semantics, graph behavior, resource behavior
+hoặc color behavior trong Task E3.
 
 ## Hợp đồng với chat/task mới
 
