@@ -1,5 +1,6 @@
 use super::validation::RenderGraphValidationError;
 use crate::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool};
+use crate::resources::handle::RenderNodeId;
 
 pub(crate) fn execution_counts_for_graph(
     pool: &RenderNodePool,
@@ -64,4 +65,23 @@ pub(crate) fn declared_usage_count(pool: &RenderNodePool, graph: &RenderGraph) -
             .map_or(0, |node| node.extension_usages().len());
         count + graph.resource_usages(node_id).len() + extension_usage_count + nested
     })
+}
+
+pub(crate) fn owner_graph_for_flat_path<'a>(
+    root: &'a RenderGraph,
+    pool: &'a RenderNodePool,
+    path: &[RenderNodeId],
+) -> Result<&'a RenderGraph, RenderGraphValidationError> {
+    let mut owner = root;
+    for &ancestor_id in path.iter().take(path.len().saturating_sub(1)) {
+        let Some(RenderNode::SubGraph { graph, .. }) = pool.get(ancestor_id) else {
+            return Err(RenderGraphValidationError::MissingNode(ancestor_id));
+        };
+        owner = graph;
+    }
+    Ok(owner)
+}
+
+pub(crate) fn flat_plan_owner_path(node: &crate::graph::FlatRenderNode) -> Vec<RenderNodeId> {
+    node.path[..node.path.len().saturating_sub(1)].to_vec()
 }

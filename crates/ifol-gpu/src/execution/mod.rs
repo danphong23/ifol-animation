@@ -18,7 +18,7 @@ use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
 mod orchestration;
-use orchestration::{execution_counts_for_graph, map_graph_flatten_error};
+use orchestration::{execution_counts_for_graph, flat_plan_owner_path, map_graph_flatten_error, owner_graph_for_flat_path};
 #[cfg(test)]
 pub(crate) use render::bundle_cache_key;
 #[cfg(test)]
@@ -434,25 +434,6 @@ fn execute_non_render_nodes(
         Ok(())
     }
 
-    fn owner_graph_for_flat_path<'a>(
-        root: &'a RenderGraph,
-        pool: &'a RenderNodePool,
-        path: &[RenderNodeId],
-    ) -> Result<&'a RenderGraph, RenderGraphValidationError> {
-        let mut owner = root;
-        for &ancestor_id in path.iter().take(path.len().saturating_sub(1)) {
-            let Some(RenderNode::SubGraph { graph, .. }) = pool.get(ancestor_id) else {
-                return Err(RenderGraphValidationError::MissingNode(ancestor_id));
-            };
-            owner = graph;
-        }
-        Ok(owner)
-    }
-
-    fn flat_plan_owner_path(node: &crate::graph::FlatRenderNode) -> Vec<RenderNodeId> {
-        node.path[..node.path.len().saturating_sub(1)].to_vec()
-    }
-
     /// Encode the flattened logical plan in exactly the order produced by
     /// `RenderGraph::flatten`. Each node is encoded against the graph that
     /// owns it; this is what allows a root node and a nested node to be
@@ -475,7 +456,7 @@ fn execute_non_render_nodes(
         let mut last_draw_index = HashMap::<Vec<RenderNodeId>, usize>::new();
         for (index, flat_node) in plan.nodes.iter().enumerate() {
             if pool.get(flat_node.node_id).is_some_and(|node| !node.commands().is_empty()) {
-                last_draw_index.insert(Self::flat_plan_owner_path(flat_node), index);
+                last_draw_index.insert(flat_plan_owner_path(flat_node), index);
             }
         }
         let mut rendered_targets = HashSet::<Vec<RenderNodeId>>::new();
@@ -484,8 +465,8 @@ fn execute_non_render_nodes(
             let Some(node) = pool.get(flat_node.node_id) else {
                 return Err(RenderGraphValidationError::MissingNode(flat_node.node_id));
             };
-            let owner_path = Self::flat_plan_owner_path(flat_node);
-            let owner = Self::owner_graph_for_flat_path(graph, pool, &flat_node.path)?;
+            let owner_path = flat_plan_owner_path(flat_node);
+            let owner = owner_graph_for_flat_path(graph, pool, &flat_node.path)?;
 
             self.dispatch_extension(encoder, engine, registry, pool, flat_node.node_id)?;
             for command in node.copy_commands() {
