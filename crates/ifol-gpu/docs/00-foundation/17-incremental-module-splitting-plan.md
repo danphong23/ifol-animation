@@ -155,7 +155,10 @@ thiết cho module ordering. Bước kế tiếp là E23: audit resource-usage d
 còn lại trong graph. Phase E23 tách resource declaration/accessor API khỏi
 `graph/graph.rs` vào `graph/resource_usage.rs`, giữ nguyên các public
 `RenderGraph::declare_*_usage` methods. Bước kế tiếp là E24: tách effective
-usage derivation của command, extension và render target.
+usage derivation của command, extension và render target. Phase E24 chuyển
+`RenderGraph::effective_resource_usages` vào `graph/resource_usage.rs`, giữ
+nguyên internal call sites và hazard semantics. Bước kế tiếp là E25: audit
+remaining graph orchestration và execution boundaries.
 
 ## Phase E — Public API và cleanup
 
