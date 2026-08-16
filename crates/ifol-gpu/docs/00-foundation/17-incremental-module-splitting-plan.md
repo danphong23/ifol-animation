@@ -105,8 +105,10 @@ memory production logic và public API không đổi. Bước kế tiếp là E5
 pool implementation vào `memory/lru_tests.rs`; pool contracts và public API
 không đổi. Phase E6 tách regression tests inline khỏi
 `memory/ring_buffer.rs` vào `memory/ring_tests.rs`; ring buffer production
-logic và public API không đổi. Bước kế tiếp là E7: audit
-`memory/submission.rs`.
+logic và public API không đổi. Phase E7 tách regression tests inline khỏi
+`memory/submission.rs` vào `memory/submission_tests.rs`; submission identity
+và tracker contracts không đổi. Bước kế tiếp là E8: audit
+`memory/deferred.rs`.
 
 ## Phase E — Public API và cleanup
 

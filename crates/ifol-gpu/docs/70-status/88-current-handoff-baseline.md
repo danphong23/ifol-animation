@@ -42,6 +42,8 @@ chỉ từ compile hoặc test trên Windows.
   production module chỉ giữ descriptor keys và pool contracts;
 - `src/memory/ring_tests.rs` chứa ring buffer regression suite; ring buffer
   production module chỉ giữ allocation và submission-gated reset logic;
+- `src/memory/submission_tests.rs` chứa submission tracker regression suite;
+  production module chỉ giữ submission identity và completion tracking;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -54,7 +56,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E7: audit `memory/submission.rs` và tách test boundary hoặc
+Task E8: audit `memory/deferred.rs` và tách test boundary hoặc
 responsibility rõ ràng tiếp theo mà không đổi behavior. Giữ facade public và
 memory semantics nguyên vẹn.
 
