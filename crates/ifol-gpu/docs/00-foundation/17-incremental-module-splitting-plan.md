@@ -139,7 +139,10 @@ internal crate/bench imports sang canonical `resources::*` facade, giữ
 là E18: audit execution/backend public compatibility facades. Phase E18 tách
 API compatibility modules khỏi `api/mod.rs` vào `api/compatibility.rs`, giữ
 nguyên `api::builder` và `api::engine` paths. Bước kế tiếp là E19: audit
-`render` compatibility facade.
+`render` compatibility facade. Phase E19 tách các compatibility modules khỏi
+`render/mod.rs` vào `render/compatibility.rs`, giữ nguyên
+`render::handle`, `render::registry`, `render::compiler` và `render::graph`.
+Bước kế tiếp là E20: audit các public facade còn lại trước file-size audit.
 
 ## Phase E — Public API và cleanup
 
