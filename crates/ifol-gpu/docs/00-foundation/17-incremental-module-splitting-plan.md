@@ -161,7 +161,11 @@ nguyên internal call sites và hazard semantics. Bước kế tiếp là E25: a
 remaining graph orchestration và execution boundaries. Phase E25 tách public
 executor facade khỏi `execution/mod.rs` vào `execution/executor.rs`, giữ
 nguyên `RenderGraphExecutor`, report/profiling types và legacy re-exports.
-Bước kế tiếp là E26: audit execution orchestration/segments boundary.
+Bước kế tiếp là E26: audit execution orchestration/segments boundary. Phase E26
+tách execution diagnostics counting (`execution_counts_for_graph` và recursive
+declared usage count) khỏi `execution/orchestration.rs` vào `execution/counts.rs`,
+giữ nguyên report/profiling behavior. Bước kế tiếp là E27: audit target
+resolution và nested/flat compilation orchestration.
 
 ## Phase E — Public API và cleanup
 

@@ -17,8 +17,9 @@ mod profiling;
 mod compiler;
 mod extension;
 mod orchestration;
+mod counts;
 #[cfg(test)]
-use orchestration::execution_counts_for_graph;
+use counts::execution_counts_for_graph;
 mod executor;
 pub use executor::{
     ExecutionReport, ProfiledExecution, RenderGraphExecutor, RenderGraphProfilingError,

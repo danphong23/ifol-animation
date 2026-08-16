@@ -6,7 +6,7 @@ use crate::resources::ResourceRegistry;
 use std::sync::Arc;
 use thiserror::Error;
 
-use super::orchestration::execution_counts_for_graph;
+use super::counts::execution_counts_for_graph;
 use super::profiling::execute_timestamped;
 use super::validation::validate_graph;
 use super::{compiler, RenderGraphValidationError};
