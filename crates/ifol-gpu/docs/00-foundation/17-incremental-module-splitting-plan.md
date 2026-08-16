@@ -49,6 +49,11 @@ kiến trúc riêng sau khi extraction đã ổn định.
 
 ## Phase C — Tách resources
 
+Tiến độ hiện tại: C1 đã hoàn tất; phần version state của C3 đã được tách
+thành `src/resources/versions.rs` và giữ nguyên API/behavior. Bước kế tiếp là
+tách registry core theo các operation lookup/insert/remove, mỗi nhóm vẫn phải
+đi qua compile và toàn bộ regression test trước khi commit.
+
 | Task | Trách nhiệm | Test chính |
 |---|---|---|
 | C1 | descriptor types | invalid extent, usage, mip, sample count |
@@ -90,4 +95,3 @@ Chỉ bắt đầu sau khi A-C đã pass:
 - allocator redesign;
 - đổi semantics của render graph;
 - tối ưu hiệu suất chưa có benchmark chứng minh.
-
