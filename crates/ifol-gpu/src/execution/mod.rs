@@ -56,4 +56,7 @@ mod validation_contract_tests;
 #[path = "target_tests.rs"]
 mod target_tests;
 #[cfg(test)]
+#[path = "command_validation_tests.rs"]
+mod command_validation_tests;
+#[cfg(test)]
 mod tests;

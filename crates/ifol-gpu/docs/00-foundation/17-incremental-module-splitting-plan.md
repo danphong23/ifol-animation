@@ -279,7 +279,11 @@ validation contract regression tests khỏi `execution/tests.rs` vào
 behavior không đổi. F25 đã tách target/MSAA validation và execution regression
 tests khỏi `execution/tests.rs` vào `execution/target_tests.rs`; target
 attachment behavior không đổi. Bước tiếp theo là F26: tiếp tục audit
-validation command/layout và end-to-end test boundaries.
+validation command/layout và end-to-end test boundaries. F26 đã tách command
+validation regression tests khỏi `execution/tests.rs` vào
+`execution/command_validation_tests.rs`; command validation semantics không
+đổi. Bước tiếp theo là F27: tiếp tục audit copy/compute execution và
+pipeline-layout test boundaries.
 
 ## Không nằm trong đợt tách file đầu tiên
 
