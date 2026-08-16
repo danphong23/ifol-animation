@@ -59,4 +59,7 @@ mod target_tests;
 #[path = "command_validation_tests.rs"]
 mod command_validation_tests;
 #[cfg(test)]
+#[path = "copy_execution_tests.rs"]
+mod copy_execution_tests;
+#[cfg(test)]
 mod tests;

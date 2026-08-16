@@ -282,8 +282,10 @@ attachment behavior không đổi. Bước tiếp theo là F26: tiếp tục aud
 validation command/layout và end-to-end test boundaries. F26 đã tách command
 validation regression tests khỏi `execution/tests.rs` vào
 `execution/command_validation_tests.rs`; command validation semantics không
-đổi. Bước tiếp theo là F27: tiếp tục audit copy/compute execution và
-pipeline-layout test boundaries.
+đổi. F27 đã tách copy execution/validation và copy-draw segment regression
+tests khỏi `execution/tests.rs` vào `execution/copy_execution_tests.rs`; copy
+ordering và readback behavior không đổi. Bước tiếp theo là F28: tiếp tục audit
+compute execution và pipeline-layout test boundaries.
 
 ## Không nằm trong đợt tách file đầu tiên
 
