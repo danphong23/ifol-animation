@@ -47,4 +47,7 @@ pub(crate) use validation::texture_supports_aspect;
 #[path = "encoder_tests.rs"]
 mod encoder_tests;
 #[cfg(test)]
+#[path = "executor_contract_tests.rs"]
+mod executor_contract_tests;
+#[cfg(test)]
 mod tests;

@@ -73,6 +73,9 @@ chỉ từ compile hoặc test trên Windows.
 - `src/execution/encoder_tests.rs` chứa regression tests cho bind-group slot và
   compute/draw/copy encoder; `execution/tests.rs` giữ các validation và
   end-to-end execution tests còn lại;
+- `src/execution/executor_contract_tests.rs` chứa extension-dispatch,
+  profiling-entrypoint và execution-report regression tests;
+  `execution/tests.rs` giữ các validation và end-to-end execution tests còn lại;
 - `src/resources/registry_version_tests.rs` chứa version regression suite;
   `registry_descriptor_tests.rs` chứa descriptor validation suite;
   `registry_ownership_tests.rs` chứa owned-texture/deferred-destruction suite;
@@ -161,7 +164,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F23: tiếp tục structure/file-size audit ở production hotspots còn lại;
+Task F24: tiếp tục audit validation/integration test boundaries;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
 Rust trong crate.

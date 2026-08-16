@@ -270,7 +270,10 @@ và `resources/registry_ownership_tests.rs`; registry behavior và public API
 không đổi. F22 đã tách bốn encoder regression tests khỏi
 `execution/tests.rs` vào `execution/encoder_tests.rs`; encoder validation
 behavior không đổi. Bước tiếp theo là F23: tiếp tục audit production
-hotspots còn lại.
+hotspots còn lại. F23 đã tách executor contract regression tests khỏi
+`execution/tests.rs` vào `execution/executor_contract_tests.rs`; extension,
+profiling và execution-report behavior không đổi. Bước tiếp theo là F24:
+tiếp tục audit validation/integration test boundaries.
 
 ## Không nằm trong đợt tách file đầu tiên
 
