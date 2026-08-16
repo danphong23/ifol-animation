@@ -98,8 +98,10 @@ Phase E2 tiếp tục tách regression tests inline khỏi graph facade vào
 re-export public cần thiết. Phase E3 tách regression tests inline khỏi
 extensions facade vào `extensions/tests.rs`; production facade giữ
 extension contracts, validation và registries. Các task này chỉ di chuyển
-test responsibility và giữ nguyên behavior. Bước kế tiếp là E4: audit
-memory facade, bắt đầu từ `memory/frame.rs`.
+test responsibility và giữ nguyên behavior. Phase E4 tách regression tests
+inline khỏi `memory/frame.rs` vào `memory/frame_tests.rs` qua test-only path;
+memory production logic và public API không đổi. Bước kế tiếp là E5: audit
+`memory/lru_cache.rs`.
 
 ## Phase E — Public API và cleanup
 
