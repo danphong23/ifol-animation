@@ -11,6 +11,7 @@ mod validation_errors;
 mod validation_copy;
 mod validation_target;
 mod validation_layout;
+mod validation_node;
 pub use validation::RenderGraphValidationError;
 use validation::{format_has_stencil, validate_graph};
 mod render;

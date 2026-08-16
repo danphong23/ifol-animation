@@ -123,7 +123,10 @@ Bước kế tiếp là E13: audit bind-group/pipeline-layout validation helpers
 Phase E13 tách slot, dynamic-offset và render/compute pipeline-layout
 validation vào `execution/validation_layout.rs`; public error paths và
 validation semantics không đổi. Bước kế tiếp là E14: audit graph traversal
-validation còn lại.
+validation còn lại. Phase E14 tách node/resource/command traversal khỏi
+`execution/validation.rs` vào `execution/validation_node.rs`; validation
+facade giờ chỉ giữ flattening, target/depth orchestration và re-export
+compatibility. Bước kế tiếp là E15: audit resource registry production file.
 
 ## Phase E — Public API và cleanup
 
