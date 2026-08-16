@@ -1,7 +1,5 @@
 use thiserror::Error;
-use wgpu::{Backends, DeviceDescriptor, Features, InstanceDescriptor, Limits, MemoryHints, PowerPreference, RequestAdapterOptions};
-use crate::backend::capabilities::GpuCapabilities;
-
+use wgpu::{Backends, Features, InstanceDescriptor, Limits, PowerPreference};
 
 #[derive(Error, Debug)]
 pub enum GpuError {
@@ -18,13 +16,13 @@ pub enum GpuError {
 }
 
 pub struct GpuEngineBuilder<'a> {
-    instance: wgpu::Instance,
-    backends: Backends,
-    power_preference: PowerPreference,
-    force_fallback_adapter: bool,
-    required_features: Features,
-    required_limits: Limits,
-    surface: Option<wgpu::Surface<'a>>,
+    pub(super) instance: wgpu::Instance,
+    pub(super) backends: Backends,
+    pub(super) power_preference: PowerPreference,
+    pub(super) force_fallback_adapter: bool,
+    pub(super) required_features: Features,
+    pub(super) required_limits: Limits,
+    pub(super) surface: Option<wgpu::Surface<'a>>,
 }
 
 impl<'a> Default for GpuEngineBuilder<'a> {
@@ -54,11 +52,17 @@ impl<'a> GpuEngineBuilder<'a> {
         &self.instance
     }
 
-    pub fn backends(&self) -> wgpu::Backends { self.backends }
+    pub fn backends(&self) -> wgpu::Backends {
+        self.backends
+    }
 
-    pub fn required_features(&self) -> wgpu::Features { self.required_features }
+    pub fn required_features(&self) -> wgpu::Features {
+        self.required_features
+    }
 
-    pub fn required_limits(&self) -> &wgpu::Limits { &self.required_limits }
+    pub fn required_limits(&self) -> &wgpu::Limits {
+        &self.required_limits
+    }
 
     pub fn with_surface(mut self, surface: wgpu::Surface<'a>) -> Self {
         self.surface = Some(surface);
@@ -79,7 +83,9 @@ impl<'a> GpuEngineBuilder<'a> {
         self
     }
 
-    pub fn force_fallback_adapter(&self) -> bool { self.force_fallback_adapter }
+    pub fn force_fallback_adapter(&self) -> bool {
+        self.force_fallback_adapter
+    }
 
     pub fn with_force_fallback_adapter(mut self, force: bool) -> Self {
         self.force_fallback_adapter = force;
@@ -95,57 +101,6 @@ impl<'a> GpuEngineBuilder<'a> {
         self.required_limits = limits;
         self
     }
-
-    /// Khởi tạo GpuEngine. Quá trình này hoàn toàn không dính dáng đến Cửa sổ (Window/Surface).
-    pub async fn build(self) -> Result<super::engine::GpuEngine<'a>, GpuError> {
-        log::info!("Initializing GPU Instance with backends: {:?}", self.backends);
-
-        log::info!("Requesting GPU Adapter...");
-        let adapter = self.instance
-            .request_adapter(&RequestAdapterOptions {
-                power_preference: self.power_preference,
-                compatible_surface: self.surface.as_ref(),
-                force_fallback_adapter: self.force_fallback_adapter,
-                apply_limit_buckets: false,
-            })
-            .await?;
-
-        let adapter_info = adapter.get_info();
-        log::info!(
-            "Picked Adapter: {} ({:?}) - Backend: {:?}",
-            adapter_info.name,
-            adapter_info.device_type,
-            adapter_info.backend
-        );
-
-        let capabilities = GpuCapabilities::new(&adapter.limits(), &adapter.features());
-        log::info!("Hardware Capabilities: {:?}", capabilities);
-        capabilities.validate_requirements(self.required_features, &self.required_limits)?;
-
-        log::info!("Requesting Device & Queue...");
-        let (device, queue) = adapter
-            .request_device(
-                &DeviceDescriptor {
-                    label: Some("ifol_gpu_device"),
-                    required_features: self.required_features,
-                    required_limits: self.required_limits,
-                    memory_hints: MemoryHints::Performance,
-                    ..Default::default()
-                }
-            )
-            .await?;
-
-        let mut surface_config = None;
-        if let Some(surface) = &self.surface {
-            let Some(config) = surface.get_default_config(&adapter, 1, 1) else {
-                return Err(GpuError::SurfaceUnsupported);
-            };
-            surface.configure(&device, &config);
-            surface_config = Some(config);
-        }
-
-        Ok(super::engine::GpuEngine::new(device, queue, adapter_info, capabilities, self.surface, surface_config))
-    }
 }
 
 #[cfg(test)]
@@ -160,15 +115,24 @@ mod tests {
             .with_required_features(Features::INDIRECT_FIRST_INSTANCE)
             .with_required_limits(limits.clone());
         assert_eq!(builder.backends(), Backends::VULKAN | Backends::GL);
-        assert_eq!(builder.required_features(), Features::INDIRECT_FIRST_INSTANCE);
+        assert_eq!(
+            builder.required_features(),
+            Features::INDIRECT_FIRST_INSTANCE
+        );
         assert_eq!(builder.required_limits(), &limits);
         assert!(!builder.force_fallback_adapter());
-        assert!(builder.with_force_fallback_adapter(true).force_fallback_adapter());
+        assert!(builder
+            .with_force_fallback_adapter(true)
+            .force_fallback_adapter());
     }
 
     #[test]
     fn builder_backend_policy_reaches_runtime_adapter_request() {
-        let result = pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::VULKAN).build());
+        let result = pollster::block_on(
+            GpuEngineBuilder::new()
+                .with_backends(Backends::VULKAN)
+                .build(),
+        );
         match result {
             Ok(engine) => {
                 assert!(engine.capabilities().max_bind_groups > 0);
@@ -181,7 +145,8 @@ mod tests {
 
     #[test]
     fn builder_gl_policy_is_an_explicit_optional_backend_probe() {
-        let result = pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::GL).build());
+        let result =
+            pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::GL).build());
         match result {
             Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
             Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}
@@ -191,7 +156,11 @@ mod tests {
 
     #[test]
     fn builder_dx12_policy_is_an_explicit_optional_backend_probe() {
-        let result = pollster::block_on(GpuEngineBuilder::new().with_backends(Backends::DX12).build());
+        let result = pollster::block_on(
+            GpuEngineBuilder::new()
+                .with_backends(Backends::DX12)
+                .build(),
+        );
         match result {
             Ok(engine) => assert!(engine.capabilities().max_bind_groups > 0),
             Err(GpuError::NoAdapterFound | GpuError::AdapterRequestFailed(_)) => {}

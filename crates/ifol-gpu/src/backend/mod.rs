@@ -5,8 +5,9 @@
 //! integration. The public `api` module re-exports these types for backwards
 //! compatibility.
 
-pub mod capabilities;
 pub mod builder;
+mod builder_build;
+pub mod capabilities;
 pub mod engine;
 mod readback;
 #[cfg(feature = "image-encode")]

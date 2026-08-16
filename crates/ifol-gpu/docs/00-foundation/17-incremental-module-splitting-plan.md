@@ -198,7 +198,11 @@ semantics. Bước kế tiếp là E35: audit tiếp graph/resource/backend faca
 Phase E35 tách `RenderNodePool` storage/mutation khỏi `graph/nodes.rs` vào
 `graph/node_pool.rs`, giữ nguyên `graph::{RenderNode, RenderNodePool}` facade
 và node lifecycle behavior. Bước kế tiếp là E36: audit resource registry và
-backend capability/builder boundaries.
+backend capability/builder boundaries. Phase E36 tách runtime adapter/device
+creation khỏi `backend/builder.rs` vào `backend/builder_build.rs`, giữ nguyên
+builder policy, public setters, `build` API và capability validation behavior.
+Bước kế tiếp là E37: audit resource descriptor/registry facades và final
+backend/graph cohesion.
 
 ## Phase E — Public API và cleanup
 

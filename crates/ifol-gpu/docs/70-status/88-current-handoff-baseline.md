@@ -107,6 +107,8 @@ chỉ từ compile hoặc test trên Windows.
   facade re-export;
 - `src/graph/node_pool.rs` chứa `RenderNodePool` storage, allocation, mutation
   và removal; `graph/nodes.rs` giữ `RenderNode` model/behavior;
+- `src/backend/builder_build.rs` chứa runtime adapter/device creation và surface
+  configuration; `backend/builder.rs` giữ builder policy/configuration facade;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -119,8 +121,8 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E36: audit resource registry và backend capability/builder boundaries theo
-responsibility/cohesion, sau đó xử lý từng boundary một lần
+Task E37: audit resource descriptor/registry facades và final backend/graph
+cohesion theo responsibility, sau đó xử lý từng boundary một lần
 mà không đổi behavior. Giữ facade public và render/graph semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
