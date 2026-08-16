@@ -145,7 +145,10 @@ nguyên `api::builder` và `api::engine` paths. Bước kế tiếp là E19: aud
 Bước kế tiếp là E20: audit các public facade còn lại trước file-size audit.
 Phase E20 tách extension resource-usage validation khỏi `extensions/mod.rs`
 vào `extensions/validation.rs`, giữ nguyên public validation API. Bước kế tiếp
-là E21: audit production modules còn lại và bắt đầu file-size audit.
+là E21: audit production modules còn lại và bắt đầu file-size audit. Phase E21
+tách flatten output/error types khỏi `graph/graph.rs` vào `graph/flatten.rs`,
+giữ nguyên graph public exports. Bước kế tiếp là E22: tiếp tục audit thuật toán
+flatten và private state của graph trước khi quyết định split lớn hơn.
 
 ## Phase E — Public API và cleanup
 

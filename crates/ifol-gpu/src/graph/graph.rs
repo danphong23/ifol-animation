@@ -1,3 +1,4 @@
+use super::flatten::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenError};
 use super::usage::{
     buffer_subresource_range, texture_aspect_subresource_range, texture_subresource_range,
     usages_conflict,
@@ -9,7 +10,6 @@ use super::{
 };
 use crate::resources::handle::{BufferHandle, RenderNodeId, TextureHandle};
 use std::collections::{HashMap, HashSet};
-use thiserror::Error;
 
 /// ═══════════════════════════════════════════════════════════
 /// ĐỒ THỊ VẼ (RenderGraph) — "Tấm toan chứa danh sách ID Nút vẽ"
@@ -33,43 +33,6 @@ pub struct RenderGraph {
     pub reverse_draw_order: bool,
     pub dependencies: Vec<GraphDependency>,
     resource_usages: HashMap<RenderNodeId, Vec<ResourceUsage>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FlatRenderNode {
-    pub node_id: RenderNodeId,
-    /// Chuỗi node từ root tới node này, dùng cho diagnostics/profiling.
-    pub path: Vec<RenderNodeId>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct FlatRenderPlan {
-    pub nodes: Vec<FlatRenderNode>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GraphDependency {
-    pub before: RenderNodeId,
-    pub after: RenderNodeId,
-}
-
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum GraphFlattenError {
-    #[error("render node {0:?} does not exist in the node pool")]
-    MissingNode(RenderNodeId),
-    #[error("cycle detected while flattening render graph at node {0:?}")]
-    Cycle(RenderNodeId),
-    #[error("dependency references node {0:?} outside the graph")]
-    DependencyNodeOutsideGraph(RenderNodeId),
-}
-
-impl FlatRenderPlan {
-    pub fn len(&self) -> usize {
-        self.nodes.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.nodes.is_empty()
-    }
 }
 
 impl RenderGraph {

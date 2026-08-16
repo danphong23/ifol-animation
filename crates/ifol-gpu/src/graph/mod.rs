@@ -6,12 +6,14 @@ mod usage;
 #[cfg(test)]
 pub(crate) use usage::aspects_overlap;
 pub use usage::{GraphResource, ResourceAccess, ResourceSubresource, ResourceUsage, TextureAspect};
+mod flatten;
+pub use flatten::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenError};
 mod commands;
 pub use commands::{ComputeCommand, CopyCommand, DrawAction, DrawCommand};
 mod nodes;
 pub use nodes::{RenderNode, RenderNodePool};
 mod graph;
-pub use graph::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenError, RenderGraph};
+pub use graph::RenderGraph;
 
 /// ═══════════════════════════════════════════════════════════
 /// ĐÍCH ĐẾN (RenderTarget) — "Bức tranh sẽ in lên đâu?"
