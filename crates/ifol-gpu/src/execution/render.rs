@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use crate::graph::{DrawAction, DrawCommand};
 use crate::graph::{RenderNode, RenderNodePool};
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::validation::{bind_group_slot_index, format_has_stencil, RenderGraphValidationError};
 

@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use ifol_gpu::api::builder::GpuEngineBuilder;
 use ifol_gpu::graph::{ComputeCommand, RenderGraph, RenderNodePool, RenderTarget};
-use ifol_gpu::resources::registry::{ResourceRegistry, BufferResourceDescriptor, BindGroupResourceDescriptor, PipelineLayoutResourceDescriptor};
+use ifol_gpu::resources::{ResourceRegistry, BufferResourceDescriptor, BindGroupResourceDescriptor, PipelineLayoutResourceDescriptor};
 use ifol_gpu::resources::handle::{BufferHandle, ComputePipelineHandle, BindGroupHandle};
 use ifol_gpu::execution::RenderGraphExecutor;
 

@@ -2,7 +2,7 @@ pub use super::validation_errors::RenderGraphValidationError;
 
 use crate::extensions::ExtensionDispatchRegistry;
 use crate::graph::{RenderGraph, RenderNodePool};
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 #[cfg(test)]
 pub(crate) use super::validation_copy::texture_supports_aspect;

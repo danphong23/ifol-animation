@@ -1,7 +1,7 @@
 use crate::resources::handle::{
     BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle,
 };
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 use std::collections::HashMap;
 
 pub(crate) type ResourceVersion = u64;

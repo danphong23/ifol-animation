@@ -2,7 +2,7 @@ use crate::api::GpuEngine;
 use crate::extensions::ExtensionExecutionContext;
 use crate::graph::{RenderNode, RenderNodePool};
 use crate::resources::handle::RenderNodeId;
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::{RenderGraphExecutor, RenderGraphValidationError};
 

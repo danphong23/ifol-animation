@@ -133,7 +133,10 @@ container, version API và version bump primitive. Bước kế tiếp là E16: 
 resource versioning boundary và public resource facade. Phase E16 chuyển
 version getters/bumpers khỏi registry facade vào `resources/versions.rs`,
 giữ nguyên `ResourceRegistry` public API. Bước kế tiếp là E17: audit public
-resource re-exports và compatibility facade.
+resource re-exports và compatibility facade. Phase E17 chuyển toàn bộ
+internal crate/bench imports sang canonical `resources::*` facade, giữ
+`resources::registry::*` như compatibility path cho downstream. Bước kế tiếp
+là E18: audit execution/backend public compatibility facades.
 
 ## Phase E — Public API và cleanup
 

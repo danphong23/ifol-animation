@@ -9,7 +9,7 @@ use crate::api::GpuEngine;
 use crate::graph::{GraphResource, ResourceAccess};
 use crate::graph::{ResourceSubresource, ResourceUsage};
 use crate::resources::handle::RenderNodeId;
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;

@@ -1,6 +1,6 @@
 use crate::graph::TextureAspect;
 use crate::resources::handle::{BufferHandle, TextureHandle};
-use crate::resources::registry::{ResourceRegistry, TextureResourceDescriptor};
+use crate::resources::{ResourceRegistry, TextureResourceDescriptor};
 
 use super::validation::RenderGraphValidationError;
 

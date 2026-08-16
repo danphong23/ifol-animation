@@ -1,6 +1,6 @@
 use crate::api::GpuEngine;
 use crate::graph::{RenderGraph, RenderNodePool};
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::orchestration::{
     compile_flat_graph, compile_nested_graphs, map_graph_flatten_error, resolve_target_views,

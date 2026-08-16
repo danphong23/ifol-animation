@@ -4,7 +4,7 @@ use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::extensions::ExtensionDispatchRegistry;
 use crate::memory::{SubmissionId, SubmissionTracker};
 use crate::graph::{RenderGraph, RenderNodePool};
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 mod validation;
 mod validation_errors;

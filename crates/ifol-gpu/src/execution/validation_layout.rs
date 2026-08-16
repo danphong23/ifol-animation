@@ -1,5 +1,5 @@
 use crate::resources::handle::{BindGroupHandle, ComputePipelineHandle, PipelineHandle};
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::validation::RenderGraphValidationError;
 

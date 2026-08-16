@@ -1,4 +1,4 @@
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::validation::{bind_group_slot_index, RenderGraphValidationError};
 

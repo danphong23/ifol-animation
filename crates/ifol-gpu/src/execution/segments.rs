@@ -1,7 +1,7 @@
 use crate::api::GpuEngine;
 use crate::graph::RenderNodePool;
 use crate::resources::handle::RenderNodeId;
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::compute::encode_compute_commands;
 use super::copy::encode_copy_command;

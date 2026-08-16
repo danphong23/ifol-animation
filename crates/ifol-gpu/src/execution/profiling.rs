@@ -1,7 +1,7 @@
 use crate::api::{GpuEngine, TimestampQueryPool};
 use crate::graph::{RenderGraph, RenderNodePool};
 use crate::memory::SubmissionTracker;
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::orchestration::{compile_flat_graph, execution_counts_for_graph};
 use super::{ExecutionReport, ProfiledExecution, RenderGraphExecutor, RenderGraphProfilingError};

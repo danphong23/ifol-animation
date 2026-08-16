@@ -1,6 +1,6 @@
 use crate::graph::RenderTarget;
 use crate::resources::handle::TextureHandle;
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::validation::RenderGraphValidationError;
 

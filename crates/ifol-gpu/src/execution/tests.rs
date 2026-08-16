@@ -1173,7 +1173,7 @@ use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
         registry.insert_pipeline_with_layout_descriptor(PipelineHandle(1), pipeline, PipelineLayoutResourceDescriptor { bind_group_layout_signatures: vec![] });
         
         let index_buffer = engine.device().create_buffer(&wgpu::BufferDescriptor { label: None, size: 2, usage: wgpu::BufferUsages::INDEX, mapped_at_creation: false }); let mesh = (engine.device().create_buffer(&wgpu::BufferDescriptor { label: None, size: 4, usage: wgpu::BufferUsages::VERTEX, mapped_at_creation: false }), Some((index_buffer, wgpu::IndexFormat::Uint16)), 1);
-        registry.insert_mesh_with_descriptor(MeshHandle(1), mesh, crate::resources::registry::MeshResourceDescriptor { vertex_count: 1, index_buffer_size: Some(2), index_format: Some(wgpu::IndexFormat::Uint16), vertex_buffer_size: 4 }).unwrap();
+        registry.insert_mesh_with_descriptor(MeshHandle(1), mesh, crate::resources::MeshResourceDescriptor { vertex_count: 1, index_buffer_size: Some(2), index_format: Some(wgpu::IndexFormat::Uint16), vertex_buffer_size: 4 }).unwrap();
         
         let mut pool = RenderNodePool::new();
         let mut graph = RenderGraph::new(RenderTarget::Screen);

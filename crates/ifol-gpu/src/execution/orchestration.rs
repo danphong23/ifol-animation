@@ -7,7 +7,7 @@ use super::{
 use crate::api::GpuEngine;
 use crate::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool, RenderTarget};
 use crate::resources::handle::{RenderNodeId, TextureHandle};
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 pub(crate) struct TargetViews<'a> {
     pub(crate) color_view: &'a wgpu::TextureView,

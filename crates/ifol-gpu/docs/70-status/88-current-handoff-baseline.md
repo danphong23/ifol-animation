@@ -62,6 +62,8 @@ chỉ từ compile hoặc test trên Windows.
   regression suite; `registry.rs` chỉ giữ state container và version API;
 - `src/resources/versions.rs` hiện giữ cả version storage và version behavior;
   registry facade chỉ giữ container/constructor;
+- Internal crate và benchmark code dùng canonical `resources::*` re-exports;
+  `resources::registry::*` vẫn được giữ nguyên cho downstream compatibility;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -74,9 +76,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E17: audit public resource re-exports và compatibility facade, sau đó xử
-lý từng production boundary một lần mà không đổi behavior. Giữ facade public
-và resource semantics nguyên vẹn.
+Task E18: audit execution/backend public compatibility facades, sau đó xử lý
+từng production boundary một lần mà không đổi behavior. Giữ facade public và
+execution/backend semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task E5.

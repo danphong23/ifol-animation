@@ -2,7 +2,7 @@ use crate::extensions::ExtensionDispatchRegistry;
 use crate::graph::{
     CopyCommand, DrawAction, GraphResource, RenderGraph, RenderNode, RenderNodePool, TextureAspect,
 };
-use crate::resources::registry::ResourceRegistry;
+use crate::resources::ResourceRegistry;
 
 use super::validation::{
     bind_group_slot_index, validate_bind_group_offsets, validate_compute_pipeline_layout,
