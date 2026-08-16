@@ -230,8 +230,11 @@ exports và execution behavior. F7 đã tách texture-copy/mip/aspect/format
 validation khỏi `validation_copy.rs` vào `validation_texture.rs`, giữ nguyên
 validation order và error contract. F8 đã tách extension/dispatcher registry
 state và lookup khỏi `extensions/mod.rs` vào `extensions/registry.rs`, giữ
-nguyên public exports và registration behavior. Bước kế tiếp là F9: audit các
-production hotspot còn lại trước khi chọn responsibility tiếp theo.
+nguyên public exports và registration behavior. F9 đã tách flatten traversal và
+flattened dependency ordering khỏi `graph/graph.rs` vào `graph/flattening.rs`,
+giữ nguyên graph model, public construction API và hazard semantics. Bước tiếp
+theo là F10: audit các production hotspot còn lại trước khi chọn responsibility
+tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
 

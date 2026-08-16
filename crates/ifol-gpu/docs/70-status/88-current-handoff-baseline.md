@@ -79,6 +79,9 @@ chỉ từ compile hoặc test trên Windows.
   giữ extension và dispatcher registry state/lookup;
 - `src/graph/flatten.rs` chứa `FlatRenderPlan`, `FlatRenderNode`, dependency và
   flatten error types; `graph/mod.rs` giữ public graph exports;
+- `src/graph/flattening.rs` chứa `RenderGraph::flatten` traversal, nested graph
+  path collection và flattened dependency/hazard ordering; `graph.rs` chỉ giữ
+  graph model và construction API;
 - `src/graph/ordering.rs` chứa dependency/hazard ordering của graph;
   `RenderGraph::effective_resource_usages` là internal helper dùng chung;
 - `src/graph/resource_usage.rs` chứa resource declaration/accessor API của

@@ -8,6 +8,7 @@ pub(crate) use usage::aspects_overlap;
 pub use usage::{GraphResource, ResourceAccess, ResourceSubresource, ResourceUsage, TextureAspect};
 mod flatten;
 pub use flatten::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenError};
+mod flattening;
 mod commands;
 mod ordering;
 mod resource_usage;
