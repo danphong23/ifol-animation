@@ -19,6 +19,7 @@ fn frame_context_seals_and_reopens_only_after_completion() {
     let buffer_desc = BufferDescriptorKey::new(64, wgpu::BufferUsages::STORAGE);
     let mut texture_pool = TransientTexturePool::new();
     let mut buffer_pool = TransientBufferPool::new();
+    let mut deferred = DeferredDestructionQueue::new();
     let mut frame = FrameContext::new(3);
     frame
         .track_texture(texture_desc.clone(), TextureHandle(1))
@@ -29,7 +30,12 @@ fn frame_context_seals_and_reopens_only_after_completion() {
     let mut tracker = SubmissionTracker::new();
     let submission = tracker.begin();
     frame
-        .seal(submission, &mut texture_pool, &mut buffer_pool)
+        .seal_with_deferred_textures(
+            submission,
+            &mut texture_pool,
+            &mut buffer_pool,
+            &mut deferred,
+        )
         .unwrap();
     assert_eq!(frame.reset_after(&tracker, 4), Ok(false));
     tracker.mark_completed(submission);
@@ -84,10 +90,6 @@ fn frame_context_routes_owned_texture_to_deferred_queue() {
     let mut deferred = DeferredDestructionQueue::new();
     let mut tracker = SubmissionTracker::new();
     let submission = tracker.begin();
-    assert_eq!(
-        frame.seal(submission, &mut textures, &mut buffers),
-        Err(FrameContextError::DeferredDestructionQueueRequired)
-    );
     frame
         .seal_with_deferred_textures(submission, &mut textures, &mut buffers, &mut deferred)
         .unwrap();

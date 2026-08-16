@@ -37,7 +37,9 @@ chỉ từ compile hoặc test trên Windows.
 - `src/extensions/tests.rs` chứa extension regression suite; extension
   facade hiện giữ contracts, validation và registries;
 - `src/memory/frame_tests.rs` chứa frame lifecycle regression suite; frame
-  production module chỉ giữ lifecycle logic và public API;
+  production module chỉ giữ lifecycle logic và public API; legacy
+  `FrameContext::seal` đã được loại bỏ, mọi consumer dùng
+  `seal_with_deferred_textures`;
 - `src/memory/lru_tests.rs` chứa transient pool regression suite;
   `src/memory/texture_pool.rs` giữ texture descriptor key và
   `TransientTexturePool`, còn `src/memory/buffer_pool.rs` giữ buffer
@@ -147,10 +149,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F14: loại bỏ `FrameContext::seal` legacy convenience API, migrate
-regression tests sang `seal_with_deferred_textures`, rồi tiếp tục
-structure/file-size audit ở production hotspots còn lại; giữ semantics và
-lifetime guarantees nguyên vẹn.
+Task F15: tiếp tục structure/file-size audit ở production hotspots còn lại;
+giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
+responsibility đã rõ.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task F4.

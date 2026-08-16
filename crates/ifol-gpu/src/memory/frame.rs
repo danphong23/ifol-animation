@@ -18,8 +18,6 @@ pub enum FrameContextError {
     ReleaseRejected,
     #[error("owned texture is missing from the registry")]
     MissingOwnedTexture,
-    #[error("frame contains owned textures that require seal_with_deferred_textures")]
-    DeferredDestructionQueueRequired,
 }
 
 pub struct FrameContext {
@@ -105,18 +103,6 @@ impl FrameContext {
         };
         self.pending_owned_textures.push(resource);
         Ok(())
-    }
-
-    pub fn seal(
-        &mut self,
-        submission: SubmissionId,
-        textures: &mut TransientTexturePool,
-        buffers: &mut TransientBufferPool,
-    ) -> Result<(), FrameContextError> {
-        if !self.pending_owned_textures.is_empty() {
-            return Err(FrameContextError::DeferredDestructionQueueRequired);
-        }
-        self.seal_transients(submission, textures, buffers)
     }
 
     /// Seal frame và đưa owned textures đã tách khỏi registry vào queue có

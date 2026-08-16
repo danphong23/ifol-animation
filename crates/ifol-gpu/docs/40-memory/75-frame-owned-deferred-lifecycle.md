@@ -17,9 +17,9 @@ seal_with_deferred_textures(
 )
 ```
 
-API `seal` cũ vẫn giữ tương thích cho frame chỉ có transient resource. Nếu gọi
-nó trong frame còn owned texture pending, core trả
-`FrameContextError::DeferredDestructionQueueRequired` để tránh lifetime sai.
+Không còn API `seal` rút gọn; mọi frame đều dùng
+`seal_with_deferred_textures`, truyền deferred queue tường minh để lifetime
+contract không phụ thuộc vào compatibility path.
 
 ## Trình tự an toàn
 
@@ -41,7 +41,6 @@ GPU hoặc tự present surface.
 ## Invariants và test gate
 
 - thiếu handle trả lỗi typed và không để lại handle giả trong pending set;
-- gọi `seal` cũ khi có pending owned texture không submit/làm mất ownership;
 - seal mới đưa đúng một object vào queue;
 - drain trước completion không trả object;
 - drain sau completion trả object và frame có thể reset;

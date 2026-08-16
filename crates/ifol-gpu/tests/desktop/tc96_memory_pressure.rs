@@ -3,7 +3,7 @@ mod harness;
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::memory::{
-    BufferDescriptorKey, FrameContext, SubmissionId,
+    BufferDescriptorKey, DeferredDestructionQueue, FrameContext, SubmissionId,
     SubmissionTracker, TextureDescriptorKey, TextureDimensionKey, TransientBufferPool,
     TransientTexturePool,
 };
@@ -34,6 +34,7 @@ fn test_tc96_memory_pressure() {
         // 1. Initialize Memory Pools & Tracker
         let mut texture_pool = TransientTexturePool::new();
         let mut buffer_pool = TransientBufferPool::new();
+        let mut deferred = DeferredDestructionQueue::new();
         let mut tracker = SubmissionTracker::new();
 
         let tex_desc = TextureDescriptorKey::new(
@@ -92,7 +93,14 @@ fn test_tc96_memory_pressure() {
             in_flight_submissions.push(submission);
 
             // Seal frame
-            frame.seal(submission, &mut texture_pool, &mut buffer_pool).expect("seal frame");
+            frame
+                .seal_with_deferred_textures(
+                    submission,
+                    &mut texture_pool,
+                    &mut buffer_pool,
+                    &mut deferred,
+                )
+                .expect("seal frame");
 
             // Complete older submission (simulating 2-frame GPU latency)
             if frame_idx >= 2 {
@@ -270,7 +278,7 @@ flowchart TD
         ACQ -->|Chưa có| ALLOC["🆕 Cấp Phát Mới<br/>(Fresh Allocation)"]
         REUSE --> TRACK["FrameContext.track()"]
         ALLOC --> TRACK
-        TRACK --> SEAL["FrameContext.seal(SubmissionId)"]
+        TRACK --> SEAL["FrameContext.seal_with_deferred_textures(SubmissionId)"]
         SEAL --> INFLIGHT["🔒 Khóa In-Flight<br/>(Cấm tái sử dụng khi GPU đang chạy)"]
         INFLIGHT --> COMPLETE["GPU Submission Complete"]
         COMPLETE --> UNLOCK["🔓 Mở Khóa Tài Nguyên<br/>(Sẵn sàng cho Frame N+2)"]

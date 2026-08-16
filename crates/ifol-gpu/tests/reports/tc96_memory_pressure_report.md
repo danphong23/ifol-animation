@@ -26,7 +26,7 @@ flowchart TD
         ACQ -->|Chưa có| ALLOC["🆕 Cấp Phát Mới<br/>(Fresh Allocation)"]
         REUSE --> TRACK["FrameContext.track()"]
         ALLOC --> TRACK
-        TRACK --> SEAL["FrameContext.seal(SubmissionId)"]
+        TRACK --> SEAL["FrameContext.seal_with_deferred_textures(SubmissionId)"]
         SEAL --> INFLIGHT["🔒 Khóa In-Flight<br/>(Cấm tái sử dụng khi GPU đang chạy)"]
         INFLIGHT --> COMPLETE["GPU Submission Complete"]
         COMPLETE --> UNLOCK["🔓 Mở Khóa Tài Nguyên<br/>(Sẵn sàng cho Frame N+2)"]

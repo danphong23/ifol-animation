@@ -244,7 +244,9 @@ giữ conflict policy và facade điều phối, không đổi hazard semantics.
 audit và sửa các tài liệu còn mô tả alias execution, raw insertion,
 `src/render` facade và backend compatibility path đã bị loại bỏ. Bước tiếp theo
 là F14: loại bỏ `FrameContext::seal` legacy convenience API, migrate regression
-tests sang `seal_with_deferred_textures`, rồi tiếp tục structure/file-size audit.
+tests và TC96 desktop evidence sang `seal_with_deferred_textures`; seal
+semantics và deferred lifetime không đổi. Bước tiếp theo là F15: tiếp tục
+structure/file-size audit.
 
 ## Không nằm trong đợt tách file đầu tiên
 
