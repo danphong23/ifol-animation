@@ -68,8 +68,8 @@ chỉ từ compile hoặc test trên Windows.
   `resources::registry::*`;
 - `src/api/compatibility.rs` chứa API builder/engine compatibility modules;
   `api/mod.rs` giữ public exports và re-export các legacy paths;
-- `src/render/compatibility.rs` chứa các legacy render handle/registry/compiler/
-  graph paths; `render/mod.rs` giữ canonical resource/graph exports;
+- `src/render/` compatibility facade đã được loại bỏ; render implementation
+  canonical nằm trong `execution/render_pass.rs` và `execution/render_bundles.rs`;
 - `src/extensions/validation.rs` chứa validation resource-usage của extension;
   `extensions/mod.rs` giữ contract, registry và dispatch orchestration;
 - `src/graph/flatten.rs` chứa `FlatRenderPlan`, `FlatRenderNode`, dependency và
