@@ -77,6 +77,9 @@ chỉ từ compile hoặc test trên Windows.
 - `src/graph/resource_usage.rs` chứa resource declaration/accessor API của
   `RenderGraph` và effective usage derivation; storage hiện được mở ở mức
   `pub(crate)` cho các graph modules;
+- `src/execution/executor.rs` chứa public `RenderGraphExecutor`, execution
+  report và profiling result facade; `execution/mod.rs` giữ module wiring và
+  compatibility re-exports;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -89,9 +92,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E25: audit remaining graph orchestration và execution boundaries, sau đó
-xử lý từng boundary một lần mà không đổi behavior. Giữ facade public và
-render/graph semantics nguyên vẹn.
+Task E26: audit execution orchestration/segments boundary, sau đó xử lý từng
+boundary một lần mà không đổi behavior. Giữ facade public và render/graph
+semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task E5.

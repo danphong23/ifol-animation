@@ -158,7 +158,10 @@ còn lại trong graph. Phase E23 tách resource declaration/accessor API khỏi
 usage derivation của command, extension và render target. Phase E24 chuyển
 `RenderGraph::effective_resource_usages` vào `graph/resource_usage.rs`, giữ
 nguyên internal call sites và hazard semantics. Bước kế tiếp là E25: audit
-remaining graph orchestration và execution boundaries.
+remaining graph orchestration và execution boundaries. Phase E25 tách public
+executor facade khỏi `execution/mod.rs` vào `execution/executor.rs`, giữ
+nguyên `RenderGraphExecutor`, report/profiling types và legacy re-exports.
+Bước kế tiếp là E26: audit execution orchestration/segments boundary.
 
 ## Phase E — Public API và cleanup
 
