@@ -63,8 +63,9 @@ chỉ từ compile hoặc test trên Windows.
   regression suite; `registry.rs` chỉ giữ state container và version API;
 - `src/resources/versions.rs` hiện giữ cả version storage và version behavior;
   registry facade chỉ giữ container/constructor;
-- Internal crate và benchmark code dùng canonical `resources::*` re-exports;
-  `resources::registry::*` vẫn được giữ nguyên cho downstream compatibility;
+- Internal crate, examples, tests và benchmark code đã dùng canonical
+  `resources::*` re-exports; registry implementation không còn public qua
+  `resources::registry::*`;
 - `src/api/compatibility.rs` chứa API builder/engine compatibility modules;
   `api/mod.rs` giữ public exports và re-export các legacy paths;
 - `src/render/compatibility.rs` chứa các legacy render handle/registry/compiler/

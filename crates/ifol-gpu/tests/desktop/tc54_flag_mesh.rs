@@ -1,8 +1,9 @@
 mod harness;
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
-use ifol_gpu::resources::handle::{MeshHandle, PipelineHandle};
-use ifol_gpu::resources::registry::{MeshResourceDescriptor, PipelineLayoutResourceDescriptor};
+use ifol_gpu::resources::{
+    MeshHandle, MeshResourceDescriptor, PipelineHandle, PipelineLayoutResourceDescriptor,
+};
 use std::borrow::Cow;
 use std::fs;
 use std::path::Path;

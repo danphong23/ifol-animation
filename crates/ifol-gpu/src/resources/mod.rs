@@ -5,8 +5,7 @@ pub mod handle;
 mod lookup;
 mod mutation;
 mod ownership;
-/// Compatibility module for callers that still use `resources::registry::*`.
-pub mod registry;
+mod registry;
 mod versions;
 
 pub use descriptors::*;

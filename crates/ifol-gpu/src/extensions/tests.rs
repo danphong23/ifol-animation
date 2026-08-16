@@ -74,7 +74,7 @@ fn operation_contract_preserves_usage_and_rejects_invalid_ranges() {
     let valid = TestExtension {
         descriptor: ExtensionDescriptor::new("test.operation", 1).unwrap(),
         usages: vec![ResourceUsage {
-            resource: GraphResource::Buffer(crate::render::BufferHandle(3)),
+            resource: GraphResource::Buffer(crate::resources::BufferHandle(3)),
             access: ResourceAccess::ReadWrite,
             subresource: ResourceSubresource::BufferRange { start: 4, end: 12 },
         }],
@@ -83,7 +83,7 @@ fn operation_contract_preserves_usage_and_rejects_invalid_ranges() {
     assert_eq!(valid.validate_operation(), Ok(()));
 
     let invalid = [ResourceUsage {
-        resource: GraphResource::Buffer(crate::render::BufferHandle(3)),
+        resource: GraphResource::Buffer(crate::resources::BufferHandle(3)),
         access: ResourceAccess::Write,
         subresource: ResourceSubresource::BufferRange { start: 12, end: 12 },
     }];
@@ -118,7 +118,7 @@ fn dispatcher_default_validation_reuses_resource_contract() {
         usages: Vec::new(),
     };
     let invalid = [ResourceUsage {
-        resource: GraphResource::Buffer(crate::render::BufferHandle(4)),
+            resource: GraphResource::Buffer(crate::resources::BufferHandle(4)),
         access: ResourceAccess::Read,
         subresource: ResourceSubresource::BufferRange { start: 9, end: 9 },
     }];

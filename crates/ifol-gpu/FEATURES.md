@@ -40,7 +40,7 @@
 ### Recipe 1: Khởi Tạo Engine & Đăng Ký Tài Nguyên
 ```rust
 use ifol_gpu::backend::GpuEngineBuilder;
-use ifol_gpu::resources::registry::ResourceRegistry;
+use ifol_gpu::resources::ResourceRegistry;
 use ifol_gpu::resources::descriptors::TextureResourceDescriptor;
 
 #[pollster::main]
@@ -171,4 +171,3 @@ Tất cả 90 bài kiểm thử Desktop (60 Render TCs + 30 Compute TCs) đều 
 | **Edge Cases, Stress & Atomic** | **TC86 $\rightarrow$ TC90** | **Out-of-Bounds Boundary Guard (1024 threads / 1000 valid), Zero & Max Dispatch Limits (65,535 WGs), Write-After-Write Hazard Sync (Multi-Pass Barrier), 1M Particle Stress (2.66 GB/s VRAM), Workgroup Atomic Histogram (102,400 threads → 256 bins, 100% match).** | [`tests/reports/tc86_compute_oob_report.md`](tests/reports/tc86_compute_oob_report.md) $\rightarrow$ [`tc90`](tests/reports/tc90_atomic_histogram_report.md) |
 
 > 💡 **Chi tiết ảnh render và số liệu benchmark:** Xem toàn bộ 90 báo cáo độc lập tại thư mục [`crates/ifol-gpu/tests/reports/`](tests/reports/).
-
