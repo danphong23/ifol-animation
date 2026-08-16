@@ -1,6 +1,5 @@
 use thiserror::Error;
 use std::collections::{HashMap, HashSet};
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::extensions::{ExtensionDispatchRegistry, ExtensionExecutionContext};
@@ -13,7 +12,9 @@ mod validation;
 pub use validation::RenderGraphValidationError;
 use validation::{bind_group_slot_index, format_has_stencil, validate_graph};
 mod render;
-use render::{encode_draw_commands, with_render_pass};
+use render::{encode_draw_commands, update_render_bundles, with_render_pass};
+#[cfg(test)]
+pub(crate) use render::bundle_cache_key;
 #[cfg(test)]
 pub(crate) use validation::texture_supports_aspect;
 
@@ -52,36 +53,6 @@ pub enum RenderGraphProfilingError {
     Validation(#[from] RenderGraphValidationError),
     #[error(transparent)]
     Profiling(#[from] ProfilingError),
-}
-
-fn bundle_cache_key(
-    node: &RenderNode,
-    registry: &ResourceRegistry,
-    color_format: wgpu::TextureFormat,
-    depth_format: Option<wgpu::TextureFormat>,
-    sample_count: u32,
-    context_key: u64,
-) -> u64 {
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    color_format.hash(&mut hasher);
-    depth_format.hash(&mut hasher);
-    sample_count.hash(&mut hasher);
-    context_key.hash(&mut hasher);
-    for command in node.commands() {
-        command.pipeline.0.hash(&mut hasher);
-        registry.pipeline_version(&command.pipeline).hash(&mut hasher);
-        for &(slot, bind_group, ref offsets) in &command.bind_groups {
-            slot.hash(&mut hasher);
-            bind_group.0.hash(&mut hasher);
-            registry.bind_group_version(&bind_group).hash(&mut hasher);
-            offsets.hash(&mut hasher);
-        }
-        if let DrawAction::Indexed { mesh, .. } = command.action {
-            mesh.0.hash(&mut hasher);
-            registry.mesh_version(&mesh).hash(&mut hasher);
-        }
-    }
-    hasher.finish()
 }
 
 impl Default for RenderGraphExecutor {
@@ -713,104 +684,17 @@ fn execute_non_render_nodes(
             ordered_ids
         };
 
-        for &node_id in &node_ids {
-            let expected_bundle_key = pool.get(node_id)
-                .map(|node| bundle_cache_key(node, registry, color_format, depth_format, sample_count, self.context_key));
-            let Some(node) = pool.get_mut(node_id) else {
-                return Err(RenderGraphValidationError::MissingNode(node_id));
-            };
-            if node.use_bundle() && (node.is_dirty() || node.bundle().is_none() || node.bundle_key() != expected_bundle_key) {
-                let mut bundle_encoder = engine.device().create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-                    label: Some("RenderBundleEncoder"),
-                    color_formats: &[Some(color_format)],
-                    depth_stencil: depth_format.map(|f| wgpu::RenderBundleDepthStencil {
-                        format: f,
-                        depth_read_only: false,
-                        stencil_read_only: false,
-                    }),
-                    sample_count,
-                    multiview: None,
-                });
-
-                let mut current_pipeline = None;
-                let mut current_bind_groups = vec![None; engine.capabilities().max_bind_groups as usize];
-
-                for cmd in node.commands() {
-                    if current_pipeline != Some(cmd.pipeline) {
-                        if let Some(pipe) = registry.pipeline(&cmd.pipeline) {
-                            bundle_encoder.set_pipeline(pipe);
-                            current_pipeline = Some(cmd.pipeline);
-                        } else {
-                            return Err(RenderGraphValidationError::MissingPipeline(cmd.pipeline));
-                        }
-                    }
-
-                    for &(slot, bg_handle, ref offsets) in &cmd.bind_groups {
-                        let Some(slot_index) = bind_group_slot_index(slot, engine.capabilities().max_bind_groups) else {
-                            return Err(RenderGraphValidationError::InvalidBindGroupSlot { slot, max_slots: engine.capabilities().max_bind_groups });
-                        };
-                        // Rebind if changed, or if there are dynamic offsets (offsets mutate per instance)
-                        if current_bind_groups[slot_index] != Some(bg_handle) || !offsets.is_empty() {
-                            let Some(bg) = registry.bind_group(&bg_handle) else {
-                                return Err(RenderGraphValidationError::MissingBindGroup(bg_handle));
-                            };
-                            bundle_encoder.set_bind_group(slot, bg, offsets);
-                            current_bind_groups[slot_index] = Some(bg_handle);
-                        }
-                    }
-
-                    match &cmd.action {
-                        DrawAction::Indexed { mesh, index_range, instance_range } => {
-                            let Some((vbo, ibo_info, _)) = registry.mesh(mesh) else {
-                                return Err(RenderGraphValidationError::MissingMesh(*mesh));
-                            };
-                            bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
-                            if let Some((ibo, format)) = ibo_info {
-                                bundle_encoder.set_index_buffer(ibo.slice(..), *format);
-                                bundle_encoder.draw_indexed(index_range.clone(), 0, instance_range.clone());
-                            } else {
-                                bundle_encoder.draw(index_range.clone(), instance_range.clone());
-                            }
-                        }
-                        DrawAction::Procedural { vertex_count, instance_range } => {
-                            bundle_encoder.draw(0..*vertex_count, instance_range.clone());
-                        }
-                        DrawAction::Indirect { buffer, offset } => {
-                            let Some(indirect) = registry.buffer(buffer) else {
-                                return Err(RenderGraphValidationError::MissingIndirectBuffer(*buffer));
-                            };
-                            bundle_encoder.draw_indirect(indirect, *offset);
-                        }
-                        DrawAction::IndexedIndirect { mesh, buffer, offset } => {
-                            let Some((vbo, Some((ibo, format)), _)) = registry.mesh(mesh) else {
-                                if !registry.contains_mesh(mesh) {
-                                    return Err(RenderGraphValidationError::MissingMesh(*mesh));
-                                }
-                                return Err(RenderGraphValidationError::MissingIndexBuffer(*mesh));
-                            };
-                            let Some(indirect) = registry.buffer(buffer) else {
-                                return Err(RenderGraphValidationError::MissingIndirectBuffer(*buffer));
-                            };
-                            bundle_encoder.set_vertex_buffer(0, vbo.slice(..));
-                            bundle_encoder.set_index_buffer(ibo.slice(..), *format);
-                            bundle_encoder.draw_indexed_indirect(indirect, *offset);
-                        }
-                    }
-                }
-
-                let bundle = bundle_encoder.finish(&wgpu::RenderBundleDescriptor { label: None });
-                match node {
-                    RenderNode::DrawBatch { bundle: b, is_dirty, .. } | RenderNode::SubGraph { bundle: b, is_dirty, .. } => {
-                        *b = Some(bundle);
-                        *is_dirty = false;
-                    }
-                    RenderNode::ComputeBatch { .. } => unreachable!("compute node cannot create render bundle"),
-                    RenderNode::CopyBatch { .. } => unreachable!("copy node cannot create render bundle"),
-                    RenderNode::Extension { .. } => unreachable!("extension node cannot create render bundle"),
-                }
-                node.set_bundle_key(expected_bundle_key.unwrap_or(0));
-            }
-        }
+        update_render_bundles(
+            engine.device(),
+            pool,
+            registry,
+            &node_ids,
+            color_format,
+            depth_format,
+            sample_count,
+            self.context_key,
+            engine.capabilities().max_bind_groups,
+        )?;
 
         // Copy nodes được submit trước compute/render pass của graph hiện tại.
         for &node_id in &node_ids {
