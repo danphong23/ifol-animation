@@ -50,4 +50,7 @@ mod encoder_tests;
 #[path = "executor_contract_tests.rs"]
 mod executor_contract_tests;
 #[cfg(test)]
+#[path = "validation_contract_tests.rs"]
+mod validation_contract_tests;
+#[cfg(test)]
 mod tests;

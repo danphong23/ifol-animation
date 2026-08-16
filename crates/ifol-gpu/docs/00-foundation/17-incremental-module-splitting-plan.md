@@ -273,7 +273,11 @@ behavior không đổi. Bước tiếp theo là F23: tiếp tục audit producti
 hotspots còn lại. F23 đã tách executor contract regression tests khỏi
 `execution/tests.rs` vào `execution/executor_contract_tests.rs`; extension,
 profiling và execution-report behavior không đổi. Bước tiếp theo là F24:
-tiếp tục audit validation/integration test boundaries.
+tiếp tục audit validation/integration test boundaries. F24 đã tách preflight và
+validation contract regression tests khỏi `execution/tests.rs` vào
+`execution/validation_contract_tests.rs`; validation semantics và bundle-key
+behavior không đổi. Bước tiếp theo là F25: tiếp tục audit validation/
+integration test boundaries.
 
 ## Không nằm trong đợt tách file đầu tiên
 
