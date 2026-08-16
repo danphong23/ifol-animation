@@ -9,8 +9,10 @@ pub mod capabilities;
 pub mod builder;
 pub mod engine;
 mod readback;
+mod texture_save;
 
 pub use builder::{GpuEngineBuilder, GpuError};
 pub use capabilities::{CapabilityError, GpuCapabilities};
-pub use engine::{GpuEngine, SurfaceResizeError, TextureSaveError};
+pub use engine::{GpuEngine, SurfaceResizeError};
 pub use readback::{RawTextureReadback, ReadbackError, ReadbackTicket};
+pub use texture_save::TextureSaveError;

@@ -1,6 +1,7 @@
 # IFOL GPU: typed texture save errors
 
-`GpuEngine::save_texture_to_file_checked` là API checked cho offline rendering
+`GpuEngine::save_texture_to_file_checked` trong `backend/texture_save.rs` là
+API checked cho offline rendering
 và visual snapshot. Nó dùng readback RGBA8 sRGB legacy contract, sau đó báo lỗi
 typed:
 
