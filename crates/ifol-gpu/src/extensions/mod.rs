@@ -4,15 +4,15 @@
 //! discovered, versioned, and dispatched without making graph code know
 //! whether it represents a video filter, a game effect, or another workload.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use thiserror::Error;
 use crate::api::GpuEngine;
+#[cfg(test)]
+use crate::graph::{GraphResource, ResourceAccess};
 use crate::graph::{ResourceSubresource, ResourceUsage};
 use crate::resources::handle::RenderNodeId;
 use crate::resources::registry::ResourceRegistry;
-#[cfg(test)]
-use crate::graph::{GraphResource, ResourceAccess};
+use std::collections::HashMap;
+use std::sync::Arc;
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ExtensionId(String);
@@ -39,7 +39,10 @@ pub struct ExtensionDescriptor {
 
 impl ExtensionDescriptor {
     pub fn new(id: impl Into<String>, version: u32) -> Result<Self, ExtensionRegistrationError> {
-        Ok(Self { id: ExtensionId::new(id)?, version })
+        Ok(Self {
+            id: ExtensionId::new(id)?,
+            version,
+        })
     }
 }
 
@@ -76,14 +79,30 @@ impl<'a, 'engine> ExtensionExecutionContext<'a, 'engine> {
         node_id: RenderNodeId,
         usages: &'a [ResourceUsage],
     ) -> Self {
-        Self { engine, registry, encoder, node_id, usages }
+        Self {
+            engine,
+            registry,
+            encoder,
+            node_id,
+            usages,
+        }
     }
 
-    pub fn engine(&self) -> &GpuEngine<'_> { self.engine }
-    pub fn registry(&self) -> &ResourceRegistry { self.registry }
-    pub fn encoder(&mut self) -> &mut wgpu::CommandEncoder { self.encoder }
-    pub fn node_id(&self) -> RenderNodeId { self.node_id }
-    pub fn usages(&self) -> &[ResourceUsage] { self.usages }
+    pub fn engine(&self) -> &GpuEngine<'_> {
+        self.engine
+    }
+    pub fn registry(&self) -> &ResourceRegistry {
+        self.registry
+    }
+    pub fn encoder(&mut self) -> &mut wgpu::CommandEncoder {
+        self.encoder
+    }
+    pub fn node_id(&self) -> RenderNodeId {
+        self.node_id
+    }
+    pub fn usages(&self) -> &[ResourceUsage] {
+        self.usages
+    }
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -100,18 +119,22 @@ pub trait ExtensionDispatcher: Send + Sync {
         validate_resource_usages(usages)
     }
 
-    fn encode(&self, context: ExtensionExecutionContext<'_, '_>) -> Result<(), ExtensionExecutionError>;
+    fn encode(
+        &self,
+        context: ExtensionExecutionContext<'_, '_>,
+    ) -> Result<(), ExtensionExecutionError>;
 }
 
 pub use crate::graph::{
-    GraphResource as OperationResource,
-    ResourceAccess as OperationAccess,
+    GraphResource as OperationResource, ResourceAccess as OperationAccess,
     ResourceSubresource as OperationSubresource,
 };
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ExtensionValidationError {
-    #[error("extension operation contains no resource declaration for a resource-bearing operation")]
+    #[error(
+        "extension operation contains no resource declaration for a resource-bearing operation"
+    )]
     MissingResourceDeclaration,
     #[error("extension operation resource usage has an invalid zero-sized range")]
     InvalidResourceRange,
@@ -123,14 +146,21 @@ pub fn validate_resource_usages(usages: &[ResourceUsage]) -> Result<(), Extensio
             ResourceSubresource::BufferRange { start, end } if start >= end => {
                 return Err(ExtensionValidationError::InvalidResourceRange);
             }
-            ResourceSubresource::TextureRange { mip_start, mip_end, layer_start, layer_end }
-                if mip_start >= mip_end || layer_start >= layer_end =>
-            {
+            ResourceSubresource::TextureRange {
+                mip_start,
+                mip_end,
+                layer_start,
+                layer_end,
+            } if mip_start >= mip_end || layer_start >= layer_end => {
                 return Err(ExtensionValidationError::InvalidResourceRange);
             }
-            ResourceSubresource::TextureAspectRange { mip_start, mip_end, layer_start, layer_end, .. }
-                if mip_start >= mip_end || layer_start >= layer_end =>
-            {
+            ResourceSubresource::TextureAspectRange {
+                mip_start,
+                mip_end,
+                layer_start,
+                layer_end,
+                ..
+            } if mip_start >= mip_end || layer_start >= layer_end => {
                 return Err(ExtensionValidationError::InvalidResourceRange);
             }
             _ => {}
@@ -194,7 +224,9 @@ pub struct ExtensionDispatchRegistry {
 }
 
 impl ExtensionDispatchRegistry {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn register(
         &mut self,
@@ -212,118 +244,13 @@ impl ExtensionDispatchRegistry {
         self.entries.get(id)
     }
 
-    pub fn contains(&self, id: &ExtensionId) -> bool { self.entries.contains_key(id) }
-    pub fn len(&self) -> usize { self.entries.len() }
+    pub fn contains(&self, id: &ExtensionId) -> bool {
+        self.entries.contains_key(id)
+    }
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct TestExtension {
-        descriptor: ExtensionDescriptor,
-        usages: Vec<ResourceUsage>,
-    }
-
-    impl GpuExtension for TestExtension {
-        fn descriptor(&self) -> ExtensionDescriptor {
-            self.descriptor.clone()
-        }
-    }
-
-    impl ExtensionOperation for TestExtension {
-        fn resource_usages(&self) -> &[ResourceUsage] { &self.usages }
-
-        fn validate_operation(&self) -> Result<(), ExtensionValidationError> {
-            validate_resource_usages(&self.usages)
-        }
-    }
-
-    impl ExtensionDispatcher for TestExtension {
-        fn descriptor(&self) -> ExtensionDescriptor { self.descriptor.clone() }
-
-        fn encode(&self, _context: ExtensionExecutionContext<'_, '_>) -> Result<(), ExtensionExecutionError> {
-            Ok(())
-        }
-    }
-
-    fn extension(id: &str, version: u32) -> Arc<dyn GpuExtension> {
-        Arc::new(TestExtension { descriptor: ExtensionDescriptor::new(id, version).unwrap(), usages: Vec::new() })
-    }
-
-    #[test]
-    fn registration_rejects_empty_id_and_duplicate() {
-        assert_eq!(ExtensionId::new("  "), Err(ExtensionRegistrationError::EmptyId));
-
-        let mut registry = ExtensionRegistry::new();
-        registry.register(extension("test.filter", 1)).unwrap();
-        assert_eq!(
-            registry.register(extension("test.filter", 2)),
-            Err(ExtensionRegistrationError::Duplicate(ExtensionId::new("test.filter").unwrap()))
-        );
-    }
-
-    #[test]
-    fn registration_keeps_versioned_extension_discoverable() {
-        let mut registry = ExtensionRegistry::new();
-        registry.register(extension("test.compute", 7)).unwrap();
-        let id = ExtensionId::new("test.compute").unwrap();
-
-        assert_eq!(registry.len(), 1);
-        assert!(registry.contains(&id));
-        assert_eq!(registry.get(&id).unwrap().descriptor().version, 7);
-    }
-
-    #[test]
-    fn operation_contract_preserves_usage_and_rejects_invalid_ranges() {
-        let valid = TestExtension {
-            descriptor: ExtensionDescriptor::new("test.operation", 1).unwrap(),
-            usages: vec![ResourceUsage {
-                resource: GraphResource::Buffer(crate::render::BufferHandle(3)),
-                access: ResourceAccess::ReadWrite,
-                subresource: ResourceSubresource::BufferRange { start: 4, end: 12 },
-            }],
-        };
-        assert_eq!(valid.resource_usages().len(), 1);
-        assert_eq!(valid.validate_operation(), Ok(()));
-
-        let invalid = [ResourceUsage {
-            resource: GraphResource::Buffer(crate::render::BufferHandle(3)),
-            access: ResourceAccess::Write,
-            subresource: ResourceSubresource::BufferRange { start: 12, end: 12 },
-        }];
-        assert_eq!(validate_resource_usages(&invalid), Err(ExtensionValidationError::InvalidResourceRange));
-    }
-
-    #[test]
-    fn dispatch_registry_rejects_duplicate_and_keeps_versioned_dispatcher() {
-        let dispatcher = Arc::new(TestExtension {
-            descriptor: ExtensionDescriptor::new("test.dispatch", 3).unwrap(),
-            usages: Vec::new(),
-        });
-        let mut registry = ExtensionDispatchRegistry::new();
-        registry.register(dispatcher.clone()).unwrap();
-        assert_eq!(registry.len(), 1);
-        let id = ExtensionId::new("test.dispatch").unwrap();
-        assert!(registry.contains(&id));
-        assert_eq!(registry.get(&id).unwrap().descriptor().version, 3);
-        assert_eq!(
-            registry.register(dispatcher),
-            Err(ExtensionDispatchRegistrationError::Duplicate(id))
-        );
-    }
-
-    #[test]
-    fn dispatcher_default_validation_reuses_resource_contract() {
-        let dispatcher = TestExtension {
-            descriptor: ExtensionDescriptor::new("test.validation", 1).unwrap(),
-            usages: Vec::new(),
-        };
-        let invalid = [ResourceUsage {
-            resource: GraphResource::Buffer(crate::render::BufferHandle(4)),
-            access: ResourceAccess::Read,
-            subresource: ResourceSubresource::BufferRange { start: 9, end: 9 },
-        }];
-        assert_eq!(dispatcher.validate(&invalid), Err(ExtensionValidationError::InvalidResourceRange));
-    }
-}
+mod tests;
