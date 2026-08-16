@@ -93,6 +93,9 @@ chỉ từ compile hoặc test trên Windows.
   `RenderGraph::effective_resource_usages` là internal helper dùng chung;
 - `src/graph/resource_usage.rs` chứa resource declaration/accessor API của
   `RenderGraph`; storage hiện được mở ở mức `pub(crate)` cho các graph modules;
+- `src/graph/commands.rs` chỉ là facade re-export; `draw_command.rs`,
+  `compute_command.rs` và `copy_command.rs` giữ riêng từng command model và
+  builder API;
 - `src/graph/effective_usage.rs` chứa effective usage derivation từ copy/draw/
   compute commands và render target; `resource_usage.rs` chỉ giữ declaration
   và accessor API;
@@ -153,7 +156,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F20: tiếp tục structure/file-size audit ở production hotspots còn lại;
+Task F21: tiếp tục structure/file-size audit ở production hotspots còn lại;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
 Rust trong crate.
