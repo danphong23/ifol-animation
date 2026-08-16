@@ -30,7 +30,8 @@ chỉ từ compile hoặc test trên Windows.
 
 ## Chưa sạch hoặc chưa hoàn tất
 
-- `src/execution/mod.rs` còn lớn chủ yếu vì regression tests inline;
+- `src/execution/tests.rs` chứa regression suite lớn nhưng đã tách khỏi
+  execution facade;
 - `src/graph/mod.rs` còn chứa nhiều responsibility;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
@@ -44,11 +45,11 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E1: tách regression tests inline khỏi `execution/mod.rs` mà không đổi
-behavior. Giữ facade public và test behavior nguyên vẹn.
+Task E2: audit/tách graph facade còn nhiều responsibility mà không đổi
+behavior. Giữ facade public và graph semantics nguyên vẹn.
 
 Không đồng thời sửa graph semantics, resource behavior hoặc color behavior
-trong Task E1.
+trong Task E2.
 
 ## Hợp đồng với chat/task mới
 

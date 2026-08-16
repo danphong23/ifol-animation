@@ -91,9 +91,10 @@ Chỉ bắt đầu sau khi A-C đã pass:
 6. thêm test format mismatch và raw output;
 7. chạy lại toàn bộ regression ảnh ở tầng test/engine.
 
-Phase D đã hoàn tất các extraction và contract gate nêu trên. Phase E bắt đầu
-bằng E1: tách regression tests inline khỏi execution facade, chỉ di chuyển
-test responsibility và giữ nguyên behavior.
+Phase D đã hoàn tất các extraction và contract gate nêu trên. Phase E1 đã
+tách regression tests inline khỏi execution facade vào
+`execution/tests.rs`, chỉ di chuyển test responsibility và giữ nguyên
+behavior. Bước kế tiếp là E2: audit graph facade còn nhiều responsibility.
 
 ## Phase E — Public API và cleanup
 
