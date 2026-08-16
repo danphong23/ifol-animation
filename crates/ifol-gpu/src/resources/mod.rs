@@ -1,5 +1,6 @@
-pub mod handle;
 pub mod descriptors;
+pub mod handle;
+mod lookup;
 pub mod registry;
 mod versions;
 

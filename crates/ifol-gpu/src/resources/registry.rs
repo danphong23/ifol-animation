@@ -1,8 +1,10 @@
-use std::collections::HashMap;
-use crate::memory::{DeferredDestructionQueue, SubmissionId};
-use crate::resources::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle};
 pub use super::descriptors::*;
 use super::versions::{ResourceVersion, ResourceVersions};
+use crate::memory::{DeferredDestructionQueue, SubmissionId};
+use crate::resources::handle::{
+    BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle,
+};
+use std::collections::HashMap;
 
 pub struct OwnedTextureResource {
     texture: wgpu::Texture,
@@ -10,27 +12,32 @@ pub struct OwnedTextureResource {
 }
 
 impl OwnedTextureResource {
-    pub fn texture(&self) -> &wgpu::Texture { &self.texture }
-    pub fn descriptor(&self) -> TextureResourceDescriptor { self.descriptor }
+    pub fn texture(&self) -> &wgpu::Texture {
+        &self.texture
+    }
+    pub fn descriptor(&self) -> TextureResourceDescriptor {
+        self.descriptor
+    }
 }
 
 /// Nơi ánh xạ từ Handle siêu nhẹ (u64) sang các đối tượng nặng của GPU (Buffer, Texture, Pipeline)
 #[derive(Default)]
 pub struct ResourceRegistry {
-    textures: HashMap<TextureHandle, (wgpu::TextureView, wgpu::TextureFormat)>,
-    pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
-    compute_pipelines: HashMap<ComputePipelineHandle, wgpu::ComputePipeline>,
-    pipeline_layout_descriptors: HashMap<PipelineHandle, PipelineLayoutResourceDescriptor>,
-    compute_pipeline_layout_descriptors: HashMap<ComputePipelineHandle, PipelineLayoutResourceDescriptor>,
-    buffers: HashMap<BufferHandle, wgpu::Buffer>,
+    pub(super) textures: HashMap<TextureHandle, (wgpu::TextureView, wgpu::TextureFormat)>,
+    pub(super) pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
+    pub(super) compute_pipelines: HashMap<ComputePipelineHandle, wgpu::ComputePipeline>,
+    pub(super) pipeline_layout_descriptors: HashMap<PipelineHandle, PipelineLayoutResourceDescriptor>,
+    pub(super) compute_pipeline_layout_descriptors:
+        HashMap<ComputePipelineHandle, PipelineLayoutResourceDescriptor>,
+    pub(super) buffers: HashMap<BufferHandle, wgpu::Buffer>,
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
-    meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
-    mesh_descriptors: HashMap<MeshHandle, MeshResourceDescriptor>,
-    bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
-    bind_group_descriptors: HashMap<BindGroupHandle, BindGroupResourceDescriptor>,
-    buffer_descriptors: HashMap<BufferHandle, BufferResourceDescriptor>,
-    texture_descriptors: HashMap<TextureHandle, TextureResourceDescriptor>,
-    owned_textures: HashMap<TextureHandle, OwnedTextureResource>,
+    pub(super) meshes: HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
+    pub(super) mesh_descriptors: HashMap<MeshHandle, MeshResourceDescriptor>,
+    pub(super) bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
+    pub(super) bind_group_descriptors: HashMap<BindGroupHandle, BindGroupResourceDescriptor>,
+    pub(super) buffer_descriptors: HashMap<BufferHandle, BufferResourceDescriptor>,
+    pub(super) texture_descriptors: HashMap<TextureHandle, TextureResourceDescriptor>,
+    pub(super) owned_textures: HashMap<TextureHandle, OwnedTextureResource>,
     versions: ResourceVersions,
 }
 
@@ -38,12 +45,6 @@ impl ResourceRegistry {
     pub fn new() -> Self {
         Self::default()
     }
-
-    pub fn texture(&self, handle: &TextureHandle) -> Option<&(wgpu::TextureView, wgpu::TextureFormat)> {
-        self.textures.get(handle)
-    }
-
-    pub fn contains_texture(&self, handle: &TextureHandle) -> bool { self.textures.contains_key(handle) }
 
     pub fn insert_texture_with_descriptor(
         &mut self,
@@ -60,10 +61,6 @@ impl ResourceRegistry {
         Ok(old)
     }
 
-    pub fn texture_descriptor(&self, handle: &TextureHandle) -> Option<&TextureResourceDescriptor> {
-        self.texture_descriptors.get(handle)
-    }
-
     /// Lưu texture object thật cùng view compatibility. Đây là API cần cho
     /// copy/resolve; view-only registration chỉ lưu view và không đủ ownership.
     pub fn insert_owned_texture(
@@ -75,15 +72,17 @@ impl ResourceRegistry {
     ) -> Result<Option<OwnedTextureResource>, ResourceDescriptorError> {
         descriptor.validate(max_dimension)?;
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let old = self.owned_textures.insert(handle, OwnedTextureResource { texture, descriptor });
+        let old = self.owned_textures.insert(
+            handle,
+            OwnedTextureResource {
+                texture,
+                descriptor,
+            },
+        );
         self.textures.insert(handle, (view, descriptor.format));
         self.texture_descriptors.insert(handle, descriptor);
         self.bump_texture_version(handle);
         Ok(old)
-    }
-
-    pub fn owned_texture(&self, handle: &TextureHandle) -> Option<&wgpu::Texture> {
-        self.owned_textures.get(handle).map(OwnedTextureResource::texture)
     }
 
     pub fn remove_owned_texture(&mut self, handle: &TextureHandle) -> Option<OwnedTextureResource> {
@@ -104,7 +103,9 @@ impl ResourceRegistry {
         last_use: SubmissionId,
         queue: &mut DeferredDestructionQueue<OwnedTextureResource>,
     ) -> bool {
-        let Some(resource) = self.remove_owned_texture(handle) else { return false; };
+        let Some(resource) = self.remove_owned_texture(handle) else {
+            return false;
+        };
         queue.defer(resource, last_use);
         true
     }
@@ -129,18 +130,8 @@ impl ResourceRegistry {
         old
     }
 
-    pub fn pipeline(&self, handle: &PipelineHandle) -> Option<&wgpu::RenderPipeline> {
-        self.pipelines.get(handle)
-    }
-
-    pub fn contains_pipeline(&self, handle: &PipelineHandle) -> bool { self.pipelines.contains_key(handle) }
-
     pub fn pipeline_version(&self, handle: &PipelineHandle) -> ResourceVersion {
         self.versions.pipelines.get(handle).copied().unwrap_or(0)
-    }
-
-    pub fn pipeline_layout_descriptor(&self, handle: &PipelineHandle) -> Option<&PipelineLayoutResourceDescriptor> {
-        self.pipeline_layout_descriptors.get(handle)
     }
 
     pub fn mark_pipeline_changed(&mut self, handle: PipelineHandle) {
@@ -154,23 +145,18 @@ impl ResourceRegistry {
         descriptor: PipelineLayoutResourceDescriptor,
     ) -> Option<wgpu::ComputePipeline> {
         let old = self.compute_pipelines.insert(handle, pipeline);
-        self.compute_pipeline_layout_descriptors.insert(handle, descriptor);
+        self.compute_pipeline_layout_descriptors
+            .insert(handle, descriptor);
         Self::bump_version(&mut self.versions.compute_pipelines, handle);
         old
     }
 
-    pub fn compute_pipeline(&self, handle: &ComputePipelineHandle) -> Option<&wgpu::ComputePipeline> {
-        self.compute_pipelines.get(handle)
-    }
-
-    pub fn contains_compute_pipeline(&self, handle: &ComputePipelineHandle) -> bool { self.compute_pipelines.contains_key(handle) }
-
     pub fn compute_pipeline_version(&self, handle: &ComputePipelineHandle) -> ResourceVersion {
-        self.versions.compute_pipelines.get(handle).copied().unwrap_or(0)
-    }
-
-    pub fn compute_pipeline_layout_descriptor(&self, handle: &ComputePipelineHandle) -> Option<&PipelineLayoutResourceDescriptor> {
-        self.compute_pipeline_layout_descriptors.get(handle)
+        self.versions
+            .compute_pipelines
+            .get(handle)
+            .copied()
+            .unwrap_or(0)
     }
 
     pub fn mark_compute_pipeline_changed(&mut self, handle: ComputePipelineHandle) {
@@ -190,38 +176,21 @@ impl ResourceRegistry {
         Ok(old)
     }
 
-    pub fn buffer(&self, handle: &BufferHandle) -> Option<&wgpu::Buffer> { self.buffers.get(handle) }
-
-    pub fn contains_buffer(&self, handle: &BufferHandle) -> bool { self.buffers.contains_key(handle) }
-
-    pub fn mesh(&self, handle: &MeshHandle) -> Option<&(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
-        self.meshes.get(handle)
-    }
-
-    pub fn contains_mesh(&self, handle: &MeshHandle) -> bool { self.meshes.contains_key(handle) }
-
     pub fn insert_mesh_with_descriptor(
         &mut self,
         handle: MeshHandle,
         mesh: (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32),
         descriptor: MeshResourceDescriptor,
-    ) -> Result<Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>, MeshDescriptorError> {
+    ) -> Result<
+        Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
+        MeshDescriptorError,
+    > {
         descriptor.validate()?;
         let old = self.meshes.insert(handle, mesh);
         self.mesh_descriptors.insert(handle, descriptor);
         Self::bump_version(&mut self.versions.meshes, handle);
         Ok(old)
     }
-
-    pub fn mesh_descriptor(&self, handle: &MeshHandle) -> Option<&MeshResourceDescriptor> {
-        self.mesh_descriptors.get(handle)
-    }
-
-    pub fn bind_group(&self, handle: &BindGroupHandle) -> Option<&wgpu::BindGroup> {
-        self.bind_groups.get(handle)
-    }
-
-    pub fn contains_bind_group(&self, handle: &BindGroupHandle) -> bool { self.bind_groups.contains_key(handle) }
 
     pub fn insert_bind_group_with_descriptor(
         &mut self,
@@ -234,10 +203,6 @@ impl ResourceRegistry {
         self.bind_group_descriptors.insert(handle, descriptor);
         Self::bump_version(&mut self.versions.bind_groups, handle);
         Ok(old)
-    }
-
-    pub fn buffer_descriptor(&self, handle: &BufferHandle) -> Option<&BufferResourceDescriptor> {
-        self.buffer_descriptors.get(handle)
     }
 
     pub fn buffer_version(&self, handle: &BufferHandle) -> ResourceVersion {
@@ -257,7 +222,10 @@ impl ResourceRegistry {
         old
     }
 
-    pub fn remove_compute_pipeline(&mut self, handle: &ComputePipelineHandle) -> Option<wgpu::ComputePipeline> {
+    pub fn remove_compute_pipeline(
+        &mut self,
+        handle: &ComputePipelineHandle,
+    ) -> Option<wgpu::ComputePipeline> {
         let old = self.compute_pipelines.remove(handle);
         self.compute_pipeline_layout_descriptors.remove(handle);
         if old.is_some() {
@@ -278,15 +246,14 @@ impl ResourceRegistry {
         self.versions.bind_groups.get(handle).copied().unwrap_or(0)
     }
 
-    pub fn bind_group_descriptor(&self, handle: &BindGroupHandle) -> Option<&BindGroupResourceDescriptor> {
-        self.bind_group_descriptors.get(handle)
-    }
-
     pub fn mark_bind_group_changed(&mut self, handle: BindGroupHandle) {
         Self::bump_version(&mut self.versions.bind_groups, handle);
     }
 
-    pub fn remove_texture(&mut self, handle: &TextureHandle) -> Option<(wgpu::TextureView, wgpu::TextureFormat)> {
+    pub fn remove_texture(
+        &mut self,
+        handle: &TextureHandle,
+    ) -> Option<(wgpu::TextureView, wgpu::TextureFormat)> {
         let old = self.textures.remove(handle);
         self.owned_textures.remove(handle);
         self.texture_descriptors.remove(handle);
@@ -305,7 +272,10 @@ impl ResourceRegistry {
         old
     }
 
-    pub fn remove_mesh(&mut self, handle: &MeshHandle) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
+    pub fn remove_mesh(
+        &mut self,
+        handle: &MeshHandle,
+    ) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
         let old = self.meshes.remove(handle);
         self.mesh_descriptors.remove(handle);
         if old.is_some() {
@@ -377,7 +347,10 @@ mod tests {
         registry.mark_compute_pipeline_changed(ComputePipelineHandle(1));
 
         assert_eq!(registry.pipeline_version(&PipelineHandle(1)), 1);
-        assert_eq!(registry.compute_pipeline_version(&ComputePipelineHandle(1)), 1);
+        assert_eq!(
+            registry.compute_pipeline_version(&ComputePipelineHandle(1)),
+            1
+        );
     }
 
     #[test]
@@ -392,31 +365,82 @@ mod tests {
 
     #[test]
     fn buffer_descriptor_rejects_invalid_size_and_usage() {
-        assert_eq!(BufferResourceDescriptor { size: 0, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Err(BufferDescriptorError::InvalidSize));
-        assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::empty() }.validate(), Err(BufferDescriptorError::EmptyUsage));
-        assert_eq!(BufferResourceDescriptor { size: 4, usage: wgpu::BufferUsages::COPY_SRC }.validate(), Ok(()));
+        assert_eq!(
+            BufferResourceDescriptor {
+                size: 0,
+                usage: wgpu::BufferUsages::COPY_SRC
+            }
+            .validate(),
+            Err(BufferDescriptorError::InvalidSize)
+        );
+        assert_eq!(
+            BufferResourceDescriptor {
+                size: 4,
+                usage: wgpu::BufferUsages::empty()
+            }
+            .validate(),
+            Err(BufferDescriptorError::EmptyUsage)
+        );
+        assert_eq!(
+            BufferResourceDescriptor {
+                size: 4,
+                usage: wgpu::BufferUsages::COPY_SRC
+            }
+            .validate(),
+            Ok(())
+        );
     }
 
     #[test]
     fn mesh_descriptor_rejects_inconsistent_metadata() {
         assert_eq!(
-            MeshResourceDescriptor { vertex_buffer_size: 0, vertex_count: 3, index_buffer_size: None, index_format: None }.validate(),
+            MeshResourceDescriptor {
+                vertex_buffer_size: 0,
+                vertex_count: 3,
+                index_buffer_size: None,
+                index_format: None
+            }
+            .validate(),
             Err(MeshDescriptorError::InvalidVertexBufferSize)
         );
         assert_eq!(
-            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 0, index_buffer_size: None, index_format: None }.validate(),
+            MeshResourceDescriptor {
+                vertex_buffer_size: 4,
+                vertex_count: 0,
+                index_buffer_size: None,
+                index_format: None
+            }
+            .validate(),
             Err(MeshDescriptorError::InvalidVertexCount)
         );
         assert_eq!(
-            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 3, index_buffer_size: Some(0), index_format: Some(wgpu::IndexFormat::Uint16) }.validate(),
+            MeshResourceDescriptor {
+                vertex_buffer_size: 4,
+                vertex_count: 3,
+                index_buffer_size: Some(0),
+                index_format: Some(wgpu::IndexFormat::Uint16)
+            }
+            .validate(),
             Err(MeshDescriptorError::InvalidIndexBufferSize)
         );
         assert_eq!(
-            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 3, index_buffer_size: None, index_format: Some(wgpu::IndexFormat::Uint16) }.validate(),
+            MeshResourceDescriptor {
+                vertex_buffer_size: 4,
+                vertex_count: 3,
+                index_buffer_size: None,
+                index_format: Some(wgpu::IndexFormat::Uint16)
+            }
+            .validate(),
             Err(MeshDescriptorError::IndexFormatWithoutBuffer)
         );
         assert_eq!(
-            MeshResourceDescriptor { vertex_buffer_size: 4, vertex_count: 3, index_buffer_size: Some(6), index_format: Some(wgpu::IndexFormat::Uint16) }.validate(),
+            MeshResourceDescriptor {
+                vertex_buffer_size: 4,
+                vertex_count: 3,
+                index_buffer_size: Some(6),
+                index_format: Some(wgpu::IndexFormat::Uint16)
+            }
+            .validate(),
             Ok(())
         );
     }
@@ -424,19 +448,39 @@ mod tests {
     #[test]
     fn bind_group_descriptor_validates_dynamic_offset_contract() {
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 7 }.validate(),
+            BindGroupResourceDescriptor {
+                dynamic_offset_count: 0,
+                dynamic_offset_alignment: 0,
+                layout_signature: 7
+            }
+            .validate(),
             Ok(())
         );
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 256, layout_signature: 7 }.validate(),
+            BindGroupResourceDescriptor {
+                dynamic_offset_count: 0,
+                dynamic_offset_alignment: 256,
+                layout_signature: 7
+            }
+            .validate(),
             Err(BindGroupDescriptorError::UnexpectedAlignmentWithoutOffsets)
         );
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 1, dynamic_offset_alignment: 0, layout_signature: 7 }.validate(),
+            BindGroupResourceDescriptor {
+                dynamic_offset_count: 1,
+                dynamic_offset_alignment: 0,
+                layout_signature: 7
+            }
+            .validate(),
             Err(BindGroupDescriptorError::InvalidAlignment)
         );
         assert_eq!(
-            BindGroupResourceDescriptor { dynamic_offset_count: 2, dynamic_offset_alignment: 256, layout_signature: 7 }.validate(),
+            BindGroupResourceDescriptor {
+                dynamic_offset_count: 2,
+                dynamic_offset_alignment: 256,
+                layout_signature: 7
+            }
+            .validate(),
             Ok(())
         );
     }
@@ -464,14 +508,21 @@ mod tests {
         descriptor.width = 0;
         assert_eq!(
             descriptor.validate(1024),
-            Err(ResourceDescriptorError::InvalidExtent { width: 0, height: 64 })
+            Err(ResourceDescriptorError::InvalidExtent {
+                width: 0,
+                height: 64
+            })
         );
 
         descriptor = valid_descriptor();
         descriptor.width = 2048;
         assert_eq!(
             descriptor.validate(1024),
-            Err(ResourceDescriptorError::ExceedsDimensionLimit { width: 2048, height: 64, max_dimension: 1024 })
+            Err(ResourceDescriptorError::ExceedsDimensionLimit {
+                width: 2048,
+                height: 64,
+                max_dimension: 1024
+            })
         );
     }
 
@@ -479,10 +530,16 @@ mod tests {
     fn texture_descriptor_rejects_missing_shape_and_usage_fields() {
         let mut descriptor = valid_descriptor();
         descriptor.mip_level_count = 0;
-        assert_eq!(descriptor.validate(1024), Err(ResourceDescriptorError::InvalidMipCount));
+        assert_eq!(
+            descriptor.validate(1024),
+            Err(ResourceDescriptorError::InvalidMipCount)
+        );
         descriptor = valid_descriptor();
         descriptor.usage = wgpu::TextureUsages::empty();
-        assert_eq!(descriptor.validate(1024), Err(ResourceDescriptorError::EmptyUsage));
+        assert_eq!(
+            descriptor.validate(1024),
+            Err(ResourceDescriptorError::EmptyUsage)
+        );
     }
 
     #[test]
@@ -514,7 +571,11 @@ mod tests {
         let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
         let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("owned_texture_test"),
-            size: wgpu::Extent3d { width: 16, height: 8, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: 16,
+                height: 8,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -524,15 +585,23 @@ mod tests {
         });
         let mut registry = ResourceRegistry::new();
         let descriptor = TextureResourceDescriptor {
-            width: 16, height: 8, depth_or_array_layers: 1,
+            width: 16,
+            height: 8,
+            depth_or_array_layers: 1,
             format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            mip_level_count: 1, sample_count: 1,
+            mip_level_count: 1,
+            sample_count: 1,
         };
 
-        registry.insert_owned_texture(TextureHandle(3), texture, descriptor, 1024).unwrap();
+        registry
+            .insert_owned_texture(TextureHandle(3), texture, descriptor, 1024)
+            .unwrap();
         assert!(registry.owned_texture(&TextureHandle(3)).is_some());
-        assert_eq!(registry.texture_descriptor(&TextureHandle(3)), Some(&descriptor));
+        assert_eq!(
+            registry.texture_descriptor(&TextureHandle(3)),
+            Some(&descriptor)
+        );
         assert!(registry.texture(&TextureHandle(3)).is_some());
         assert!(registry.remove_owned_texture(&TextureHandle(3)).is_some());
         assert!(registry.owned_texture(&TextureHandle(3)).is_none());
@@ -544,7 +613,11 @@ mod tests {
         let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
         let texture = engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("deferred_owned_texture_test"),
-            size: wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: 4,
+                height: 4,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -562,7 +635,9 @@ mod tests {
             sample_count: 1,
         };
         let mut registry = ResourceRegistry::new();
-        registry.insert_owned_texture(TextureHandle(9), texture, descriptor, 1024).unwrap();
+        registry
+            .insert_owned_texture(TextureHandle(9), texture, descriptor, 1024)
+            .unwrap();
         let mut tracker = SubmissionTracker::new();
         let last_use = tracker.begin();
         let mut queue = DeferredDestructionQueue::new();
