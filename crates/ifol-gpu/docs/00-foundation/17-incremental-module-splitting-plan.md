@@ -143,6 +143,9 @@ nguyên `api::builder` và `api::engine` paths. Bước kế tiếp là E19: aud
 `render/mod.rs` vào `render/compatibility.rs`, giữ nguyên
 `render::handle`, `render::registry`, `render::compiler` và `render::graph`.
 Bước kế tiếp là E20: audit các public facade còn lại trước file-size audit.
+Phase E20 tách extension resource-usage validation khỏi `extensions/mod.rs`
+vào `extensions/validation.rs`, giữ nguyên public validation API. Bước kế tiếp
+là E21: audit production modules còn lại và bắt đầu file-size audit.
 
 ## Phase E — Public API và cleanup
 

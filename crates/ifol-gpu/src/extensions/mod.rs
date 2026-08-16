@@ -6,13 +6,16 @@
 
 use crate::api::GpuEngine;
 #[cfg(test)]
-use crate::graph::{GraphResource, ResourceAccess};
-use crate::graph::{ResourceSubresource, ResourceUsage};
+use crate::graph::{GraphResource, ResourceAccess, ResourceSubresource};
+use crate::graph::ResourceUsage;
 use crate::resources::handle::RenderNodeId;
 use crate::resources::ResourceRegistry;
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
+
+mod validation;
+pub use validation::{validate_resource_usages, ExtensionValidationError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ExtensionId(String);
@@ -129,45 +132,6 @@ pub use crate::graph::{
     GraphResource as OperationResource, ResourceAccess as OperationAccess,
     ResourceSubresource as OperationSubresource,
 };
-
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum ExtensionValidationError {
-    #[error(
-        "extension operation contains no resource declaration for a resource-bearing operation"
-    )]
-    MissingResourceDeclaration,
-    #[error("extension operation resource usage has an invalid zero-sized range")]
-    InvalidResourceRange,
-}
-
-pub fn validate_resource_usages(usages: &[ResourceUsage]) -> Result<(), ExtensionValidationError> {
-    for usage in usages {
-        match usage.subresource {
-            ResourceSubresource::BufferRange { start, end } if start >= end => {
-                return Err(ExtensionValidationError::InvalidResourceRange);
-            }
-            ResourceSubresource::TextureRange {
-                mip_start,
-                mip_end,
-                layer_start,
-                layer_end,
-            } if mip_start >= mip_end || layer_start >= layer_end => {
-                return Err(ExtensionValidationError::InvalidResourceRange);
-            }
-            ResourceSubresource::TextureAspectRange {
-                mip_start,
-                mip_end,
-                layer_start,
-                layer_end,
-                ..
-            } if mip_start >= mip_end || layer_start >= layer_end => {
-                return Err(ExtensionValidationError::InvalidResourceRange);
-            }
-            _ => {}
-        }
-    }
-    Ok(())
-}
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ExtensionRegistrationError {
