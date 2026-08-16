@@ -36,5 +36,11 @@ impl ResourceRegistry {
 }
 
 #[cfg(test)]
-#[path = "registry_tests.rs"]
-mod tests;
+#[path = "registry_version_tests.rs"]
+mod version_tests;
+#[cfg(test)]
+#[path = "registry_descriptor_tests.rs"]
+mod descriptor_tests;
+#[cfg(test)]
+#[path = "registry_ownership_tests.rs"]
+mod ownership_tests;

@@ -263,8 +263,11 @@ regression suite khỏi `api/profiling.rs` vào `api/profiling_tests.rs`; profil
 contract và submission-gated pool behavior không đổi. Bước tiếp theo là F20:
 tiếp tục audit production hotspots còn lại. F20 đã tách draw/compute/copy
 command model khỏi `graph/commands.rs` vào ba module sibling tương ứng; public
-graph exports và command builder behavior không đổi. Bước tiếp theo là F21:
-tiếp tục audit production hotspots còn lại.
+graph exports và command builder behavior không đổi. F21 đã tách resource
+registry regression suite khỏi `resources/registry_tests.rs` thành
+`resources/registry_version_tests.rs`, `resources/registry_descriptor_tests.rs`
+và `resources/registry_ownership_tests.rs`; registry behavior và public API
+không đổi. Bước tiếp theo là F22: tiếp tục audit production hotspots còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 
