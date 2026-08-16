@@ -124,7 +124,7 @@ chỉ từ compile hoặc test trên Windows.
   và texture validation nằm trong `validation_texture.rs`;
 - `src/backend/readback_ticket.rs` chứa mapping, submission wait và row-padding
   resolution của `ReadbackTicket`; `backend/readback.rs` giữ facade/API bắt đầu
-  readback;
+  readback; `src/backend/readback_tests.rs` giữ readback regression suite;
 - `src/graph/usage_overlap.rs` chứa resource access conflict và subresource/aspect
 -  overlap facade; `src/graph/buffer_overlap.rs` giữ buffer-range matching và
   `src/graph/texture_overlap.rs` giữ texture/aspect matching; `graph/usage.rs`
@@ -150,7 +150,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F16: tiếp tục structure/file-size audit ở production hotspots còn lại;
+Task F17: tiếp tục structure/file-size audit ở production hotspots còn lại;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ.
 

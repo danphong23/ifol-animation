@@ -249,7 +249,10 @@ semantics và deferred lifetime không đổi. Bước tiếp theo là F15: ti�
 structure/file-size audit. F15 đã tách draw/bind-group/mesh/indirect command
 encoding khỏi `execution/render_pass.rs` vào `execution/draw.rs`; render pass
 lifecycle và graph traversal không đổi. Bước tiếp theo là F16: tiếp tục audit
-production hotspots còn lại.
+production hotspots còn lại. F16 đã tách readback regression suite khỏi
+`backend/readback.rs` vào `backend/readback_tests.rs`; raw readback contract,
+format mapping và ticket behavior không đổi. Bước tiếp theo là F17: tiếp tục
+audit production hotspots còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 
