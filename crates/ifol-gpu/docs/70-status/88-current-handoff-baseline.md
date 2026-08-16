@@ -87,8 +87,12 @@ chỉ từ compile hoặc test trên Windows.
   nested-compute ordering regression tests;
 - `src/execution/dynamic_offset_tests.rs` chứa descriptor-aware dynamic-offset
   validation regression test;
-- `src/execution/remaining_validation_tests.rs` chứa các validation regression
-  tests còn lại cho depth attachment, pipeline layout và indexed/indirect draw;
+- `src/execution/attachment_validation_tests.rs` chứa depth-attachment
+  validation regression tests;
+- `src/execution/pipeline_layout_validation_tests.rs` chứa render/compute
+  pipeline-layout validation regression tests;
+- `src/execution/indexed_resource_validation_tests.rs` chứa indexed/indirect
+  mesh và buffer lookup validation regression tests;
 - `src/execution/execution_order_tests.rs` chứa empty-graph, nested-subgraph và
   interleaved draw/copy/compute execution regression tests;
 - `src/resources/registry_version_tests.rs` chứa version regression suite;

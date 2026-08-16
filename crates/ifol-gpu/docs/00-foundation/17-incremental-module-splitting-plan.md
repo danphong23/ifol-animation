@@ -293,11 +293,11 @@ validation test boundaries. F29 đã tách dynamic-offset validation regression
 test khỏi `execution/tests.rs` vào `execution/dynamic_offset_tests.rs`;
 descriptor-aware offset validation behavior không đổi. Bước tiếp theo là F30:
 bounded audit các validation/integration test boundary còn lại. F30 đã tách
-validation regression tests còn lại vào `execution/remaining_validation_tests.rs`
-và execution lifecycle/order regression tests vào
-`execution/execution_order_tests.rs`; validation và execution behavior không
-đổi. Bước tiếp theo là F31: final bounded audit toàn crate và xác nhận các
-production/test boundary còn lại trước khi kết thúc đợt refactor.
+attachment/depth, pipeline-layout và indexed/indirect resource validation
+regression tests vào các module riêng; execution lifecycle/order regression
+tests nằm trong `execution/execution_order_tests.rs`; validation và execution
+behavior không đổi. Bước tiếp theo là F31: final bounded audit toàn crate và
+xác nhận các production/test boundary còn lại trước khi kết thúc đợt refactor.
 
 ## Không nằm trong đợt tách file đầu tiên
 

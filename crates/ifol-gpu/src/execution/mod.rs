@@ -69,8 +69,14 @@ mod compute_execution_tests;
 #[path = "dynamic_offset_tests.rs"]
 mod dynamic_offset_tests;
 #[cfg(test)]
-#[path = "remaining_validation_tests.rs"]
-mod remaining_validation_tests;
+#[path = "attachment_validation_tests.rs"]
+mod attachment_validation_tests;
 #[cfg(test)]
 #[path = "execution_order_tests.rs"]
 mod execution_order_tests;
+#[cfg(test)]
+#[path = "pipeline_layout_validation_tests.rs"]
+mod pipeline_layout_validation_tests;
+#[cfg(test)]
+#[path = "indexed_resource_validation_tests.rs"]
+mod indexed_resource_validation_tests;
