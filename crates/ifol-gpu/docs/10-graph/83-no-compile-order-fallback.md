@@ -14,5 +14,5 @@ invalid input trả lỗi; private encode không lặp lại toàn bộ validati
 
 ## Test gate
 
-`public_execute_rejects_invalid_graph_before_submit` và toàn bộ graph cycle/
+`public_execute_checked_rejects_invalid_graph_before_submit` và toàn bộ graph cycle/
 missing-node tests tiếp tục là evidence cho boundary này.

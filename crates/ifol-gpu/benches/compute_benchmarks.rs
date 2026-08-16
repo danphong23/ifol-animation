@@ -120,7 +120,7 @@ fn bench_compute_1m_particles(c: &mut Criterion) {
                         .with_bind_group(0, bg_h, Vec::new()),
                 ]);
 
-                let sub = executor.execute(&engine, &registry, &mut pool, &graph).unwrap();
+                let sub = executor.execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
                 engine.device().poll(wgpu::PollType::Wait {
                     submission_index: Some(sub),
                     timeout: None,

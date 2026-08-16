@@ -53,7 +53,7 @@ fn run_tc29_crt_vhs() {
             ],
         );
 
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
 
         let graph_json = serde_json::json!({
             "test_case": "TC29 - CRT & VHS Filter",

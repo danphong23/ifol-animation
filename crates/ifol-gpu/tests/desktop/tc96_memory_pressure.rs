@@ -223,7 +223,7 @@ fn test_tc96_memory_pressure() {
                 .with_bind_group(0, vis_bg_h, Vec::new()),
         ]);
 
-        let sub = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Execution failed");
+        let sub = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Execution failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub),
             timeout: None,

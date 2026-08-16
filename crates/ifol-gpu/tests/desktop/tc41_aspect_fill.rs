@@ -52,7 +52,7 @@ fn run_tc41_aspect_fill() {
             ],
         );
 
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
 
         let graph_json = serde_json::json!({
             "test_case": "TC41 - Auto Aspect Ratio Adaptation & Background Blur Fill",

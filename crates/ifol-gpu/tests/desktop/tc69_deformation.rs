@@ -236,7 +236,7 @@ fn test_tc69_deformation() {
         graph.add_batch(&mut pool, vec![draw_cmd]);
 
         let start = Instant::now();
-        let sub1 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Execute failed");
+        let sub1 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub1),
             timeout: None,

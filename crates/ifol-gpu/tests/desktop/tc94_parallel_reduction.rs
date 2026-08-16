@@ -160,7 +160,7 @@ fn test_tc94_parallel_reduction() {
         ]);
 
         let start_time = Instant::now();
-        let sub = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute reduction execution failed");
+        let sub = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute reduction execution failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub),
             timeout: None,

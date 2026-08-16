@@ -43,14 +43,14 @@ fn run_tc09_caching() {
 
         // Benchmark Cold Frame
         let t0 = Instant::now();
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("TC09 Frame 1 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("TC09 Frame 1 failed");
         let cold_time = t0.elapsed();
 
         // Benchmark 10 Warm Cached Frames
         let mut warm_durations = Vec::new();
         for _ in 0..10 {
             let t = Instant::now();
-            h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("TC09 warm frame failed");
+            h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("TC09 warm frame failed");
             warm_durations.push(t.elapsed());
         }
         let avg_warm: std::time::Duration = warm_durations.iter().sum::<std::time::Duration>() / warm_durations.len() as u32;

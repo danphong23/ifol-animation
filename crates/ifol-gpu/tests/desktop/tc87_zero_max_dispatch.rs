@@ -94,7 +94,7 @@ fn test_tc87_zero_max_dispatch() {
         ]);
 
         let start_zero = Instant::now();
-        let sub_zero = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph_zero).expect("Zero-dispatch execute failed");
+        let sub_zero = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph_zero).expect("Zero-dispatch execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_zero),
             timeout: None,
@@ -154,7 +154,7 @@ fn test_tc87_zero_max_dispatch() {
         ]);
 
         let start_max = Instant::now();
-        let sub_max = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph_max).expect("Max-dispatch execute failed");
+        let sub_max = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph_max).expect("Max-dispatch execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_max),
             timeout: None,
@@ -249,7 +249,7 @@ fn test_tc87_zero_max_dispatch() {
                 .with_bind_group(0, render_bg_h, Vec::new()),
         ]);
 
-        let sub_r = h.executor.execute(&h.engine, &h.registry, &mut render_pool, &render_graph).expect("Render graph failed");
+        let sub_r = h.executor.execute_checked(&h.engine, &h.registry, &mut render_pool, &render_graph).expect("Render graph failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_r),
             timeout: None,

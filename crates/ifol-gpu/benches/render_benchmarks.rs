@@ -131,7 +131,7 @@ fn bench_clear_screen(c: &mut Criterion) {
 
     c.bench_function("bench_clear_screen", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -149,7 +149,7 @@ fn bench_empty_graph(c: &mut Criterion) {
 
     c.bench_function("bench_empty_graph", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -253,7 +253,7 @@ fn bench_complex_graph(c: &mut Criterion) {
 
     c.bench_function("bench_complex_graph_100_nodes", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -431,7 +431,7 @@ fn bench_single_large_image(c: &mut Criterion) {
 
     c.bench_function("bench_single_large_image", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -527,7 +527,7 @@ fn bench_100k_sprites_cpu_stress(c: &mut Criterion) {
 
     c.bench_function("bench_100k_sprites_cpu_stress", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -620,7 +620,7 @@ fn bench_100k_sprites_gpu_instanced(c: &mut Criterion) {
 
     c.bench_function("bench_100k_sprites_gpu_instanced", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -752,7 +752,7 @@ fn bench_z_buffer(c: &mut Criterion) {
 
     c.bench_function("bench_z_buffer_disabled", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph_no_depth).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph_no_depth).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -761,7 +761,7 @@ fn bench_z_buffer(c: &mut Criterion) {
     });
     c.bench_function("bench_z_buffer_enabled", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph_with_depth).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph_with_depth).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -869,7 +869,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
 
     c.bench_function("bench_alpha_blend_replace", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph_replace).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph_replace).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -878,7 +878,7 @@ fn bench_alpha_blending(c: &mut Criterion) {
     });
     c.bench_function("bench_alpha_blend_alpha", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph_alpha).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph_alpha).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -1008,7 +1008,7 @@ fn bench_pipeline_caching(c: &mut Criterion) {
 
     c.bench_function("bench_pipeline_state_sorted", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph_sorted).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph_sorted).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,
@@ -1017,7 +1017,7 @@ fn bench_pipeline_caching(c: &mut Criterion) {
     });
     c.bench_function("bench_pipeline_state_unsorted", |b| {
         b.iter(|| {
-            let idx = executor.execute(&engine, &registry, &mut pool, &graph_unsorted).expect("benchmark graph must validate");
+            let idx = executor.execute_checked(&engine, &registry, &mut pool, &graph_unsorted).expect("benchmark graph must validate");
             let _ = engine.device().poll(wgpu::PollType::Wait {
                 submission_index: Some(idx),
                 timeout: None,

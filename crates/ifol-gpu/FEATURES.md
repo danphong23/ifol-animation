@@ -104,7 +104,7 @@ fn render_frame(
     ]);
 
     // 3. Thực thi Graph
-    let submission_index = executor.execute(engine, registry, pool, &graph).expect("Execution failed");
+    let submission_index = executor.execute_checked(engine, registry, pool, &graph).expect("Execution failed");
     engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(submission_index),
         timeout: None,
@@ -141,7 +141,7 @@ fn run_compute_task(
     ]);
 
     // 2. Thực thi Compute Batch không qua Rasterizer
-    let submission_index = executor.execute(engine, registry, pool, &graph).expect("Compute execution failed");
+    let submission_index = executor.execute_checked(engine, registry, pool, &graph).expect("Compute execution failed");
     engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(submission_index),
         timeout: None,

@@ -47,7 +47,7 @@ fn run_tc60_ping_pong() {
                 .with_bind_group(0, heroes_tex.bind_group, Vec::new())
                 .with_bind_group(1, ubg_wizard, Vec::new())
         ]);
-        h.executor.execute(&h.engine, &h.registry, &mut h.pool, &g_init).unwrap();
+        h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &g_init).unwrap();
 
         // Feedback transform uniforms
         let u_zoom_out = h.create_custom_uniform_bind_group(SpriteUniform {
@@ -85,7 +85,7 @@ fn run_tc60_ping_pong() {
                     .with_bind_group(0, bg_ping, Vec::new())
                     .with_bind_group(1, u_zoom_out, Vec::new())
             ]);
-            h.executor.execute(&h.engine, &h.registry, &mut h.pool, &g_pong).unwrap();
+            h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &g_pong).unwrap();
 
             // Pong -> Ping
             let mut g_ping = RenderGraph::new(RenderTarget::Offscreen { color: ping_id, width: 800, height: 600 });
@@ -94,7 +94,7 @@ fn run_tc60_ping_pong() {
                     .with_bind_group(0, bg_pong, Vec::new())
                     .with_bind_group(1, u_zoom_in, Vec::new())
             ]);
-            h.executor.execute(&h.engine, &h.registry, &mut h.pool, &g_ping).unwrap();
+            h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &g_ping).unwrap();
         }
 
         // 5. Final Output Blit (1:1 Copy to Final Target)

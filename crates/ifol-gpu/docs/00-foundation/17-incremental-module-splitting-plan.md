@@ -54,7 +54,7 @@ thành `src/resources/versions.rs`; nhóm lookup của C2 đã được tách th
 `src/resources/lookup.rs`, `src/resources/mutation.rs` và
 `src/resources/ownership.rs` đã được tách, đều giữ nguyên API/behavior. C5 đã
 chốt facade root bằng các re-export explicit; các nested module
-`resources::registry::*` và `render::registry::*` vẫn là compatibility paths.
+Các nested implementation paths không còn là public contract.
 Sau C5, chuyển sang Phase D; mỗi nhóm vẫn phải đi qua compile và toàn bộ
 regression test trước khi commit.
 
@@ -72,7 +72,7 @@ registry/lifetime. Tách theo responsibility, không tách theo danh sách loạ
 ## Phase D — Color/readback boundary
 
 Tiến độ hiện tại: primitive readback đã được tách khỏi `backend/engine.rs`
-thành `backend/readback.rs`, giữ nguyên checked API và compatibility re-export.
+thành `backend/readback.rs`, giữ nguyên checked API và public backend export.
 Bước raw readback kèm `format` đã được khóa bằng `RawTextureReadback`; tuple
 API cũ đã được loại bỏ sau khi migrate consumer. Save/encode boundary cũng đã được tách
 thành `backend/texture_save.rs`; hardcoded output policy hiện được cô lập ở
@@ -126,7 +126,7 @@ validation semantics không đổi. Bước kế tiếp là E14: audit graph tra
 validation còn lại. Phase E14 tách node/resource/command traversal khỏi
 `execution/validation.rs` vào `execution/validation_node.rs`; validation
 facade giờ chỉ giữ flattening, target/depth orchestration và re-export
-compatibility. Bước kế tiếp là E15: audit resource registry production file.
+orchestration. Bước kế tiếp là E15: audit resource registry production file.
 Phase E15 tách regression suite khỏi `resources/registry.rs` vào
 `resources/registry_tests.rs`; registry production file giờ chỉ giữ state
 container, version API và version bump primitive. Bước kế tiếp là E16: audit
@@ -135,13 +135,10 @@ version getters/bumpers khỏi registry facade vào `resources/versions.rs`,
 giữ nguyên `ResourceRegistry` public API. Bước kế tiếp là E17: audit public
 resource re-exports và compatibility facade. Phase E17 chuyển toàn bộ
 internal crate/bench imports sang canonical `resources::*` facade, giữ
-`resources::registry::*` như compatibility path cho downstream. Bước kế tiếp
-là E18: audit execution/backend public compatibility facades. Phase E18 tách
-API compatibility modules khỏi `api/mod.rs` vào `api/compatibility.rs`, giữ
-nguyên `api::builder` và `api::engine` paths. Bước kế tiếp là E19: audit
-`render` compatibility facade. Phase E19 tách các compatibility modules khỏi
-`render/mod.rs` vào `render/compatibility.rs`, giữ nguyên
-`render::handle`, `render::registry`, `render::compiler` và `render::graph`.
+đã đóng nested registry path. E18 đã loại bỏ API compatibility modules khỏi
+`api/mod.rs` và migrate builder/engine consumers sang `backend::*`. E19 đã
+loại bỏ `render` facade; render implementation canonical nằm trong execution
+modules.
 Bước kế tiếp là E20: audit các public facade còn lại trước file-size audit.
 Phase E20 tách extension resource-usage validation khỏi `extensions/mod.rs`
 vào `extensions/validation.rs`, giữ nguyên public validation API. Bước kế tiếp
@@ -160,7 +157,7 @@ usage derivation của command, extension và render target. Phase E24 chuyển
 nguyên internal call sites và hazard semantics. Bước kế tiếp là E25: audit
 remaining graph orchestration và execution boundaries. Phase E25 tách public
 executor facade khỏi `execution/mod.rs` vào `execution/executor.rs`, giữ
-nguyên `RenderGraphExecutor`, report/profiling types và legacy re-exports.
+nguyên `RenderGraphExecutor`, report/profiling types và canonical exports.
 Bước kế tiếp là E26: audit execution orchestration/segments boundary. Phase E26
 tách execution diagnostics counting (`execution_counts_for_graph` và recursive
 declared usage count) khỏi `execution/orchestration.rs` vào `execution/counts.rs`,
@@ -201,8 +198,8 @@ và node lifecycle behavior. Bước kế tiếp là E36: audit resource registr
 backend capability/builder boundaries. Phase E36 tách runtime adapter/device
 creation khỏi `backend/builder.rs` vào `backend/builder_build.rs`, giữ nguyên
 builder policy, public setters, `build` API và capability validation behavior.
-Bước kế tiếp là E37: audit resource descriptor/registry facades và final
-backend/graph cohesion.
+E37 resource descriptor audit được supersede bởi Phase F vì ưu tiên hiện tại là
+loại bỏ legacy API khỏi dự án development trước khi tiếp tục tách thêm file.
 
 ## Phase E — Public API và cleanup
 
@@ -217,9 +214,12 @@ backend/graph cohesion.
 Sau khi các responsibility boundary chính đã ổn định, ưu tiên chuyển toàn bộ
 consumer nội bộ sang canonical API rồi xóa compatibility layer lỗi thời. Phase
 F1 đã migrate builder/engine consumers trong source, examples, benches, desktop
-tests và docs từ `api::*` sang `backend::*`, giữ nguyên behavior. Bước kế tiếp
-là F2: migrate resource/render compatibility paths và deprecated readback API,
-sau đó xóa các shim không còn consumer.
+tests và docs từ `api::*` sang `backend::*`, giữ nguyên behavior. Phase F2 đã
+migrate resource/render consumers, xóa `resources::registry`, `render/`, các
+`api` compatibility modules và tuple readback API cũ. F3 đã migrate toàn bộ
+consumer khỏi alias execution `execute`/`execute_with_surface`, cập nhật docs
+theo canonical contract và chạy crate verification. Bước kế tiếp là F4:
+structure/file-size audit cuối trước khi tiếp tục split responsibility.
 
 ## Không nằm trong đợt tách file đầu tiên
 

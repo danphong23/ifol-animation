@@ -956,7 +956,7 @@ impl<'a> DesktopTestHarness<'a> {
     ) {
         // Cold start
         let t_cold_start = Instant::now();
-        let sub_idx_1 = self.executor.execute(&self.engine, &self.registry, &mut self.pool, graph)
+        let sub_idx_1 = self.executor.execute_checked(&self.engine, &self.registry, &mut self.pool, graph)
             .expect("Execute failed on cold run");
         let _ = self.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_idx_1),
@@ -966,7 +966,7 @@ impl<'a> DesktopTestHarness<'a> {
 
         // Warm run
         let t_warm_start = Instant::now();
-        let sub_idx_2 = self.executor.execute(&self.engine, &self.registry, &mut self.pool, graph)
+        let sub_idx_2 = self.executor.execute_checked(&self.engine, &self.registry, &mut self.pool, graph)
             .expect("Execute failed on warm run");
         let _ = self.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_idx_2),

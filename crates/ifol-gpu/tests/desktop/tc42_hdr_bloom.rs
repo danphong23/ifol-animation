@@ -138,9 +138,9 @@ fn run_tc42_hdr_bloom() {
             ],
         );
 
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_chroma).expect("Execution failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_bloom).expect("Execution failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_chroma).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_bloom).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
 
         let graph_json = serde_json::json!({
             "test_case": "TC42 - Full-Frame HDR Bloom & Emissive Glow",

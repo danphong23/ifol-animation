@@ -223,8 +223,8 @@ fn run_tc14_grading() {
         );
 
         // 6. Execute Passes
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_scene).expect("Scene pass failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Grading pass failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_scene).expect("Scene pass failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Grading pass failed");
 
         // 7. Serialize Graph JSON
         let graph_json = serde_json::json!({

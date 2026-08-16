@@ -133,7 +133,7 @@ fn test_tc75_fft() {
         ]);
 
         let t_start = Instant::now();
-        let sub = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph).unwrap();
+        let sub = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph).unwrap();
         let _ = h.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(sub), timeout: None });
         let t_elapsed = t_start.elapsed();
         println!("FFT Compute+Render Time: {:?}", t_elapsed);

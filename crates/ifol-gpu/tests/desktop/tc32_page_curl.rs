@@ -132,9 +132,9 @@ fn run_tc32_page_curl() {
         ]);
 
         // Execute all passes
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_a).unwrap();
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_b).unwrap();
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).unwrap();
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_a).unwrap();
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_b).unwrap();
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).unwrap();
 
         let graph_json = serde_json::json!({
             "test_case": "TC32 - Page Curl Transition",

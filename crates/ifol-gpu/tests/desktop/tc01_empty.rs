@@ -71,7 +71,7 @@ fn run_tc01_empty() {
 
     // 4. Execute - Frame 1 (Cold Start)
     let start_time_cold = Instant::now();
-    let submission_index = executor.execute(&engine, &registry, &mut pool, &graph).expect("Graph validation failed");
+    let submission_index = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("Graph validation failed");
     
     // Wait for GPU (Cold)
     let _ = engine.device().poll(wgpu::PollType::Wait {
@@ -82,7 +82,7 @@ fn run_tc01_empty() {
     
     // 4.5 Execute - Frame 2 (Warm / Cached)
     let start_time_warm = Instant::now();
-    let submission_index_2 = executor.execute(&engine, &registry, &mut pool, &graph).expect("Graph validation failed");
+    let submission_index_2 = executor.execute_checked(&engine, &registry, &mut pool, &graph).expect("Graph validation failed");
     
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(submission_index_2),

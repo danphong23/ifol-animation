@@ -55,7 +55,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     .with_clear_color([0.0, 0.5, 0.8, 1.0]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -176,7 +176,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -268,7 +268,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -455,7 +455,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     graph.add_batch(&mut pool, commands);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -592,7 +592,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     graph.add_batch(&mut pool, commands);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -703,7 +703,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     graph.add_batch(&mut pool, vec![cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx),
         timeout: None,
@@ -790,7 +790,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
 
     // Pass 1
     let start_1 = Instant::now();
-    let idx_1 = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx_1 = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx_1),
         timeout: None,
@@ -799,7 +799,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
 
     // Pass 2
     let start_2 = Instant::now();
-    let idx_2 = executor.execute(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
+    let idx_2 = executor.execute_checked(engine, &registry, &mut pool, &graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait {
         submission_index: Some(idx_2),
         timeout: None,
@@ -941,7 +941,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     root_graph.add_subgraph(&mut pool, "CharacterSubGraph", inner_graph, vec![composite_cmd]);
 
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &root_graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &root_graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 
@@ -1221,7 +1221,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
 
     // THỰC THI BIÊN DỊCH VÀ VẼ
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &master_graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &master_graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 
@@ -1586,7 +1586,7 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
 
     // THỰC THI BIÊN DỊCH VÀ VẼ
     let start = Instant::now();
-    let idx = executor.execute(engine, &registry, &mut pool, &master_graph).expect("comprehensive graph must validate");
+    let idx = executor.execute_checked(engine, &registry, &mut pool, &master_graph).expect("comprehensive graph must validate");
     let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     let duration = start.elapsed();
 

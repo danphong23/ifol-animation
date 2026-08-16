@@ -2,8 +2,7 @@
 //!
 //! This module contains facts discovered from the selected `wgpu` adapter and
 //! device. It deliberately does not own graph semantics or host window
-//! integration. The public `api` module re-exports these types for backwards
-//! compatibility.
+//! integration. Backend types are exposed from this canonical module.
 
 pub mod builder;
 mod builder_build;

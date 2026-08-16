@@ -126,7 +126,7 @@ fn test_tc86_compute_oob() {
         ]);
 
         let start_cold = Instant::now();
-        let sub1 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute failed");
+        let sub1 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub1),
             timeout: None,
@@ -134,7 +134,7 @@ fn test_tc86_compute_oob() {
         let cold_time = start_cold.elapsed();
 
         let start_warm = Instant::now();
-        let sub2 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute warm execute failed");
+        let sub2 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute warm execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub2),
             timeout: None,
@@ -245,7 +245,7 @@ fn test_tc86_compute_oob() {
                 .with_bind_group(0, render_bg_h, Vec::new()),
         ]);
 
-        let sub_r = h.executor.execute(&h.engine, &h.registry, &mut render_pool, &render_graph).expect("Render graph failed");
+        let sub_r = h.executor.execute_checked(&h.engine, &h.registry, &mut render_pool, &render_graph).expect("Render graph failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_r),
             timeout: None,

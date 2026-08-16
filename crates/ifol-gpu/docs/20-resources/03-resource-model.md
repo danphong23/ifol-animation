@@ -13,7 +13,9 @@ Mô hình mục tiêu gồm các resource typed riêng biệt:
 - vertex/index stream;
 - render target và depth/stencil attachment.
 
-`ResourceRegistry` hiện tại vẫn expose các `HashMap` public để giữ compatibility với prototype, nhưng đã có API `insert_*`, lookup, remove và version tracking nền tảng. Bước production tiếp theo là đóng map public, buộc mọi mutation đi qua API có kiểm soát để compiled artifact luôn được invalidate an toàn.
+Các map nội bộ của `ResourceRegistry` đã được private hóa. Mutation đi qua các
+API `insert_*_with_descriptor`, owned-resource và `remove_*`, cùng version
+tracking để compiled artifact được invalidate an toàn.
 
 Mỗi nhóm resource có version độc lập. Version bắt đầu từ `0`, tăng khi insert/replace, remove hoặc host gọi `mark_*_changed`. Compiled graph dùng version này trong cache key; không dùng địa chỉ pointer hoặc chỉ dùng handle.
 

@@ -340,7 +340,7 @@ fn run_tc01_empty(harness: &mut TestHarness) {
         .with_clear_color([0.2, 0.2, 0.2, 1.0]);
     
     let start = Instant::now();
-    let idx = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &graph).expect("ultimate graph must validate");
+    let idx = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &graph).expect("ultimate graph must validate");
     println!("TC01 Compile & Execute: {:?}", start.elapsed());
     
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
@@ -364,8 +364,8 @@ fn run_tc02_tc03(harness: &mut TestHarness) {
         .with_clear_color([0.0, 0.0, 0.0, 1.0]).with_depth_stencil(z03);
     g03.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_basic, DrawAction::Procedural { vertex_count: 6, instance_range: 0..3 })]);
 
-    let _ = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g02).expect("ultimate graph must validate");
-    let idx2 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g03).expect("ultimate graph must validate");
+    let _ = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g02).expect("ultimate graph must validate");
+    let idx2 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g03).expect("ultimate graph must validate");
     
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx2), timeout: None });
     harness.save_texture(&tex02, "tc02_single_quad.png");
@@ -382,7 +382,7 @@ fn run_tc04_alpha(harness: &mut TestHarness) {
     
     g04.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_alpha, DrawAction::Procedural { vertex_count: 6, instance_range: 0..2 })]);
     
-    let idx = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g04).expect("ultimate graph must validate");
+    let idx = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g04).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx), timeout: None });
     harness.save_texture(&tex04, "tc04_alpha_blend.png");
 }
@@ -407,11 +407,11 @@ fn run_tc08_massive(harness: &mut TestHarness) {
     }
 
     let start = Instant::now();
-    let _ = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g1).expect("ultimate graph must validate");
+    let _ = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g1).expect("ultimate graph must validate");
     println!("TC08 (1 Node x 10000 Cmds) Compile Time: {:?}", start.elapsed());
 
     let start2 = Instant::now();
-    let idx2 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g2).expect("ultimate graph must validate");
+    let idx2 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g2).expect("ultimate graph must validate");
     println!("TC08 (10000 Nodes x 1 Cmd) Compile Time: {:?}", start2.elapsed());
 
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx2), timeout: None });
@@ -448,7 +448,7 @@ struct VertexOutput { @builtin(position) clip_position: vec4<f32>, @location(0) 
     let mut g12 = RenderGraph::new(RenderTarget::Offscreen { color: t12, width: harness.width, height: harness.height })
         .with_clear_color([0.0, 0.0, 0.0, 0.0]);
     g12.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_chroma, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, char_bg, vec![])]);
-    let idx12 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g12).expect("ultimate graph must validate");
+    let idx12 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g12).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx12), timeout: None });
     harness.save_texture(&tex12, "tc12_chroma.png");
 
@@ -461,7 +461,7 @@ struct VertexOutput { @builtin(position) clip_position: vec4<f32>, @location(0) 
     // Node 2: Character (Chroma Keyed, Blended)
     g20.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_chroma, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, char_bg, vec![])]);
 
-    let idx20 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g20).expect("ultimate graph must validate");
+    let idx20 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g20).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx20), timeout: None });
     harness.save_texture(&tex20, "tc20_anime.png");
 }
@@ -479,7 +479,7 @@ fn run_tc05_to_tc11_structure(harness: &mut TestHarness) {
     // add_subgraph automatically adds node_id
     g05.add_subgraph(&mut harness.pool, "A", sub_a, vec![DrawCommand::new(pipe_basic, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })]);
     g05.add_subgraph(&mut harness.pool, "B", sub_b, vec![DrawCommand::new(pipe_basic, DrawAction::Procedural { vertex_count: 6, instance_range: 1..2 })]);
-    let idx05 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g05).expect("ultimate graph must validate");
+    let idx05 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g05).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx05), timeout: None });
     harness.save_texture(&tex05, "tc05_interleaved.png");
 
@@ -498,7 +498,7 @@ fn run_tc05_to_tc11_structure(harness: &mut TestHarness) {
     let mut sub1_modified = sub1.clone(); sub1_modified.add_node_id(id2);
     
     g07.add_subgraph(&mut harness.pool, "Level1", sub1_modified, vec![]);
-    let idx07 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g07).expect("ultimate graph must validate");
+    let idx07 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g07).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx07), timeout: None });
     harness.save_texture(&tex07, "tc07_recursion.png");
 
@@ -508,11 +508,11 @@ fn run_tc05_to_tc11_structure(harness: &mut TestHarness) {
     g09.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_basic, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })]);
     
     let start1 = Instant::now();
-    let _idx09_1 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g09).expect("ultimate graph must validate");
+    let _idx09_1 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g09).expect("ultimate graph must validate");
     println!("TC09 First Compile: {:?}", start1.elapsed());
     
     let start2 = Instant::now();
-    let idx09_2 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g09).expect("ultimate graph must validate");
+    let idx09_2 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g09).expect("ultimate graph must validate");
     println!("TC09 Second Compile (Cached): {:?}", start2.elapsed());
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx09_2), timeout: None });
 
@@ -536,11 +536,11 @@ struct VertexOutput { @builtin(position) clip_position: vec4<f32>, @location(0) 
     g10.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_missing, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
         .with_bind_group(0, BindGroupHandle(9999), vec![])]); // Missing BG!
         
-    // let idx10 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g10);
+    // let idx10 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g10);
     // let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx10), timeout: None });
     // harness.save_texture(&tex10, "tc10_missing_resource.png");
 
-    // let idx10 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g10);
+    // let idx10 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g10);
     // let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx10), timeout: None });
     // harness.save_texture(&tex10, "tc10_missing_resource.png");
 }
@@ -558,8 +558,8 @@ fn run_tc11_camera_benchmarks(harness: &mut TestHarness) {
     let mut g11_a2 = RenderGraph::new(RenderTarget::Offscreen { color: t11_a2, width: harness.width, height: harness.height }).with_clear_color([0.0, 0.0, 1.0, 1.0]);
     g11_a2.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_basic, DrawAction::Procedural { vertex_count: 6, instance_range: 1..2 })]);
     
-    let _ = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g11_a1).expect("ultimate graph must validate");
-    let idx_a = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g11_a2).expect("ultimate graph must validate");
+    let _ = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g11_a1).expect("ultimate graph must validate");
+    let idx_a = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g11_a2).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx_a), timeout: None });
     harness.save_texture(&tex11_a1, "tc11_a_diff_scene1.png");
     harness.save_texture(&tex11_a2, "tc11_a_diff_scene2.png");
@@ -572,8 +572,8 @@ fn run_tc11_camera_benchmarks(harness: &mut TestHarness) {
     let mut g11_b2 = RenderGraph::new(RenderTarget::Offscreen { color: t11_b2, width: harness.width, height: harness.height }).with_clear_color([0.1, 0.1, 0.1, 1.0]);
     g11_b2.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_right, DrawAction::Procedural { vertex_count: 6, instance_range: 0..3 })]);
     
-    let _ = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g11_b1).expect("ultimate graph must validate");
-    let idx_b = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g11_b2).expect("ultimate graph must validate");
+    let _ = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g11_b1).expect("ultimate graph must validate");
+    let idx_b = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g11_b2).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx_b), timeout: None });
     harness.save_texture(&tex11_b1, "tc11_b_cam_left.png");
     harness.save_texture(&tex11_b2, "tc11_b_cam_right.png");
@@ -591,11 +591,11 @@ fn run_tc11_camera_benchmarks(harness: &mut TestHarness) {
     g11_e2.add_batch(&mut harness.pool, cmds);
     
     let start = Instant::now();
-    let _ = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g11_e1).expect("ultimate graph must validate");
+    let _ = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g11_e1).expect("ultimate graph must validate");
     println!("TC11_E (5000 Cmds) Compile Cam 1: {:?}", start.elapsed());
     
     let start2 = Instant::now();
-    let idx_e = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g11_e2).expect("ultimate graph must validate");
+    let idx_e = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g11_e2).expect("ultimate graph must validate");
     println!("TC11_E (5000 Cmds) Compile Cam 2: {:?}", start2.elapsed());
     
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx_e), timeout: None });
@@ -620,7 +620,7 @@ fn run_tc13_to_tc19_effects(harness: &mut TestHarness) {
     let (t13, tex13) = harness.create_target("tc13");
     let mut g13 = RenderGraph::new(RenderTarget::Offscreen { color: t13, width: harness.width, height: harness.height });
     g13.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_blur, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, bg_bg, vec![])]);
-    let idx13 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g13).expect("ultimate graph must validate");
+    let idx13 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g13).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx13), timeout: None });
     harness.save_texture(&tex13, "tc13_blur.png");
 
@@ -630,7 +630,7 @@ fn run_tc13_to_tc19_effects(harness: &mut TestHarness) {
         .with_clear_color([0.0, 0.0, 0.0, 1.0]);
     let start_snow = Instant::now();
     g15.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_snow, DrawAction::Procedural { vertex_count: 6, instance_range: 0..50000 })]);
-    let idx15 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g15).expect("ultimate graph must validate");
+    let idx15 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g15).expect("ultimate graph must validate");
     println!("TC15 Snow (50000 instances) Compile Time: {:?}", start_snow.elapsed());
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx15), timeout: None });
     harness.save_texture(&tex15, "tc15_snow.png");
@@ -639,7 +639,7 @@ fn run_tc13_to_tc19_effects(harness: &mut TestHarness) {
     let (t16, tex16) = harness.create_target("tc16");
     let mut g16 = RenderGraph::new(RenderTarget::Offscreen { color: t16, width: harness.width, height: harness.height });
     g16.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_disp, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, bg_bg, vec![])]);
-    let idx16 = harness.executor.execute(&harness.engine, &harness.registry, &mut harness.pool, &g16).expect("ultimate graph must validate");
+    let idx16 = harness.executor.execute_checked(&harness.engine, &harness.registry, &mut harness.pool, &g16).expect("ultimate graph must validate");
     let _ = harness.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(idx16), timeout: None });
     harness.save_texture(&tex16, "tc16_displacement.png");
 }

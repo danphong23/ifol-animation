@@ -49,7 +49,7 @@ chỉ từ compile hoặc test trên Windows.
 - `src/lib_tests.rs` chứa headless initialization regression test; root
   `lib.rs` chỉ giữ crate module declarations và public facade;
 - `src/execution/validation_errors.rs` chứa typed validation error contract;
-  `validation.rs` giữ algorithms và re-export compatibility;
+  `validation.rs` giữ orchestration và các re-export nội bộ cần cho validation;
 - `src/execution/validation_copy.rs` chứa copy, texture-aspect, buffer-range
   và indirect-range validation helpers;
 - `src/execution/validation_target.rs` chứa render-target và depth/stencil
@@ -64,8 +64,8 @@ chỉ từ compile hoặc test trên Windows.
 - `src/resources/versions.rs` hiện giữ cả version storage và version behavior;
   registry facade chỉ giữ container/constructor;
 - Internal crate, examples, tests và benchmark code đã dùng canonical
-  `resources::*` re-exports; registry implementation không còn public qua
-  `resources::registry::*`;
+  `resources::*` exports; registry implementation không còn public qua nested
+  module path;
 - `src/api/compatibility.rs` đã được loại bỏ; `api/mod.rs` chỉ còn profiling
   functionality và explicit canonical re-exports;
 - `src/render/` compatibility facade đã được loại bỏ; render implementation
@@ -81,7 +81,7 @@ chỉ từ compile hoặc test trên Windows.
   `pub(crate)` cho các graph modules;
 - `src/execution/executor.rs` chứa public `RenderGraphExecutor`, execution
   report và profiling result facade; `execution/mod.rs` giữ module wiring và
-  compatibility re-exports;
+  test-only aliases;
 - `src/execution/counts.rs` chứa execution diagnostics counting và recursive
   declared-usage counting;
 - `src/execution/targets.rs` chứa target view resolution cho screen, offscreen
@@ -113,11 +113,14 @@ chỉ từ compile hoặc test trên Windows.
   configuration; `backend/builder.rs` giữ builder policy/configuration facade;
 - builder/engine consumers nội bộ trong source, examples, benches, desktop tests
   và integration docs đã migrate từ `api::*` sang `backend::*`;
-- compatibility facade còn public rộng;
+- compatibility facades cũ đã được loại bỏ khỏi source; các public domain modules
+  hiện là canonical API. Alias execution `execute` và `execute_with_surface`
+  cũng đã được migrate toàn bộ consumer sang các API `*_checked` và loại bỏ;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
 - save/encode đã tách khỏi engine vào `backend/texture_save.rs`;
-- readback contract đã trả raw bytes kèm format qua `RawTextureReadback`;
+- readback contract đã trả raw bytes kèm format qua `RawTextureReadback`; tuple
+  readback API cũ đã được loại bỏ;
 - chưa có runtime matrix đầy đủ cho Metal, Linux, browser, Android và iOS;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
@@ -125,11 +128,11 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F2: migrate resource/render compatibility paths và deprecated readback API,
-sau đó xóa các shim không còn consumer. Giữ graph/render semantics nguyên vẹn.
+Task F4: structure/file-size audit tiếp theo; giữ graph/render semantics
+nguyên vẹn và chỉ tách thêm khi boundary responsibility đã rõ.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
-resource behavior hoặc color behavior trong Task F2.
+resource behavior hoặc color behavior trong Task F4.
 
 ## Hợp đồng với chat/task mới
 

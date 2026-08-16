@@ -288,9 +288,9 @@ fn run_tc11_viewport() {
         );
 
         // 6. Execute Passes in Sequence
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_left).expect("Left Viewport failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_right).expect("Right Viewport failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Final SplitScreen failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_left).expect("Left Viewport failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_right).expect("Right Viewport failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Final SplitScreen failed");
 
         // 7. Serialize Graph JSON
         let graph_json = serde_json::json!({

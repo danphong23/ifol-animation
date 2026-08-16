@@ -210,7 +210,7 @@ fn test_tc64_audio_fft() {
 
         // Execute and benchmark
         let start_cold = Instant::now();
-        let sub1 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Execution failed");
+        let sub1 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Execution failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub1),
             timeout: None,
@@ -218,7 +218,7 @@ fn test_tc64_audio_fft() {
         let cold_time = start_cold.elapsed();
 
         let start_warm = Instant::now();
-        let sub2 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Execution warm failed");
+        let sub2 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Execution warm failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub2),
             timeout: None,

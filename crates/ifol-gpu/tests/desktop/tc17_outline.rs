@@ -181,8 +181,8 @@ fn run_tc17_outline() {
         );
 
         // Execute
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_heroes).expect("Pass 1 failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Pass 2 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_heroes).expect("Pass 1 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Pass 2 failed");
 
         let graph_json = serde_json::json!({
             "test_case": "TC17 - Multi-Pass Outline Stroke & Drop Shadow Filter",

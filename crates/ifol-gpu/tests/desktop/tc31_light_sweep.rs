@@ -93,8 +93,8 @@ fn run_tc31_light_sweep() {
             ],
         );
 
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_chroma).expect("Execution failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_chroma).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
 
         let graph_json = serde_json::json!({
             "test_case": "TC31 - Light Sweep (Shine Effect)",

@@ -8,9 +8,8 @@ Các lỗi nền tảng được kiểm tra gồm resource/node thiếu, target 
 bind-group slot, pipeline/mesh/bind group thiếu, copy range/format/aspect,
 resource usage, dependency và cycle.
 
-`execute` vẫn được giữ cho compatibility prototype; host production nên dùng
-`execute_checked` hoặc API surface/profile checked để không phụ thuộc silent-skip.
+Host production dùng `execute_checked`, `execute_with_surface_checked` hoặc các
+biến thể report/profile checked. Core không còn giữ alias `execute` cũ.
 
 Phạm vi còn thiếu gồm pipeline layout compatibility đầy đủ, dynamic offset,
 attachment sample/format matrix theo backend và diagnostics giàu ngữ cảnh hơn.
-

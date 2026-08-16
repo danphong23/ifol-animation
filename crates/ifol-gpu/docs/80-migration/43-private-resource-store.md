@@ -11,6 +11,6 @@ Public contract hiện gồm:
 - `*_version`/`mark_*_changed` cho cache invalidation;
 - descriptor/owned-resource API cho validation và lifetime.
 
-Đây là mốc hoàn thành phần encapsulation của resource store. Compatibility
-không còn đồng nghĩa với expose raw implementation map; các example đã được
-migrate sang API chính thức.
+Đây là mốc hoàn thành phần encapsulation của resource store. Các example,
+test và benchmark đã dùng API chính thức; raw implementation map không nằm
+trong public contract.

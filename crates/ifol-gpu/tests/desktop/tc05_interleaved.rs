@@ -111,9 +111,9 @@ fn run_tc05_interleaved() {
 
         // 5. Execute 3 passes in chain
         let t_cold_start = std::time::Instant::now();
-        let _ = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph_a).unwrap();
-        let _ = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph_b).unwrap();
-        let sub_idx = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph_c).unwrap();
+        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_a).unwrap();
+        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_b).unwrap();
+        let sub_idx = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_c).unwrap();
 
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_idx),
@@ -122,9 +122,9 @@ fn run_tc05_interleaved() {
         let elapsed_cold = t_cold_start.elapsed();
 
         let t_warm_start = std::time::Instant::now();
-        let _ = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph_a).unwrap();
-        let _ = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph_b).unwrap();
-        let sub_idx_2 = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph_c).unwrap();
+        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_a).unwrap();
+        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_b).unwrap();
+        let sub_idx_2 = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_c).unwrap();
 
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_idx_2),

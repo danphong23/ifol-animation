@@ -294,10 +294,10 @@ fn run_tc13_blur() {
         );
 
         // 7. Execute Passes in Sequence
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_bg).expect("Pass 1 failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_h_blur).expect("Pass 2 failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_v_blur).expect("Pass 3 failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Pass 4 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_bg).expect("Pass 1 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_h_blur).expect("Pass 2 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_v_blur).expect("Pass 3 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Pass 4 failed");
 
         // 8. Serialize Graph JSON
         let graph_json = serde_json::json!({

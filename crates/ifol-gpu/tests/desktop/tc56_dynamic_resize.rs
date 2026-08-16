@@ -37,7 +37,7 @@ fn run_tc56_dynamic_resize() {
                 .with_bind_group(0, heroes_tex.bind_group, Vec::new())
                 .with_bind_group(1, ubg_wizard, Vec::new())
         ]);
-        h.executor.execute(&h.engine, &h.registry, &mut h.pool, &g_left).unwrap();
+        h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &g_left).unwrap();
 
         // 2. Target 2 (400x600 - Portrait Right: Paladin)
         let (target_right, _tex_right) = h.create_custom_target(400, 600, "TC56 Target Right");
@@ -50,7 +50,7 @@ fn run_tc56_dynamic_resize() {
                 .with_bind_group(0, heroes_tex.bind_group, Vec::new())
                 .with_bind_group(1, ubg_paladin, Vec::new())
         ]);
-        h.executor.execute(&h.engine, &h.registry, &mut h.pool, &g_right).unwrap();
+        h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &g_right).unwrap();
 
         // 3. Final Target (800x600) - Composite both resized viewports side by side onto background
         let (final_target, final_tex) = h.create_target("TC56 Final Composite");

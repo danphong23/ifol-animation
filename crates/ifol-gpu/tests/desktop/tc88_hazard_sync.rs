@@ -154,7 +154,7 @@ fn test_tc88_hazard_sync() {
         ]);
 
         let start_time = Instant::now();
-        let sub_idx = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Execution failed");
+        let sub_idx = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Execution failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_idx),
             timeout: None,

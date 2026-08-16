@@ -77,7 +77,7 @@ fn test_tc65_workgroup_blur() {
 
         // Cold Run
         let start_cold = Instant::now();
-        let sub1 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute failed");
+        let sub1 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub1),
             timeout: None,
@@ -86,7 +86,7 @@ fn test_tc65_workgroup_blur() {
 
         // Warm Run
         let start_warm = Instant::now();
-        let sub2 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute warm failed");
+        let sub2 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute warm failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub2),
             timeout: None,

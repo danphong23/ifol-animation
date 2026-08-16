@@ -16,7 +16,7 @@ Engine ngoài chỉ nên dùng `GpuEngineBuilder`, `GpuCapabilities`, descriptor
 resource registration, `RenderGraph`, command types, usage/dependency,
 `RenderGraphExecutor::execute_checked`, typed errors, readback và lifecycle API.
 
-Không phụ thuộc helper private của compiler, raw compatibility insert API,
+Không phụ thuộc helper private của compiler hoặc raw implementation map,
 `TextureCache` alias hoặc field nội bộ của registry.
 
 ## Built-in extension

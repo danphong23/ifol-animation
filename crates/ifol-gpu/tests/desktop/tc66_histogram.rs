@@ -176,7 +176,7 @@ fn test_tc66_histogram() {
 
         // Cold Run
         let start_cold = Instant::now();
-        let sub1 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Execute failed");
+        let sub1 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub1),
             timeout: None,
@@ -188,7 +188,7 @@ fn test_tc66_histogram() {
         h.engine.queue().write_buffer(&hist_buf, 0, bytemuck::cast_slice(&vec![0u32; 256]));
         
         let start_warm = Instant::now();
-        let sub2 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Execute warm failed");
+        let sub2 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Execute warm failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub2),
             timeout: None,

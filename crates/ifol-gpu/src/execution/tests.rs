@@ -262,14 +262,14 @@ use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
     }
 
     #[test]
-    fn public_execute_rejects_invalid_graph_before_submit() {
+    fn public_execute_checked_rejects_invalid_graph_before_submit() {
         let engine = pollster::block_on(GpuEngineBuilder::new().build()).unwrap();
         let graph = RenderGraph::new(RenderTarget::Offscreen {
             color: TextureHandle(9),
             width: 64,
             height: 64,
         });
-        let result = RenderGraphExecutor::new().execute(
+        let result = RenderGraphExecutor::new().execute_checked(
             &engine,
             &ResourceRegistry::new(),
             &mut RenderNodePool::new(),
@@ -482,7 +482,7 @@ use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
             TextureResourceDescriptor { width: 8, height: 8, depth_or_array_layers: 1, format: wgpu::TextureFormat::Rgba8Unorm, usage, mip_level_count: 1, sample_count: 1 }, 1024,
         ).unwrap();
         let graph = RenderGraph::new(RenderTarget::OffscreenMsaa { color: TextureHandle(20), resolve: TextureHandle(21), width: 8, height: 8 });
-        let submission = RenderGraphExecutor::new().execute(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();
+        let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();
         let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
     }
 
@@ -515,7 +515,7 @@ use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
         registry.insert_texture_with_descriptor(TextureHandle(32), depth.create_view(&wgpu::TextureViewDescriptor::default()), descriptor(wgpu::TextureFormat::Depth24PlusStencil8, 4), 1024).unwrap();
         let mut graph = RenderGraph::new(RenderTarget::OffscreenMsaa { color: TextureHandle(30), resolve: TextureHandle(31), width: 8, height: 8 });
         graph.depth_stencil = Some(TextureHandle(32));
-        let submission = RenderGraphExecutor::new().execute(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();
+        let submission = RenderGraphExecutor::new().execute_checked(&engine, &registry, &mut RenderNodePool::new(), &graph).unwrap();
         let _ = engine.device().poll(wgpu::PollType::Wait { submission_index: Some(submission), timeout: None });
     }
 

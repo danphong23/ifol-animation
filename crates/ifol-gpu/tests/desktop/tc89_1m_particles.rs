@@ -173,7 +173,7 @@ fn test_tc89_1m_particles() {
 
         // Measure Cold & Warm Times
         let start_cold = Instant::now();
-        let sub1 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute 1M execution failed");
+        let sub1 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute 1M execution failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub1),
             timeout: None,
@@ -181,7 +181,7 @@ fn test_tc89_1m_particles() {
         let cold_time = start_cold.elapsed();
 
         let start_warm = Instant::now();
-        let sub2 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute 1M warm execution failed");
+        let sub2 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute 1M warm execution failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub2),
             timeout: None,

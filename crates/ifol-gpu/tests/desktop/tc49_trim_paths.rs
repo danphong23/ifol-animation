@@ -109,8 +109,8 @@ fn run_tc49_trim_paths() {
             ],
         );
 
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_scene).expect("Execution failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_scene).expect("Execution failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
 
         let graph_json = serde_json::json!({
             "test_case": "TC49 - Animated Trim Paths & Dashed Vector Stroke",

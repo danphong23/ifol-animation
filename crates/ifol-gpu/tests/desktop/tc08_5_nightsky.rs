@@ -253,8 +253,8 @@ fn run_tc08_5_nightsky() {
         );
 
         // 8. Execute Both Passes
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_scene).expect("Pass 1 failed");
-        h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Pass 2 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_scene).expect("Pass 1 failed");
+        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Pass 2 failed");
 
         // 9. Serialize Graph JSON
         let graph_json = serde_json::json!({

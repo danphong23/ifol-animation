@@ -31,7 +31,7 @@ fn run_tc10_fallback() {
         );
 
         // 2. Execute bad graph and verify that it returns a typed error WITHOUT panicking
-        let result = h.executor.execute(&h.engine, &mut h.registry, &mut h.pool, &mut bad_graph);
+        let result = h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut bad_graph);
         assert!(result.is_err(), "Engine should return Err for missing resources");
         
         let err = result.unwrap_err();

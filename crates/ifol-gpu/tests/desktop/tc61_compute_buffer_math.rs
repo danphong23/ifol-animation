@@ -127,7 +127,7 @@ fn test_tc61_compute_buffer_math() {
 
         // Measure Cold Execution
         let start_cold = Instant::now();
-        let sub1 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute failed");
+        let sub1 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub1),
             timeout: None,
@@ -136,7 +136,7 @@ fn test_tc61_compute_buffer_math() {
 
         // Measure Warm Execution
         let start_warm = Instant::now();
-        let sub2 = h.executor.execute(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute warm failed");
+        let sub2 = h.executor.execute_checked(&h.engine, &h.registry, &mut pool, &graph).expect("Compute execute warm failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub2),
             timeout: None,
@@ -276,7 +276,7 @@ fn test_tc61_compute_buffer_math() {
                 .with_bind_group(0, plot_bg_h, Vec::new()),
         ]);
 
-        let sub_plot = h.executor.execute(&h.engine, &h.registry, &mut plot_pool, &plot_graph).expect("Plot render failed");
+        let sub_plot = h.executor.execute_checked(&h.engine, &h.registry, &mut plot_pool, &plot_graph).expect("Plot render failed");
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub_plot),
             timeout: None,
