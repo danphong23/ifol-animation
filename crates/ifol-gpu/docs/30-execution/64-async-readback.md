@@ -14,10 +14,12 @@ bytes-per-pixel và stride đã padding theo `wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
 
 Host có thể tiếp tục xây dựng hoặc submit công việc khác, sau đó gọi
 `ReadbackTicket::resolve_checked(device)`. `resolve_checked` chờ submission hoàn tất, nhận kết
-quả map, loại padding từng hàng, unmap buffer và trả `(pixels, width, height)`.
+quả map, loại padding từng hàng, unmap buffer và trả `RawTextureReadback` gồm
+`bytes`, `width`, `height` và `format` mà host đã khai báo cho copy.
 
-`read_texture_to_bytes_with_format_checked` là wrapper đồng bộ của đúng
-contract này và trả typed `ReadbackError`.
+`read_texture_to_raw_with_format_checked` là wrapper đồng bộ của đúng contract
+này và trả typed `ReadbackError`. `read_texture_to_bytes_with_format_checked`
+vẫn tồn tại như compatibility wrapper cho tuple cũ.
 
 ## Invariant và giới hạn
 

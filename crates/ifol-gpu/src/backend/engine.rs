@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use thiserror::Error;
 use crate::backend::capabilities::GpuCapabilities;
-pub use super::readback::{ReadbackError, ReadbackTicket};
+pub use super::readback::{RawTextureReadback, ReadbackError, ReadbackTicket};
 
 pub struct GpuEngine<'a> {
     device: Arc<wgpu::Device>,
@@ -100,8 +100,10 @@ impl<'a> GpuEngine<'a> {
         texture: &wgpu::Texture,
         path: P,
     ) -> Result<(), TextureSaveError> {
-        let (pixels, width, height) = self
-            .read_texture_to_bytes_with_format_checked(texture, wgpu::TextureFormat::Rgba8UnormSrgb)?;
+        let readback = self.read_texture_to_raw_with_format_checked(
+            texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+        )?;
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
             if !parent.exists() {
@@ -111,7 +113,13 @@ impl<'a> GpuEngine<'a> {
                 })?;
             }
         }
-        image::save_buffer(path, &pixels, width, height, image::ColorType::Rgba8)?;
+        image::save_buffer(
+            path,
+            &readback.bytes,
+            readback.width,
+            readback.height,
+            image::ColorType::Rgba8,
+        )?;
         Ok(())
     }
 }

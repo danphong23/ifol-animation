@@ -23,7 +23,7 @@ hoặc resource thiếu.
 ## Readback
 
 Dùng `begin_texture_readback_checked` cho async hoặc
-`read_texture_to_bytes_with_format_checked` cho synchronous readback. Cả hai
+`read_texture_to_raw_with_format_checked` cho synchronous readback. Cả hai
 trả `ReadbackError`; format phải được truyền rõ ràng.
 
 ## Resource lifetime

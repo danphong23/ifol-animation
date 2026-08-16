@@ -73,8 +73,9 @@ registry/lifetime. Tách theo responsibility, không tách theo danh sách loạ
 
 Tiến độ hiện tại: primitive readback đã được tách khỏi `backend/engine.rs`
 thành `backend/readback.rs`, giữ nguyên checked API và compatibility re-export.
-Bước kế tiếp là khóa rõ format thực tế của dữ liệu readback trước khi xử lý
-save/encode.
+Bước raw readback kèm `format` đã được khóa bằng `RawTextureReadback`; tuple
+API cũ vẫn có compatibility wrapper. Bước kế tiếp là tách save/encode
+boundary.
 
 Chỉ bắt đầu sau khi A-C đã pass:
 

@@ -4,8 +4,9 @@ Host phải truyền `TextureFormat` thật cho readback vì `wgpu::Texture` kh�
 expose descriptor đầy đủ sau khi tạo. Core bỏ row padding và trả raw bytes cùng
 width/height.
 
-Host dùng `read_texture_to_bytes_with_format_checked` hoặc
-`begin_texture_readback_checked`; API trả `ReadbackError` typed cho
+Host dùng `read_texture_to_raw_with_format_checked` hoặc
+`begin_texture_readback_checked`; API trả raw bytes kèm `format` và
+`ReadbackError` typed cho
 format không hỗ trợ, extent lỗi, overflow, map failure hoặc access failure.
 
 Core chưa chuyển đổi depth/stencil/compressed format và không tự đoán format.

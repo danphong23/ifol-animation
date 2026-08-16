@@ -96,8 +96,11 @@ fn test_tc62_storage_texture() {
         let warm_time = start_warm.elapsed();
 
         // 6. Save Output Image
-        let (pixels, w, h_img) = h.engine.read_texture_to_bytes_with_format_checked(&out_tex, wgpu::TextureFormat::Rgba8Unorm)
+        let readback = h.engine.read_texture_to_raw_with_format_checked(&out_tex, wgpu::TextureFormat::Rgba8Unorm)
             .expect("Failed to readback output texture bytes");
+        let pixels = &readback.bytes;
+        let (w, h_img) = (readback.width, readback.height);
+        assert_eq!(readback.format, wgpu::TextureFormat::Rgba8Unorm);
         let non_zero_count = pixels.iter().filter(|&&b| b > 0).count();
         println!("TC62 Output Texture readback: {}x{}, total bytes: {}, non-zero bytes: {}", w, h_img, pixels.len(), non_zero_count);
         println!("Sample Left pixel (100, 300): {:?}", &pixels[(300*800 + 100)*4..(300*800 + 100)*4 + 4]);

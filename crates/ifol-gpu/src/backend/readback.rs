@@ -15,6 +15,16 @@ pub enum ReadbackError {
     AccessFailed,
 }
 
+/// Raw texture bytes together with the dimensions and format contract used
+/// for the copy. The bytes are unpadded row data.
+#[derive(Debug, PartialEq, Eq)]
+pub struct RawTextureReadback {
+    pub bytes: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    pub format: wgpu::TextureFormat,
+}
+
 pub struct ReadbackTicket {
     buffer: wgpu::Buffer,
     receiver: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
@@ -23,13 +33,14 @@ pub struct ReadbackTicket {
     height: u32,
     bytes_per_pixel: u32,
     padded_bytes_per_row: u32,
+    format: wgpu::TextureFormat,
 }
 
 impl ReadbackTicket {
     pub fn resolve_checked(
         self,
         device: &wgpu::Device,
-    ) -> Result<(Vec<u8>, u32, u32), ReadbackError> {
+    ) -> Result<RawTextureReadback, ReadbackError> {
         let _ = device.poll(wgpu::PollType::Wait {
             submission_index: Some(self.submission),
             timeout: None,
@@ -65,7 +76,12 @@ impl ReadbackTicket {
         }
         drop(data);
         self.buffer.unmap();
-        Ok((pixels, self.width, self.height))
+        Ok(RawTextureReadback {
+            bytes: pixels,
+            width: self.width,
+            height: self.height,
+            format: self.format,
+        })
     }
 }
 
@@ -132,16 +148,28 @@ impl<'a> GpuEngine<'a> {
             height,
             bytes_per_pixel,
             padded_bytes_per_row: padded_bytes,
+            format,
         })
     }
 
+    pub fn read_texture_to_raw_with_format_checked(
+        &self,
+        texture: &wgpu::Texture,
+        format: wgpu::TextureFormat,
+    ) -> Result<RawTextureReadback, ReadbackError> {
+        self.begin_texture_readback_checked(texture, format)?
+            .resolve_checked(self.device())
+    }
+
+    /// Compatibility wrapper for callers that still consume the legacy tuple.
+    #[deprecated(note = "use read_texture_to_raw_with_format_checked")]
     pub fn read_texture_to_bytes_with_format_checked(
         &self,
         texture: &wgpu::Texture,
         format: wgpu::TextureFormat,
     ) -> Result<(Vec<u8>, u32, u32), ReadbackError> {
-        self.begin_texture_readback_checked(texture, format)?
-            .resolve_checked(self.device())
+        let raw = self.read_texture_to_raw_with_format_checked(texture, format)?;
+        Ok((raw.bytes, raw.width, raw.height))
     }
 }
 
@@ -239,9 +267,10 @@ mod tests {
         let ticket = engine
             .begin_texture_readback_checked(&texture, wgpu::TextureFormat::Rgba8Unorm)
             .unwrap();
-        let (pixels, width, height) = ticket.resolve_checked(engine.device()).unwrap();
-        assert_eq!((width, height), (1, 1));
-        assert_eq!(pixels, vec![1, 2, 3, 4]);
+        let readback = ticket.resolve_checked(engine.device()).unwrap();
+        assert_eq!((readback.width, readback.height), (1, 1));
+        assert_eq!(readback.format, wgpu::TextureFormat::Rgba8Unorm);
+        assert_eq!(readback.bytes, vec![1, 2, 3, 4]);
     }
 
     #[test]

@@ -13,4 +13,4 @@ mod readback;
 pub use builder::{GpuEngineBuilder, GpuError};
 pub use capabilities::{CapabilityError, GpuCapabilities};
 pub use engine::{GpuEngine, SurfaceResizeError, TextureSaveError};
-pub use readback::{ReadbackError, ReadbackTicket};
+pub use readback::{RawTextureReadback, ReadbackError, ReadbackTicket};
