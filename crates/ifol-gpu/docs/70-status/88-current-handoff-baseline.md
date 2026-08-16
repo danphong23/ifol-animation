@@ -28,7 +28,7 @@ chỉ từ compile hoặc test trên Windows.
 - extension registration, validation và fail-closed dispatch;
 - desktop/WebGPU test evidence hiện có.
 
-## Chưa sạch hoặc chưa hoàn tất
+## Ghi chú cấu trúc hiện tại
 
 - execution regression suite đã được tách khỏi execution facade theo các
   boundary validation, encoder, target, copy, compute và execution order;
@@ -180,17 +180,17 @@ chỉ từ compile hoặc test trên Windows.
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
-## Task tiếp theo được phép thực hiện
+## Trạng thái handoff
 
-Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F31: final bounded audit toàn crate và xác nhận các production/test
-boundary còn lại trước khi kết thúc đợt refactor;
-giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
-responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
-Rust trong crate.
+Đợt refactor incremental F21–F31 đã hoàn tất bounded audit. Các production
+file còn dài hơn khoảng 180 dòng đều giữ một responsibility rõ ràng; riêng
+`graph/tests.rs` là suite nhất quán cho graph scheduling/hazard và không có
+boundary đủ độc lập để tách thêm. Không còn task tách file bắt buộc trong
+baseline này; thay đổi tiếp theo chỉ nên mở task mới khi có requirement hoặc
+behavior mới.
 
-Không đồng thời sửa memory semantics, extension behavior, graph behavior,
-resource behavior hoặc color behavior trong Task F4.
+Benchmark target hiện compile sạch, không còn warning Rust trong crate; working
+tree phải được kiểm tra lại trước mỗi task mới.
 
 ## Hợp đồng với chat/task mới
 

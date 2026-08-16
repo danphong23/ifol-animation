@@ -296,8 +296,9 @@ bounded audit các validation/integration test boundary còn lại. F30 đã tá
 attachment/depth, pipeline-layout và indexed/indirect resource validation
 regression tests vào các module riêng; execution lifecycle/order regression
 tests nằm trong `execution/execution_order_tests.rs`; validation và execution
-behavior không đổi. Bước tiếp theo là F31: final bounded audit toàn crate và
-xác nhận các production/test boundary còn lại trước khi kết thúc đợt refactor.
+behavior không đổi. F31 đã hoàn tất final bounded audit toàn crate: các
+production/test boundary còn lại đều có responsibility rõ ràng, không còn
+legacy API/path trong source, và không có task tách file bắt buộc tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
 
