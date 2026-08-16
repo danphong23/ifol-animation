@@ -1,3 +1,4 @@
+use super::extension::dispatch_extension;
 use super::validation::RenderGraphValidationError;
 use super::{
     encode_compute_commands, encode_copy_command, encode_draw_commands, format_has_stencil,
@@ -226,7 +227,7 @@ pub(crate) fn compile_flat_graph(
         let owner_path = flat_plan_owner_path(flat_node);
         let owner = owner_graph_for_flat_path(graph, pool, &flat_node.path)?;
 
-        executor.dispatch_extension(encoder, engine, registry, pool, flat_node.node_id)?;
+        dispatch_extension(executor, encoder, engine, registry, pool, flat_node.node_id)?;
         for command in node.copy_commands() {
             encode_copy_command(encoder, registry, command)?;
         }

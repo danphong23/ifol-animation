@@ -1,10 +1,9 @@
 use thiserror::Error;
 use std::sync::Arc;
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
-use crate::extensions::{ExtensionDispatchRegistry, ExtensionExecutionContext};
+use crate::extensions::ExtensionDispatchRegistry;
 use crate::memory::{SubmissionId, SubmissionTracker};
-use crate::graph::{RenderGraph, RenderNode, RenderNodePool};
-use crate::resources::handle::RenderNodeId;
+use crate::graph::{RenderGraph, RenderNodePool};
 use crate::resources::registry::ResourceRegistry;
 
 mod validation;
@@ -20,6 +19,7 @@ mod segments;
 mod profiling;
 use profiling::execute_timestamped;
 mod compiler;
+mod extension;
 mod orchestration;
 use orchestration::execution_counts_for_graph;
 #[cfg(test)]
@@ -96,28 +96,6 @@ impl RenderGraphExecutor {
 
     pub fn context_key(&self) -> u64 {
         self.context_key
-    }
-
-    fn dispatch_extension(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        engine: &GpuEngine,
-        registry: &ResourceRegistry,
-        pool: &RenderNodePool,
-        node_id: RenderNodeId,
-    ) -> Result<(), RenderGraphValidationError> {
-        let Some(RenderNode::Extension { extension, usages }) = pool.get(node_id) else {
-            return Ok(());
-        };
-        let Some(dispatcher) = self.extension_dispatchers.get(extension) else {
-            return Err(RenderGraphValidationError::UnsupportedExtension(extension.clone()));
-        };
-        dispatcher
-            .encode(ExtensionExecutionContext::new(engine, registry, encoder, node_id, usages))
-            .map_err(|error| RenderGraphValidationError::ExtensionDispatch {
-                extension: extension.clone(),
-                error,
-            })
     }
 
     /// Kiểm tra graph trước khi tạo command buffer. Đây là API được khuyến nghị

@@ -5,6 +5,7 @@ use crate::resources::registry::ResourceRegistry;
 
 use super::compute::encode_compute_commands;
 use super::copy::encode_copy_command;
+use super::extension::dispatch_extension;
 use super::render::{encode_draw_commands, with_render_pass};
 use super::{RenderGraphExecutor, RenderGraphValidationError};
 
@@ -20,7 +21,7 @@ pub(crate) fn execute_non_render_nodes(
         let Some(node) = pool.get(node_id) else {
             return Err(RenderGraphValidationError::MissingNode(node_id));
         };
-        executor.dispatch_extension(encoder, engine, registry, pool, node_id)?;
+        dispatch_extension(executor, encoder, engine, registry, pool, node_id)?;
         for command in node.copy_commands() {
             encode_copy_command(encoder, registry, command)?;
         }
@@ -46,7 +47,7 @@ pub(crate) fn execute_graph_prepass(
         let Some(node) = pool.get(node_id) else {
             return Err(RenderGraphValidationError::MissingNode(node_id));
         };
-        executor.dispatch_extension(encoder, engine, registry, pool, node_id)?;
+        dispatch_extension(executor, encoder, engine, registry, pool, node_id)?;
         for command in node.copy_commands() {
             encode_copy_command(encoder, registry, command)?;
         }
@@ -85,7 +86,7 @@ pub(crate) fn execute_ordered_target_nodes(
         let Some(node) = pool.get(node_id) else {
             return Err(RenderGraphValidationError::MissingNode(node_id));
         };
-        executor.dispatch_extension(encoder, engine, registry, pool, node_id)?;
+        dispatch_extension(executor, encoder, engine, registry, pool, node_id)?;
         for command in node.copy_commands() {
             encode_copy_command(encoder, registry, command)?;
         }
