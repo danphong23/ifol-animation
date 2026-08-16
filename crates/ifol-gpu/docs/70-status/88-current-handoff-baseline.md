@@ -60,6 +60,8 @@ chỉ từ compile hoặc test trên Windows.
   validation; `validation.rs` hiện là facade/orchestrator nhỏ;
 - `src/resources/registry_tests.rs` chứa resource registry/descriptor/ownership
   regression suite; `registry.rs` chỉ giữ state container và version API;
+- `src/resources/versions.rs` hiện giữ cả version storage và version behavior;
+  registry facade chỉ giữ container/constructor;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -72,9 +74,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E16: audit resource versioning boundary và public resource facade, sau
-đó xử lý từng production boundary một lần mà không đổi behavior. Giữ facade
-public và resource semantics nguyên vẹn.
+Task E17: audit public resource re-exports và compatibility facade, sau đó xử
+lý từng production boundary một lần mà không đổi behavior. Giữ facade public
+và resource semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task E5.

@@ -130,7 +130,10 @@ compatibility. Bước kế tiếp là E15: audit resource registry production f
 Phase E15 tách regression suite khỏi `resources/registry.rs` vào
 `resources/registry_tests.rs`; registry production file giờ chỉ giữ state
 container, version API và version bump primitive. Bước kế tiếp là E16: audit
-resource versioning boundary và public resource facade.
+resource versioning boundary và public resource facade. Phase E16 chuyển
+version getters/bumpers khỏi registry facade vào `resources/versions.rs`,
+giữ nguyên `ResourceRegistry` public API. Bước kế tiếp là E17: audit public
+resource re-exports và compatibility facade.
 
 ## Phase E — Public API và cleanup
 
