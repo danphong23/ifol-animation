@@ -101,7 +101,9 @@ extension contracts, validation và registries. Các task này chỉ di chuyển
 test responsibility và giữ nguyên behavior. Phase E4 tách regression tests
 inline khỏi `memory/frame.rs` vào `memory/frame_tests.rs` qua test-only path;
 memory production logic và public API không đổi. Bước kế tiếp là E5: audit
-`memory/lru_cache.rs`.
+`memory/lru_cache.rs`. Phase E5 tách regression tests inline khỏi transient
+pool implementation vào `memory/lru_tests.rs`; pool contracts và public API
+không đổi. Bước kế tiếp là E6: audit `memory/ring_buffer.rs`.
 
 ## Phase E — Public API và cleanup
 

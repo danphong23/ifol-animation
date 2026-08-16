@@ -1,7 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use wgpu::TextureFormat;
 use crate::memory::{SubmissionId, SubmissionTracker};
 use crate::resources::{BufferHandle, TextureHandle};
+use std::collections::{HashMap, HashSet};
+use wgpu::TextureFormat;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextureDimensionKey {
@@ -34,7 +34,16 @@ impl TextureDescriptorKey {
         sample_count: u32,
         dimension: TextureDimensionKey,
     ) -> Self {
-        Self { width, height, depth_or_array_layers, format, usage: usage.bits(), mip_level_count, sample_count, dimension }
+        Self {
+            width,
+            height,
+            depth_or_array_layers,
+            format,
+            usage: usage.bits(),
+            mip_level_count,
+            sample_count,
+            dimension,
+        }
     }
 }
 
@@ -51,19 +60,30 @@ pub struct TransientTexturePool {
 }
 
 impl Default for TransientTexturePool {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TransientTexturePool {
     pub fn new() -> Self {
-        Self { pools: HashMap::new(), known_handles: HashSet::new() }
+        Self {
+            pools: HashMap::new(),
+            known_handles: HashSet::new(),
+        }
     }
 
     /// Chỉ lấy texture đã an toàn reuse tại completion hiện tại.
-    pub fn acquire(&mut self, desc: &TextureDescriptorKey, tracker: &SubmissionTracker) -> Option<TextureHandle> {
+    pub fn acquire(
+        &mut self,
+        desc: &TextureDescriptorKey,
+        tracker: &SubmissionTracker,
+    ) -> Option<TextureHandle> {
         let completed = tracker.completed();
         let pool = self.pools.get_mut(desc)?;
-        let index = pool.iter().rposition(|entry| entry.available_after <= completed)?;
+        let index = pool
+            .iter()
+            .rposition(|entry| entry.available_after <= completed)?;
         let entry = pool.swap_remove(index);
         self.known_handles.remove(&entry.handle);
         Some(entry.handle)
@@ -71,9 +91,19 @@ impl TransientTexturePool {
 
     /// Đưa texture về pool sau submission cuối cùng có sử dụng nó.
     /// Release trùng handle bị từ chối để tránh cùng resource xuất hiện hai lần.
-    pub fn release(&mut self, desc: TextureDescriptorKey, handle: TextureHandle, last_use: SubmissionId) -> bool {
-        if !self.known_handles.insert(handle) { return false; }
-        self.pools.entry(desc).or_default().push(AvailableTexture { handle, available_after: last_use });
+    pub fn release(
+        &mut self,
+        desc: TextureDescriptorKey,
+        handle: TextureHandle,
+        last_use: SubmissionId,
+    ) -> bool {
+        if !self.known_handles.insert(handle) {
+            return false;
+        }
+        self.pools.entry(desc).or_default().push(AvailableTexture {
+            handle,
+            available_after: last_use,
+        });
         true
     }
 
@@ -88,12 +118,17 @@ impl TransientTexturePool {
         for pool in self.pools.values_mut() {
             let mut kept = Vec::with_capacity(pool.len());
             for entry in pool.drain(..) {
-                if entry.available_after <= completed { drained.push(entry.handle); }
-                else { kept.push(entry); }
+                if entry.available_after <= completed {
+                    drained.push(entry.handle);
+                } else {
+                    kept.push(entry);
+                }
             }
             *pool = kept;
         }
-        for handle in &drained { self.known_handles.remove(handle); }
+        for handle in &drained {
+            self.known_handles.remove(handle);
+        }
         drained
     }
 }
@@ -106,7 +141,10 @@ pub struct BufferDescriptorKey {
 
 impl BufferDescriptorKey {
     pub fn new(size: u64, usage: wgpu::BufferUsages) -> Self {
-        Self { size, usage: usage.bits() }
+        Self {
+            size,
+            usage: usage.bits(),
+        }
     }
 }
 
@@ -122,26 +160,47 @@ pub struct TransientBufferPool {
 }
 
 impl Default for TransientBufferPool {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TransientBufferPool {
     pub fn new() -> Self {
-        Self { pools: HashMap::new(), known_handles: HashSet::new() }
+        Self {
+            pools: HashMap::new(),
+            known_handles: HashSet::new(),
+        }
     }
 
-    pub fn acquire(&mut self, desc: &BufferDescriptorKey, tracker: &SubmissionTracker) -> Option<BufferHandle> {
+    pub fn acquire(
+        &mut self,
+        desc: &BufferDescriptorKey,
+        tracker: &SubmissionTracker,
+    ) -> Option<BufferHandle> {
         let completed = tracker.completed();
         let pool = self.pools.get_mut(desc)?;
-        let index = pool.iter().rposition(|entry| entry.available_after <= completed)?;
+        let index = pool
+            .iter()
+            .rposition(|entry| entry.available_after <= completed)?;
         let entry = pool.swap_remove(index);
         self.known_handles.remove(&entry.handle);
         Some(entry.handle)
     }
 
-    pub fn release(&mut self, desc: BufferDescriptorKey, handle: BufferHandle, last_use: SubmissionId) -> bool {
-        if !self.known_handles.insert(handle) { return false; }
-        self.pools.entry(desc).or_default().push(AvailableBuffer { handle, available_after: last_use });
+    pub fn release(
+        &mut self,
+        desc: BufferDescriptorKey,
+        handle: BufferHandle,
+        last_use: SubmissionId,
+    ) -> bool {
+        if !self.known_handles.insert(handle) {
+            return false;
+        }
+        self.pools.entry(desc).or_default().push(AvailableBuffer {
+            handle,
+            available_after: last_use,
+        });
         true
     }
 
@@ -155,83 +214,21 @@ impl TransientBufferPool {
         for pool in self.pools.values_mut() {
             let mut kept = Vec::with_capacity(pool.len());
             for entry in pool.drain(..) {
-                if entry.available_after <= completed { drained.push(entry.handle); }
-                else { kept.push(entry); }
+                if entry.available_after <= completed {
+                    drained.push(entry.handle);
+                } else {
+                    kept.push(entry);
+                }
             }
             *pool = kept;
         }
-        for handle in &drained { self.known_handles.remove(handle); }
+        for handle in &drained {
+            self.known_handles.remove(handle);
+        }
         drained
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn desc(format: TextureFormat) -> TextureDescriptorKey {
-        TextureDescriptorKey::new(64, 32, 1, format, wgpu::TextureUsages::RENDER_ATTACHMENT, 1, 1, TextureDimensionKey::D2)
-    }
-
-    fn buffer_desc(usage: wgpu::BufferUsages) -> BufferDescriptorKey {
-        BufferDescriptorKey::new(256, usage)
-    }
-
-    #[test]
-    fn incompatible_descriptors_do_not_share_handles() {
-        let mut pool = TransientTexturePool::new();
-        let tracker = SubmissionTracker::new();
-        assert!(pool.release(desc(TextureFormat::Rgba8Unorm), TextureHandle(1), SubmissionId(0)));
-        assert_eq!(pool.acquire(&desc(TextureFormat::Bgra8Unorm), &tracker), None);
-        assert_eq!(pool.acquire(&desc(TextureFormat::Rgba8Unorm), &tracker), Some(TextureHandle(1)));
-    }
-
-    #[test]
-    fn in_flight_handle_cannot_be_reused_early() {
-        let mut pool = TransientTexturePool::new();
-        let desc = desc(TextureFormat::Rgba8Unorm);
-        let mut tracker = SubmissionTracker::new();
-        let submission = tracker.begin();
-        assert!(pool.release(desc.clone(), TextureHandle(7), submission));
-        assert_eq!(pool.acquire(&desc, &tracker), None);
-        tracker.mark_completed(submission);
-        assert_eq!(pool.acquire(&desc, &tracker), Some(TextureHandle(7)));
-    }
-
-    #[test]
-    fn duplicate_release_is_rejected_and_drain_returns_completed_entries() {
-        let mut pool = TransientTexturePool::new();
-        let desc = desc(TextureFormat::Rgba8Unorm);
-        assert!(pool.release(desc.clone(), TextureHandle(3), SubmissionId(1)));
-        assert!(!pool.release(desc, TextureHandle(3), SubmissionId(2)));
-        assert_eq!(pool.pending_count(), 1);
-        let mut tracker = SubmissionTracker::new();
-        tracker.mark_completed(SubmissionId(1));
-        assert_eq!(pool.drain_completed(&tracker), vec![TextureHandle(3)]);
-        assert_eq!(pool.pending_count(), 0);
-    }
-
-    #[test]
-    fn transient_buffer_pool_respects_descriptor_and_submission() {
-        let mut pool = TransientBufferPool::new();
-        let desc = buffer_desc(wgpu::BufferUsages::STORAGE);
-        let mut tracker = SubmissionTracker::new();
-        let submission = tracker.begin();
-        assert!(pool.release(desc.clone(), BufferHandle(8), submission));
-        assert_eq!(pool.acquire(&desc, &tracker), None);
-        assert_eq!(pool.acquire(&buffer_desc(wgpu::BufferUsages::UNIFORM), &tracker), None);
-        tracker.mark_completed(submission);
-        assert_eq!(pool.acquire(&desc, &tracker), Some(BufferHandle(8)));
-    }
-
-    #[test]
-    fn transient_buffer_pool_rejects_duplicate_release_and_drains() {
-        let mut pool = TransientBufferPool::new();
-        let desc = buffer_desc(wgpu::BufferUsages::INDIRECT);
-        assert!(pool.release(desc.clone(), BufferHandle(9), SubmissionId(2)));
-        assert!(!pool.release(desc, BufferHandle(9), SubmissionId(3)));
-        let mut tracker = SubmissionTracker::new();
-        tracker.mark_completed(SubmissionId(2));
-        assert_eq!(pool.drain_completed(&tracker), vec![BufferHandle(9)]);
-    }
-}
+#[path = "lru_tests.rs"]
+mod tests;
