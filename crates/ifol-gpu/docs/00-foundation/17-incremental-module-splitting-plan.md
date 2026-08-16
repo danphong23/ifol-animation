@@ -107,8 +107,10 @@ không đổi. Phase E6 tách regression tests inline khỏi
 `memory/ring_buffer.rs` vào `memory/ring_tests.rs`; ring buffer production
 logic và public API không đổi. Phase E7 tách regression tests inline khỏi
 `memory/submission.rs` vào `memory/submission_tests.rs`; submission identity
-và tracker contracts không đổi. Bước kế tiếp là E8: audit
-`memory/deferred.rs`.
+và tracker contracts không đổi. Phase E8 tách regression tests inline khỏi
+`memory/deferred.rs` vào `memory/deferred_tests.rs`; deferred destruction
+queue contract không đổi. Bước kế tiếp là E9: audit public API facade và
+remaining module boundaries.
 
 ## Phase E — Public API và cleanup
 
