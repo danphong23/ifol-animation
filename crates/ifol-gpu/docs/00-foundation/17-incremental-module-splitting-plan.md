@@ -51,12 +51,12 @@ kiến trúc riêng sau khi extraction đã ổn định.
 
 Tiến độ hiện tại: C1 đã hoàn tất; phần version state của C3 đã được tách
 thành `src/resources/versions.rs`; nhóm lookup của C2 đã được tách thành
-`src/resources/lookup.rs`, giữ nguyên API/behavior. Bước kế tiếp là tách các
-operation mutation insert/remove của C2 thành `src/resources/mutation.rs`,
-và ownership/lifetime của C4 thành `src/resources/ownership.rs`, đều giữ
-nguyên API/behavior. Bước kế tiếp là rà soát resources facade và compatibility
-path; mỗi nhóm vẫn phải đi qua compile và toàn bộ regression test trước khi
-commit.
+`src/resources/lookup.rs`, `src/resources/mutation.rs` và
+`src/resources/ownership.rs` đã được tách, đều giữ nguyên API/behavior. C5 đã
+chốt facade root bằng các re-export explicit; các nested module
+`resources::registry::*` và `render::registry::*` vẫn là compatibility paths.
+Sau C5, chuyển sang Phase D; mỗi nhóm vẫn phải đi qua compile và toàn bộ
+regression test trước khi commit.
 
 | Task | Trách nhiệm | Test chính |
 |---|---|---|
