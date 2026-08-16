@@ -255,7 +255,10 @@ format mapping và ticket behavior không đổi. Bước tiếp theo là F17: t
 audit production hotspots còn lại. F17 đã xử lý hai warning Rust còn lại trong
 `benches/compute_benchmarks.rs` (unnecessary `mut` và unhandled `poll` result),
 không đổi benchmark behavior. Bước tiếp theo là F18: tiếp tục audit
-production hotspots còn lại.
+production hotspots còn lại. F18 đã tách bốn profiling entrypoints khỏi
+`execution/executor.rs` vào `execution/executor_profiling.rs`; executor core,
+reporting và public method signatures không đổi. Bước tiếp theo là F19: tiếp
+tục audit production hotspots còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 

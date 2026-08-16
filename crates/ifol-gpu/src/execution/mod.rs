@@ -33,6 +33,7 @@ mod flat_compile;
 #[cfg(test)]
 use counts::execution_counts_for_graph;
 mod executor;
+mod executor_profiling;
 pub use executor::RenderGraphExecutor;
 pub use report::{ExecutionReport, ProfiledExecution, RenderGraphProfilingError};
 #[cfg(test)]

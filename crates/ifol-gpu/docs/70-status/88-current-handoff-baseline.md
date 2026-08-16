@@ -95,7 +95,8 @@ chỉ từ compile hoặc test trên Windows.
   compute commands và render target; `resource_usage.rs` chỉ giữ declaration
   và accessor API;
 - `src/execution/executor.rs` chứa public `RenderGraphExecutor` facade và
-  execution orchestration;
+  validation/execution-report orchestration; `src/execution/executor_profiling.rs`
+  chứa các profiling entrypoints của executor;
 - `src/execution/report.rs` chứa `ExecutionReport`, `ProfiledExecution` và
   `RenderGraphProfilingError`; `execution/mod.rs` giữ public re-export và
   module wiring;
@@ -150,7 +151,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F18: tiếp tục structure/file-size audit ở production hotspots còn lại;
+Task F19: tiếp tục structure/file-size audit ở production hotspots còn lại;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
 Rust trong crate.
