@@ -17,7 +17,7 @@ fn bench_compute_1m_particles(c: &mut Criterion) {
             .expect("Failed to create GpuEngine for benchmark");
 
         let mut registry = ResourceRegistry::new();
-        let mut executor = RenderGraphExecutor::new();
+        let executor = RenderGraphExecutor::new();
 
         // Prepare 1M particle buffer (32MB)
         let particle_count = 1_000_000;
@@ -121,7 +121,7 @@ fn bench_compute_1m_particles(c: &mut Criterion) {
                 ]);
 
                 let sub = executor.execute_checked(&engine, &registry, &mut pool, &graph).unwrap();
-                engine.device().poll(wgpu::PollType::Wait {
+                let _ = engine.device().poll(wgpu::PollType::Wait {
                     submission_index: Some(sub),
                     timeout: None,
                 });

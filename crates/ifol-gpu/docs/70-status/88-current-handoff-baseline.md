@@ -150,9 +150,10 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F17: tiếp tục structure/file-size audit ở production hotspots còn lại;
+Task F18: tiếp tục structure/file-size audit ở production hotspots còn lại;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
-responsibility đã rõ.
+responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
+Rust trong crate.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task F4.

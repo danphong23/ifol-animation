@@ -252,7 +252,10 @@ lifecycle và graph traversal không đổi. Bước tiếp theo là F16: tiếp
 production hotspots còn lại. F16 đã tách readback regression suite khỏi
 `backend/readback.rs` vào `backend/readback_tests.rs`; raw readback contract,
 format mapping và ticket behavior không đổi. Bước tiếp theo là F17: tiếp tục
-audit production hotspots còn lại.
+audit production hotspots còn lại. F17 đã xử lý hai warning Rust còn lại trong
+`benches/compute_benchmarks.rs` (unnecessary `mut` và unhandled `poll` result),
+không đổi benchmark behavior. Bước tiếp theo là F18: tiếp tục audit
+production hotspots còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 
