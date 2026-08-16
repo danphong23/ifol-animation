@@ -289,7 +289,10 @@ compute execution và pipeline-layout test boundaries. F28 đã tách compute-on
 và nested-compute ordering regression tests khỏi `execution/tests.rs` vào
 `execution/compute_execution_tests.rs`; compute execution behavior không đổi.
 Bước tiếp theo là F29: tiếp tục audit pipeline-layout và render/indirect
-validation test boundaries.
+validation test boundaries. F29 đã tách dynamic-offset validation regression
+test khỏi `execution/tests.rs` vào `execution/dynamic_offset_tests.rs`;
+descriptor-aware offset validation behavior không đổi. Bước tiếp theo là F30:
+bounded audit các validation/integration test boundary còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 

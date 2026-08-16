@@ -65,4 +65,7 @@ mod copy_execution_tests;
 #[path = "compute_execution_tests.rs"]
 mod compute_execution_tests;
 #[cfg(test)]
+#[path = "dynamic_offset_tests.rs"]
+mod dynamic_offset_tests;
+#[cfg(test)]
 mod tests;
