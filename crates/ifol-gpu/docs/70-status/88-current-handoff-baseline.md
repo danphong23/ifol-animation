@@ -30,8 +30,8 @@ chỉ từ compile hoặc test trên Windows.
 
 ## Chưa sạch hoặc chưa hoàn tất
 
-- `src/execution/tests.rs` chứa regression suite lớn nhưng đã tách khỏi
-  execution facade;
+- execution regression suite đã được tách khỏi execution facade theo các
+  boundary validation, encoder, target, copy, compute và execution order;
 - `src/graph/tests.rs` chứa graph regression suite; `src/graph/mod.rs` hiện
   là production facade nhỏ với `RenderTarget` và các re-export public;
 - `src/extensions/tests.rs` chứa extension regression suite; extension
@@ -71,15 +71,12 @@ chỉ từ compile hoặc test trên Windows.
   validation; command-specific checks được delegate sang các validation command
   modules; `validation.rs` hiện là facade/orchestrator nhỏ;
 - `src/execution/encoder_tests.rs` chứa regression tests cho bind-group slot và
-  compute/draw/copy encoder; `execution/tests.rs` giữ các validation và
-  end-to-end execution tests còn lại;
+  compute/draw/copy encoder;
 - `src/execution/executor_contract_tests.rs` chứa extension-dispatch,
   profiling-entrypoint và execution-report regression tests;
-  `execution/tests.rs` giữ các validation và end-to-end execution tests còn lại;
 - `src/execution/validation_contract_tests.rs` chứa preflight/validation
   contract tests cho target lookup, indirect range, texture aspect và bundle
-  key; `execution/tests.rs` giữ các validation command/layout và end-to-end
-  execution tests còn lại;
+  key;
 - `src/execution/target_tests.rs` chứa target-size, MSAA resolve/depth
   validation và target execution regression tests;
 - `src/execution/command_validation_tests.rs` chứa command/resource usage và
@@ -90,6 +87,10 @@ chỉ từ compile hoặc test trên Windows.
   nested-compute ordering regression tests;
 - `src/execution/dynamic_offset_tests.rs` chứa descriptor-aware dynamic-offset
   validation regression test;
+- `src/execution/remaining_validation_tests.rs` chứa các validation regression
+  tests còn lại cho depth attachment, pipeline layout và indexed/indirect draw;
+- `src/execution/execution_order_tests.rs` chứa empty-graph, nested-subgraph và
+  interleaved draw/copy/compute execution regression tests;
 - `src/resources/registry_version_tests.rs` chứa version regression suite;
   `registry_descriptor_tests.rs` chứa descriptor validation suite;
   `registry_ownership_tests.rs` chứa owned-texture/deferred-destruction suite;
@@ -178,7 +179,8 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F30: bounded audit các validation/integration test boundary còn lại;
+Task F31: final bounded audit toàn crate và xác nhận các production/test
+boundary còn lại trước khi kết thúc đợt refactor;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
 Rust trong crate.

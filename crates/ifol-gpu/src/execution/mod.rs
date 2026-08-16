@@ -19,6 +19,7 @@ mod compute;
 use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
+mod nested_compile;
 mod non_render;
 mod prepass;
 mod target_segments;
@@ -26,7 +27,6 @@ mod profiling;
 mod report;
 mod compiler;
 mod extension;
-mod nested_compile;
 mod counts;
 mod targets;
 mod flat_compile;
@@ -34,15 +34,16 @@ mod flat_compile;
 use counts::execution_counts_for_graph;
 mod executor;
 mod executor_profiling;
-pub use executor::RenderGraphExecutor;
-pub use report::{ExecutionReport, ProfiledExecution, RenderGraphProfilingError};
 #[cfg(test)]
 pub(crate) use bundle_key::bundle_cache_key;
+pub use executor::RenderGraphExecutor;
+pub use report::{ExecutionReport, ProfiledExecution, RenderGraphProfilingError};
 #[cfg(test)]
 pub(crate) use validation::bind_group_slot_index;
 #[cfg(test)]
 pub(crate) use validation::texture_supports_aspect;
 
+#[cfg(test)]
 #[cfg(test)]
 #[path = "encoder_tests.rs"]
 mod encoder_tests;
@@ -68,4 +69,8 @@ mod compute_execution_tests;
 #[path = "dynamic_offset_tests.rs"]
 mod dynamic_offset_tests;
 #[cfg(test)]
-mod tests;
+#[path = "remaining_validation_tests.rs"]
+mod remaining_validation_tests;
+#[cfg(test)]
+#[path = "execution_order_tests.rs"]
+mod execution_order_tests;
