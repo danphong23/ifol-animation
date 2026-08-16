@@ -136,7 +136,10 @@ giữ nguyên `ResourceRegistry` public API. Bước kế tiếp là E17: audit 
 resource re-exports và compatibility facade. Phase E17 chuyển toàn bộ
 internal crate/bench imports sang canonical `resources::*` facade, giữ
 `resources::registry::*` như compatibility path cho downstream. Bước kế tiếp
-là E18: audit execution/backend public compatibility facades.
+là E18: audit execution/backend public compatibility facades. Phase E18 tách
+API compatibility modules khỏi `api/mod.rs` vào `api/compatibility.rs`, giữ
+nguyên `api::builder` và `api::engine` paths. Bước kế tiếp là E19: audit
+`render` compatibility facade.
 
 ## Phase E — Public API và cleanup
 

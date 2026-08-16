@@ -1,24 +1,19 @@
-/// Compatibility path for hosts that imported `api::builder` directly.
-pub mod builder {
-    pub use crate::backend::builder::*;
-}
-
-/// Compatibility path for hosts that imported `api::engine` directly.
-pub mod engine {
-    pub use crate::backend::engine::*;
-}
-
+mod compatibility;
 pub mod profiling;
 
-pub use crate::backend::{GpuEngineBuilder, GpuError};
+pub use compatibility::{builder, compiler, engine, graph, handle, registry};
+
 pub use crate::backend::capabilities::{CapabilityError, GpuCapabilities};
-pub use crate::backend::{GpuEngine, RawTextureReadback, ReadbackError, ReadbackTicket, SurfaceResizeError};
 #[cfg(feature = "image-encode")]
 pub use crate::backend::TextureSaveError;
+pub use crate::backend::{
+    GpuEngine, RawTextureReadback, ReadbackError, ReadbackTicket, SurfaceResizeError,
+};
+pub use crate::backend::{GpuEngineBuilder, GpuError};
 pub use crate::extensions::{
-    ExtensionDescriptor, ExtensionDispatchRegistry, ExtensionDispatchRegistrationError,
+    ExtensionDescriptor, ExtensionDispatchRegistrationError, ExtensionDispatchRegistry,
     ExtensionDispatcher, ExtensionExecutionContext, ExtensionExecutionError, ExtensionId,
-    ExtensionOperation, ExtensionRegistry, ExtensionRegistrationError, ExtensionValidationError,
+    ExtensionOperation, ExtensionRegistrationError, ExtensionRegistry, ExtensionValidationError,
     GpuExtension,
 };
 pub use profiling::{ProfilingError, TimestampQueryPool, TimestampSpan};
