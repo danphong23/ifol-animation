@@ -34,6 +34,38 @@ pub(crate) fn execute_non_render_nodes(
     Ok(())
 }
 
+pub(crate) fn execute_graph_prepass(
+    executor: &RenderGraphExecutor,
+    encoder: &mut wgpu::CommandEncoder,
+    engine: &GpuEngine,
+    pool: &RenderNodePool,
+    registry: &ResourceRegistry,
+    node_ids: &[RenderNodeId],
+) -> Result<(), RenderGraphValidationError> {
+    for &node_id in node_ids {
+        let Some(node) = pool.get(node_id) else {
+            return Err(RenderGraphValidationError::MissingNode(node_id));
+        };
+        executor.dispatch_extension(encoder, engine, registry, pool, node_id)?;
+        for command in node.copy_commands() {
+            encode_copy_command(encoder, registry, command)?;
+        }
+    }
+
+    for &node_id in node_ids {
+        let Some(node) = pool.get(node_id) else {
+            return Err(RenderGraphValidationError::MissingNode(node_id));
+        };
+        encode_compute_commands(
+            encoder,
+            registry,
+            node.compute_commands(),
+            engine.capabilities().max_bind_groups,
+        )?;
+    }
+    Ok(())
+}
+
 pub(crate) fn execute_ordered_target_nodes(
     executor: &RenderGraphExecutor,
     encoder: &mut wgpu::CommandEncoder,

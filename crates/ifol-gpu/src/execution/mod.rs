@@ -17,7 +17,7 @@ use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
 mod segments;
-use segments::{execute_non_render_nodes, execute_ordered_target_nodes};
+use segments::{execute_graph_prepass, execute_non_render_nodes, execute_ordered_target_nodes};
 mod orchestration;
 use orchestration::{compile_flat_graph, compile_nested_graphs, execution_counts_for_graph, map_graph_flatten_error, resolve_target_views};
 #[cfg(test)]
@@ -425,25 +425,9 @@ impl RenderGraphExecutor {
         )?;
 
         // Copy nodes được submit trước compute/render pass của graph hiện tại.
-        for &node_id in &node_ids {
-            let Some(node) = pool.get(node_id) else {
-                return Err(RenderGraphValidationError::MissingNode(node_id));
-            };
-            self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
-            for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command)?;
-            }
-        }
-
-        // Compute nodes được submit trước render pass của graph hiện tại.
         // Khi graph có interleave compute/render semantics, pass model đầy đủ sẽ
         // tách chúng thành execution segments ở compiler tiếp theo.
-        for &node_id in &node_ids {
-            let Some(node) = pool.get(node_id) else {
-                return Err(RenderGraphValidationError::MissingNode(node_id));
-            };
-            encode_compute_commands(encoder, registry, node.compute_commands(), engine.capabilities().max_bind_groups)?;
-        }
+        execute_graph_prepass(self, encoder, engine, pool, registry, &node_ids)?;
 
         // -------------------------------------------------------------
         // 2.2 EXECUTE RENDER PASS
