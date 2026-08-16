@@ -5,10 +5,10 @@ use crate::graph::{RenderGraph, RenderNodePool};
 use crate::resources::ResourceRegistry;
 
 #[cfg(test)]
-pub(crate) use super::validation_copy::texture_supports_aspect;
+pub(crate) use super::validation_texture::texture_supports_aspect;
 #[cfg(test)]
 pub(crate) use super::validation_copy::validate_copy_range;
-pub(crate) use super::validation_copy::format_has_stencil;
+pub(crate) use super::validation_texture::format_has_stencil;
 pub(crate) use super::validation_indirect::validate_indirect_buffer;
 pub(crate) use super::validation_layout::{
     bind_group_slot_index, validate_bind_group_offsets, validate_compute_pipeline_layout,

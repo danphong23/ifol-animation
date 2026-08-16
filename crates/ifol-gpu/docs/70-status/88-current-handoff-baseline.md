@@ -50,10 +50,12 @@ chỉ từ compile hoặc test trên Windows.
   `lib.rs` chỉ giữ crate module declarations và public facade;
 - `src/execution/validation_errors.rs` chứa typed validation error contract;
   `validation.rs` giữ orchestration và các re-export nội bộ cần cho validation;
-- `src/execution/validation_copy.rs` chứa copy, texture-aspect và buffer-range
+- `src/execution/validation_copy.rs` chứa copy-command và buffer-range
   validation helpers;
 - `src/execution/validation_indirect.rs` chứa indirect-buffer range và usage
   validation; `validation.rs` giữ re-export nội bộ cho command validators;
+- `src/execution/validation_texture.rs` chứa texture-copy, mip/aspect và
+  format validation helpers;
 - `src/execution/validation_target.rs` chứa render-target và depth/stencil
   validation helpers; `validation.rs` giữ graph-validation orchestration;
 - `src/execution/validation_layout.rs` chứa bind-group slot, dynamic-offset
@@ -106,7 +108,8 @@ chỉ từ compile hoặc test trên Windows.
 - `src/execution/validation_render.rs` chứa validation của draw commands;
 - `src/execution/validation_compute.rs` chứa validation của compute commands;
 - `src/execution/validation_copy.rs` chứa validation của copy commands cùng các
-  copy/range helpers; indirect validation nằm trong `validation_indirect.rs`;
+  buffer-range helpers; indirect validation nằm trong `validation_indirect.rs`
+  và texture validation nằm trong `validation_texture.rs`;
 - `src/backend/readback_ticket.rs` chứa mapping, submission wait và row-padding
   resolution của `ReadbackTicket`; `backend/readback.rs` giữ facade/API bắt đầu
   readback;
@@ -134,7 +137,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F6: tiếp tục structure/file-size audit; giữ graph/render semantics
+Task F8: tiếp tục structure/file-size audit; giữ graph/render semantics
 nguyên vẹn và chỉ tách thêm khi boundary responsibility đã rõ.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,

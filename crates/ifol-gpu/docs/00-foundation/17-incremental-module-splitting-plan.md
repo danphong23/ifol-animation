@@ -226,7 +226,9 @@ API và hazard semantics không đổi. F5 đã tách indirect-buffer validation
 `validation_copy.rs` vào `validation_indirect.rs`, giữ nguyên validation
 errors và internal re-export. F6 đã tách execution report/profiling result
 types khỏi `execution/executor.rs` vào `execution/report.rs`, giữ nguyên public
-exports và execution behavior. Bước kế tiếp là F7: audit các production
+exports và execution behavior. F7 đã tách texture-copy/mip/aspect/format
+validation khỏi `validation_copy.rs` vào `validation_texture.rs`, giữ nguyên
+validation order và error contract. Bước kế tiếp là F8: audit các production
 hotspot còn lại trước khi chọn responsibility tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
