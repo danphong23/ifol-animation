@@ -235,6 +235,64 @@ pub(crate) fn with_render_pass<T>(
     encode(&mut render_pass)
 }
 
+pub(crate) fn encode_graph_render_pass(
+    encoder: &mut wgpu::CommandEncoder,
+    pool: &RenderNodePool,
+    registry: &ResourceRegistry,
+    node_ids: &[crate::resources::handle::RenderNodeId],
+    color_view: &wgpu::TextureView,
+    resolve_view: Option<&wgpu::TextureView>,
+    depth_stencil_info: Option<(&wgpu::TextureView, wgpu::TextureFormat)>,
+    clear_color: Option<[f32; 4]>,
+    max_bind_groups: u32,
+) -> Result<(), RenderGraphValidationError> {
+    let load_op = clear_color
+        .map(|color| {
+            wgpu::LoadOp::Clear(wgpu::Color {
+                r: color[0] as f64,
+                g: color[1] as f64,
+                b: color[2] as f64,
+                a: color[3] as f64,
+            })
+        })
+        .unwrap_or(wgpu::LoadOp::Load);
+
+    with_render_pass(
+        encoder,
+        color_view,
+        resolve_view,
+        depth_stencil_info,
+        load_op,
+        if clear_color.is_some() {
+            wgpu::LoadOp::Clear(1.0)
+        } else {
+            wgpu::LoadOp::Load
+        },
+        if clear_color.is_some() {
+            wgpu::LoadOp::Clear(0)
+        } else {
+            wgpu::LoadOp::Load
+        },
+        "RenderGraphPass",
+        |render_pass| {
+            for &node_id in node_ids {
+                let Some(node) = pool.get(node_id) else {
+                    return Err(RenderGraphValidationError::MissingNode(node_id));
+                };
+                if node.use_bundle() {
+                    if let Some(bundle) = node.bundle() {
+                        render_pass.execute_bundles(std::iter::once(bundle));
+                    }
+                } else {
+                    encode_draw_commands(render_pass, registry, node.commands(), max_bind_groups)?;
+                }
+            }
+            Ok(())
+        },
+    )?;
+    Ok(())
+}
+
 pub(crate) fn encode_draw_commands(
     render_pass: &mut wgpu::RenderPass<'_>,
     registry: &ResourceRegistry,

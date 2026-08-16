@@ -11,7 +11,7 @@ mod validation;
 pub use validation::RenderGraphValidationError;
 use validation::{format_has_stencil, validate_graph};
 mod render;
-use render::{encode_draw_commands, update_render_bundles, with_render_pass};
+use render::{encode_draw_commands, encode_graph_render_pass, update_render_bundles};
 mod compute;
 use compute::encode_compute_commands;
 mod copy;
@@ -448,47 +448,16 @@ impl RenderGraphExecutor {
         // -------------------------------------------------------------
         // 2.2 EXECUTE RENDER PASS
         // -------------------------------------------------------------
-        let load_op = if let Some(c) = graph.clear_color {
-            wgpu::LoadOp::Clear(wgpu::Color { r: c[0] as f64, g: c[1] as f64, b: c[2] as f64, a: c[3] as f64 })
-        } else { wgpu::LoadOp::Load };
-
-        with_render_pass(
+        encode_graph_render_pass(
             encoder,
+            pool,
+            registry,
+            &node_ids,
             color_view,
             resolve_view,
             depth_stencil_info.map(|(view, format)| (view, *format)),
-            load_op,
-            if graph.clear_color.is_some() {
-                wgpu::LoadOp::Clear(1.0)
-            } else {
-                wgpu::LoadOp::Load
-            },
-            if graph.clear_color.is_some() {
-                wgpu::LoadOp::Clear(0)
-            } else {
-                wgpu::LoadOp::Load
-            },
-            "RenderGraphPass",
-            |render_pass| {
-                for &node_id in &node_ids {
-                    let Some(node) = pool.get(node_id) else {
-                        return Err(RenderGraphValidationError::MissingNode(node_id));
-                    };
-                    if node.use_bundle() {
-                        if let Some(bundle) = node.bundle() {
-                            render_pass.execute_bundles(std::iter::once(bundle));
-                        }
-                    } else {
-                        encode_draw_commands(
-                            render_pass,
-                            registry,
-                            node.commands(),
-                            engine.capabilities().max_bind_groups,
-                        )?;
-                    }
-                }
-                Ok(())
-            },
+            graph.clear_color,
+            engine.capabilities().max_bind_groups,
         )?;
         Ok(())
     }
