@@ -3,7 +3,6 @@ mod harness;
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{ComputeCommand, DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
 use std::time::Instant;
-use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -63,7 +62,7 @@ fn test_tc70_culling() {
             first_vertex: 0,
             first_instance: 0,
         };
-        let (indirect_handle, indirect_buf) = h.create_storage_buffer(&[indirect_initial], "Indirect Args", wgpu::BufferUsages::INDIRECT);
+        let (indirect_handle, _indirect_buf) = h.create_storage_buffer(&[indirect_initial], "Indirect Args", wgpu::BufferUsages::INDIRECT);
 
         let uniforms = Uniforms {
             cull_center: [0.0, 0.0],

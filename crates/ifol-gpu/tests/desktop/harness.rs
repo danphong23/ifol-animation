@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
@@ -1288,7 +1290,7 @@ impl<'a> DesktopTestHarness<'a> {
         slice.map_async(wgpu::MapMode::Read, move |res| {
             tx.send(res).unwrap();
         });
-        self.engine.device().poll(wgpu::PollType::Wait {
+        let _ = self.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(sub),
             timeout: None,
         });

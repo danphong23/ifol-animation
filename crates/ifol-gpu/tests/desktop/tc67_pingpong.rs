@@ -14,8 +14,8 @@ fn test_tc67_pingpong() {
         let in_h = 600;
 
         // 1. Create two storage textures A and B for ping-pong
-        let (tex_a_h, tex_a) = h.create_storage_texture(in_w, in_h, wgpu::TextureFormat::Rgba8Unorm, "RD Texture A");
-        let (tex_b_h, tex_b) = h.create_storage_texture(in_w, in_h, wgpu::TextureFormat::Rgba8Unorm, "RD Texture B");
+        let (_tex_a_h, tex_a) = h.create_storage_texture(in_w, in_h, wgpu::TextureFormat::Rgba8Unorm, "RD Texture A");
+        let (_tex_b_h, tex_b) = h.create_storage_texture(in_w, in_h, wgpu::TextureFormat::Rgba8Unorm, "RD Texture B");
 
         let view_a = tex_a.create_view(&wgpu::TextureViewDescriptor::default());
         let view_b = tex_b.create_view(&wgpu::TextureViewDescriptor::default());

@@ -3,7 +3,7 @@ mod harness;
 use harness::DesktopTestHarness;
 use ifol_gpu::execution::RenderGraphValidationError;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
-use ifol_gpu::resources::{BufferHandle, PipelineHandle, TextureHandle};
+use ifol_gpu::resources::{PipelineHandle, TextureHandle};
 use std::time::Instant;
 
 #[test]

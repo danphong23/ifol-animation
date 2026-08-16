@@ -101,8 +101,8 @@ fn run_tc18_transition() {
         let bg_trans_uniform = h.create_custom_uniform_bind_group(trans_uni, "Transition Uniform");
 
         // Targets
-        let (target_a_id, target_a_tex) = h.create_target("Target A");
-        let (target_b_id, target_b_tex) = h.create_target("Target B");
+        let (target_a_id, _target_a_tex) = h.create_target("Target A");
+        let (target_b_id, _target_b_tex) = h.create_target("Target B");
         let (final_target_id, final_target_tex) = h.create_target("Final Target");
 
         let bg_dual_tex = h.create_dual_texture_bind_group(target_a_id, target_b_id, "Dual Texture Transition");

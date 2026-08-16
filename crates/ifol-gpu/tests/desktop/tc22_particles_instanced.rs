@@ -1,7 +1,6 @@
 mod harness;
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
-use wgpu::util::DeviceExt;
 use std::fs;
 
 #[repr(C)]

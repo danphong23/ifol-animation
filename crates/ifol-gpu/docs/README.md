@@ -1,18 +1,15 @@
 # Tài liệu `ifol-gpu`
 
-## Bạn chỉ muốn sử dụng thư viện?
+## 🏛️ Bộ Tài Liệu Chuẩn Công Nghiệp & Tích Hợp (Core Architecture & API Guides)
 
-Bắt đầu tại [Public usage guide](60-guides/README.md). Đây là learning path
-chính để xây engine, tool, game, video pipeline hoặc ứng dụng GPU bên ngoài:
+Dành cho các Crate bên ngoài (`ifol-app-core`, `ifol-ecs`, `ifol-media`) và các nhà phát triển tích hợp:
 
-1. [Bắt đầu nhanh](60-guides/87-guide-getting-started.md)
-2. [Đăng ký resource](60-guides/91-guide-resource-registration.md)
-3. [Pipeline và shader](60-guides/88-guide-pipeline-and-shader.md)
-4. [Xây dựng graph](60-guides/89-guide-building-a-graph.md)
-5. [Execute, readback và lifecycle](60-guides/92-guide-execution-and-lifecycle.md)
-6. [Extension custom](60-guides/90-guide-public-api-and-extensions.md)
+1. 📜 [**00-architecture-contracts.md**](00-architecture-contracts.md): Hợp đồng kiến trúc & Ranh giới trách nhiệm ("Blind Agnostic GPU Engine").
+2. 📖 [**01-public-api-reference.md**](01-public-api-reference.md): Bảng tra cứu toàn bộ Public API, Structs, Enums, Handles và Graph Nodes.
+3. 🍳 [**02-integration-guide-and-recipes.md**](02-integration-guide-and-recipes.md): Hướng dẫn tích hợp thực tế (Desktop/Web Init, Video NV12, Native Plugin Extensions, ECS Translation).
 
-Không cần đọc các thư mục design bên dưới để bắt đầu dùng API.
+## 🚀 Public Usage Guide & Học Nhanh
+Bắt đầu tại [Public usage guide](60-guides/README.md):
 
 ## Bạn đang phát triển chính `ifol-gpu`?
 

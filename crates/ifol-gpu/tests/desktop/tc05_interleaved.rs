@@ -1,5 +1,5 @@
 mod harness;
-use harness::{DesktopTestHarness, SpriteUniform};
+use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
 use std::fs;
 

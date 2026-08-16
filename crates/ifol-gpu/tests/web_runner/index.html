@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iFol Animation - WebGPU Cross-Platform Verification Suite</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card-bg: #161b22;
+            --border: #30363d;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --text: #c9d1d9;
+            --text-dim: #8b949e;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--accent);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid rgba(88, 166, 255, 0.3);
+        }
+
+        .status-badge.passed {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--success);
+            border-color: rgba(63, 185, 80, 0.3);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #fff;
+        }
+
+        .card-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 380px;
+            height: 285px;
+            background: #000;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            image-rendering: pixelated;
+        }
+
+        .card-meta {
+            width: 100%;
+            font-size: 12px;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .tag-running { background: #d29922; color: #fff; }
+        .tag-passed { background: #238636; color: #fff; }
+        .tag-failed { background: #da3633; color: #fff; }
+
+        #console-log {
+            margin-top: 24px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 12px;
+            color: #8b949e;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .log-entry { margin-bottom: 4px; }
+        .log-success { color: #3fb950; }
+        .log-error { color: #f85149; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">
+            <span>⚡ iFol GPU WebGPU Cross-Platform Verification Suite</span>
+        </div>
+        <div id="overall-status" class="status-badge">Initializing WebGPU...</div>
+    </div>
+
+    <div class="grid">
+        <!-- TC98 -->
+        <div class="card" id="card-tc98">
+            <div class="card-header">
+                <span class="card-title">TC98: Uniform Ring Buffer Stress</span>
+                <span class="tag tag-running" id="tag-tc98">Pending</span>
+            </div>
+            <div class="card-body">
+                <canvas id="canvas-tc98" width="800" height="600"></canvas>
+                <div class="card-meta">
+                    <span>64-Sprite Ring Buffer</span>
+                    <span>256B Alignment</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC99 -->
+        <div class="card" id="card-tc99">
+            <div class="card-header">
+                <span class="card-title">TC99: Video NV12 BT.709 Pipeline</span>
+                <span class="tag tag-running" id="tag-tc99">Pending</span>
+            </div>
+            <div class="card-body">
+                <canvas id="canvas-tc99" width="800" height="600"></canvas>
+                <div class="card-meta">
+                    <span>Bi-Planar NV12 SMPTE</span>
+                    <span>YCbCr to sRGB</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC101 -->
+        <div class="card" id="card-tc101">
+            <div class="card-header">
+                <span class="card-title">TC101: Hardware DMA Texture Copy</span>
+                <span class="tag tag-running" id="tag-tc101">Pending</span>
+            </div>
+            <div class="card-body">
+                <canvas id="canvas-tc101" width="800" height="600"></canvas>
+                <div class="card-meta">
+                    <span>TextureToTexture Blit</span>
+                    <span>Side-by-Side Twins</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC102 -->
+        <div class="card" id="card-tc102">
+            <div class="card-header">
+                <span class="card-title">TC102: Compute-to-VBO Transfer</span>
+                <span class="tag tag-running" id="tag-tc102">Pending</span>
+            </div>
+            <div class="card-body">
+                <canvas id="canvas-tc102" width="800" height="600"></canvas>
+                <div class="card-meta">
+                    <span>BufferToBuffer DMA</span>
+                    <span>1024 Verts Wave Mesh</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC103 -->
+        <div class="card" id="card-tc103">
+            <div class="card-header">
+                <span class="card-title">TC103: Depth Aspect Isolation</span>
+                <span class="tag tag-running" id="tag-tc103">Pending</span>
+            </div>
+            <div class="card-body">
+                <canvas id="canvas-tc103" width="800" height="600"></canvas>
+                <div class="card-meta">
+                    <span>TextureToTextureAspect</span>
+                    <span>4-Tier False-Color Ramp</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC104 -->
+        <div class="card" id="card-tc104">
+            <div class="card-header">
+                <span class="card-title">TC104: Extension Node Dispatch</span>
+                <span class="tag tag-running" id="tag-tc104">Pending</span>
+            </div>
+            <div class="card-body">
+                <canvas id="canvas-tc104" width="800" height="600"></canvas>
+                <div class="card-meta">
+                    <span>Extension Dispatcher</span>
+                    <span>Custom GPU Intercept</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC105 -->
+        <div class="card" id="card-tc105">
+            <div class="card-header">
+                <span class="card-title">TC105: Hybrid Motion Echo Loop</span>
+                <span class="tag tag-running" id="tag-tc105">Pending</span>
+            </div>
+            <div class="card-body">
+                <canvas id="canvas-tc105" width="800" height="600"></canvas>
+                <div class="card-meta">
+                    <span>Draw + Copy + Compute</span>
+                    <span>Additive Composite</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="console-log">
+        <div class="log-entry">[Init] WebGPU Runner initialized.</div>
+    </div>
+
+    <script src="web_runner.js"></script>
+</body>
+</html>

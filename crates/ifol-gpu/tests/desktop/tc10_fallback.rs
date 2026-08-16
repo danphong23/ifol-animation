@@ -44,7 +44,7 @@ fn run_tc10_fallback() {
         }
 
         // 3. Graceful Fallback Recovery: Render standard Magenta color [1.0, 0.0, 1.0, 1.0]
-        let mut fallback_graph = RenderGraph::new(RenderTarget::Offscreen {
+        let fallback_graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_id,
             width: 800,
             height: 600,

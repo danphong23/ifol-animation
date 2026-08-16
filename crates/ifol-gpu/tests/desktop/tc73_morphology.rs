@@ -1,5 +1,5 @@
 use std::time::Instant;
-use ifol_gpu::graph::{ComputeCommand, DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
+use ifol_gpu::graph::{ComputeCommand, RenderGraph, RenderTarget};
 use wgpu::util::DeviceExt;
 
 mod harness;
@@ -17,7 +17,7 @@ fn test_tc73_morphology() {
     pollster::block_on(async {
         let mut h = harness::DesktopTestHarness::new(800, 800).await;
         
-        let (mask_tex_h, mask_tex) = h.create_storage_texture(800, 800, wgpu::TextureFormat::Rgba8Unorm, "mask_tex");
+        let (_mask_tex_h, mask_tex) = h.create_storage_texture(800, 800, wgpu::TextureFormat::Rgba8Unorm, "mask_tex");
         let (target_handle, target_tex) = h.create_storage_texture(800, 800, wgpu::TextureFormat::Rgba8Unorm, "tc73_target");
         
         let params = Params {
@@ -140,7 +140,7 @@ fn test_tc73_morphology() {
         
         let t_start = Instant::now();
         let sub = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph).unwrap();
-        h.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(sub), timeout: None });
+        let _ = h.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(sub), timeout: None });
         let t_elapsed = t_start.elapsed();
         println!("Morphology Compute Time: {:?}", t_elapsed);
 

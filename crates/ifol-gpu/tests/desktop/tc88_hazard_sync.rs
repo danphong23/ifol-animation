@@ -15,7 +15,7 @@ fn test_tc88_hazard_sync() {
         let mut h = DesktopTestHarness::new(TEX_WIDTH, TEX_HEIGHT).await;
 
         // 1. Create Intermediate Storage & Sampled Texture (4 arguments)
-        let (storage_tex_h, storage_raw) = h.create_storage_texture(
+        let (_storage_tex_h, storage_raw) = h.create_storage_texture(
             TEX_WIDTH,
             TEX_HEIGHT,
             wgpu::TextureFormat::Rgba8Unorm,

@@ -52,11 +52,11 @@ fn test_tc77_compute_skinning() {
         
         let count = vertices.len() as u32;
 
-        let (in_buf_h, in_buf) = h.create_storage_buffer(&vertices, "in_vertices", wgpu::BufferUsages::empty());
-        let (out_buf_h, out_buf) = h.create_storage_buffer(&vertices, "out_vertices", wgpu::BufferUsages::VERTEX);
+        let (_in_buf_h, in_buf) = h.create_storage_buffer(&vertices, "in_vertices", wgpu::BufferUsages::empty());
+        let (_out_buf_h, out_buf) = h.create_storage_buffer(&vertices, "out_vertices", wgpu::BufferUsages::VERTEX);
         
         let params = ComputeParams { time: 1.5, count, pad1: 0, pad2: 0 };
-        let (param_buf_h, param_buf) = h.create_storage_buffer(&[params], "params", wgpu::BufferUsages::UNIFORM);
+        let (_param_buf_h, param_buf) = h.create_storage_buffer(&[params], "params", wgpu::BufferUsages::UNIFORM);
 
         // Compute Pipeline
         let compute_bgl = h.engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

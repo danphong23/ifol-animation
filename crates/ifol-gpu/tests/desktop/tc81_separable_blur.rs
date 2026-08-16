@@ -20,8 +20,8 @@ fn test_tc81_separable_blur() {
         let src_tex_info = h.load_texture("bg_nightsky.jpeg");
         
         // Storage Textures for intermediate and final
-        let (inter_h, inter_tex) = h.create_storage_texture(src_tex_info.width, src_tex_info.height, wgpu::TextureFormat::Rgba8Unorm, "intermediate_tex");
-        let (final_h, final_tex) = h.create_storage_texture(src_tex_info.width, src_tex_info.height, wgpu::TextureFormat::Rgba8Unorm, "final_tex");
+        let (_inter_h, inter_tex) = h.create_storage_texture(src_tex_info.width, src_tex_info.height, wgpu::TextureFormat::Rgba8Unorm, "intermediate_tex");
+        let (_final_h, final_tex) = h.create_storage_texture(src_tex_info.width, src_tex_info.height, wgpu::TextureFormat::Rgba8Unorm, "final_tex");
 
         let inter_view = inter_tex.create_view(&wgpu::TextureViewDescriptor::default());
         let final_view = final_tex.create_view(&wgpu::TextureViewDescriptor::default());

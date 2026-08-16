@@ -22,9 +22,9 @@ fn test_tc75_fft() {
             waveform[i] = (2.0 * PI * freq1 * t).sin() * 0.6 + (2.0 * PI * freq2 * t).sin() * 0.4;
         }
 
-        let (wave_buf_h, wave_buf) = h.create_storage_buffer(&waveform, "waveform_buf", wgpu::BufferUsages::empty());
+        let (_wave_buf_h, wave_buf) = h.create_storage_buffer(&waveform, "waveform_buf", wgpu::BufferUsages::empty());
         let spec_data = vec![0.0f32; 256];
-        let (spec_buf_h, spec_buf) = h.create_storage_buffer(&spec_data, "spectrum_buf", wgpu::BufferUsages::VERTEX);
+        let (_spec_buf_h, spec_buf) = h.create_storage_buffer(&spec_data, "spectrum_buf", wgpu::BufferUsages::VERTEX);
 
         // Compute Pipeline
         let compute_bgl = h.engine.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

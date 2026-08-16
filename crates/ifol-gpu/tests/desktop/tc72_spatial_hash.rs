@@ -1,6 +1,5 @@
 use std::time::Instant;
-use ifol_gpu::api::GpuEngineBuilder;
-use ifol_gpu::graph::{ComputeCommand, DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
+use ifol_gpu::graph::{ComputeCommand, DrawAction, DrawCommand, RenderGraph, RenderTarget};
 use wgpu::util::DeviceExt;
 
 mod harness;
@@ -205,7 +204,7 @@ fn test_tc72_spatial_hash() {
 
     let t_start = Instant::now();
     let sub = h.executor.execute(&h.engine, &h.registry, &mut h.pool, &graph).unwrap();
-    h.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(sub), timeout: None });
+    let _ = h.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(sub), timeout: None });
     let t_elapsed = t_start.elapsed();
     println!("Spatial Hash Compute+Render Time: {:?}", t_elapsed);
 

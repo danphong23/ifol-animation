@@ -10,7 +10,7 @@ fn test_tc85_prefix_sum() {
         let (target_handle, target_tex) = h.create_target("tc85_target");
 
         // Prepare 256 input integers
-        let mut input_data: Vec<u32> = (0..256).map(|i| (i % 5) + 1).collect();
+        let input_data: Vec<u32> = (0..256).map(|i| (i % 5) + 1).collect();
         let expected_first = 0;
         let expected_second = input_data[0];
 
