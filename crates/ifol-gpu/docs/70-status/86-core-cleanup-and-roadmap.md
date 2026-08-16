@@ -30,8 +30,8 @@ domain. Host tạo shader, pipeline, texture, buffer, bind group và dữ liệu
 ### Trạng thái migration hiện tại
 
 Graph kernel, resource layer, execution layer, backend và extension boundary đã
-được tách vật lý sang các module riêng. `src/render` và `src/api` chỉ giữ
-re-export facade để bảo toàn public path cũ.
+được tách vật lý sang các module riêng. `src/render` đã bị loại bỏ; `src/api`
+chỉ giữ profiling primitives và một số public re-export canonical.
 
 ```text
 src/
@@ -44,8 +44,9 @@ src/
   api/         # public facade and stable re-exports
 ```
 
-Migration phải giữ re-export compatibility trong một giai đoạn; không đổi public
-path chỉ vì đổi thư mục nội bộ.
+Các public path đã được migrate về domain module canonical. Re-export chỉ còn
+được giữ khi nó là một phần của public facade hiện hành, không phải để duy trì
+API legacy đã bị loại bỏ.
 
 ## Đã đạt
 
@@ -71,7 +72,8 @@ path chỉ vì đổi thư mục nội bộ.
 ## Roadmap bắt buộc
 
 1. Đóng băng graph kernel public contract — đã hoàn tất.
-2. Tách source tree theo boundary ở trên, giữ re-export tạm thời — đã hoàn tất.
+2. Tách source tree theo boundary ở trên, giữ lại chỉ các re-export thuộc
+   canonical facade — đã hoàn tất.
 3. Migrate examples/tests sang descriptor API và xóa compatibility path — đã hoàn tất
    cho toàn bộ consumer nội bộ, gồm cả benchmark.
 4. Loại bỏ silent skip trong encoder hoặc biến thành typed internal error — đã hoàn tất.
@@ -85,8 +87,8 @@ path chỉ vì đổi thư mục nội bộ.
 Engine bên ngoài chỉ phụ thuộc public facade và revision/tag ổn định. Breaking
 change phải có migration note và test contract.
 Capability snapshot, builder/engine backend, extension registry/dispatcher,
-graph/execution/resources/memory đều đã nằm đúng boundary; `src/api` và
-`src/render` chỉ còn facade. Examples, integration tests và benchmarks đều dùng
+graph/execution/resources/memory đều đã nằm đúng boundary; `src/api` chỉ còn
+profiling facade và re-export cần thiết. Examples, integration tests và benchmarks đều dùng
 public descriptor API, không còn raw resource consumer.
 `TextureCache` alias đã bị xóa vì không còn consumer; code dùng
 `TransientTexturePool` phải gọi đúng semantics.

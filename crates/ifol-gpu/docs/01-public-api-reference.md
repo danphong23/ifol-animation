@@ -4,7 +4,11 @@ Tài liệu này cung cấp danh mục tra cứu API đầy đủ cho các kỹ 
 
 ---
 
-## 1. Module `api`: Khởi Tạo & Quản Lý GPU Context
+## 1. Module `backend`: Khởi Tạo & Quản Lý GPU Context
+
+`backend` là module canonical cho device, adapter và surface. Module `api` chỉ
+re-export các backend type cùng profiling primitives; code mới nên import
+backend trực tiếp.
 
 ### `struct GpuEngine<'a>`
 Engine gốc bọc kết nối WebGPU / WGPU Native.
@@ -14,11 +18,15 @@ impl<'a> GpuEngine<'a> {
     pub fn device(&self) -> &wgpu::Device;
     pub fn queue(&self) -> &wgpu::Queue;
     pub fn adapter(&self) -> &wgpu::Adapter;
-    pub fn features(&self) -> wgpu::Features;
-    pub fn limits(&self) -> wgpu::Limits;
+    pub fn capabilities(&self) -> &GpuCapabilities;
+    pub fn adapter_info(&self) -> &wgpu::AdapterInfo;
+    pub fn surface(&self) -> Option<&wgpu::Surface<'a>>;
+    pub fn try_resize_surface(&self, width: u32, height: u32) -> Result<(), SurfaceResizeError>;
+    pub fn reconfigure_surface(&self) -> Result<(), SurfaceResizeError>;
+    pub fn surface_format(&self) -> Option<wgpu::TextureFormat>;
     
     // Lưu texture ra file ảnh PNG hỗ trợ kiểm thử & xuất file
-    pub fn save_texture_to_file_checked(&self, texture: &wgpu::Texture, path: &Path) -> Result<(), GpuEngineError>;
+    pub fn save_texture_to_file_checked(&self, texture: &wgpu::Texture, path: &Path) -> Result<(), TextureSaveError>;
 }
 ```
 
@@ -31,7 +39,7 @@ impl<'a> GpuEngineBuilder<'a> {
     pub fn with_power_preference(mut self, pref: wgpu::PowerPreference) -> Self;
     pub fn with_required_features(mut self, features: wgpu::Features) -> Self;
     pub fn with_required_limits(mut self, limits: wgpu::Limits) -> Self;
-    pub async fn build(self) -> Result<GpuEngine<'a>, GpuEngineError>;
+    pub async fn build(self) -> Result<GpuEngine<'a>, GpuError>;
 }
 ```
 
@@ -55,16 +63,27 @@ impl ResourceRegistry {
     pub fn new() -> Self;
     
     // Đăng ký Texture sở hữu
-    pub fn insert_owned_texture(&mut self, handle: TextureHandle, texture: wgpu::Texture, desc: TextureResourceDescriptor, size_bytes: u64) -> Result<(), ResourceRegistryError>;
+    pub fn insert_owned_texture(
+        &mut self,
+        handle: TextureHandle,
+        texture: wgpu::Texture,
+        descriptor: TextureResourceDescriptor,
+        max_dimension: u32,
+    ) -> Result<Option<OwnedTextureResource>, ResourceDescriptorError>;
     
     // Đăng ký Buffer với kích thước & usages
-    pub fn insert_buffer_with_descriptor(&mut self, handle: BufferHandle, buffer: wgpu::Buffer, desc: BufferResourceDescriptor) -> Result<(), ResourceRegistryError>;
+    pub fn insert_buffer_with_descriptor(&mut self, handle: BufferHandle, buffer: wgpu::Buffer, descriptor: BufferResourceDescriptor) -> Result<Option<wgpu::Buffer>, BufferDescriptorError>;
     
     // Đăng ký BindGroup
-    pub fn insert_bind_group(&mut self, handle: BindGroupHandle, bg: wgpu::BindGroup, bind_group_index: u32) -> Result<(), ResourceRegistryError>;
+    pub fn insert_bind_group_with_descriptor(
+        &mut self,
+        handle: BindGroupHandle,
+        bg: wgpu::BindGroup,
+        descriptor: BindGroupResourceDescriptor,
+    ) -> Result<Option<wgpu::BindGroup>, BindGroupDescriptorError>;
     
     // Truy xuất đối tượng WGPU
-    pub fn texture(&self, handle: &TextureHandle) -> Option<&wgpu::Texture>;
+    pub fn texture(&self, handle: &TextureHandle) -> Option<&(wgpu::TextureView, wgpu::TextureFormat)>;
     pub fn buffer(&self, handle: &BufferHandle) -> Option<&wgpu::Buffer>;
     pub fn pipeline(&self, handle: &PipelineHandle) -> Option<&wgpu::RenderPipeline>;
     pub fn compute_pipeline(&self, handle: &ComputePipelineHandle) -> Option<&wgpu::ComputePipeline>;
@@ -128,11 +147,11 @@ impl RenderGraphExecutor {
         registry: &ResourceRegistry,
         pool: &mut RenderNodePool,
         graph: &RenderGraph,
-    ) -> Result<RenderGraphExecutionReport, RenderGraphValidationError>;
+    ) -> Result<ExecutionReport, RenderGraphValidationError>;
 }
 ```
 
-### `struct RenderGraphExecutionReport`
+### `struct ExecutionReport`
 Báo cáo thống kê chi tiết sau khi thực thi 1 frame:
 *   `flattened_nodes`: Tổng số node sau khi bung toàn bộ cây SubGraph.
 *   `draw_commands`: Số lệnh Draw.

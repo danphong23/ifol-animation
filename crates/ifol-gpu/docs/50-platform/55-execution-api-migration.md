@@ -1,12 +1,13 @@
 # Migration execution API có `Result`
 
-`RenderGraphExecutor::execute` và `execute_with_surface` hiện trả:
+`RenderGraphExecutor::execute_checked` và
+`execute_with_surface_checked` trả:
 
 ```text
 Result<wgpu::SubmissionIndex, RenderGraphValidationError>
 ```
 
-Host production phải xử lý lỗi hoặc chuyển tiếp lỗi; không còn API public nào
+Host production phải xử lý lỗi hoặc chuyển tiếp lỗi; không có API public nào
 encode một graph invalid bằng cách bỏ qua resource thiếu một cách âm thầm.
 Encoder unchecked chỉ còn là implementation detail sau khi validation đã pass.
 

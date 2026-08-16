@@ -45,7 +45,7 @@ flowchart TD
 
 ### Các Điều Khoản Bất Biến (Invariants):
 1. **Engine không chứa Business Logic:** `ifol-gpu` không biết khái niệm Layer, Keyframe, Animation Clip, Video File, hay User Mouse Click. Nó chỉ tiếp nhận các đối tượng đồ họa cơ bản (Primitives).
-2. **Không Mutate State của Tầng Ngoài:** `ifol-gpu` là một hệ thống thực thi thuần túy (Pure Functional Executor). Nó chỉ đọc Graph & Registry, mã hóa vào GPU Command Buffer và trả về Báo cáo Thực thi (`RenderGraphExecutionReport`).
+2. **Không Mutate State của Tầng Ngoài:** `ifol-gpu` là một hệ thống thực thi thuần túy (Pure Functional Executor). Nó chỉ đọc Graph & Registry, mã hóa vào GPU Command Buffer và trả về `ExecutionReport` hoặc `SubmissionIndex` qua các API execution checked.
 3. **Cấm UI / MCP can thiệp trực tiếp vào GPU:** Mọi tương tác UI hoặc AI đều phải đi qua `CommandBus` $\rightarrow$ cập nhật ECS $\rightarrow$ `TranslationSystem` dựng `RenderGraph` $\rightarrow$ nạp `ifol-gpu`.
 
 ---

@@ -11,7 +11,8 @@ tracing hoặc telemetry riêng sau này.
 
 `RenderGraphExecutor::execute_checked_with_report` và
 `execute_with_surface_checked_with_report` trả `ExecutionReport`. Các API
-`execute` hiện tại vẫn chỉ trả `SubmissionIndex` để giữ tương thích.
+`execute_checked` và `execute_with_surface_checked` là biến thể rút gọn chỉ
+trả `SubmissionIndex`.
 
 Report gồm:
 
@@ -36,4 +37,3 @@ một profiler cụ thể.
 
 Test unit dựng graph có draw/compute/copy node và explicit usage, sau đó kiểm tra
 flat node count, từng loại command, indirect count và usage count.
-

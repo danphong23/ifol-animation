@@ -240,9 +240,11 @@ surface. F11 đã tách transient texture/buffer pool thành
 giữ facade re-export nhỏ, còn submission-gated reuse semantics và regression
 tests không đổi. F12 đã tách resource conflict matching thành
 `graph/buffer_overlap.rs` và `graph/texture_overlap.rs`; `graph/usage_overlap.rs`
-giữ conflict policy và facade điều phối, không đổi hazard semantics. Bước tiếp
-theo là F13: audit và sửa tài liệu còn mô tả API compatibility/legacy đã bị
-loại bỏ, rồi tiếp tục structure/file-size audit.
+giữ conflict policy và facade điều phối, không đổi hazard semantics. F13 đã
+audit và sửa các tài liệu còn mô tả alias execution, raw insertion,
+`src/render` facade và backend compatibility path đã bị loại bỏ. Bước tiếp theo
+là F14: loại bỏ `FrameContext::seal` legacy convenience API, migrate regression
+tests sang `seal_with_deferred_textures`, rồi tiếp tục structure/file-size audit.
 
 ## Không nằm trong đợt tách file đầu tiên
 

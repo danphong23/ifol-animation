@@ -147,10 +147,10 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F13: audit và sửa các tài liệu còn mô tả API compatibility/legacy đã bị
-loại bỏ; sau đó tiếp tục structure/file-size audit ở production hotspots còn
-lại, giữ semantics nguyên vẹn và chỉ tách thêm khi boundary responsibility
-đã rõ.
+Task F14: loại bỏ `FrameContext::seal` legacy convenience API, migrate
+regression tests sang `seal_with_deferred_textures`, rồi tiếp tục
+structure/file-size audit ở production hotspots còn lại; giữ semantics và
+lifetime guarantees nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task F4.

@@ -5,6 +5,6 @@ encode khi host render vào `SurfaceTexture`. API trả `Result<SubmissionIndex,
 RenderGraphValidationError>`, vì vậy graph thiếu resource hoặc có dependency
 không hợp lệ không bị bỏ qua âm thầm trên đường render cửa sổ.
 
-`execute_with_surface` và `execute` vẫn được giữ để tương thích; host mới nên
-dùng API checked. Đây là bước migration trước khi loại bỏ silent-skip khỏi API
-legacy.
+Các alias `execute_with_surface` và `execute` đã được loại bỏ khỏi public API.
+Host phải dùng `execute_with_surface_checked` hoặc `execute_checked`; mọi graph
+đều đi qua validation trước khi encode.

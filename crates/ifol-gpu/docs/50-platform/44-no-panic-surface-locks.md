@@ -1,6 +1,6 @@
 # Surface lock không panic
 
-`GpuEngine::resize_surface` và `surface_format` không dùng `RwLock::unwrap()`.
+`GpuEngine::try_resize_surface` và `surface_format` không dùng `RwLock::unwrap()`.
 Nếu lock surface configuration bị poison, resize được bỏ qua an toàn và format
 trả `None`; caller có thể xử lý như surface chưa sẵn sàng.
 

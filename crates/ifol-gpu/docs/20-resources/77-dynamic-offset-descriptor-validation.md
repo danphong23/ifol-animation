@@ -3,9 +3,9 @@
 ## Giới hạn introspection
 
 `wgpu::BindGroup` không expose bind-group layout để core tự suy luận số lượng
-dynamic offset hoặc loại buffer tương ứng. Compatibility API cũ vì vậy vẫn cho
-phép đăng ký bind group không có metadata, nhưng không thể kiểm tra sâu hơn
-slot tồn tại.
+dynamic offset hoặc loại buffer tương ứng. Canonical API yêu cầu host cung cấp
+metadata qua `BindGroupResourceDescriptor`; core không giữ đường đăng ký bind
+group thiếu descriptor để suy luận ngầm.
 
 ## Contract metadata
 

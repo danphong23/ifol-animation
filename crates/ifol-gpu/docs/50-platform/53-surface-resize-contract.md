@@ -7,5 +7,5 @@ và có kết quả rõ ràng:
 - engine headless hoặc surface chưa có configuration trả `Unavailable`;
 - lỗi khóa nội bộ trả `LockPoisoned`.
 
-`resize_surface` vẫn được giữ để tương thích API cũ nhưng chỉ là wrapper bỏ qua
-kết quả. Host/platform nên dùng API `try_` để không mất chẩn đoán lifecycle.
+Không còn wrapper `resize_surface` kiểu bỏ qua kết quả. Host/platform phải dùng
+`try_resize_surface` để giữ chẩn đoán lifecycle typed.

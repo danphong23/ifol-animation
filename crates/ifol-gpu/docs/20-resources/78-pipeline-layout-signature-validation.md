@@ -23,8 +23,8 @@ gắn bind group, validation trước submit sẽ từ chối:
 - signature khác nhau tại slot;
 - dynamic offset count/alignment không hợp lệ.
 
-Đăng ký pipeline/bind group qua compatibility API cũ sẽ xóa metadata tương ứng,
-tránh giữ descriptor cũ cho object mới.
+Đăng ký pipeline/bind group qua canonical descriptor API thay thế metadata của
+handle đó, tránh giữ descriptor cũ cho object mới.
 
 ## Tính chất mở rộng
 

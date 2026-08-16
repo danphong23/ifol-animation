@@ -2,7 +2,7 @@
 
 ## Thay đổi
 
-Bind-group state cache không còn dùng mảng cố định bốn slot. Khi execute,
+Bind-group state cache không còn dùng mảng cố định bốn slot. Khi execute checked,
 executor lấy `engine.capabilities().max_bind_groups` để cấp cache và validate
 slot theo đúng device.
 
