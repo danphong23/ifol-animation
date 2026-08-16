@@ -71,6 +71,11 @@ registry/lifetime. Tách theo responsibility, không tách theo danh sách loạ
 
 ## Phase D — Color/readback boundary
 
+Tiến độ hiện tại: primitive readback đã được tách khỏi `backend/engine.rs`
+thành `backend/readback.rs`, giữ nguyên checked API và compatibility re-export.
+Bước kế tiếp là khóa rõ format thực tế của dữ liệu readback trước khi xử lý
+save/encode.
+
 Chỉ bắt đầu sau khi A-C đã pass:
 
 1. audit mọi occurrence của `Rgba8UnormSrgb`;
