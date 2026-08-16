@@ -127,6 +127,10 @@ validation còn lại. Phase E14 tách node/resource/command traversal khỏi
 `execution/validation.rs` vào `execution/validation_node.rs`; validation
 facade giờ chỉ giữ flattening, target/depth orchestration và re-export
 compatibility. Bước kế tiếp là E15: audit resource registry production file.
+Phase E15 tách regression suite khỏi `resources/registry.rs` vào
+`resources/registry_tests.rs`; registry production file giờ chỉ giữ state
+container, version API và version bump primitive. Bước kế tiếp là E16: audit
+resource versioning boundary và public resource facade.
 
 ## Phase E — Public API và cleanup
 
