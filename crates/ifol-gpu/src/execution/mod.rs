@@ -16,6 +16,8 @@ mod compute;
 use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
+mod segments;
+use segments::{execute_non_render_nodes, execute_ordered_target_nodes};
 mod orchestration;
 use orchestration::{compile_flat_graph, execution_counts_for_graph, map_graph_flatten_error, resolve_target_views};
 #[cfg(test)]
@@ -352,87 +354,6 @@ impl RenderGraphExecutor {
         Ok(engine.queue().submit(std::iter::once(encoder.finish())))
 }
 
-fn execute_non_render_nodes(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        engine: &GpuEngine,
-        pool: &RenderNodePool,
-        registry: &ResourceRegistry,
-        node_ids: &[RenderNodeId],
-    ) -> Result<(), RenderGraphValidationError> {
-        for &node_id in node_ids {
-            let Some(node) = pool.get(node_id) else {
-                return Err(RenderGraphValidationError::MissingNode(node_id));
-            };
-            self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
-            for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command)?;
-            }
-            encode_compute_commands(encoder, registry, node.compute_commands(), engine.capabilities().max_bind_groups)?;
-        }
-        Ok(())
-    }
-
-    fn execute_ordered_target_nodes(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        engine: &GpuEngine,
-        pool: &RenderNodePool,
-        registry: &ResourceRegistry,
-        node_ids: &[RenderNodeId],
-        color_view: &wgpu::TextureView,
-        color_format: wgpu::TextureFormat,
-        resolve_view: Option<&wgpu::TextureView>,
-        depth_stencil_info: Option<(&wgpu::TextureView, wgpu::TextureFormat)>,
-        clear_color: Option<[f32; 4]>,
-        max_bind_groups: u32,
-    ) -> Result<(), RenderGraphValidationError> {
-        let mut rendered_any = false;
-        for &node_id in node_ids {
-            let Some(node) = pool.get(node_id) else {
-                return Err(RenderGraphValidationError::MissingNode(node_id));
-            };
-            self.dispatch_extension(encoder, engine, registry, pool, node_id)?;
-            for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command)?;
-            }
-            encode_compute_commands(encoder, registry, node.compute_commands(), max_bind_groups)?;
-            if node.commands().is_empty() { continue; }
-
-            let should_clear = !rendered_any && clear_color.is_some();
-            with_render_pass(
-                encoder,
-                color_view,
-                resolve_view,
-                depth_stencil_info,
-                clear_color
-                    .map(|c| wgpu::LoadOp::Clear(wgpu::Color {
-                        r: c[0] as f64,
-                        g: c[1] as f64,
-                        b: c[2] as f64,
-                        a: c[3] as f64,
-                    }))
-                    .filter(|_| should_clear)
-                    .unwrap_or(wgpu::LoadOp::Load),
-                if should_clear {
-                    wgpu::LoadOp::Clear(1.0)
-                } else {
-                    wgpu::LoadOp::Load
-                },
-                if should_clear {
-                    wgpu::LoadOp::Clear(0)
-                } else {
-                    wgpu::LoadOp::Load
-                },
-                "RenderGraphSegmentPass",
-                |render_pass| encode_draw_commands(render_pass, registry, node.commands(), max_bind_groups),
-            )?;
-            rendered_any = true;
-        }
-        let _ = (color_format, rendered_any);
-        Ok(())
-    }
-
     /// Thuật toán Biên dịch 2-Phase (1 RenderGraph = 1 RenderPass)
     fn compile_graph(
         &self,
@@ -464,7 +385,7 @@ fn execute_non_render_nodes(
         // -------------------------------------------------------------
         let ordered_ids = graph.ordered_node_ids(pool).map_err(map_graph_flatten_error)?;
         let Some(target_views) = resolve_target_views(&graph.target, engine, registry, surface_view) else {
-            self.execute_non_render_nodes(encoder, engine, pool, registry, &ordered_ids)?;
+            execute_non_render_nodes(self, encoder, engine, pool, registry, &ordered_ids)?;
             return Ok(());
         };
         let orchestration::TargetViews { color_view, color_format, sample_count, resolve_view } = target_views;
@@ -475,7 +396,8 @@ fn execute_non_render_nodes(
         let has_draw = ordered_ids.iter().any(|id| pool.get(*id).is_some_and(|node| !node.commands().is_empty()));
         let has_non_render = ordered_ids.iter().any(|id| pool.get(*id).is_some_and(|node| !node.copy_commands().is_empty() || !node.compute_commands().is_empty()));
         if has_draw && has_non_render {
-            self.execute_ordered_target_nodes(
+            execute_ordered_target_nodes(
+                self,
                 encoder,
                 engine,
                 pool,
