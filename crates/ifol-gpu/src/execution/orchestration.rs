@@ -65,6 +65,30 @@ pub(crate) fn resolve_target_views<'a>(
     }
 }
 
+pub(crate) fn compile_nested_graphs(
+    executor: &RenderGraphExecutor,
+    encoder: &mut wgpu::CommandEncoder,
+    engine: &GpuEngine,
+    pool: &mut RenderNodePool,
+    graph: &RenderGraph,
+    registry: &ResourceRegistry,
+    surface_view: Option<&wgpu::TextureView>,
+) -> Result<(), RenderGraphValidationError> {
+    for &node_id in &graph.node_ids {
+        let inner_graph = if let Some(RenderNode::SubGraph { graph: inner, .. }) = pool.get(node_id)
+        {
+            Some(inner.clone())
+        } else {
+            None
+        };
+
+        if let Some(inner) = inner_graph {
+            executor.compile_graph(encoder, engine, pool, &inner, registry, surface_view)?;
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn execution_counts_for_graph(
     pool: &RenderNodePool,
     graph: &RenderGraph,

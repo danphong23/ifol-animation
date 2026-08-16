@@ -19,7 +19,7 @@ use copy::encode_copy_command;
 mod segments;
 use segments::{execute_non_render_nodes, execute_ordered_target_nodes};
 mod orchestration;
-use orchestration::{compile_flat_graph, execution_counts_for_graph, map_graph_flatten_error, resolve_target_views};
+use orchestration::{compile_flat_graph, compile_nested_graphs, execution_counts_for_graph, map_graph_flatten_error, resolve_target_views};
 #[cfg(test)]
 pub(crate) use render::bundle_cache_key;
 #[cfg(test)]
@@ -368,17 +368,7 @@ impl RenderGraphExecutor {
         // PHASE 1: Đệ quy xử lý tất cả SubGraph con (Bottom-Up)
         // Vẽ các nhánh con ra Offscreen Texture trước khi mở Pass cha
         // -------------------------------------------------------------
-        for &node_id in &graph.node_ids {
-            let inner_graph = if let Some(RenderNode::SubGraph { graph: inner, .. }) = pool.get(node_id) {
-                Some(inner.clone())
-            } else {
-                None
-            };
-
-            if let Some(inner) = inner_graph {
-                self.compile_graph(encoder, engine, pool, &inner, registry, surface_view)?;
-            }
-        }
+        compile_nested_graphs(self, encoder, engine, pool, graph, registry, surface_view)?;
 
         // -------------------------------------------------------------
         // PHASE 2: Mở 1 GPU RenderPass DUY NHẤT cho Target của Graph hiện tại
