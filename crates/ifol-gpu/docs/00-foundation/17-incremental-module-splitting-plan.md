@@ -235,8 +235,11 @@ flattened dependency ordering khỏi `graph/graph.rs` vào `graph/flattening.rs`
 giữ nguyên graph model, public construction API và hazard semantics. F10 đã tách
 bundle cache identity calculation khỏi `execution/render_bundles.rs` vào
 `execution/bundle_key.rs`, giữ nguyên cache key behavior và internal test
-surface. Bước tiếp theo là F11: audit các production hotspot còn lại trước
-khi chọn responsibility tiếp theo.
+surface. F11 đã tách transient texture/buffer pool thành
+`memory/texture_pool.rs` và `memory/buffer_pool.rs`; `memory/lru_cache.rs`
+giữ facade re-export nhỏ, còn submission-gated reuse semantics và regression
+tests không đổi. Bước tiếp theo là F12: audit các production hotspot còn lại
+trước khi chọn responsibility tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
 

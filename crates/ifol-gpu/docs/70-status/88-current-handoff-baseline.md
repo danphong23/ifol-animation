@@ -38,8 +38,11 @@ chỉ từ compile hoặc test trên Windows.
   facade hiện giữ contracts, validation và registries;
 - `src/memory/frame_tests.rs` chứa frame lifecycle regression suite; frame
   production module chỉ giữ lifecycle logic và public API;
-- `src/memory/lru_tests.rs` chứa transient pool regression suite; lru cache
-  production module chỉ giữ descriptor keys và pool contracts;
+- `src/memory/lru_tests.rs` chứa transient pool regression suite;
+  `src/memory/texture_pool.rs` giữ texture descriptor key và
+  `TransientTexturePool`, còn `src/memory/buffer_pool.rs` giữ buffer
+  descriptor key và `TransientBufferPool`; `lru_cache.rs` chỉ là facade
+  re-export nhỏ để giữ canonical public path;
 - `src/memory/ring_tests.rs` chứa ring buffer regression suite; ring buffer
   production module chỉ giữ allocation và submission-gated reset logic;
 - `src/memory/submission_tests.rs` chứa submission tracker regression suite;
@@ -143,8 +146,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F9: tiếp tục structure/file-size audit; giữ graph/render semantics
-nguyên vẹn và chỉ tách thêm khi boundary responsibility đã rõ.
+Task F12: tiếp tục structure/file-size audit ở các production hotspot còn
+lại; giữ semantics nguyên vẹn và chỉ tách thêm khi boundary responsibility
+đã rõ.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task F4.

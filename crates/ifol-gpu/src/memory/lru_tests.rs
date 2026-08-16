@@ -1,4 +1,10 @@
-use super::*;
+use super::{
+    BufferDescriptorKey, TextureDescriptorKey, TextureDimensionKey, TransientBufferPool,
+    TransientTexturePool,
+};
+use crate::memory::{SubmissionId, SubmissionTracker};
+use crate::resources::{BufferHandle, TextureHandle};
+use wgpu::TextureFormat;
 
 fn desc(format: TextureFormat) -> TextureDescriptorKey {
     TextureDescriptorKey::new(
