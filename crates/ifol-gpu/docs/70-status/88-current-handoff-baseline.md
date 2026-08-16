@@ -53,6 +53,8 @@ chỉ từ compile hoặc test trên Windows.
   production module chỉ giữ queue và completion-gated drain contract;
 - `src/lib_tests.rs` chứa headless initialization regression test; root
   `lib.rs` chỉ giữ crate module declarations và public facade;
+- `src/api/profiling_tests.rs` chứa timestamp profiling regression suite;
+  `api/profiling.rs` chỉ giữ profiling contract và pool behavior;
 - `src/execution/validation_errors.rs` chứa typed validation error contract;
   `validation.rs` giữ orchestration và các re-export nội bộ cần cho validation;
 - `src/execution/validation_copy.rs` chứa copy-command và buffer-range
@@ -151,7 +153,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F19: tiếp tục structure/file-size audit ở production hotspots còn lại;
+Task F20: tiếp tục structure/file-size audit ở production hotspots còn lại;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
 Rust trong crate.

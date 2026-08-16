@@ -258,7 +258,10 @@ không đổi benchmark behavior. Bước tiếp theo là F18: tiếp tục audi
 production hotspots còn lại. F18 đã tách bốn profiling entrypoints khỏi
 `execution/executor.rs` vào `execution/executor_profiling.rs`; executor core,
 reporting và public method signatures không đổi. Bước tiếp theo là F19: tiếp
-tục audit production hotspots còn lại.
+tục audit production hotspots còn lại. F19 đã tách timestamp profiling
+regression suite khỏi `api/profiling.rs` vào `api/profiling_tests.rs`; profiling
+contract và submission-gated pool behavior không đổi. Bước tiếp theo là F20:
+tiếp tục audit production hotspots còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 
