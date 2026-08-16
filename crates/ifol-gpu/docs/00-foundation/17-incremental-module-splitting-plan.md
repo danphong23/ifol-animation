@@ -232,9 +232,11 @@ validation order và error contract. F8 đã tách extension/dispatcher registry
 state và lookup khỏi `extensions/mod.rs` vào `extensions/registry.rs`, giữ
 nguyên public exports và registration behavior. F9 đã tách flatten traversal và
 flattened dependency ordering khỏi `graph/graph.rs` vào `graph/flattening.rs`,
-giữ nguyên graph model, public construction API và hazard semantics. Bước tiếp
-theo là F10: audit các production hotspot còn lại trước khi chọn responsibility
-tiếp theo.
+giữ nguyên graph model, public construction API và hazard semantics. F10 đã tách
+bundle cache identity calculation khỏi `execution/render_bundles.rs` vào
+`execution/bundle_key.rs`, giữ nguyên cache key behavior và internal test
+surface. Bước tiếp theo là F11: audit các production hotspot còn lại trước
+khi chọn responsibility tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
 

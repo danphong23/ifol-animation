@@ -9,6 +9,7 @@ mod validation_node;
 mod validation_indirect;
 mod validation_texture;
 pub use validation::RenderGraphValidationError;
+mod bundle_key;
 use validation::format_has_stencil;
 mod render_bundles;
 mod render_pass;
@@ -35,7 +36,7 @@ mod executor;
 pub use executor::RenderGraphExecutor;
 pub use report::{ExecutionReport, ProfiledExecution, RenderGraphProfilingError};
 #[cfg(test)]
-pub(crate) use render_bundles::bundle_cache_key;
+pub(crate) use bundle_key::bundle_cache_key;
 #[cfg(test)]
 pub(crate) use validation::bind_group_slot_index;
 #[cfg(test)]

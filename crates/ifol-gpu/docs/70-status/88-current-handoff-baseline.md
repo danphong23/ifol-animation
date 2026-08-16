@@ -101,8 +101,10 @@ chỉ từ compile hoặc test trên Windows.
 - `src/execution/flat_compile.rs` chứa flat graph compilation, owner-path
   resolution và flatten-error mapping;
 - `src/execution/nested_compile.rs` chứa nested graph compilation bottom-up;
-- `src/execution/render_bundles.rs` chứa bundle cache key, bundle update và
-  render-node preparation;
+- `src/execution/render_bundles.rs` chứa bundle update và render-node
+  preparation;
+- `src/execution/bundle_key.rs` chứa pure bundle cache identity calculation;
+  `render_bundles.rs` giữ bundle encode/update lifecycle;
 - `src/execution/render_pass.rs` chứa render pass lifecycle, graph pass và draw
   command encoding; `render.rs` facade đã được loại bỏ;
 - `src/execution/non_render.rs` chứa execution của extension/copy/compute không
