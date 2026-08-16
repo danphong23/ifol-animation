@@ -6,7 +6,7 @@ use crate::resources::ResourceRegistry;
 use super::compute::encode_compute_commands;
 use super::copy::encode_copy_command;
 use super::extension::dispatch_extension;
-use super::render::{encode_draw_commands, with_render_pass};
+use super::render_pass::{encode_draw_commands, with_render_pass};
 use super::{RenderGraphExecutor, RenderGraphValidationError};
 
 pub(crate) fn execute_non_render_nodes(

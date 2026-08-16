@@ -175,7 +175,10 @@ owner-path/error mapping khỏi `execution/orchestration.rs` vào
 kế tiếp là E29: tách nested graph compilation orchestration. Phase E29 đổi tên
 boundary còn lại từ `orchestration.rs` sang `nested_compile.rs`, giữ nguyên
 nested compilation behavior và compiler call sites. Bước kế tiếp là E30: audit
-execution segments/render-pass boundaries.
+execution segments/render-pass boundaries. Phase E30 tách render-bundle cache/
+preparation và render-pass/draw encoding khỏi `execution/render.rs` vào
+`render_bundles.rs` và `render_pass.rs`, giữ nguyên compiler/segment call sites
+và draw behavior. Bước kế tiếp là E31: audit execution segment phases.
 
 ## Phase E — Public API và cleanup
 

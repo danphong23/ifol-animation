@@ -87,6 +87,10 @@ chỉ từ compile hoặc test trên Windows.
 - `src/execution/flat_compile.rs` chứa flat graph compilation, owner-path
   resolution và flatten-error mapping;
 - `src/execution/nested_compile.rs` chứa nested graph compilation bottom-up;
+- `src/execution/render_bundles.rs` chứa bundle cache key, bundle update và
+  render-node preparation;
+- `src/execution/render_pass.rs` chứa render pass lifecycle, graph pass và draw
+  command encoding; `render.rs` facade đã được loại bỏ;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -99,9 +103,8 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E30: audit execution segments/render-pass boundaries, sau đó xử lý từng
-boundary một lần mà không đổi behavior. Giữ facade public và render/graph
-semantics nguyên vẹn.
+Task E31: audit execution segment phases, sau đó xử lý từng boundary một lần
+mà không đổi behavior. Giữ facade public và render/graph semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task E5.

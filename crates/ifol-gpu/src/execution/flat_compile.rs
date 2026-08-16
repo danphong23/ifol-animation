@@ -1,5 +1,5 @@
 use super::extension::dispatch_extension;
-use super::render::encode_draw_commands;
+use super::render_pass::encode_draw_commands;
 use super::targets::{resolve_target_views, TargetViews};
 use super::validation::RenderGraphValidationError;
 use super::{

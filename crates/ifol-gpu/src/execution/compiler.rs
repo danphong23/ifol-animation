@@ -5,7 +5,8 @@ use crate::resources::ResourceRegistry;
 use super::flat_compile::{compile_flat_graph, map_graph_flatten_error};
 use super::nested_compile::compile_nested_graphs;
 use super::targets::resolve_target_views;
-use super::render::{encode_graph_render_pass, prepare_render_nodes};
+use super::render_bundles::prepare_render_nodes;
+use super::render_pass::encode_graph_render_pass;
 use super::segments::{
     execute_graph_prepass, execute_non_render_nodes, execute_ordered_target_nodes,
 };
