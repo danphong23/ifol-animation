@@ -222,8 +222,10 @@ consumer khỏi alias execution `execute`/`execute_with_surface`, cập nhật d
 theo canonical contract và chạy crate verification. Bước kế tiếp là F4:
 structure/file-size audit. F4 đã tách effective usage derivation khỏi
 `graph/resource_usage.rs` vào `graph/effective_usage.rs`; declaration/accessor
-API và hazard semantics không đổi. Bước kế tiếp là F5: audit các production
-hotspot còn lại trước khi chọn responsibility tiếp theo.
+API và hazard semantics không đổi. F5 đã tách indirect-buffer validation khỏi
+`validation_copy.rs` vào `validation_indirect.rs`, giữ nguyên validation
+errors và internal re-export. Bước kế tiếp là F6: audit các production hotspot
+còn lại trước khi chọn responsibility tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
 

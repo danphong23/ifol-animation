@@ -6,6 +6,7 @@ mod validation_render;
 mod validation_target;
 mod validation_layout;
 mod validation_node;
+mod validation_indirect;
 pub use validation::RenderGraphValidationError;
 use validation::format_has_stencil;
 mod render_bundles;
