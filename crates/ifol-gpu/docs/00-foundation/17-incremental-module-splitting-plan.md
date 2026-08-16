@@ -224,8 +224,10 @@ structure/file-size audit. F4 đã tách effective usage derivation khỏi
 `graph/resource_usage.rs` vào `graph/effective_usage.rs`; declaration/accessor
 API và hazard semantics không đổi. F5 đã tách indirect-buffer validation khỏi
 `validation_copy.rs` vào `validation_indirect.rs`, giữ nguyên validation
-errors và internal re-export. Bước kế tiếp là F6: audit các production hotspot
-còn lại trước khi chọn responsibility tiếp theo.
+errors và internal re-export. F6 đã tách execution report/profiling result
+types khỏi `execution/executor.rs` vào `execution/report.rs`, giữ nguyên public
+exports và execution behavior. Bước kế tiếp là F7: audit các production
+hotspot còn lại trước khi chọn responsibility tiếp theo.
 
 ## Không nằm trong đợt tách file đầu tiên
 

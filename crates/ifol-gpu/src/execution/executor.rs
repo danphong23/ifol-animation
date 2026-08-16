@@ -1,52 +1,20 @@
-use crate::api::{ProfilingError, TimestampQueryPool, TimestampSpan};
+use crate::api::TimestampQueryPool;
 use crate::backend::GpuEngine;
 use crate::extensions::ExtensionDispatchRegistry;
 use crate::graph::{RenderGraph, RenderNodePool};
-use crate::memory::{SubmissionId, SubmissionTracker};
+use crate::memory::SubmissionTracker;
 use crate::resources::ResourceRegistry;
 use std::sync::Arc;
-use thiserror::Error;
 
 use super::counts::execution_counts_for_graph;
 use super::profiling::execute_timestamped;
+use super::report::{ExecutionReport, ProfiledExecution, RenderGraphProfilingError};
 use super::validation::validate_graph;
 use super::{compiler, RenderGraphValidationError};
 
 pub struct RenderGraphExecutor {
     context_key: u64,
     pub(super) extension_dispatchers: Arc<ExtensionDispatchRegistry>,
-}
-
-/// Thống kê cấu trúc của một lần thực thi graph.
-///
-/// Đây là diagnostics hook cấp core, không giả vờ là GPU timing. Host có thể
-/// dùng report để log, kiểm thử regression hoặc nối vào profiler riêng.
-#[derive(Debug, Clone)]
-pub struct ExecutionReport {
-    pub submission: wgpu::SubmissionIndex,
-    pub flattened_nodes: usize,
-    pub draw_commands: usize,
-    pub compute_commands: usize,
-    pub copy_commands: usize,
-    pub indirect_commands: usize,
-    pub declared_usages: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct ProfiledExecution {
-    pub report: ExecutionReport,
-    pub span: TimestampSpan,
-    /// Submission identity used by the optional host-side completion tracker.
-    /// `None` means the untracked profiling API was used.
-    pub tracking_submission: Option<SubmissionId>,
-}
-
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum RenderGraphProfilingError {
-    #[error(transparent)]
-    Validation(#[from] RenderGraphValidationError),
-    #[error(transparent)]
-    Profiling(#[from] ProfilingError),
 }
 
 impl Default for RenderGraphExecutor {

@@ -83,9 +83,11 @@ chỉ từ compile hoặc test trên Windows.
 - `src/graph/effective_usage.rs` chứa effective usage derivation từ copy/draw/
   compute commands và render target; `resource_usage.rs` chỉ giữ declaration
   và accessor API;
-- `src/execution/executor.rs` chứa public `RenderGraphExecutor`, execution
-  report và profiling result facade; `execution/mod.rs` giữ module wiring và
-  test-only aliases;
+- `src/execution/executor.rs` chứa public `RenderGraphExecutor` facade và
+  execution orchestration;
+- `src/execution/report.rs` chứa `ExecutionReport`, `ProfiledExecution` và
+  `RenderGraphProfilingError`; `execution/mod.rs` giữ public re-export và
+  module wiring;
 - `src/execution/counts.rs` chứa execution diagnostics counting và recursive
   declared-usage counting;
 - `src/execution/targets.rs` chứa target view resolution cho screen, offscreen

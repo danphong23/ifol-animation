@@ -21,6 +21,7 @@ mod non_render;
 mod prepass;
 mod target_segments;
 mod profiling;
+mod report;
 mod compiler;
 mod extension;
 mod nested_compile;
@@ -30,9 +31,8 @@ mod flat_compile;
 #[cfg(test)]
 use counts::execution_counts_for_graph;
 mod executor;
-pub use executor::{
-    ExecutionReport, ProfiledExecution, RenderGraphExecutor, RenderGraphProfilingError,
-};
+pub use executor::RenderGraphExecutor;
+pub use report::{ExecutionReport, ProfiledExecution, RenderGraphProfilingError};
 #[cfg(test)]
 pub(crate) use render_bundles::bundle_cache_key;
 #[cfg(test)]
