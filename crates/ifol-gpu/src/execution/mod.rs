@@ -1,5 +1,4 @@
 use thiserror::Error;
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
 use crate::extensions::{ExtensionDispatchRegistry, ExtensionExecutionContext};
@@ -18,7 +17,7 @@ use compute::encode_compute_commands;
 mod copy;
 use copy::encode_copy_command;
 mod orchestration;
-use orchestration::{execution_counts_for_graph, flat_plan_owner_path, map_graph_flatten_error, owner_graph_for_flat_path};
+use orchestration::{compile_flat_graph, execution_counts_for_graph, map_graph_flatten_error};
 #[cfg(test)]
 pub(crate) use render::bundle_cache_key;
 #[cfg(test)]
@@ -285,7 +284,7 @@ impl RenderGraphExecutor {
             label: Some("RenderGraphProfiledEncoder"),
         });
         profiler.write_span(&mut encoder, span)?;
-        self.compile_flat_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
+        compile_flat_graph(self, &mut encoder, engine, pool, graph, registry, surface_view)?;
         profiler.write_span(&mut encoder, span)?;
         profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
         let tracking_submission = if let Some(tracker) = tracker.as_deref_mut() {
@@ -347,7 +346,7 @@ impl RenderGraphExecutor {
         });
 
         // Duyệt 2-Phase cây RenderGraph
-        self.compile_flat_graph(&mut encoder, engine, pool, graph, registry, surface_view)?;
+        compile_flat_graph(self, &mut encoder, engine, pool, graph, registry, surface_view)?;
 
         // Submit toàn bộ khối lệnh (Command Buffer) lên GPU 1 lần duy nhất
         Ok(engine.queue().submit(std::iter::once(encoder.finish())))
@@ -431,118 +430,6 @@ fn execute_non_render_nodes(
             rendered_any = true;
         }
         let _ = (color_format, rendered_any);
-        Ok(())
-    }
-
-    /// Encode the flattened logical plan in exactly the order produced by
-    /// `RenderGraph::flatten`. Each node is encoded against the graph that
-    /// owns it; this is what allows a root node and a nested node to be
-    /// reordered by an explicit dependency or an inferred hazard.
-    fn compile_flat_graph(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        engine: &GpuEngine,
-        pool: &mut RenderNodePool,
-        graph: &RenderGraph,
-        registry: &ResourceRegistry,
-        surface_view: Option<&wgpu::TextureView>,
-    ) -> Result<(), RenderGraphValidationError> {
-        let plan = graph.flatten(pool).map_err(map_graph_flatten_error)?;
-        let is_direct_plan = plan.nodes.len() == graph.node_ids.len()
-            && plan.nodes.iter().zip(&graph.node_ids).all(|(flat, direct)| flat.node_id == *direct);
-        if is_direct_plan {
-            return self.compile_graph(encoder, engine, pool, graph, registry, surface_view);
-        }
-        let mut last_draw_index = HashMap::<Vec<RenderNodeId>, usize>::new();
-        for (index, flat_node) in plan.nodes.iter().enumerate() {
-            if pool.get(flat_node.node_id).is_some_and(|node| !node.commands().is_empty()) {
-                last_draw_index.insert(flat_plan_owner_path(flat_node), index);
-            }
-        }
-        let mut rendered_targets = HashSet::<Vec<RenderNodeId>>::new();
-
-        for (index, flat_node) in plan.nodes.iter().enumerate() {
-            let Some(node) = pool.get(flat_node.node_id) else {
-                return Err(RenderGraphValidationError::MissingNode(flat_node.node_id));
-            };
-            let owner_path = flat_plan_owner_path(flat_node);
-            let owner = owner_graph_for_flat_path(graph, pool, &flat_node.path)?;
-
-            self.dispatch_extension(encoder, engine, registry, pool, flat_node.node_id)?;
-            for command in node.copy_commands() {
-                encode_copy_command(encoder, registry, command)?;
-            }
-            encode_compute_commands(
-                encoder,
-                registry,
-                node.compute_commands(),
-                engine.capabilities().max_bind_groups,
-            )?;
-            if node.commands().is_empty() {
-                continue;
-            }
-
-            let target_view_info = match &owner.target {
-                RenderTarget::Screen => surface_view
-                    .zip(engine.surface_format())
-                    .map(|(view, format)| (view, format, 1, None))
-                    .or_else(|| registry.texture(&TextureHandle(0)).map(|(view, format)| (view, *format, 1, None))),
-                RenderTarget::Offscreen { color, .. } => registry.texture(color).map(|(view, format)| (view, *format, 1, None)),
-                RenderTarget::OffscreenMsaa { color, resolve, .. } => registry.texture(color).and_then(|(color_view, format)| {
-                    registry.texture(resolve).map(|(resolve_view, _)| {
-                        (
-                            color_view,
-                            *format,
-                            registry.texture_descriptor(color).map_or(1, |descriptor| descriptor.sample_count),
-                            Some(resolve_view),
-                        )
-                    })
-                }),
-            };
-            let Some((color_view, color_format, sample_count, resolve_view)) = target_view_info else {
-                continue;
-            };
-            let depth_stencil_info = owner.depth_stencil.and_then(|handle| registry.texture(&handle));
-            let depth_format = depth_stencil_info.map(|(_, format)| *format);
-            let is_first_target_draw = rendered_targets.insert(owner_path.clone());
-            let is_last_target_draw = last_draw_index.get(&owner_path).copied() == Some(index);
-            let resolve_target = is_last_target_draw.then_some(resolve_view).flatten();
-            let load_op = if is_first_target_draw {
-                owner.clear_color
-                    .map(|color| wgpu::LoadOp::Clear(wgpu::Color { r: color[0] as f64, g: color[1] as f64, b: color[2] as f64, a: color[3] as f64 }))
-                    .unwrap_or(wgpu::LoadOp::Load)
-            } else {
-                wgpu::LoadOp::Load
-            };
-            let color_attachments = [Some(wgpu::RenderPassColorAttachment {
-                view: color_view,
-                depth_slice: None,
-                resolve_target,
-                ops: wgpu::Operations { load: load_op, store: wgpu::StoreOp::Store },
-            })];
-            let depth_stencil_attachment = depth_stencil_info.map(|(view, format)| wgpu::RenderPassDepthStencilAttachment {
-                view,
-                depth_ops: Some(wgpu::Operations {
-                    load: if is_first_target_draw && owner.clear_color.is_some() { wgpu::LoadOp::Clear(1.0) } else { wgpu::LoadOp::Load },
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: format_has_stencil(*format).then_some(wgpu::Operations {
-                    load: if is_first_target_draw && owner.clear_color.is_some() { wgpu::LoadOp::Clear(0) } else { wgpu::LoadOp::Load },
-                    store: wgpu::StoreOp::Store,
-                }),
-            });
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("RenderGraphFlatPass"),
-                color_attachments: &color_attachments,
-                depth_stencil_attachment,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            encode_draw_commands(&mut render_pass, registry, node.commands(), engine.capabilities().max_bind_groups)?;
-            drop(render_pass);
-            let _ = (color_format, depth_format, sample_count);
-        }
         Ok(())
     }
 
