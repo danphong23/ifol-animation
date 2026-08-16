@@ -102,6 +102,9 @@ chỉ từ compile hoặc test trên Windows.
 - `src/backend/readback_ticket.rs` chứa mapping, submission wait và row-padding
   resolution của `ReadbackTicket`; `backend/readback.rs` giữ facade/API bắt đầu
   readback;
+- `src/graph/usage_overlap.rs` chứa resource access conflict và subresource/aspect
+  overlap matching; `graph/usage.rs` giữ usage types, range constructors và
+  facade re-export;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -114,8 +117,8 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E34: audit tiếp backend và graph files còn lớn theo responsibility/cohesion,
-sau đó xử lý từng boundary một lần
+Task E35: audit tiếp graph/resource/backend facades theo
+responsibility/cohesion, sau đó xử lý từng boundary một lần
 mà không đổi behavior. Giữ facade public và render/graph semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,

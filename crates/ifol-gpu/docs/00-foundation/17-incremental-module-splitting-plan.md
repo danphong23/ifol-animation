@@ -191,7 +191,10 @@ boundary còn lại trong execution/backend/graph theo kích thước và cohesi
 Phase E33 tách readback ticket lifecycle khỏi `backend/readback.rs` vào
 `backend/readback_ticket.rs`, giữ nguyên `ReadbackTicket` public path, checked
 readback API và raw-byte contract. Bước kế tiếp là E34: audit tiếp backend và
-graph files còn lớn theo responsibility/cohesion.
+graph files còn lớn theo responsibility/cohesion. Phase E34 tách resource
+subresource overlap/hazard matching khỏi `graph/usage.rs` vào
+`graph/usage_overlap.rs`, giữ nguyên usage types, facade re-exports và hazard
+semantics. Bước kế tiếp là E35: audit tiếp graph/resource/backend facades.
 
 ## Phase E — Public API và cleanup
 
