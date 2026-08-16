@@ -238,8 +238,11 @@ bundle cache identity calculation khỏi `execution/render_bundles.rs` vào
 surface. F11 đã tách transient texture/buffer pool thành
 `memory/texture_pool.rs` và `memory/buffer_pool.rs`; `memory/lru_cache.rs`
 giữ facade re-export nhỏ, còn submission-gated reuse semantics và regression
-tests không đổi. Bước tiếp theo là F12: audit các production hotspot còn lại
-trước khi chọn responsibility tiếp theo.
+tests không đổi. F12 đã tách resource conflict matching thành
+`graph/buffer_overlap.rs` và `graph/texture_overlap.rs`; `graph/usage_overlap.rs`
+giữ conflict policy và facade điều phối, không đổi hazard semantics. Bước tiếp
+theo là F13: audit và sửa tài liệu còn mô tả API compatibility/legacy đã bị
+loại bỏ, rồi tiếp tục structure/file-size audit.
 
 ## Không nằm trong đợt tách file đầu tiên
 

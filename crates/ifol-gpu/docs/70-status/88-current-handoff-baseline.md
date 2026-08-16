@@ -123,8 +123,9 @@ chỉ từ compile hoặc test trên Windows.
   resolution của `ReadbackTicket`; `backend/readback.rs` giữ facade/API bắt đầu
   readback;
 - `src/graph/usage_overlap.rs` chứa resource access conflict và subresource/aspect
-  overlap matching; `graph/usage.rs` giữ usage types, range constructors và
-  facade re-export;
+-  overlap facade; `src/graph/buffer_overlap.rs` giữ buffer-range matching và
+  `src/graph/texture_overlap.rs` giữ texture/aspect matching; `graph/usage.rs`
+  giữ usage types, range constructors và facade re-export;
 - `src/graph/node_pool.rs` chứa `RenderNodePool` storage, allocation, mutation
   và removal; `graph/nodes.rs` giữ `RenderNode` model/behavior;
 - `src/backend/builder_build.rs` chứa runtime adapter/device creation và surface
@@ -146,8 +147,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F12: tiếp tục structure/file-size audit ở các production hotspot còn
-lại; giữ semantics nguyên vẹn và chỉ tách thêm khi boundary responsibility
+Task F13: audit và sửa các tài liệu còn mô tả API compatibility/legacy đã bị
+loại bỏ; sau đó tiếp tục structure/file-size audit ở production hotspots còn
+lại, giữ semantics nguyên vẹn và chỉ tách thêm khi boundary responsibility
 đã rõ.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
