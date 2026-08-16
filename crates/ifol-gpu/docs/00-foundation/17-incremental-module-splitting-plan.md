@@ -276,8 +276,10 @@ profiling và execution-report behavior không đổi. Bước tiếp theo là F
 tiếp tục audit validation/integration test boundaries. F24 đã tách preflight và
 validation contract regression tests khỏi `execution/tests.rs` vào
 `execution/validation_contract_tests.rs`; validation semantics và bundle-key
-behavior không đổi. Bước tiếp theo là F25: tiếp tục audit validation/
-integration test boundaries.
+behavior không đổi. F25 đã tách target/MSAA validation và execution regression
+tests khỏi `execution/tests.rs` vào `execution/target_tests.rs`; target
+attachment behavior không đổi. Bước tiếp theo là F26: tiếp tục audit
+validation command/layout và end-to-end test boundaries.
 
 ## Không nằm trong đợt tách file đầu tiên
 

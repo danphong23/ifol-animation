@@ -80,6 +80,8 @@ chỉ từ compile hoặc test trên Windows.
   contract tests cho target lookup, indirect range, texture aspect và bundle
   key; `execution/tests.rs` giữ các validation command/layout và end-to-end
   execution tests còn lại;
+- `src/execution/target_tests.rs` chứa target-size, MSAA resolve/depth
+  validation và target execution regression tests;
 - `src/resources/registry_version_tests.rs` chứa version regression suite;
   `registry_descriptor_tests.rs` chứa descriptor validation suite;
   `registry_ownership_tests.rs` chứa owned-texture/deferred-destruction suite;
@@ -168,7 +170,8 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F25: tiếp tục audit validation/integration test boundaries;
+Task F26: tiếp tục audit validation command/layout và end-to-end test
+boundaries;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ. Benchmark target hiện compile sạch, không còn warning
 Rust trong crate.
