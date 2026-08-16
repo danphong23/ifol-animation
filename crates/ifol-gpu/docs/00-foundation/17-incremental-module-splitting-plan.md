@@ -267,7 +267,10 @@ graph exports và command builder behavior không đổi. F21 đã tách resourc
 registry regression suite khỏi `resources/registry_tests.rs` thành
 `resources/registry_version_tests.rs`, `resources/registry_descriptor_tests.rs`
 và `resources/registry_ownership_tests.rs`; registry behavior và public API
-không đổi. Bước tiếp theo là F22: tiếp tục audit production hotspots còn lại.
+không đổi. F22 đã tách bốn encoder regression tests khỏi
+`execution/tests.rs` vào `execution/encoder_tests.rs`; encoder validation
+behavior không đổi. Bước tiếp theo là F23: tiếp tục audit production
+hotspots còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 
