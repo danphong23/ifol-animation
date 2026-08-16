@@ -148,7 +148,11 @@ vào `extensions/validation.rs`, giữ nguyên public validation API. Bước k�
 là E21: audit production modules còn lại và bắt đầu file-size audit. Phase E21
 tách flatten output/error types khỏi `graph/graph.rs` vào `graph/flatten.rs`,
 giữ nguyên graph public exports. Bước kế tiếp là E22: tiếp tục audit thuật toán
-flatten và private state của graph trước khi quyết định split lớn hơn.
+flatten và private state của graph trước khi quyết định split lớn hơn. Phase E22
+tách dependency/hazard ordering khỏi `graph/graph.rs` vào `graph/ordering.rs`,
+giữ nguyên `RenderGraph::ordered_node_ids` và chỉ mở internal usage helper cần
+thiết cho module ordering. Bước kế tiếp là E23: audit resource-usage derivation
+còn lại trong graph.
 
 ## Phase E — Public API và cleanup
 

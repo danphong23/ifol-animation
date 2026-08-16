@@ -72,6 +72,8 @@ chỉ từ compile hoặc test trên Windows.
   `extensions/mod.rs` giữ contract, registry và dispatch orchestration;
 - `src/graph/flatten.rs` chứa `FlatRenderPlan`, `FlatRenderNode`, dependency và
   flatten error types; `graph/mod.rs` giữ public graph exports;
+- `src/graph/ordering.rs` chứa dependency/hazard ordering của graph;
+  `RenderGraph::effective_resource_usages` là internal helper dùng chung;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -84,9 +86,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E22: tiếp tục audit thuật toán flatten và private state của graph trước
-khi quyết định split lớn hơn, sau đó xử lý từng boundary một lần mà không đổi
-behavior. Giữ facade public và render/graph semantics nguyên vẹn.
+Task E23: audit resource-usage derivation còn lại trong graph trước khi quyết
+định split lớn hơn, sau đó xử lý từng boundary một lần mà không đổi behavior.
+Giữ facade public và render/graph semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task E5.
