@@ -1,6 +1,7 @@
 pub mod descriptors;
 pub mod handle;
 mod lookup;
+mod mutation;
 pub mod registry;
 mod versions;
 
