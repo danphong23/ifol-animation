@@ -5,6 +5,15 @@
 `60-guides/` là public documentation. Người dùng bên ngoài chỉ cần bắt đầu từ
 `60-guides/README.md` và đọc learning path ở đó.
 
+Contributor trước khi thực hiện task phải đọc:
+
+- `16-current-intent-and-refactor-workflow.md`: mục tiêu hiện tại và các ranh giới
+  không được làm mờ;
+- `17-incremental-module-splitting-plan.md`: thứ tự tách file, test gate và
+  commit gate;
+- `70-status/88-current-handoff-baseline.md`: trạng thái thực tế tại thời điểm
+  bàn giao.
+
 Các nhóm `00-foundation`, `10-graph`, `20-resources`, `30-execution`,
 `40-memory`, `50-platform`, `70-status` và `80-migration` là design/maintenance
 documentation dành cho contributor, maintainer và người cần debug internals.
