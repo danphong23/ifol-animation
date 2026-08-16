@@ -17,7 +17,7 @@ mod segments;
 mod profiling;
 mod compiler;
 mod extension;
-mod orchestration;
+mod nested_compile;
 mod counts;
 mod targets;
 mod flat_compile;

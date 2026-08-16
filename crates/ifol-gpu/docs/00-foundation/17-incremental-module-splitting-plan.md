@@ -172,7 +172,10 @@ offscreen và MSAA resolution behavior. Bước kế tiếp là E28: audit neste
 compile orchestration boundary. Phase E28 tách flat graph compilation và
 owner-path/error mapping khỏi `execution/orchestration.rs` vào
 `execution/flat_compile.rs`, giữ nguyên flat/nested execution behavior. Bước
-kế tiếp là E29: tách nested graph compilation orchestration.
+kế tiếp là E29: tách nested graph compilation orchestration. Phase E29 đổi tên
+boundary còn lại từ `orchestration.rs` sang `nested_compile.rs`, giữ nguyên
+nested compilation behavior và compiler call sites. Bước kế tiếp là E30: audit
+execution segments/render-pass boundaries.
 
 ## Phase E — Public API và cleanup
 
