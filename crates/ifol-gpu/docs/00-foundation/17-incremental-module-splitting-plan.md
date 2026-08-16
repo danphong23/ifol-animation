@@ -113,8 +113,10 @@ queue contract không đổi. Phase E9 tách headless initialization regression
 test khỏi root `lib.rs` vào `lib_tests.rs`; crate module declarations và
 public facade không đổi. Phase E10 tách `RenderGraphValidationError` khỏi
 validation algorithms vào `execution/validation_errors.rs`, giữ nguyên
-public re-export và error semantics. Bước kế tiếp là E11: tách copy/range
-validation helpers khỏi `execution/validation.rs`.
+public re-export và error semantics. Phase E11 tách copy, texture-aspect,
+buffer-range và indirect-range helpers khỏi `execution/validation.rs` vào
+`execution/validation_copy.rs`; validation behavior không đổi. Bước kế tiếp
+là E12: tách render-target/depth validation helpers.
 
 ## Phase E — Public API và cleanup
 
