@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use crate::memory::{DeferredDestructionQueue, SubmissionId};
 use crate::resources::handle::{BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle};
 pub use super::descriptors::*;
-
-type ResourceVersion = u64;
+use super::versions::{ResourceVersion, ResourceVersions};
 
 pub struct OwnedTextureResource {
     texture: wgpu::Texture,
@@ -13,16 +12,6 @@ pub struct OwnedTextureResource {
 impl OwnedTextureResource {
     pub fn texture(&self) -> &wgpu::Texture { &self.texture }
     pub fn descriptor(&self) -> TextureResourceDescriptor { self.descriptor }
-}
-
-#[derive(Default)]
-struct ResourceVersions {
-    textures: HashMap<TextureHandle, ResourceVersion>,
-    pipelines: HashMap<PipelineHandle, ResourceVersion>,
-    compute_pipelines: HashMap<ComputePipelineHandle, ResourceVersion>,
-    buffers: HashMap<BufferHandle, ResourceVersion>,
-    meshes: HashMap<MeshHandle, ResourceVersion>,
-    bind_groups: HashMap<BindGroupHandle, ResourceVersion>,
 }
 
 /// Nơi ánh xạ từ Handle siêu nhẹ (u64) sang các đối tượng nặng của GPU (Buffer, Texture, Pipeline)
