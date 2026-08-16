@@ -11,7 +11,7 @@ mod validation;
 pub use validation::RenderGraphValidationError;
 use validation::{format_has_stencil, validate_graph};
 mod render;
-use render::{encode_draw_commands, encode_graph_render_pass, update_render_bundles};
+use render::{encode_draw_commands, encode_graph_render_pass, prepare_render_nodes};
 mod compute;
 use compute::encode_compute_commands;
 mod copy;
@@ -406,17 +406,12 @@ impl RenderGraphExecutor {
         // -------------------------------------------------------------
         // 2.1 UPDATE BUNDLES (For nodes that have use_bundle == true)
         // -------------------------------------------------------------
-        let node_ids = if graph.reverse_draw_order {
-            ordered_ids.iter().rev().copied().collect::<Vec<_>>()
-        } else {
-            ordered_ids
-        };
-
-        update_render_bundles(
+        let node_ids = prepare_render_nodes(
             engine.device(),
             pool,
             registry,
-            &node_ids,
+            ordered_ids,
+            graph.reverse_draw_order,
             color_format,
             depth_format,
             sample_count,

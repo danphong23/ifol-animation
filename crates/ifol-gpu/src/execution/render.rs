@@ -192,6 +192,37 @@ pub(crate) fn update_render_bundles(
     Ok(())
 }
 
+pub(crate) fn prepare_render_nodes(
+    device: &wgpu::Device,
+    pool: &mut RenderNodePool,
+    registry: &ResourceRegistry,
+    ordered_ids: Vec<crate::resources::handle::RenderNodeId>,
+    reverse_draw_order: bool,
+    color_format: wgpu::TextureFormat,
+    depth_format: Option<wgpu::TextureFormat>,
+    sample_count: u32,
+    context_key: u64,
+    max_bind_groups: u32,
+) -> Result<Vec<crate::resources::handle::RenderNodeId>, RenderGraphValidationError> {
+    let node_ids = if reverse_draw_order {
+        ordered_ids.into_iter().rev().collect()
+    } else {
+        ordered_ids
+    };
+    update_render_bundles(
+        device,
+        pool,
+        registry,
+        &node_ids,
+        color_format,
+        depth_format,
+        sample_count,
+        context_key,
+        max_bind_groups,
+    )?;
+    Ok(node_ids)
+}
+
 pub(crate) fn with_render_pass<T>(
     encoder: &mut wgpu::CommandEncoder,
     color_view: &wgpu::TextureView,
