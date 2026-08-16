@@ -110,7 +110,8 @@ chỉ từ compile hoặc test trên Windows.
   preparation;
 - `src/execution/bundle_key.rs` chứa pure bundle cache identity calculation;
   `render_bundles.rs` giữ bundle encode/update lifecycle;
-- `src/execution/render_pass.rs` chứa render pass lifecycle, graph pass và draw
+- `src/execution/render_pass.rs` chứa render pass lifecycle và graph pass
+  traversal; `src/execution/draw.rs` chứa draw/bind-group/mesh/indirect
   command encoding; `render.rs` facade đã được loại bỏ;
 - `src/execution/non_render.rs` chứa execution của extension/copy/compute không
   có render target;
@@ -149,7 +150,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task F15: tiếp tục structure/file-size audit ở production hotspots còn lại;
+Task F16: tiếp tục structure/file-size audit ở production hotspots còn lại;
 giữ semantics và lifetime guarantees nguyên vẹn, chỉ tách thêm khi boundary
 responsibility đã rõ.
 

@@ -246,7 +246,10 @@ audit và sửa các tài liệu còn mô tả alias execution, raw insertion,
 là F14: loại bỏ `FrameContext::seal` legacy convenience API, migrate regression
 tests và TC96 desktop evidence sang `seal_with_deferred_textures`; seal
 semantics và deferred lifetime không đổi. Bước tiếp theo là F15: tiếp tục
-structure/file-size audit.
+structure/file-size audit. F15 đã tách draw/bind-group/mesh/indirect command
+encoding khỏi `execution/render_pass.rs` vào `execution/draw.rs`; render pass
+lifecycle và graph traversal không đổi. Bước tiếp theo là F16: tiếp tục audit
+production hotspots còn lại.
 
 ## Không nằm trong đợt tách file đầu tiên
 
