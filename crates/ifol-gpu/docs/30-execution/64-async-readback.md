@@ -18,8 +18,8 @@ quả map, loại padding từng hàng, unmap buffer và trả `RawTextureReadba
 `bytes`, `width`, `height` và `format` mà host đã khai báo cho copy.
 
 `read_texture_to_raw_with_format_checked` là wrapper đồng bộ của đúng contract
-này và trả typed `ReadbackError`. `read_texture_to_bytes_with_format_checked`
-vẫn tồn tại như compatibility wrapper cho tuple cũ.
+này và trả typed `ReadbackError`. Core không còn cung cấp tuple readback API cũ;
+consumer phải dùng `RawTextureReadback` để giữ lại format contract.
 
 ## Invariant và giới hạn
 

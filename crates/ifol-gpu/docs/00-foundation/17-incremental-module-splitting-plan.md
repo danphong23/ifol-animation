@@ -74,7 +74,7 @@ registry/lifetime. Tách theo responsibility, không tách theo danh sách loạ
 Tiến độ hiện tại: primitive readback đã được tách khỏi `backend/engine.rs`
 thành `backend/readback.rs`, giữ nguyên checked API và compatibility re-export.
 Bước raw readback kèm `format` đã được khóa bằng `RawTextureReadback`; tuple
-API cũ vẫn có compatibility wrapper. Save/encode boundary cũng đã được tách
+API cũ đã được loại bỏ sau khi migrate consumer. Save/encode boundary cũng đã được tách
 thành `backend/texture_save.rs`; hardcoded output policy hiện được cô lập ở
 module này. Feature `image-encode` giờ bật mặc định để giữ behavior, nhưng
 `--no-default-features --lib` đã compile mà không kéo image vào core GPU.

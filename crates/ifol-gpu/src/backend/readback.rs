@@ -105,16 +105,6 @@ impl<'a> GpuEngine<'a> {
             .resolve_checked(self.device())
     }
 
-    /// Compatibility wrapper for callers that still consume the legacy tuple.
-    #[deprecated(note = "use read_texture_to_raw_with_format_checked")]
-    pub fn read_texture_to_bytes_with_format_checked(
-        &self,
-        texture: &wgpu::Texture,
-        format: wgpu::TextureFormat,
-    ) -> Result<(Vec<u8>, u32, u32), ReadbackError> {
-        let raw = self.read_texture_to_raw_with_format_checked(texture, format)?;
-        Ok((raw.bytes, raw.width, raw.height))
-    }
 }
 
 fn texture_format_bytes_per_pixel(format: wgpu::TextureFormat) -> Option<u32> {
