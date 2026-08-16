@@ -18,6 +18,8 @@ mod copy;
 use copy::encode_copy_command;
 mod segments;
 use segments::{execute_graph_prepass, execute_non_render_nodes, execute_ordered_target_nodes};
+mod profiling;
+use profiling::execute_timestamped;
 mod orchestration;
 use orchestration::{compile_flat_graph, compile_nested_graphs, execution_counts_for_graph, map_graph_flatten_error, resolve_target_views};
 #[cfg(test)]
@@ -208,7 +210,8 @@ impl RenderGraphExecutor {
         resolve_buffer: &wgpu::Buffer,
         resolve_offset: u64,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.execute_timestamped(
+        execute_timestamped(
+            self,
             engine, registry, pool, graph, None, profiler, resolve_buffer, resolve_offset, None,
         )
     }
@@ -227,7 +230,8 @@ impl RenderGraphExecutor {
         resolve_offset: u64,
         tracker: &mut SubmissionTracker,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.execute_timestamped(
+        execute_timestamped(
+            self,
             engine, registry, pool, graph, None, profiler, resolve_buffer, resolve_offset, Some(tracker),
         )
     }
@@ -243,7 +247,8 @@ impl RenderGraphExecutor {
         resolve_buffer: &wgpu::Buffer,
         resolve_offset: u64,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.execute_timestamped(
+        execute_timestamped(
+            self,
             engine, registry, pool, graph, surface_view, profiler, resolve_buffer, resolve_offset, None,
         )
     }
@@ -261,55 +266,10 @@ impl RenderGraphExecutor {
         resolve_offset: u64,
         tracker: &mut SubmissionTracker,
     ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.execute_timestamped(
+        execute_timestamped(
+            self,
             engine, registry, pool, graph, surface_view, profiler, resolve_buffer, resolve_offset, Some(tracker),
         )
-    }
-
-    fn execute_timestamped(
-        &self,
-        engine: &GpuEngine,
-        registry: &ResourceRegistry,
-        pool: &mut RenderNodePool,
-        graph: &RenderGraph,
-        surface_view: Option<&wgpu::TextureView>,
-        profiler: &mut TimestampQueryPool,
-        resolve_buffer: &wgpu::Buffer,
-        resolve_offset: u64,
-        mut tracker: Option<&mut SubmissionTracker>,
-    ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
-        self.validate_with_device(engine, registry, pool, graph)?;
-        let (flattened_nodes, draw_commands, compute_commands, copy_commands, indirect_commands, declared_usages) =
-            execution_counts_for_graph(pool, graph)?;
-        let span = profiler.allocate_span()?;
-        let mut encoder = engine.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("RenderGraphProfiledEncoder"),
-        });
-        profiler.write_span(&mut encoder, span)?;
-        compile_flat_graph(self, &mut encoder, engine, pool, graph, registry, surface_view)?;
-        profiler.write_span(&mut encoder, span)?;
-        profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
-        let tracking_submission = if let Some(tracker) = tracker.as_deref_mut() {
-            let submission = tracker.begin();
-            profiler.mark_submitted(submission)?;
-            Some(submission)
-        } else {
-            None
-        };
-        let submission = engine.queue().submit(std::iter::once(encoder.finish()));
-        Ok(ProfiledExecution {
-            report: ExecutionReport {
-                submission,
-                flattened_nodes,
-                draw_commands,
-                compute_commands,
-                copy_commands,
-                indirect_commands,
-                declared_usages,
-            },
-            span,
-            tracking_submission,
-        })
     }
 
     /// Biên dịch RenderGraph thành các lệnh gọi WGPU và đẩy xuống GPU Queue.
