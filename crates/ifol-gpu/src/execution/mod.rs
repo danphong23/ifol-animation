@@ -18,6 +18,7 @@ mod compiler;
 mod extension;
 mod orchestration;
 mod counts;
+mod targets;
 #[cfg(test)]
 use counts::execution_counts_for_graph;
 mod executor;

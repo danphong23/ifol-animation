@@ -165,7 +165,11 @@ Bước kế tiếp là E26: audit execution orchestration/segments boundary. Ph
 tách execution diagnostics counting (`execution_counts_for_graph` và recursive
 declared usage count) khỏi `execution/orchestration.rs` vào `execution/counts.rs`,
 giữ nguyên report/profiling behavior. Bước kế tiếp là E27: audit target
-resolution và nested/flat compilation orchestration.
+resolution và nested/flat compilation orchestration. Phase E27 tách target
+view resolution (`TargetViews` và `resolve_target_views`) khỏi
+`execution/orchestration.rs` vào `execution/targets.rs`, giữ nguyên screen,
+offscreen và MSAA resolution behavior. Bước kế tiếp là E28: audit nested/flat
+compile orchestration boundary.
 
 ## Phase E — Public API và cleanup
 

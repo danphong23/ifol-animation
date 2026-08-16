@@ -82,6 +82,8 @@ chỉ từ compile hoặc test trên Windows.
   compatibility re-exports;
 - `src/execution/counts.rs` chứa execution diagnostics counting và recursive
   declared-usage counting; orchestration giữ compile flow;
+- `src/execution/targets.rs` chứa target view resolution cho screen, offscreen
+  và MSAA; compiler/orchestration dùng chung `TargetViews` internal contract;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -94,9 +96,9 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E27: audit target resolution và nested/flat compilation orchestration, sau
-đó xử lý từng boundary một lần mà không đổi behavior. Giữ facade public và
-render/graph semantics nguyên vẹn.
+Task E28: audit nested/flat compile orchestration boundary, sau đó xử lý từng
+boundary một lần mà không đổi behavior. Giữ facade public và render/graph
+semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
 resource behavior hoặc color behavior trong Task E5.

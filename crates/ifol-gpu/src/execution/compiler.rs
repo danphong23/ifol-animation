@@ -3,8 +3,9 @@ use crate::graph::{RenderGraph, RenderNodePool};
 use crate::resources::ResourceRegistry;
 
 use super::orchestration::{
-    compile_flat_graph, compile_nested_graphs, map_graph_flatten_error, resolve_target_views,
+    compile_flat_graph, compile_nested_graphs, map_graph_flatten_error,
 };
+use super::targets::resolve_target_views;
 use super::render::{encode_graph_render_pass, prepare_render_nodes};
 use super::segments::{
     execute_graph_prepass, execute_non_render_nodes, execute_ordered_target_nodes,
@@ -66,7 +67,7 @@ pub(crate) fn compile_graph(
         execute_non_render_nodes(executor, encoder, engine, pool, registry, &ordered_ids)?;
         return Ok(());
     };
-    let super::orchestration::TargetViews {
+    let super::targets::TargetViews {
         color_view,
         color_format,
         sample_count,
