@@ -109,8 +109,10 @@ logic và public API không đổi. Phase E7 tách regression tests inline khỏ
 `memory/submission.rs` vào `memory/submission_tests.rs`; submission identity
 và tracker contracts không đổi. Phase E8 tách regression tests inline khỏi
 `memory/deferred.rs` vào `memory/deferred_tests.rs`; deferred destruction
-queue contract không đổi. Bước kế tiếp là E9: audit public API facade và
-remaining module boundaries.
+queue contract không đổi. Phase E9 tách headless initialization regression
+test khỏi root `lib.rs` vào `lib_tests.rs`; crate module declarations và
+public facade không đổi. Bước kế tiếp là E10: tách responsibility rõ ràng
+trong `execution/validation.rs`.
 
 ## Phase E — Public API và cleanup
 
