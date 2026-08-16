@@ -7,9 +7,9 @@ use super::nested_compile::compile_nested_graphs;
 use super::targets::resolve_target_views;
 use super::render_bundles::prepare_render_nodes;
 use super::render_pass::encode_graph_render_pass;
-use super::segments::{
-    execute_graph_prepass, execute_non_render_nodes, execute_ordered_target_nodes,
-};
+use super::non_render::execute_non_render_nodes;
+use super::prepass::execute_graph_prepass;
+use super::target_segments::execute_ordered_target_nodes;
 use super::{RenderGraphExecutor, RenderGraphValidationError};
 
 pub(crate) fn execute_unchecked(

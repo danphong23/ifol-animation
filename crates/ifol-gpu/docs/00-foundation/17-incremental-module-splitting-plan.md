@@ -178,7 +178,11 @@ nested compilation behavior và compiler call sites. Bước kế tiếp là E30
 execution segments/render-pass boundaries. Phase E30 tách render-bundle cache/
 preparation và render-pass/draw encoding khỏi `execution/render.rs` vào
 `render_bundles.rs` và `render_pass.rs`, giữ nguyên compiler/segment call sites
-và draw behavior. Bước kế tiếp là E31: audit execution segment phases.
+và draw behavior. Bước kế tiếp là E31: audit execution segment phases. Phase E31
+tách ba execution phases khỏi `execution/segments.rs` vào
+`execution/non_render.rs`, `execution/prepass.rs` và
+`execution/target_segments.rs`, giữ nguyên compiler/segment behavior. Bước kế
+tiếp là E32: audit remaining execution kernels và final file-size/facade audit.
 
 ## Phase E — Public API và cleanup
 

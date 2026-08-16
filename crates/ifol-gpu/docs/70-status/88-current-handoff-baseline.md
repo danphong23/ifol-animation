@@ -91,6 +91,10 @@ chỉ từ compile hoặc test trên Windows.
   render-node preparation;
 - `src/execution/render_pass.rs` chứa render pass lifecycle, graph pass và draw
   command encoding; `render.rs` facade đã được loại bỏ;
+- `src/execution/non_render.rs` chứa execution của extension/copy/compute không
+  có render target;
+- `src/execution/prepass.rs` chứa prepass extension/copy rồi compute;
+- `src/execution/target_segments.rs` chứa ordered target segment render passes;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -103,7 +107,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E31: audit execution segment phases, sau đó xử lý từng boundary một lần
+Task E32: audit remaining execution kernels và final file-size/facade audit, sau đó xử lý từng boundary một lần
 mà không đổi behavior. Giữ facade public và render/graph semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
