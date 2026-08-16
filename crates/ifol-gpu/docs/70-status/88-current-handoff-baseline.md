@@ -84,6 +84,8 @@ chỉ từ compile hoặc test trên Windows.
   declared-usage counting; orchestration giữ compile flow;
 - `src/execution/targets.rs` chứa target view resolution cho screen, offscreen
   và MSAA; compiler/orchestration dùng chung `TargetViews` internal contract;
+- `src/execution/flat_compile.rs` chứa flat graph compilation, owner-path
+  resolution và flatten-error mapping; orchestration giữ nested compile flow;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -96,7 +98,7 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E28: audit nested/flat compile orchestration boundary, sau đó xử lý từng
+Task E29: tách nested graph compilation orchestration, sau đó xử lý từng
 boundary một lần mà không đổi behavior. Giữ facade public và render/graph
 semantics nguyên vẹn.
 

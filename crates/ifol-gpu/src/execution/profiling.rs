@@ -4,7 +4,7 @@ use crate::memory::SubmissionTracker;
 use crate::resources::ResourceRegistry;
 
 use super::counts::execution_counts_for_graph;
-use super::orchestration::compile_flat_graph;
+use super::flat_compile::compile_flat_graph;
 use super::{ExecutionReport, ProfiledExecution, RenderGraphExecutor, RenderGraphProfilingError};
 
 pub(crate) fn execute_timestamped(

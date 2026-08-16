@@ -1,4 +1,4 @@
-use super::orchestration::map_graph_flatten_error;
+use super::flat_compile::map_graph_flatten_error;
 use super::validation::RenderGraphValidationError;
 use crate::graph::{DrawAction, RenderGraph, RenderNode, RenderNodePool};
 

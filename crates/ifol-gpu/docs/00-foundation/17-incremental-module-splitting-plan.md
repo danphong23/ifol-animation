@@ -169,7 +169,10 @@ resolution và nested/flat compilation orchestration. Phase E27 tách target
 view resolution (`TargetViews` và `resolve_target_views`) khỏi
 `execution/orchestration.rs` vào `execution/targets.rs`, giữ nguyên screen,
 offscreen và MSAA resolution behavior. Bước kế tiếp là E28: audit nested/flat
-compile orchestration boundary.
+compile orchestration boundary. Phase E28 tách flat graph compilation và
+owner-path/error mapping khỏi `execution/orchestration.rs` vào
+`execution/flat_compile.rs`, giữ nguyên flat/nested execution behavior. Bước
+kế tiếp là E29: tách nested graph compilation orchestration.
 
 ## Phase E — Public API và cleanup
 

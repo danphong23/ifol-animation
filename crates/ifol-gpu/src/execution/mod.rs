@@ -7,6 +7,7 @@ mod validation_node;
 pub use validation::RenderGraphValidationError;
 use validation::format_has_stencil;
 mod render;
+#[cfg(test)]
 use render::encode_draw_commands;
 mod compute;
 use compute::encode_compute_commands;
@@ -19,6 +20,7 @@ mod extension;
 mod orchestration;
 mod counts;
 mod targets;
+mod flat_compile;
 #[cfg(test)]
 use counts::execution_counts_for_graph;
 mod executor;

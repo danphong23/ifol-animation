@@ -2,9 +2,8 @@ use crate::api::GpuEngine;
 use crate::graph::{RenderGraph, RenderNodePool};
 use crate::resources::ResourceRegistry;
 
-use super::orchestration::{
-    compile_flat_graph, compile_nested_graphs, map_graph_flatten_error,
-};
+use super::flat_compile::{compile_flat_graph, map_graph_flatten_error};
+use super::orchestration::compile_nested_graphs;
 use super::targets::resolve_target_views;
 use super::render::{encode_graph_render_pass, prepare_render_nodes};
 use super::segments::{
