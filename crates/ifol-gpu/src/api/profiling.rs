@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn timestamp_pool_rejects_invalid_shape_without_backend_assumptions() {
-        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let engine = pollster::block_on(crate::backend::GpuEngineBuilder::new().build()).unwrap();
         assert_eq!(
             TimestampQueryPool::new(engine.device(), 1).unwrap_err(),
             ProfilingError::InvalidQueryCount
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn timestamp_pool_reports_optional_backend_support() {
-        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let engine = pollster::block_on(crate::backend::GpuEngineBuilder::new().build()).unwrap();
         match TimestampQueryPool::new(engine.device(), 4) {
             Err(ProfilingError::UnsupportedTimestampQueries) => {}
             Ok(mut pool) => {
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn timestamp_pool_reset_waits_for_submission_completion() {
-        let engine = pollster::block_on(crate::api::GpuEngineBuilder::new().build()).unwrap();
+        let engine = pollster::block_on(crate::backend::GpuEngineBuilder::new().build()).unwrap();
         let Ok(mut pool) = TimestampQueryPool::new(engine.device(), 2) else { return; };
         pool.allocate_span().unwrap();
         let mut tracker = SubmissionTracker::new();

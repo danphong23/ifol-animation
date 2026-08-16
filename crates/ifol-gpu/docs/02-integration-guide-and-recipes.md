@@ -7,9 +7,9 @@ Tài liệu này cung cấp các đoạn mã mẫu thực tế chuẩn công ngh
 ## 🍳 Recipe 1: Khởi Tạo Engine Đa Nền Tảng (Desktop & Web)
 
 ```rust
-use ifol_gpu::api::GpuEngineBuilder;
+use ifol_gpu::backend::{GpuEngine, GpuEngineBuilder};
 
-pub async fn init_gpu_engine() -> Result<ifol_gpu::api::GpuEngine<'static>, Box<dyn std::error::Error>> {
+pub async fn init_gpu_engine() -> Result<GpuEngine<'static>, Box<dyn std::error::Error>> {
     let engine = GpuEngineBuilder::new()
         .with_power_preference(wgpu::PowerPreference::HighPerformance)
         .with_required_limits(wgpu::Limits::default())
@@ -31,7 +31,7 @@ pub async fn init_gpu_engine() -> Result<ifol_gpu::api::GpuEngine<'static>, Box<
 use ifol_gpu::resources::{TextureHandle, TextureResourceDescriptor, ResourceRegistry};
 
 pub fn upload_video_nv12_frame(
-    engine: &ifol_gpu::api::GpuEngine,
+    engine: &GpuEngine,
     registry: &mut ResourceRegistry,
     y_plane_bytes: &[u8],
     uv_plane_bytes: &[u8],

@@ -212,6 +212,15 @@ backend/graph cohesion.
 - chạy workspace check/test;
 - file-size audit cuối cùng.
 
+## Phase F — Remove legacy compatibility
+
+Sau khi các responsibility boundary chính đã ổn định, ưu tiên chuyển toàn bộ
+consumer nội bộ sang canonical API rồi xóa compatibility layer lỗi thời. Phase
+F1 đã migrate builder/engine consumers trong source, examples, benches, desktop
+tests và docs từ `api::*` sang `backend::*`, giữ nguyên behavior. Bước kế tiếp
+là F2: migrate resource/render compatibility paths và deprecated readback API,
+sau đó xóa các shim không còn consumer.
+
 ## Không nằm trong đợt tách file đầu tiên
 
 - shader reflection;

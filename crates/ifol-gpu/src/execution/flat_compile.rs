@@ -5,7 +5,7 @@ use super::validation::RenderGraphValidationError;
 use super::{
     encode_compute_commands, encode_copy_command, format_has_stencil, RenderGraphExecutor,
 };
-use crate::api::GpuEngine;
+use crate::backend::GpuEngine;
 use crate::graph::{GraphFlattenError, RenderGraph, RenderNode, RenderNodePool};
 use crate::resources::handle::RenderNodeId;
 use crate::resources::ResourceRegistry;

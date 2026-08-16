@@ -1,6 +1,6 @@
 use super::validation::RenderGraphValidationError;
 use super::RenderGraphExecutor;
-use crate::api::GpuEngine;
+use crate::backend::GpuEngine;
 use crate::graph::{RenderGraph, RenderNode, RenderNodePool};
 use crate::resources::ResourceRegistry;
 

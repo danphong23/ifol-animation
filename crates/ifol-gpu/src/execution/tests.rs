@@ -1,7 +1,7 @@
 use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
     use super::{bind_group_slot_index, bundle_cache_key, encode_compute_commands, encode_copy_command, encode_draw_commands, execution_counts_for_graph, format_has_stencil, texture_supports_aspect, RenderGraphExecutor, RenderGraphProfilingError, RenderGraphValidationError};
     use super::validation::{validate_copy_range, validate_indirect_buffer};
-    use crate::api::GpuEngineBuilder;
+    use crate::backend::GpuEngineBuilder;
     use crate::memory::SubmissionTracker;
     use crate::graph::{ComputeCommand, CopyCommand, DrawAction, DrawCommand, GraphResource, RenderGraph, RenderNode, RenderNodePool, RenderTarget, ResourceAccess, ResourceSubresource};
     use crate::resources::{BindGroupHandle, BindGroupResourceDescriptor, BufferHandle, BufferResourceDescriptor, ComputePipelineHandle, PipelineHandle, PipelineLayoutResourceDescriptor, RenderNodeId, ResourceRegistry, TextureHandle, TextureResourceDescriptor};

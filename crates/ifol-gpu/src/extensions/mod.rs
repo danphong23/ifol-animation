@@ -4,7 +4,7 @@
 //! discovered, versioned, and dispatched without making graph code know
 //! whether it represents a video filter, a game effect, or another workload.
 
-use crate::api::GpuEngine;
+use crate::backend::GpuEngine;
 #[cfg(test)]
 use crate::graph::{GraphResource, ResourceAccess, ResourceSubresource};
 use crate::graph::ResourceUsage;

@@ -1,4 +1,4 @@
-use crate::api::GpuEngine;
+use crate::backend::GpuEngine;
 use crate::graph::{RenderGraph, RenderNodePool};
 use crate::resources::ResourceRegistry;
 

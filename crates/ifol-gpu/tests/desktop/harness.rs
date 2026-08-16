@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
-use ifol_gpu::api::{GpuEngine, GpuEngineBuilder};
+use ifol_gpu::backend::{GpuEngine, GpuEngineBuilder};
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{

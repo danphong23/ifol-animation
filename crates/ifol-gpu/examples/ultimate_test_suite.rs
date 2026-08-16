@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::time::Instant;
-use ifol_gpu::api::{GpuEngineBuilder, GpuEngine};
+use ifol_gpu::backend::{GpuEngineBuilder, GpuEngine};
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{

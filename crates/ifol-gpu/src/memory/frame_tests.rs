@@ -1,5 +1,5 @@
 use super::*;
-use crate::api::GpuEngineBuilder;
+use crate::backend::GpuEngineBuilder;
 use crate::memory::TextureDimensionKey;
 use crate::resources::{ResourceRegistry, TextureResourceDescriptor};
 use wgpu::TextureFormat;

@@ -57,7 +57,8 @@ chỉ từ compile hoặc test trên Windows.
 - `src/execution/validation_layout.rs` chứa bind-group slot, dynamic-offset
   và render/compute pipeline-layout validation helpers;
 - `src/execution/validation_node.rs` chứa node/resource/command traversal
-  validation; `validation.rs` hiện là facade/orchestrator nhỏ;
+  validation; command-specific checks được delegate sang các validation command
+  modules; `validation.rs` hiện là facade/orchestrator nhỏ;
 - `src/resources/registry_tests.rs` chứa resource registry/descriptor/ownership
   regression suite; `registry.rs` chỉ giữ state container và version API;
 - `src/resources/versions.rs` hiện giữ cả version storage và version behavior;
@@ -109,6 +110,8 @@ chỉ từ compile hoặc test trên Windows.
   và removal; `graph/nodes.rs` giữ `RenderNode` model/behavior;
 - `src/backend/builder_build.rs` chứa runtime adapter/device creation và surface
   configuration; `backend/builder.rs` giữ builder policy/configuration facade;
+- builder/engine consumers nội bộ trong source, examples, benches, desktop tests
+  và integration docs đã migrate từ `api::*` sang `backend::*`;
 - compatibility facade còn public rộng;
 - `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
   core build `--no-default-features`;
@@ -121,12 +124,11 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task E37: audit resource descriptor/registry facades và final backend/graph
-cohesion theo responsibility, sau đó xử lý từng boundary một lần
-mà không đổi behavior. Giữ facade public và render/graph semantics nguyên vẹn.
+Task F2: migrate resource/render compatibility paths và deprecated readback API,
+sau đó xóa các shim không còn consumer. Giữ graph/render semantics nguyên vẹn.
 
 Không đồng thời sửa memory semantics, extension behavior, graph behavior,
-resource behavior hoặc color behavior trong Task E5.
+resource behavior hoặc color behavior trong Task F2.
 
 ## Hợp đồng với chat/task mới
 

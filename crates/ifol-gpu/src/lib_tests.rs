@@ -1,4 +1,4 @@
-use crate::api::GpuEngineBuilder;
+use crate::backend::GpuEngineBuilder;
 
 #[test]
 fn test_headless_initialization() {

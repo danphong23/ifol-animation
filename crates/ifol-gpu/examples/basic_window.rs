@@ -5,7 +5,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowId},
 };
-use ifol_gpu::api::{GpuEngine, GpuEngineBuilder};
+use ifol_gpu::backend::{GpuEngine, GpuEngineBuilder};
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{

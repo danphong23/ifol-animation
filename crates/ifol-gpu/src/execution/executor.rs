@@ -1,4 +1,5 @@
-use crate::api::{GpuEngine, ProfilingError, TimestampQueryPool, TimestampSpan};
+use crate::api::{ProfilingError, TimestampQueryPool, TimestampSpan};
+use crate::backend::GpuEngine;
 use crate::extensions::ExtensionDispatchRegistry;
 use crate::graph::{RenderGraph, RenderNodePool};
 use crate::memory::{SubmissionId, SubmissionTracker};

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
-use ifol_gpu::api::GpuEngineBuilder;
+use ifol_gpu::backend::GpuEngineBuilder;
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderNodePool, RenderTarget};
 use ifol_gpu::resources::{
@@ -10,7 +10,7 @@ use ifol_gpu::resources::{
 };
 
 // Helper: Khởi tạo Texture làm bia vẽ (Target)
-fn create_target(engine: &ifol_gpu::api::GpuEngine) -> (wgpu::TextureView, wgpu::Texture) {
+fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, wgpu::Texture) {
     let tex = engine.device().create_texture(&wgpu::TextureDescriptor {
         label: Some("Target"),
         size: wgpu::Extent3d {
@@ -31,12 +31,12 @@ fn create_target(engine: &ifol_gpu::api::GpuEngine) -> (wgpu::TextureView, wgpu:
 }
 
 // Helper: Lưu ảnh
-fn save_texture(engine: &ifol_gpu::api::GpuEngine, texture: &wgpu::Texture, filename: &str) {
+    fn save_texture(engine: &ifol_gpu::backend::GpuEngine, texture: &wgpu::Texture, filename: &str) {
     let path = std::path::Path::new("examples/outputs").join(filename);
     engine.save_texture_to_file_checked(texture, &path).expect("Lỗi lưu ảnh");
 }
 
-fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_01_clear_color(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (_view, tex) = create_target(engine);
@@ -66,7 +66,7 @@ fn test_01_clear_color(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     save_texture(engine, &tex, "test_01_clear_color.png");
 }
 
-fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_02_z_buffer(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (_view, tex) = create_target(engine);
@@ -187,7 +187,7 @@ fn test_02_z_buffer(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExe
     save_texture(engine, &tex, "test_02_z_buffer.png");
 }
 
-fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_03_alpha_blend(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (_view, tex) = create_target(engine);
@@ -279,7 +279,7 @@ fn test_03_alpha_blend(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     save_texture(engine, &tex, "test_03_alpha_blend.png");
 }
 
-fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_04_interleaved(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (_view, tex) = create_target(engine);
@@ -466,7 +466,7 @@ fn test_04_interleaved(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraph
     save_texture(engine, &tex, "test_04_interleaved.png");
 }
 
-fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_05_garbage_collection(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (_view, tex) = create_target(engine);
@@ -603,7 +603,7 @@ fn test_05_garbage_collection(engine: &ifol_gpu::api::GpuEngine, executor: &Rend
     save_texture(engine, &tex, "test_05_garbage_collection.png");
 }
 
-fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_07_complex_frame(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (_view, tex) = create_target(engine);
@@ -714,7 +714,7 @@ fn test_07_complex_frame(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGra
     save_texture(engine, &tex, "test_07_complex_frame.png");
 }
 
-fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_08_multi_graph_cache(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
     let (_view, tex) = create_target(engine);
@@ -810,7 +810,7 @@ fn test_08_multi_graph_cache(engine: &ifol_gpu::api::GpuEngine, executor: &Rende
     save_texture(engine, &tex, "test_08_multi_graph.png");
 }
 
-fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_09_subgraph_compositing(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
@@ -949,7 +949,7 @@ fn test_09_subgraph_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &Re
     save_texture(engine, &root_tex, "test_09_subgraph_compositing.png");
 }
 
-fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_10_ultimate_master_compositing(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 
@@ -1229,7 +1229,7 @@ fn test_10_ultimate_master_compositing(engine: &ifol_gpu::api::GpuEngine, execut
     save_texture(engine, &master_tex, "test_10_ultimate_master.png");
 }
 
-fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::api::GpuEngine, executor: &RenderGraphExecutor) {
+    fn test_11_extreme_motion_graphics_pipeline(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {
     let mut pool = RenderNodePool::new();
     let mut registry = ResourceRegistry::new();
 

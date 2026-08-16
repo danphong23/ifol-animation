@@ -1,4 +1,4 @@
-use ifol_gpu::api::GpuEngineBuilder;
+use ifol_gpu::backend::GpuEngineBuilder;
 use ifol_gpu::graph::{RenderGraph, RenderTarget, RenderNodePool};
 use ifol_gpu::resources::{ResourceRegistry, TextureHandle, TextureResourceDescriptor};
 use ifol_gpu::execution::RenderGraphExecutor;

@@ -1,4 +1,4 @@
-use crate::api::GpuEngine;
+use crate::backend::GpuEngine;
 use crate::graph::RenderTarget;
 use crate::resources::handle::TextureHandle;
 use crate::resources::ResourceRegistry;

@@ -1,5 +1,5 @@
 use super::*;
-use crate::api::GpuEngineBuilder;
+use crate::backend::GpuEngineBuilder;
 
 #[test]
 fn test_ring_buffer_wrap_around() {

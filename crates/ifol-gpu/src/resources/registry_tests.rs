@@ -1,5 +1,5 @@
 use super::*;
-use crate::api::GpuEngineBuilder;
+use crate::backend::GpuEngineBuilder;
 use crate::memory::{DeferredDestructionQueue, SubmissionTracker};
 
 #[test]

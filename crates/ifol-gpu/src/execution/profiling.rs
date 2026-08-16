@@ -1,4 +1,5 @@
-use crate::api::{GpuEngine, TimestampQueryPool};
+use crate::api::TimestampQueryPool;
+use crate::backend::GpuEngine;
 use crate::graph::{RenderGraph, RenderNodePool};
 use crate::memory::SubmissionTracker;
 use crate::resources::ResourceRegistry;
