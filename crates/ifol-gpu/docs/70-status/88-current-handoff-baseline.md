@@ -9,6 +9,8 @@ Tài liệu này dùng để bắt đầu chat/task mới mà không mất ý đ
 ```text
 cargo check -p ifol-gpu              PASS
 cargo test -p ifol-gpu --lib        114 passed, 0 failed
+cargo test -p ifol-gpu --no-default-features --lib 113 passed, 0 failed
+cargo check -p ifol-gpu --examples --benches PASS (default features)
 ```
 
 Dự án còn có bộ test desktop đến TC105 và các artifact kiểm chứng WebGPU trong
@@ -28,13 +30,13 @@ chỉ từ compile hoặc test trên Windows.
 
 ## Chưa sạch hoặc chưa hoàn tất
 
-- `src/execution/mod.rs` còn là God File lớn;
+- `src/execution/mod.rs` còn lớn chủ yếu vì regression tests inline;
 - `src/graph/mod.rs` còn chứa nhiều responsibility;
 - compatibility facade còn public rộng;
-- `image` vẫn là runtime dependency;
-- `GpuEngine::save_texture_to_file_checked` còn gắn file encoding và
-  `Rgba8UnormSrgb` vào core;
-- readback contract cần khóa rõ format thực tế;
+- `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
+  core build `--no-default-features`;
+- save/encode đã tách khỏi engine vào `backend/texture_save.rs`;
+- readback contract đã trả raw bytes kèm format qua `RawTextureReadback`;
 - chưa có runtime matrix đầy đủ cho Metal, Linux, browser, Android và iOS;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
@@ -42,9 +44,11 @@ chỉ từ compile hoặc test trên Windows.
 ## Task tiếp theo được phép thực hiện
 
 Chỉ bắt đầu từ [kế hoạch tách module từng bước](../00-foundation/17-incremental-module-splitting-plan.md),
-Task A1: tách validation khỏi `execution/mod.rs` mà không đổi behavior.
+Task E1: tách regression tests inline khỏi `execution/mod.rs` mà không đổi
+behavior. Giữ facade public và test behavior nguyên vẹn.
 
-Không đồng thời sửa color, public API hoặc graph semantics trong Task A1.
+Không đồng thời sửa graph semantics, resource behavior hoặc color behavior
+trong Task E1.
 
 ## Hợp đồng với chat/task mới
 
@@ -56,4 +60,3 @@ Chat/task mới phải:
 4. kiểm tra Git status để không đụng vào thay đổi ngoài scope;
 5. làm đúng một task, test pass rồi commit;
 6. cập nhật status/docs nếu contract hoặc baseline thay đổi.
-
