@@ -169,6 +169,9 @@ Các report canonical hiện tại:
   halftone 45 độ trên paladin PNG canonical; vision/structural, validation và
   cache parity đạt. Raw còn khác 6 byte ở 2 pixel, sai số tối đa `1/255`, nên
   là `ĐẠT CÓ ĐIỀU KIỆN`.
+- [TC36](../../tests/reports/tc36_radial_blur_report.md): hai pass chroma key →
+  radial zoom blur 30 mẫu trên paladin PNG canonical; vision/structural,
+  validation, cache và raw parity đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

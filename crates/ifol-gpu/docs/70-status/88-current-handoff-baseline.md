@@ -322,6 +322,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   dùng cùng PNG canonical; vision/structural, validation và cache parity đạt.
   Raw còn khác 6 byte ở 2 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU
   KIỆN`. Xem `tests/reports/tc35_halftone_report.md`;
+- TC36 đã được chuẩn hóa thành graph 2 pass chroma key → radial blur với
+  manifest fingerprint `e8635023d0c9c2fb`, hai draw command và hai node.
+  Desktop/Web dùng cùng PNG canonical; vision/structural, validation, cache và
+  raw parity đạt tuyệt đối (`0` byte khác). Xem
+  `tests/reports/tc36_radial_blur_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

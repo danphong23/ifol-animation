@@ -211,3 +211,10 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kỳ vọng:** Nền vàng comic có nhân vật vẫn nhận diện được dưới dạng halftone; không có ảnh đen hoặc validation error.
 - **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `0bfdc815933931d8`; vision đạt; raw khác 6 byte ở 2 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
 - **Báo cáo:** [`tc35_halftone_report.md`](reports/tc35_halftone_report.md)
+
+### TC36 - Radial Blur / Zoom Blur
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → radial blur với 30 mẫu và trọng số giảm dần.
+- **Kịch bản:** Tách nhân vật paladin canonical rồi lấy mẫu dọc hướng từ pixel về tâm `[0.5, 0.5]` với strength `0.15`.
+- **Kỳ vọng:** Nền tím tối có nhân vật bị kéo mờ tỏa tâm nhưng vẫn nhận diện được; không có ảnh đen hoặc validation error.
+- **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `e8635023d0c9c2fb`; vision đạt; raw parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc36_radial_blur_report.md`](reports/tc36_radial_blur_report.md)
