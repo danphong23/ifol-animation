@@ -129,6 +129,9 @@ thay đổi boundary của core.
   Web mirror cùng error contract, fallback magenta và raw parity đạt tuyệt đối.
 - TC11: ba pass `left → right → final` với hai target offscreen 400x600 và
   split compositor, vision/structural parity và raw parity đạt tuyệt đối.
+- TC12: một pass gồm sky canonical và 5 sprite chroma-key; vision/structural
+  parity đạt, raw còn khác 4 byte ở 4 pixel với sai số kênh tối đa `1/255`,
+  nên kết luận là `ĐẠT CÓ ĐIỀU KIỆN`.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

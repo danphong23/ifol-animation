@@ -81,6 +81,9 @@ Các report canonical hiện tại:
   tuyệt đối; Web validation là contract mirror.
 - [TC11](../../tests/reports/tc11_viewport_report.md): hai viewport 400x600,
   ba pass compositor và raw parity đạt tuyệt đối.
+- [TC12](../../tests/reports/tc12_chroma_report.md): sky canonical và 5 sprite
+  chroma-key; vision/structural parity đạt, raw còn khác 4 byte ở 4 pixel với
+  sai số kênh tối đa `1/255`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

@@ -1,0 +1,153 @@
+{
+  "test_case": "TC12",
+  "title": "Fine Chroma Key Edge Despill and Smooth Alpha Feathering",
+  "title_vi": "Chroma key nhiều đối tượng với despill và alpha feathering",
+  "description": "Render a canonical twilight sky and five cropped sprites with green-screen removal, despill, smooth alpha edges and alpha blending.",
+  "description_vi": "Render nền hoàng hôn canonical cùng năm sprite crop từ atlas; loại phông xanh, giảm viền xanh, feather alpha và hòa trộn đúng thứ tự.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "sampler": {
+      "address_mode_u": "repeat",
+      "address_mode_v": "repeat",
+      "address_mode_w": "repeat",
+      "mag_filter": "linear",
+      "min_filter": "linear",
+      "mipmap_filter": "linear"
+    },
+    "pipelines": {
+      "sky": {
+        "shader": "sky_composite.wgsl",
+        "blend": "Replace",
+        "layout": "texture_uniform"
+      },
+      "chroma": {
+        "shader": "chroma_key_cropped.wgsl",
+        "blend": "AlphaBlend",
+        "layout": "texture_uniform"
+      }
+    },
+    "operations": [
+      {
+        "id": "sky",
+        "kind": "sky",
+        "pipeline": "sky",
+        "shader": "sky_composite.wgsl",
+        "asset": "canonical_tc085_noise.png",
+        "uniform": {
+          "top_color": [0.25, 0.08, 0.35],
+          "noise_strength": 0.06,
+          "bottom_color": [0.05, 0.15, 0.28],
+          "time": 1.0
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "paladin",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_heroes.png",
+        "position": [-0.55, 0.38],
+        "target_height_scale": 0.52,
+        "crop_uv": [0.005, 0.01, 0.28, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "mage",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_heroes.png",
+        "position": [0.55, 0.38],
+        "target_height_scale": 0.52,
+        "crop_uv": [0.27, 0.01, 0.54, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "scroll",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_items.png",
+        "position": [-0.55, -0.48],
+        "target_height_scale": 0.38,
+        "crop_uv": [0.58, 0.52, 0.88, 0.95],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.4,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "potion",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_items.png",
+        "position": [0.55, -0.48],
+        "target_height_scale": 0.38,
+        "crop_uv": [0.15, 0.02, 0.38, 0.48],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.4,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "bag",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_items.png",
+        "position": [0.0, -0.05],
+        "target_height_scale": 0.42,
+        "crop_uv": [0.58, 0.02, 0.85, 0.48],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.3,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      }
+    ],
+    "passes": [
+      {
+        "id": "main",
+        "name": "Twilight background and five chroma-key sprites",
+        "target": "final",
+        "clear_color": [0.10, 0.05, 0.15, 1.0]
+      }
+    ],
+    "clear_color": [0.10, 0.05, 0.15, 1.0],
+    "command_count": 6,
+    "node_count": 1
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["sky", "paladin", "mage", "scroll", "potion", "bag"],
+    "visual_check": "Nền hoàng hôn tím-xanh phủ toàn khung; năm đối tượng xuất hiện đúng vị trí và tỷ lệ; phông xanh biến mất, viền xanh được giảm, alpha feather mềm, không méo hình hoặc artifact."
+  }
+}

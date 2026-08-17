@@ -1623,6 +1623,170 @@ async function runTC11(gpu) {
     finalTexture.destroy();
 }
 
+async function runTC12(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc12_chroma.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC12 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const clear = manifest.graph.clear_color;
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const skyShader = device.createShaderModule({ code: await fetchShader('sky_composite.wgsl') });
+    const chromaShader = device.createShaderModule({ code: await fetchShader('chroma_key_cropped.wgsl') });
+    const alphaBlend = {
+        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+    };
+    function createPipeline(shader, format, blend) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+            vertex: { module: shader, entryPoint: 'vs_main' },
+            fragment: {
+                module: shader,
+                entryPoint: 'fs_main',
+                targets: [blend ? { format, blend } : { format }]
+            },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    const skyPipeline = createPipeline(skyShader, 'rgba8unorm-srgb', null);
+    const chromaPipeline = createPipeline(chromaShader, 'rgba8unorm-srgb', alphaBlend);
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const assetNames = [...new Set(operations.map(operation => operation.asset))];
+    const images = {};
+    for (const asset of assetNames) images[asset] = await loadImageTexture(device, asset);
+    const textureBindGroups = {};
+    const uniformBuffers = {};
+    const uniformBindGroups = {};
+    function createUniform(id, values) {
+        const data = new Float32Array(values);
+        const buffer = device.createBuffer({ size: data.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        device.queue.writeBuffer(buffer, 0, data);
+        uniformBuffers[id] = buffer;
+        uniformBindGroups[id] = device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer } }] });
+    }
+    for (const operation of operations) {
+        const image = images[operation.asset];
+        if (!textureBindGroups[operation.asset]) {
+            textureBindGroups[operation.asset] = device.createBindGroup({
+                layout: textureLayout,
+                entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+            });
+        }
+        if (operation.kind === 'sky') {
+            const uniform = operation.uniform;
+            createUniform(operation.id, [
+                ...uniform.top_color, uniform.noise_strength,
+                ...uniform.bottom_color, uniform.time
+            ]);
+        } else {
+            const crop = operation.crop_uv;
+            const cropWidth = (crop[2] - crop[0]) * image.width;
+            const cropHeight = (crop[3] - crop[1]) * image.height;
+            const cropAspect = cropWidth / Math.max(cropHeight, 1);
+            const screenAspect = target.width / target.height;
+            const scaleY = operation.target_height_scale;
+            const scaleX = scaleY * (cropAspect / screenAspect);
+            createUniform(operation.id, [
+                operation.position[0], operation.position[1], scaleX, scaleY,
+                crop[0], crop[1], crop[2], crop[3],
+                operation.key_color[0], operation.key_color[1], operation.key_color[2], operation.tolerance,
+                operation.smoothness, operation.z_depth, operation.opacity, 0
+            ]);
+        }
+    }
+    const targetTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    function drawOperations(pass, skyPipelineForFormat, chromaPipelineForFormat) {
+        for (const operation of operations) {
+            pass.setPipeline(operation.kind === 'sky' ? skyPipelineForFormat : chromaPipelineForFormat);
+            pass.setBindGroup(0, textureBindGroups[operation.asset]);
+            pass.setBindGroup(1, uniformBindGroups[operation.id]);
+            pass.draw(operation.vertex_count, operation.instance_count, 0, 0);
+        }
+    }
+    async function executeDraw(outputTexture, skyPipelineForFormat, chromaPipelineForFormat) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        drawOperations(pass, skyPipelineForFormat, chromaPipelineForFormat);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+    const coldRenderTimeMs = await executeDraw(targetTexture, skyPipeline, chromaPipeline);
+    const coldBytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    const warmRenderTimeMs = await executeDraw(targetTexture, skyPipeline, chromaPipeline);
+    const bytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC12 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc12_chroma_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1,
+        speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual,
+        manifest: 'tests/shared_assets/manifests/tc12_chroma.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '6 draw command execute offscreen + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count,
+        draw_commands: manifest.graph.command_count,
+        pass_count: 1,
+        image_name: 'tc12_chroma_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc12');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const canvasSkyPipeline = createPipeline(skyShader, canvasFormat, null);
+    const canvasChromaPipeline = createPipeline(chromaShader, canvasFormat, alphaBlend);
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+        loadOp: 'clear', storeOp: 'store'
+    }]});
+    drawOperations(pass, canvasSkyPipeline, canvasChromaPipeline);
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc12_chroma_web_preview.png');
+    document.getElementById('tag-tc12').textContent = 'PASS';
+    document.getElementById('tag-tc12').className = 'tag tag-passed';
+    targetTexture.destroy();
+    for (const asset of assetNames) images[asset].texture.destroy();
+    for (const id of Object.keys(uniformBuffers)) uniformBuffers[id].destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -2509,6 +2673,7 @@ async function runAllTests() {
         { name: "TC09: Pipeline Caching & Bundle Reuse", fn: runTC09 },
         { name: "TC10: Missing Resource Fallback", fn: runTC10 },
         { name: "TC11: Multi-Viewport Isolation", fn: runTC11 },
+        { name: "TC12: Multi-Sprite Chroma Key", fn: runTC12 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },
@@ -2525,6 +2690,7 @@ async function runAllTests() {
     if (tests.length === 0) throw new Error(`No supported test case selected: ${requestedNames.join(', ')}`);
     log(`Selected batch: ${tests.map(test => test.name).join(', ')}`);
 
+    let failedCount = 0;
     for (const test of tests) {
         log(`Executing ${test.name}...`);
         const t0 = performance.now();
@@ -2533,15 +2699,22 @@ async function runAllTests() {
             const dt = (performance.now() - t0).toFixed(2);
             log(`${test.name} PASSED in ${dt}ms`, 'success');
         } catch (e) {
+            failedCount += 1;
             log(`${test.name} FAILED: ${e.message}`, 'error');
             console.error(e);
         }
     }
 
     const badge = document.getElementById('overall-status');
-    badge.textContent = `Selected ${tests.length} WebGPU Test Case(s) PASSED ✅`;
-    badge.className = "status-badge passed";
-    log("=== ALL WEBGPU CROSS-PLATFORM TESTS PASSED ===", 'success');
+    if (failedCount === 0) {
+        badge.textContent = `Selected ${tests.length} WebGPU Test Case(s) PASSED ✅`;
+        badge.className = "status-badge passed";
+        log("=== ALL WEBGPU CROSS-PLATFORM TESTS PASSED ===", 'success');
+    } else {
+        badge.textContent = `${failedCount}/${tests.length} WebGPU Test Case(s) FAILED ❌`;
+        badge.className = "status-badge";
+        log(`=== WEBGPU TEST SUITE FAILED: ${failedCount} case(s) ===`, 'error');
+    }
 }
 
 window.addEventListener('DOMContentLoaded', runAllTests);

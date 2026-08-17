@@ -84,9 +84,9 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 ## Nhóm 3: Hiệu Ứng Nâng Cao (TC12 - TC19)
 
 ### TC12 - Chroma Key
-- **Mục tiêu:** Shader Pipeline đọc dữ liệu Image.
-- **Kịch bản:** Load ảnh Anime phông xanh `#00FF00`. Áp dụng `chroma_key.wgsl`.
-- **Kỳ vọng hình ảnh xuất ra:** Bức ảnh có nhân vật, phần nền xanh đã bị xóa thành trong suốt (nhìn xuyên qua nền đen phía sau).
+- **Mục tiêu:** Chroma key nhiều sprite với despill, alpha feather và alpha blending.
+- **Kịch bản:** Dùng sky và atlas PNG canonical; render 5 crop sprite theo một graph, áp dụng `chroma_key_cropped.wgsl` với key màu, tolerance và smoothness cố định.
+- **Kỳ vọng hình ảnh xuất ra:** Nền hoàng hôn phủ toàn khung; 5 đối tượng đúng vị trí/tỷ lệ, phông xanh bị loại bỏ, viền xanh giảm và không có artifact.
 
 ### TC13 - Gaussian Blur (2-Pass)
 - **Mục tiêu:** Kỹ thuật Multi-pass kinh điển.

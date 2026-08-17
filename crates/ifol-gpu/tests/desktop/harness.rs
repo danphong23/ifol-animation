@@ -242,12 +242,20 @@ impl<'a> DesktopTestHarness<'a> {
     }
 
     pub fn load_texture(&mut self, relative_path: &str) -> LoadedTextureInfo {
+        self.load_texture_with_resize(relative_path, true)
+    }
+
+    pub fn load_texture_exact(&mut self, relative_path: &str) -> LoadedTextureInfo {
+        self.load_texture_with_resize(relative_path, false)
+    }
+
+    fn load_texture_with_resize(&mut self, relative_path: &str, resize_large: bool) -> LoadedTextureInfo {
         let full_path = Path::new("tests/shared_assets/textures").join(relative_path);
         let mut img = image::open(&full_path)
             .unwrap_or_else(|e| panic!("Failed to open texture {:?}: {}", full_path, e));
         
         let (w, h) = img.dimensions();
-        if w > 2048 || h > 2048 {
+        if resize_large && (w > 2048 || h > 2048) {
             img = img.resize(2048, 2048, image::imageops::FilterType::Triangle);
         }
         let rgba = img.to_rgba8();

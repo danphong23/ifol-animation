@@ -201,8 +201,9 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   TC03 đạt vision/structural/depth parity, còn TC08.5 đạt vision/structural
   parity. TC09 đạt raw parity tuyệt đối và xác nhận cold/warm output không đổi.
   TC10 đạt typed-error/no-panic contract và raw fallback parity tuyệt đối. TC08.5
-  là case có điều kiện vì raw pixel parity còn sai khác màu/alpha. TC11 cũng đã
-  đạt raw parity tuyệt đối cho ba pass multi-viewport/compositor. Xem
+  là case có điều kiện vì raw pixel parity còn sai khác màu/alpha. TC11 đã đạt
+  raw parity tuyệt đối cho ba pass multi-viewport/compositor. TC12 đạt
+  vision/structural parity nhưng còn 4 byte sai khác ở 4 pixel. Xem
   [chính sách parity](../00-foundation/19-cross-platform-parity-testing-policy.md)
   và các report TC tương ứng trong `tests/reports/`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật

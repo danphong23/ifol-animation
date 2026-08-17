@@ -85,9 +85,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 ## Nhóm 3: Hiệu Ứng Nâng Cao (TC12 - TC19)
 
 ### TC12 - Chroma Key
-- **Mục tiêu:** Shader Pipeline đọc dữ liệu Image thực tế.
-- **Kịch bản:** Load ảnh Anime phông xanh `#00FF00`. Áp dụng `chroma_key.wgsl`. Cắt bỏ nền xanh.
-- **Kỳ vọng:** Bức ảnh có nhân vật trong suốt (Alpha = 0 ở phần phông nền xanh).
+- **Mục tiêu:** Chroma key nhiều sprite với despill, alpha feather và alpha blending.
+- **Kịch bản:** Dùng sky và atlas PNG canonical; render 5 crop sprite theo một graph, áp dụng `chroma_key_cropped.wgsl` với key màu, tolerance và smoothness cố định.
+- **Kỳ vọng:** Nền hoàng hôn phủ toàn khung; 5 đối tượng đúng vị trí/tỷ lệ, phông xanh bị loại bỏ và alpha feather không tạo artifact.
 
 ### TC13 - Gaussian Blur (2-Pass)
 - **Mục tiêu:** Kỹ thuật Multi-pass kinh điển.
