@@ -75,8 +75,9 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 
 ### TC11 - Multi-Viewport Isolation
 - **Mục tiêu:** Khả năng chạy song song nhiều Camera / Scene.
-- **Kịch bản:** Scene 1 vẽ hình tròn đỏ. Scene 2 vẽ UI mờ. Hai Graph không có Node trùng nhau.
-- **Kỳ vọng hình ảnh xuất ra:** Kết quả độc lập. Scene 1 chỉ có hình đỏ, Scene 2 chỉ có UI. Không có chi tiết nào của 1 bị lọt sang 2.
+- **Manifest dùng chung:** `shared_assets/manifests/tc11_viewport.json`.
+- **Kịch bản:** Render hai target offscreen độc lập `400x600`, sau đó compositor ghép thành target `800x600` với divider tại `x=0.5`.
+- **Kỳ vọng hình ảnh xuất ra:** Hai nửa trái/phải giữ đúng clear riêng, divider cyan-trắng nằm giữa và không có state leak giữa hai viewport. Xem `reports/tc11_viewport_report.md`.
 
 ---
 

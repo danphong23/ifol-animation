@@ -76,8 +76,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 
 ### TC11 - Multi-Viewport Isolation
 - **Mục tiêu:** Khả năng chạy song song nhiều Camera / Scene trên 1 Arena Pool.
-- **Kịch bản:** Scene 1 vẽ nhà cửa. Scene 2 vẽ UI mờ. Hai Graph không có Node trùng nhau. Compile và Render liên tiếp trong 1 frame.
-- **Kỳ vọng:** Trạng thái của Scene 1 không rò rỉ sang Scene 2.
+- **Manifest dùng chung:** `shared_assets/manifests/tc11_viewport.json`.
+- **Kịch bản:** Render hai target `400x600` độc lập rồi ghép bằng một split compositor vào target `800x600`.
+- **Kỳ vọng:** Hai viewport giữ đúng nội dung riêng, divider xác định và không có state leak; report ghi raw parity Desktop/WebGPU.
 
 ---
 

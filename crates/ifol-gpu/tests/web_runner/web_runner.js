@@ -138,6 +138,7 @@ async function saveRawTexture(bytes, metadata) {
             draw_commands: metadata.draw_commands,
             instance_count: metadata.instance_count,
             pass_count: metadata.pass_count,
+            viewport_count: metadata.viewport_count,
             image_name: metadata.image_name
         })
     });
@@ -1470,6 +1471,8 @@ async function runTC10(gpu) {
         format: 'Rgba8UnormSrgb',
         cold_render_time_ms: coldRenderTimeMs,
         warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1,
+        speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
         cache_output_equal: cacheOutputEqual,
         validation_error: errorContract.type,
         missing_bind_group: errorContract.missing_bind_group,
@@ -1492,6 +1495,132 @@ async function runTC10(gpu) {
     document.getElementById('tag-tc10').textContent = 'PASS';
     document.getElementById('tag-tc10').className = 'tag tag-passed';
     targetTexture.destroy();
+}
+
+async function runTC11(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc11_viewport.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC11 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const leftTarget = manifest.graph.targets.left;
+    const rightTarget = manifest.graph.targets.right;
+    const shader = device.createShaderModule({ code: await fetchShader('splitscreen_composite.wgsl') });
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    function createSplitPipeline(format) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, textureLayout] }),
+            vertex: { module: shader, entryPoint: 'vs_main' },
+            fragment: { module: shader, entryPoint: 'fs_main', targets: [{ format }] },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    const pipeline = createSplitPipeline('rgba8unorm-srgb');
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const leftTexture = device.createTexture({
+        size: [leftTarget.width, leftTarget.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    const rightTexture = device.createTexture({
+        size: [rightTarget.width, rightTarget.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    const leftBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: leftTexture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const rightBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: rightTexture.createView() }, { binding: 1, resource: sampler }]
+    });
+    function clearPass(encoder, texture, clearValue) {
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: texture.createView(), clearValue, loadOp: 'clear', storeOp: 'store'
+        }]});
+        pass.end();
+    }
+    async function executeAll(outputTexture) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        clearPass(encoder, leftTexture, { r: 0.15, g: 0.08, b: 0.20, a: 1.0 });
+        clearPass(encoder, rightTexture, { r: 0.008, g: 0.012, b: 0.045, a: 1.0 });
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+        }]});
+        pass.setPipeline(pipeline);
+        pass.setBindGroup(0, leftBindGroup);
+        pass.setBindGroup(1, rightBindGroup);
+        pass.draw(6, 1, 0, 0);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+    const coldRenderTimeMs = await executeAll(finalTexture);
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const warmRenderTimeMs = await executeAll(finalTexture);
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC11 viewport output changed between runs');
+    await saveRawTexture(bytes, {
+        name: 'tc11_viewport_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        cache_output_equal: cacheOutputEqual,
+        manifest: 'tests/shared_assets/manifests/tc11_viewport.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '3 pass offscreen (left → right → final) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count,
+        draw_commands: manifest.graph.command_count,
+        pass_count: manifest.graph.passes.length,
+        viewport_count: 2,
+        image_name: 'tc11_viewport_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc11');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const canvasPipeline = createSplitPipeline(canvasFormat);
+    const canvasPass = device.createCommandEncoder();
+    const pass = canvasPass.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+    }]});
+    pass.setPipeline(canvasPipeline);
+    pass.setBindGroup(0, leftBindGroup);
+    pass.setBindGroup(1, rightBindGroup);
+    pass.draw(6, 1, 0, 0);
+    pass.end();
+    device.queue.submit([canvasPass.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc11_viewport_web_preview.png');
+    document.getElementById('tag-tc11').textContent = 'PASS';
+    document.getElementById('tag-tc11').className = 'tag tag-passed';
+    leftTexture.destroy();
+    rightTexture.destroy();
+    finalTexture.destroy();
 }
 
 async function runTC085(gpu) {
@@ -1659,7 +1788,7 @@ async function runTC085(gpu) {
 }
 
 async function fetchShader(name) {
-    const res = await fetch(`/shaders/${name}`);
+    const res = await fetch(`/shaders/${name}?runner_shader_revision=2`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
     return await res.text();
 }
@@ -2379,6 +2508,7 @@ async function runAllTests() {
         { name: "TC08.5: Directional Moonlight Scene", fn: runTC085 },
         { name: "TC09: Pipeline Caching & Bundle Reuse", fn: runTC09 },
         { name: "TC10: Missing Resource Fallback", fn: runTC10 },
+        { name: "TC11: Multi-Viewport Isolation", fn: runTC11 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

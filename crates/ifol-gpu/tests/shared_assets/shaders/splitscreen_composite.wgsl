@@ -36,6 +36,13 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // WebGPU requires textureSample to remain in uniform control flow. Sample
+    // both viewports first, then choose the visible half arithmetically.
+    let left_uv = vec2<f32>(in.uv.x * 2.0, in.uv.y);
+    let right_uv = vec2<f32>((in.uv.x - 0.5) * 2.0, in.uv.y);
+    let left_color = textureSample(t_left, s_left, left_uv);
+    let right_color = textureSample(t_right, s_right, right_uv);
+
     // Dividing line at center (uv.x = 0.5)
     let dist_to_divider = abs(in.uv.x - 0.5);
     
@@ -45,13 +52,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         return vec4<f32>(0.3, 0.8, 1.0, 1.0) * line_glow + vec4<f32>(1.0, 1.0, 1.0, 1.0) * pow(line_glow, 3.0);
     }
 
-    if (in.uv.x < 0.5) {
-        // Sample Left Viewport (remap uv.x 0.0..0.5 -> 0.0..1.0)
-        let left_uv = vec2<f32>(in.uv.x * 2.0, in.uv.y);
-        return textureSample(t_left, s_left, left_uv);
-    } else {
-        // Sample Right Viewport (remap uv.x 0.5..1.0 -> 0.0..1.0)
-        let right_uv = vec2<f32>((in.uv.x - 0.5) * 2.0, in.uv.y);
-        return textureSample(t_right, s_right, right_uv);
-    }
+    // Select Left Viewport for x < 0.5 and Right Viewport otherwise.
+    return select(right_color, left_color, in.uv.x < 0.5);
 }

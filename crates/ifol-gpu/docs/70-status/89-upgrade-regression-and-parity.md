@@ -79,6 +79,8 @@ Các report canonical hiện tại:
 - [TC10](../../tests/reports/tc10_fallback_report.md): typed error
   `MissingBindGroup(999999)` không panic, fallback magenta và raw parity đạt
   tuyệt đối; Web validation là contract mirror.
+- [TC11](../../tests/reports/tc11_viewport_report.md): hai viewport 400x600,
+  ba pass compositor và raw parity đạt tuyệt đối.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

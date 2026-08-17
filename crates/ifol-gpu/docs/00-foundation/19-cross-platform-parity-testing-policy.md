@@ -127,6 +127,8 @@ thay đổi boundary của core.
   được báo cáo để quan sát cache, không phải ngưỡng phần cứng cố định.
 - TC10: Desktop xác nhận `MissingBindGroup(999999)` trả typed error không panic;
   Web mirror cùng error contract, fallback magenta và raw parity đạt tuyệt đối.
+- TC11: ba pass `left → right → final` với hai target offscreen 400x600 và
+  split compositor, vision/structural parity và raw parity đạt tuyệt đối.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

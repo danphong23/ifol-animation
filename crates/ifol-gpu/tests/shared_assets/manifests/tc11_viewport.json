@@ -1,0 +1,91 @@
+{
+  "test_case": "TC11",
+  "title": "Multi-Viewport Split-Screen and Isolation",
+  "title_vi": "Hai viewport độc lập và compositor split-screen",
+  "description": "Render two independent 400x600 offscreen viewports, then compose them into one 800x600 target with a deterministic divider.",
+  "description_vi": "Render hai viewport offscreen độc lập 400x600 rồi ghép thành target 800x600 bằng compositor và divider cố định.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "targets": {
+      "left": { "width": 400, "height": 600, "format": "Rgba8UnormSrgb" },
+      "right": { "width": 400, "height": 600, "format": "Rgba8UnormSrgb" },
+      "final": { "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    },
+    "sampler": {
+      "address_mode_u": "clamp-to-edge",
+      "address_mode_v": "clamp-to-edge",
+      "address_mode_w": "clamp-to-edge",
+      "mag_filter": "nearest",
+      "min_filter": "nearest",
+      "mipmap_filter": "nearest"
+    },
+    "pipelines": {
+      "split_composite": {
+        "shader": "splitscreen_composite.wgsl",
+        "blend": "Replace",
+        "depth": false,
+        "has_uniform": false,
+        "layout": "two_texture_bind_groups"
+      }
+    },
+    "passes": [
+      {
+        "id": "left_viewport",
+        "name": "Left isolated viewport",
+        "target": "left",
+        "width": 400,
+        "height": 600,
+        "clear_color": [0.15, 0.08, 0.20, 1.0],
+        "operations": []
+      },
+      {
+        "id": "right_viewport",
+        "name": "Right isolated viewport",
+        "target": "right",
+        "width": 400,
+        "height": 600,
+        "clear_color": [0.008, 0.012, 0.045, 1.0],
+        "operations": []
+      },
+      {
+        "id": "final_composite",
+        "name": "Deterministic split-screen composite",
+        "target": "final",
+        "width": 800,
+        "height": 600,
+        "clear_color": [0.0, 0.0, 0.0, 1.0],
+        "operations": [
+          {
+            "id": "split_composite",
+            "kind": "texture_composite",
+            "pipeline": "split_composite",
+            "source": [
+              { "kind": "target", "target": "left" },
+              { "kind": "target", "target": "right" }
+            ],
+            "vertex_count": 6,
+            "instance_count": 1
+          }
+        ]
+      }
+    ],
+    "command_count": 1,
+    "node_count": 3
+  },
+  "viewport_contract": {
+    "left_scene": "isolated clear [0.15, 0.08, 0.20, 1.0]",
+    "right_scene": "isolated clear [0.008, 0.012, 0.045, 1.0]",
+    "divider": "splitscreen_composite.wgsl at normalized x=0.5",
+    "cross_viewport_state_leak_allowed": false
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["left_viewport", "right_viewport", "final_composite"],
+    "visual_check": "Output gồm hai nửa độc lập trái/phải với màu nền khác nhau và một divider cyan-trắng ở chính giữa; không có nội dung hoặc trạng thái của viewport này rò sang viewport kia."
+  }
+}
