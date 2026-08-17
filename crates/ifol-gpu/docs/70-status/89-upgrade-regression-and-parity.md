@@ -116,6 +116,10 @@ Các report canonical hiện tại:
 - [TC20](../../tests/reports/tc20_perspective_report.md): một pass sprite
   perspective 2.5D với MVP matrix cố định và một draw command; vision/structural,
   validation, cache và raw parity đều đạt tuyệt đối (`0` byte khác).
+- [TC21](../../tests/reports/tc21_masking_report.md): một pass SDF circular mask
+  cho avatar crop với một draw command; vision/structural, validation và cache
+  parity đạt, raw còn khác 1 byte ở 1 pixel với sai số tối đa `1/255`, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

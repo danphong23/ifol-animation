@@ -247,6 +247,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   fingerprint `990a63feb8c50405`, 1 draw command và MVP matrix cố định trong
   manifest. Desktop/Web đạt vision/structural, validation, cold/warm và raw
   parity tuyệt đối (`0` byte khác). Xem `tests/reports/tc20_perspective_report.md`;
+- TC21 đã được chuẩn hóa thành graph 1 pass SDF circular mask với manifest
+  fingerprint `c55143c9bb5e1cf1`, 1 draw command và avatar crop canonical.
+  Desktop/Web đạt vision/structural, validation và cold/warm parity; raw còn
+  khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`.
+  Xem `tests/reports/tc21_masking_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

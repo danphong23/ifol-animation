@@ -134,3 +134,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử truyền ma trận model-view-projection cố định vào WGSL và render sprite 2D trong phối cảnh 3D.
 - **Kịch bản:** Một sprite paladin canonical được crop, xoay theo MVP với phối cảnh camera, đồng thời áp dụng chroma-key/despill.
 - **Kỳ vọng:** Sprite nghiêng theo phối cảnh trên nền xám, crop và alpha đúng, không có black output hoặc validation error.
+
+### TC21 - SDF Masking & Chroma Key
+- **Mục tiêu:** Kiểm thử mask tròn SDF kết hợp chroma-key/despill cho avatar.
+- **Kịch bản:** Crop avatar paladin canonical, áp dụng transform cố định, lọc phông xanh rồi nhân alpha với mask tròn mềm trong local space.
+- **Kỳ vọng:** Avatar nằm trong vùng mask tròn, nền xám bên ngoài được giữ nguyên, không có black output hoặc validation error.
