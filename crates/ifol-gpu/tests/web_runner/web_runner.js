@@ -26,6 +26,87 @@ async function saveCanvasImage(canvas, filename) {
     }
 }
 
+function bytesToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return btoa(binary);
+}
+
+async function saveRawTexture(bytes, metadata) {
+    const res = await fetch('/save_raw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: metadata.name,
+            bytes: bytesToBase64(bytes),
+            width: metadata.width,
+            height: metadata.height,
+            format: metadata.format,
+            render_time_ms: metadata.render_time_ms
+        })
+    });
+    if (!res.ok) throw new Error(`Raw output save failed: ${res.status}`);
+    return await res.json();
+}
+
+async function runCanonicalParityProbe(gpu) {
+    const { device } = gpu;
+    const width = 800;
+    const height = 600;
+    const format = 'rgba8unorm';
+    const texture = device.createTexture({
+        size: [width, height],
+        format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    const bytesPerRow = width * 4;
+    const paddedBytesPerRow = Math.ceil(bytesPerRow / 256) * 256;
+    const readbackBuffer = device.createBuffer({
+        size: paddedBytesPerRow * height,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    const started = performance.now();
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({
+        colorAttachments: [{
+            view: texture.createView(),
+            clearValue: { r: 0.03, g: 0.04, b: 0.07, a: 1.0 },
+            loadOp: 'clear',
+            storeOp: 'store'
+        }]
+    });
+    pass.end();
+    encoder.copyTextureToBuffer(
+        { texture },
+        { buffer: readbackBuffer, bytesPerRow: paddedBytesPerRow, rowsPerImage: height },
+        [width, height, 1]
+    );
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await readbackBuffer.mapAsync(GPUMapMode.READ);
+    const mapped = new Uint8Array(readbackBuffer.getMappedRange());
+    const bytes = new Uint8Array(bytesPerRow * height);
+    for (let row = 0; row < height; row++) {
+        bytes.set(
+            mapped.subarray(row * paddedBytesPerRow, row * paddedBytesPerRow + bytesPerRow),
+            row * bytesPerRow
+        );
+    }
+    readbackBuffer.unmap();
+    await saveRawTexture(bytes, {
+        name: 'canonical_parity_rgba8unorm',
+        width,
+        height,
+        format: 'Rgba8Unorm',
+        render_time_ms: performance.now() - started
+    });
+    texture.destroy();
+    readbackBuffer.destroy();
+}
+
 async function fetchShader(name) {
     const res = await fetch(`/shaders/${name}`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
@@ -726,6 +807,14 @@ async function runAllTests() {
     log("Starting WebGPU Cross-Platform Verification Suite...");
     const gpu = await initWebGPU();
     if (!gpu) return;
+
+    log('Executing canonical offscreen parity probe...');
+    try {
+        await runCanonicalParityProbe(gpu);
+        log('Canonical offscreen parity probe saved', 'success');
+    } catch (e) {
+        log(`Canonical parity probe FAILED: ${e.message}`, 'error');
+    }
 
     const tests = [
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },

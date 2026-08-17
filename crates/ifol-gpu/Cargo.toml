@@ -448,6 +448,10 @@ path = "tests/desktop/tc104_extension_dispatch.rs"
 name = "tc105_desktop"
 path = "tests/desktop/tc105_pingpong_echo.rs"
 
+[[test]]
+name = "tc_parity_canonical"
+path = "tests/desktop/tc_parity_canonical.rs"
+
 [[bench]]
 name = "compute_benchmarks"
 harness = false

@@ -59,6 +59,37 @@ class WebGpuTestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({'status': 'error', 'message': str(e)}).encode('utf-8'))
+        elif self.path == '/save_raw':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            try:
+                payload = json.loads(body.decode('utf-8'))
+                filename = payload.get('name', 'output')
+                raw_bytes = base64.b64decode(payload.get('bytes', ''))
+                raw_path = os.path.join(OUTPUT_DIR, filename + '.bin')
+                metadata_path = os.path.join(OUTPUT_DIR, filename + '.json')
+                with open(raw_path, 'wb') as f:
+                    f.write(raw_bytes)
+                with open(metadata_path, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        'width': payload.get('width'),
+                        'height': payload.get('height'),
+                        'format': payload.get('format'),
+                        'render_time_ms': payload.get('render_time_ms'),
+                        'byte_length': len(raw_bytes),
+                    }, f, indent=2)
+                print(f"[Server] Saved raw WebGPU output: {raw_path} ({len(raw_bytes)} bytes)")
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'status': 'ok', 'saved': filename}).encode('utf-8'))
+            except Exception as e:
+                print(f"[Server Error] {e}")
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'status': 'error', 'message': str(e)}).encode('utf-8'))
         else:
             self.send_response(404)
             self.end_headers()
