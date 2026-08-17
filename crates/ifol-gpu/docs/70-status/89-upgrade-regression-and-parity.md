@@ -91,6 +91,10 @@ Các report canonical hiện tại:
   điện ảnh/ACES Filmic; vision/structural parity và cold/warm cache parity đạt,
   raw còn khác 18 byte ở 16 pixel với sai số tối đa `2/255`, nên là `ĐẠT CÓ
   ĐIỀU KIỆN`.
+- [TC15](../../tests/reports/tc15_snow_report.md): một pass winter scene với
+  200 snow instances; vision/structural, validation và cache parity đạt, raw
+  còn khác 73 byte ở 28 pixel với sai số tối đa `24/255`, nên là `ĐẠT CÓ ĐIỀU
+  KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

@@ -2218,6 +2218,178 @@ async function runTC14(gpu) {
     for (const id of Object.keys(uniformBuffers)) uniformBuffers[id].destroy();
 }
 
+async function runTC15(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc15_snow.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC15 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const shaderModules = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaderModules[spec.shader]) shaderModules[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+    }
+    function blendState(name) {
+        if (name === 'Replace') return undefined;
+        if (name === 'AlphaBlend') return {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        };
+        throw new Error(`Unsupported TC15 blend mode: ${name}`);
+    }
+    function pipelineLayouts(spec) {
+        if (spec.layout === 'texture') return [textureLayout];
+        if (spec.layout === 'texture_uniform') return [textureLayout, uniformLayout];
+        if (spec.layout === 'texture_texture_uniform') return [textureLayout, textureLayout, uniformLayout];
+        throw new Error(`Unsupported TC15 pipeline layout: ${spec.layout}`);
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            result[name] = device.createRenderPipeline({
+                layout: device.createPipelineLayout({ bindGroupLayouts: pipelineLayouts(spec) }),
+                vertex: { module: shaderModules[spec.shader], entryPoint: 'vs_main' },
+                fragment: {
+                    module: shaderModules[spec.shader],
+                    entryPoint: 'fs_main',
+                    targets: [{ format, blend: blendState(spec.blend) }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+        return result;
+    }
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const assetNames = [...new Set(operations.flatMap(operation => (operation.source || []).filter(source => source.kind === 'asset').map(source => source.asset)))];
+    const assets = {};
+    for (const name of assetNames) {
+        const image = await loadImageTexture(device, name);
+        assets[name] = {
+            image,
+            bindGroup: device.createBindGroup({
+                layout: textureLayout,
+                entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+            })
+        };
+    }
+    const uniformBuffers = {};
+    function makeUniform(id, values, minimumSize = 0) {
+        const data = new Float32Array(values);
+        const size = Math.max(data.byteLength, minimumSize);
+        const buffer = device.createBuffer({ size, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        device.queue.writeBuffer(buffer, 0, data);
+        uniformBuffers[id] = buffer;
+        return device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer } }] });
+    }
+    function uniformData(operation) {
+        const u = operation.uniform;
+        if (operation.kind === 'sky') return { values: [...u.top_color, u.noise_strength, ...u.bottom_color, u.time], minimumSize: 64 };
+        if (operation.kind === 'moon') return { values: [...u.model_view, ...u.uv_min, ...u.uv_max, ...u.key_color, u.tolerance, u.smoothness, u.noise_strength, u.glow_intensity, u._pad] };
+        if (operation.kind === 'cloud') return { values: [...u.model_view, ...u.uv_bounds, ...u.key_color_tol, ...u.params, ...u.lighting_pos] };
+        if (operation.kind === 'snow') return { values: [u.time, u.wind_speed, u.gravity, u.particle_count] };
+        if (operation.kind === 'chroma_sprite') {
+            const image = assets[operation.asset].image;
+            const crop = operation.crop_uv;
+            const cropAspect = ((crop[2] - crop[0]) * image.width) / Math.max((crop[3] - crop[1]) * image.height, 1);
+            const scaleY = operation.target_height_scale;
+            const scaleX = scaleY * (cropAspect / (target.width / target.height));
+            return { values: [
+                operation.position[0], operation.position[1], scaleX, scaleY,
+                crop[0], crop[1], crop[2], crop[3],
+                operation.key_color[0], operation.key_color[1], operation.key_color[2], operation.tolerance,
+                operation.smoothness, operation.z_depth, operation.opacity, 0
+            ] };
+        }
+        return null;
+    }
+    const resources = [];
+    for (const operation of operations) {
+        const bindGroups = [];
+        for (const source of operation.source || []) {
+            if (source.kind !== 'asset') throw new Error(`Unsupported TC15 source kind: ${source.kind}`);
+            bindGroups.push(assets[source.asset].bindGroup);
+        }
+        const uniform = uniformData(operation);
+        if (uniform) bindGroups.push(makeUniform(operation.id, uniform.values, uniform.minimumSize || 0));
+        resources.push({ operation, bindGroups });
+    }
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    async function render(outputTexture, pipelines) {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const clear = manifest.graph.passes[0].clear_color;
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        for (const resource of resources) {
+            pass.setPipeline(pipelines[resource.operation.pipeline]);
+            resource.bindGroups.forEach((bindGroup, index) => pass.setBindGroup(index, bindGroup));
+            pass.draw(resource.operation.vertex_count, resource.operation.instance_count, 0, 0);
+        }
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC15 validation error: ${error.message}`);
+    }
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+    const startedCold = performance.now();
+    await render(finalTexture, offscreenPipelines);
+    const coldRenderTimeMs = performance.now() - startedCold;
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const startedWarm = performance.now();
+    await render(finalTexture, offscreenPipelines);
+    const warmRenderTimeMs = performance.now() - startedWarm;
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC15 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc15_snow_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc15_snow.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '1 pass (winter snow scene) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count,
+        instance_count: manifest.evaluation.expected_instance_count, pass_count: manifest.graph.passes.length,
+        image_name: 'tc15_snow_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc15');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    await render(context.getCurrentTexture(), createPipelines(canvasFormat));
+    await saveCanvasImage(canvas, 'tc15_snow_web_preview.png');
+    document.getElementById('tag-tc15').textContent = 'PASS';
+    document.getElementById('tag-tc15').className = 'tag tag-passed';
+    finalTexture.destroy();
+    for (const asset of Object.values(assets)) asset.image.texture.destroy();
+    for (const buffer of Object.values(uniformBuffers)) buffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -3107,6 +3279,7 @@ async function runAllTests() {
         { name: "TC12: Multi-Sprite Chroma Key", fn: runTC12 },
         { name: "TC13: Gaussian Blur Depth of Field", fn: runTC13 },
         { name: "TC14: Cinematic Color Grading", fn: runTC14 },
+        { name: "TC15: Instanced Snow Physics", fn: runTC15 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

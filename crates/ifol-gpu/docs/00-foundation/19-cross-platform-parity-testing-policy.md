@@ -153,6 +153,10 @@ thay đổi boundary của core.
   structural parity đạt, cold/warm output không đổi và validation WebGPU đạt.
   Raw còn khác 18 byte ở 16 pixel, sai số tối đa `2/255`, nên kết luận là
   `ĐẠT CÓ ĐIỀU KIỆN`.
+- TC15: một pass winter scene với 7 draw command và 200 snow instances; cùng
+  canonical snow PNG, vision/structural parity và validation/cache parity đạt.
+  Raw còn khác 73 byte ở 28 pixel, sai số tối đa `24/255`; Web cold có spike
+  `311.4 ms` so với warm `3.1 ms`, nên kết luận là `ĐẠT CÓ ĐIỀU KIỆN`.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

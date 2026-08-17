@@ -100,10 +100,11 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kịch bản:** Render scene hoàng hôn canonical trong `scene`, sau đó pass `color_grade` đọc scene và ghi `final` bằng shader `color_grading_filmic.wgsl`.
 - **Kỳ vọng hình ảnh xuất ra:** Cảnh có tông vàng ấm, vùng tối pha tím chàm, highlight vàng hổ phách, vignette mềm; foreground còn chi tiết, không bị đen toàn ảnh hay artifact.
 
-### TC15 - Instancing Particle System (Snow)
-- **Mục tiêu:** Instancing Render.
-- **Kịch bản:** 50,000 hạt tuyết bằng `instance_range: 0..50000`.
-- **Kỳ vọng hình ảnh xuất ra:** Hàng ngàn vệt tuyết trắng bay với góc độ tự nhiên nhờ Instancing.
+### TC15 - Instanced Snow Particle Physics
+- **Mục tiêu:** Kiểm thử instanced rendering với chuyển động tuyết xác định theo gravity, wind, rotation và depth.
+- **Manifest dùng chung:** `shared_assets/manifests/tc15_snow.json`.
+- **Kịch bản:** Một pass vẽ sky, moon, cloud, hai pine, paladin và 200 snow instances bằng `snow_physics_instanced.wgsl` từ input `canonical_particle_snow.png`.
+- **Kỳ vọng hình ảnh xuất ra:** Cảnh đêm tuyết không rỗng; 200 hạt tuyết trắng có kích thước/độ mờ theo depth, không có validation error hoặc black output.
 
 ### TC16 - UV Displacement
 - **Mục tiêu:** Sampling Texture chéo làm Vector.

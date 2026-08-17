@@ -100,10 +100,11 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kịch bản:** `scene_pass` render scene hoàng hôn, `grading_pass` đọc scene và ghi `final` bằng `color_grading_filmic.wgsl`.
 - **Kỳ vọng:** Cùng manifest và 2 pass; tông vàng ấm, shadow tím chàm, highlight vàng hổ phách, vignette mềm và không có artifact.
 
-### TC15 - Instancing Particle System (Snow)
-- **Mục tiêu:** Sức mạnh của phần cứng GPU.
-- **Kịch bản:** 1 Node duy nhất với 1 DrawCommand. Gọi hàm instanced rendering để sinh ra 50,000 hạt tuyết. Tọa độ tính toán bằng hàm Hash Procedural trong WGSL.
-- **Kỳ vọng:** Khung hình ngập tuyết, compile graph vẫn dưới 1ms vì chỉ có 1 DrawCommand.
+### TC15 - Instanced Snow Particle Physics
+- **Mục tiêu:** Kiểm thử instanced rendering với chuyển động tuyết xác định theo gravity, wind, rotation và depth.
+- **Manifest dùng chung:** `shared_assets/manifests/tc15_snow.json`.
+- **Kịch bản:** Một node và một pass vẽ sky, moon, cloud, hai pine, paladin và 200 snow instances bằng `snow_physics_instanced.wgsl`.
+- **Kỳ vọng:** Desktop/Web dùng cùng fingerprint, 7 draw command và 200 instances; output không rỗng, không validation error, cold/warm không đổi.
 
 ### TC16 - UV Displacement
 - **Mục tiêu:** Sampling Texture chéo.

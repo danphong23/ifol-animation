@@ -217,6 +217,10 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   manifest fingerprint `f3824201007dd4a7`, cùng 8 draw command trên Desktop/Web.
   Vision/structural và cold/warm đạt; raw còn khác 18 byte ở 16 pixel, nên là
   `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc14_grading_report.md`;
+- TC15 đã được chuẩn hóa thành graph 1 pass winter scene với manifest fingerprint
+  `6ec7f347092fd77a`, cùng 7 draw command và 200 snow instances. Vision/
+  structural, validation và cold/warm đạt; raw còn khác 73 byte ở 28 pixel,
+  nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc15_snow_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
