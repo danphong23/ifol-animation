@@ -48,6 +48,11 @@ file, browser surface và platform color policy thuộc lớp bên ngoài. `ifol
 chỉ nhận resource/format contract, thực thi graph/shader/pipeline và trả raw
 readback khi caller yêu cầu.
 
+Đây là boundary chủ động, không phải phần việc còn thiếu của đợt làm sạch:
+decoder và canonical input thuộc tầng asset; render contract và raw readback
+thuộc `ifol-gpu`; encoder và media file thuộc tầng export. Khi bổ sung JPEG,
+PNG, WebP hoặc video ở sản phẩm, chỉ tầng ngoài được mở rộng.
+
 ## Chứng nhận theo test case
 
 Các report canonical hiện tại:

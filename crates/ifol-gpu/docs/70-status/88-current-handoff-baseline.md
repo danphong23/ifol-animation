@@ -194,6 +194,9 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   [`18-canonical-render-and-media-output-contract.md`](../00-foundation/18-canonical-render-and-media-output-contract.md):
   tầng ngoài chuẩn hóa input và encode output; core chỉ execute và raw
   readback;
+- quyết định boundary đã chốt: decoder, canonical asset bytes, color/alpha
+  policy, media encoder và file output đều do tầng ngoài quản lý; không thêm
+  API decode/encode hoặc nhánh PNG/JPEG/WebP/video vào `ifol-gpu`;
 - TC01, TC04, TC05, TC06, TC07 và TC08 đã đạt raw parity tuyệt đối; TC02 và TC03 đạt
   vision/structural/depth parity nhưng raw pixel parity còn có sai khác màu/alpha
   có điều kiện. Xem

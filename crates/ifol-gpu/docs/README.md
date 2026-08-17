@@ -13,6 +13,8 @@ sau đó đọc [kế hoạch tách module từng bước](00-foundation/17-incr
 Đối với asset, parity và file output, đọc thêm [canonical render và media output
 contract](00-foundation/18-canonical-render-and-media-output-contract.md) và
 [chính sách kiểm thử parity](00-foundation/19-cross-platform-parity-testing-policy.md).
+Hai tài liệu này là boundary chính thức: decoder, color/alpha policy và
+encoder thuộc tầng ngoài; `ifol-gpu` chỉ nhận contract, execute và raw readback.
 
 Điểm bàn giao hiện tại nằm ở
 [baseline và handoff](70-status/88-current-handoff-baseline.md).

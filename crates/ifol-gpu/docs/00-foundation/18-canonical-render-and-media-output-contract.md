@@ -51,6 +51,23 @@ metadata, renderer/export policy, encoder, codec profile và metadata file.
 Vì vậy việc `ifol-gpu` không có API decode/encode không phải thiếu chức năng;
 đó là boundary bắt buộc để core không phụ thuộc nền tảng hay định dạng media.
 
+### Quyết định kiến trúc đã chốt
+
+`ifol-gpu` là một execution core mù về media. Core không được tự chọn hoặc tự
+đoán:
+
+- file đầu vào là PNG, JPEG, WebP hay frame video;
+- decoder nào đã được dùng và decoder đó có chuyển đổi màu ra sao;
+- dữ liệu có ý nghĩa là sRGB, linear, HDR hay color space nào ở cấp sản phẩm;
+- output sẽ là PNG, JPEG, EXR, video hay một định dạng khác;
+- profile, metadata, chất lượng nén hoặc chính sách hiển thị.
+
+Tầng ngoài phải biến đầu vào thành canonical resource bytes và explicit
+resource/graph/pipeline contract trước khi gọi core. Sau khi readback, chính
+tầng ngoài tiếp tục quản lý canonical frame, encoder và file media. Do đó việc
+hỗ trợ thêm định dạng media trong tương lai không yêu cầu thêm nhánh format,
+decoder hoặc encoder vào `ifol-gpu`.
+
 Nếu cần bit-exact giữa Desktop và Web, hai host phải gửi cùng canonical input và
 cùng graph/shader/pipeline contract vào một canonical renderer. Việc chỉ gọi
 `ifol-gpu` trên hai GPU khác nhau có thể đạt raw parity cho các case đã chứng
@@ -94,6 +111,19 @@ Core chịu trách nhiệm:
 API tối thiểu mà tầng ngoài sử dụng là: upload/register resource, tạo graph và
 pipeline contract, execute, rồi readback raw. Tầng ngoài không được lấy
 `Surface`/canvas preview làm dữ liệu export canonical.
+
+Nói ngắn gọn, luồng sở hữu dữ liệu là:
+
+```text
+tầng ngoài: file/media -> decoded canonical bytes
+ifol-gpu:   canonical bytes + contract -> raw rendered frame
+tầng ngoài: raw rendered frame -> canonical media file
+```
+
+Nếu sản phẩm chỉ cần preview tương tác, host có thể dùng surface/canvas của
+GPU. Nếu sản phẩm cần file source-of-truth giống nhau giữa các nền tảng, host
+phải dùng canonical export workflow và không được lấy preview đó thay thế cho
+workflow export.
 
 ## Điều kiện để output giống tuyệt đối
 

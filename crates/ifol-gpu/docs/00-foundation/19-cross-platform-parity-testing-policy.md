@@ -92,6 +92,18 @@ phẩm phải để tầng asset/media quản lý decoder, canonical asset bytes
 policy và encoder. Khi tầng ngoài chạy export thật, cần ghi thêm hash của input,
 raw frame và file cuối cùng để phân biệt lỗi decode, render và encode.
 
+Vì vậy một test parity đầy đủ phải tách ba nguồn sai khác:
+
+1. **Decode/input:** hai host có tạo đúng cùng canonical bytes hay không;
+2. **Render:** cùng graph, shader, pipeline, resource contract và raw readback
+   có cho cùng frame hay không;
+3. **Encode/output:** hai host có dùng cùng encoder/profile/metadata hay không.
+
+Chỉ mục thứ hai thuộc phạm vi chứng nhận trực tiếp của `ifol-gpu`. Hai mục còn
+lại thuộc tầng ngoài và phải có report riêng khi canonical export được triển
+khai. JPEG, PNG, WebP và video đều có thể được hỗ trợ ở tầng ngoài mà không làm
+thay đổi boundary của core.
+
 ## Trạng thái hiện tại
 
 - TC01: raw parity tuyệt đối giữa Desktop/WebGPU.
