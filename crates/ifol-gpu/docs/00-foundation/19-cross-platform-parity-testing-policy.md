@@ -113,6 +113,11 @@ export layer -> canonical encoder + metadata + file hash
 encoder. Thêm API decode/encode vào core, kể cả chỉ để test hoặc benchmark gọi,
 là mở rộng sai boundary.
 
+Vì vậy các test parity hiện tại chỉ chứng nhận đến **raw rendered frame**. File
+PNG/JPEG/WebP/EXR/video cuối cùng chỉ được chứng nhận sau khi tầng ngoài chạy
+cùng canonical encoder và ghi thêm `output_hash`; không suy diễn file parity từ
+việc hai ảnh preview trên màn hình trông giống nhau.
+
 Chỉ mục thứ hai thuộc phạm vi chứng nhận trực tiếp của `ifol-gpu`. Hai mục còn
 lại thuộc tầng ngoài và phải có report riêng khi canonical export được triển
 khai. JPEG, PNG, WebP và video đều có thể được hỗ trợ ở tầng ngoài mà không làm

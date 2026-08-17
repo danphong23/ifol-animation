@@ -176,3 +176,19 @@ decoder JPG khác nhau khỏi một phép đo. Đây không phải giới hạn 
 `ifol-gpu` và không phải yêu cầu sản phẩm chỉ dùng PNG. Khi tầng asset chung đã
 hoàn thiện, test nên truyền canonical decoded bytes thay vì phụ thuộc decoder
 của Desktop/Web.
+
+## Checklist cho tầng ngoài trước khi resume tích hợp
+
+Trước khi gọi `ifol-gpu`, tầng ngoài phải hoàn tất các quyết định sau:
+
+1. decode/normalize input bằng một policy được khóa và ghi `input_hash`;
+2. tạo cùng graph, shader bytes, pipeline contract, resource descriptors và
+   color/alpha metadata cho mọi host;
+3. gọi `execute` rồi lấy canonical raw readback, không lấy canvas/surface preview;
+4. kiểm tra `raw_hash`, kích thước, format và byte/pixel diff trước khi kết luận;
+5. chỉ sau khi raw frame đạt contract mới encode PNG/JPEG/WebP/EXR/video và ghi
+   `output_hash` ở tầng export.
+
+Nếu một bước thất bại, report phải chỉ rõ đó là lỗi **decode/input**,
+**render/readback** hay **encode/output**. Không bổ sung decoder, encoder hoặc
+API chọn định dạng media vào `ifol-gpu` để che khuất nguồn lỗi.
