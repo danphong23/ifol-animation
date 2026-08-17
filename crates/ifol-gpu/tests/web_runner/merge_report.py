@@ -47,6 +47,12 @@ def format_ms(value) -> str:
     return f"{value:.4f} ms"
 
 
+def format_percent(value) -> str:
+    if value is None:
+        return "CHƯA GHI NHẬN"
+    return f"{float(value):.1f}%"
+
+
 def structure_metrics(raw: bytes, background: list[int] | None, width: int) -> tuple[int, tuple[int, int, int, int] | None, list[bool]]:
     if not background:
         return 0, None, []
@@ -121,6 +127,12 @@ def main() -> None:
     )
     desktop_bbox_text = str(desktop_bbox) if background else "KHÔNG ÁP DỤNG"
     web_bbox_text = str(web_bbox) if background else "KHÔNG ÁP DỤNG"
+    cache_output_values = (desktop.get("cache_output_equal"), web.get("cache_output_equal"))
+    cache_output_text = (
+        "ĐẠT" if cache_output_values == (True, True)
+        else "KHÔNG ĐẠT" if False in cache_output_values
+        else "CHƯA GHI NHẬN"
+    )
     sha_desktop = hashlib.sha256(desktop_raw).hexdigest()
     sha_web = hashlib.sha256(web_raw).hexdigest()
     case_id = manifest["test_case"]
@@ -230,6 +242,9 @@ def main() -> None:
 
 - **Thời gian render lần đầu (cold):** `{format_ms(desktop.get("cold_render_time_ms"))}`
 - **Thời gian render lần hai (warm/cache):** `{format_ms(desktop.get("warm_render_time_ms"))}`
+- **Số lần warm được đo:** `{desktop.get("warm_iteration_count", "CHƯA GHI NHẬN")}`
+- **Output cold và warm giống nhau:** `{desktop.get("cache_output_equal", "CHƯA GHI NHẬN")}`
+- **Speedup cold → warm:** `{format_percent(desktop.get("speedup_percentage"))}`
 - **Adapter/backend:** `{desktop.get("adapter_name", "không ghi nhận")}` / `{desktop.get("backend", "không ghi nhận")}`
 - **Phạm vi timing:** `{desktop.get("timing_scope", "không ghi nhận")}`
 - **Dữ liệu raw:** `{args.desktop_raw.as_posix()}`
@@ -245,6 +260,9 @@ def main() -> None:
 
 - **Thời gian render lần đầu (cold):** `{format_ms(web.get("cold_render_time_ms"))}`
 - **Thời gian render lần hai (warm/cache):** `{format_ms(web.get("warm_render_time_ms"))}`
+- **Số lần warm được đo:** `{web.get("warm_iteration_count", "CHƯA GHI NHẬN")}`
+- **Output cold và warm giống nhau:** `{web.get("cache_output_equal", "CHƯA GHI NHẬN")}`
+- **Speedup cold → warm:** `{format_percent(web.get("speedup_percentage"))}`
 - **Adapter:** `{web.get("adapter_name", "không ghi nhận")}`
 - **Phạm vi timing:** `{web.get("timing_scope", "không ghi nhận")}`
 - **Dữ liệu raw:** `{args.web_raw.as_posix()}`
@@ -273,6 +291,7 @@ def main() -> None:
 | Bounding box non-background giống nhau | `{"ĐẠT" if bbox_match else "KHÔNG ĐẠT"}` |
 | Số pixel mask khác nhau | `{mask_diff}` (ngưỡng `{mask_tolerance}`) |
 | Parity cấu trúc không phụ thuộc màu | `{"ĐẠT" if structure_match else "KHÔNG ĐẠT"}` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `{cache_output_text}` |
 | Đúng mô tả test case | `{"ĐẠT" if desktop_content == "ĐẠT" and web_content == "ĐẠT" else "CẦN XEM LẠI"}` |
 
 **Kết luận:** `{"ĐẠT - output giống tuyệt đối từng byte." if graph_match and exact_match else ("ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo." if graph_match and structure_match else "KHÔNG ĐẠT - cần điều tra khác biệt.")}`

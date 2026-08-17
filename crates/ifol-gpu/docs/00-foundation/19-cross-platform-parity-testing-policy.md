@@ -122,6 +122,9 @@ thay đổi boundary của core.
 - TC08.5: cảnh đêm 2 pass `scene → final`, mặt trăng, 4 lớp mây, sao và bloom;
   vision/structural parity đạt, raw còn khác 1 byte ở 1 pixel với sai số kênh
   tối đa `1/255`, nên kết luận là `ĐẠT CÓ ĐIỀU KIỆN`.
+- TC09: cùng graph được chạy cold và 10 warm lần trên mỗi môi trường; output
+  cold/warm giữ nguyên và raw parity Desktop/WebGPU đạt tuyệt đối. Timing warm
+  được báo cáo để quan sát cache, không phải ngưỡng phần cứng cố định.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

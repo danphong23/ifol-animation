@@ -64,8 +64,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 
 ### TC09 - Pipeline Caching & Bundle Reuse
 - **Mục tiêu:** Tính năng tối ưu cốt lõi của Engine (RenderBundle).
-- **Kịch bản:** Chạy 1 Graph cực nặng (10,000 Nodes Procedural). Frame 1: Đo Compile Time. Frame 2: Không sửa gì, đo Compile Time.
-- **Kỳ vọng:** Compile Time Frame 2 phải giảm xuống mức gần 0ms nhờ sử dụng Cache.
+- **Manifest dùng chung:** `shared_assets/manifests/tc09_caching.json`.
+- **Kịch bản:** Chạy cùng graph một lần cold và 10 lần warm, tái sử dụng graph, pipeline và resource, không rebuild giữa các lần.
+- **Kỳ vọng:** Cold/warm output giữ nguyên; report ghi riêng timing Desktop/WebGPU và raw parity. Không dùng ngưỡng thời gian tuyệt đối vì phụ thuộc adapter/backend.
 
 ### TC10 - Missing Resources (Edge Case)
 - **Mục tiêu:** Ổn định (Zero-Crash).

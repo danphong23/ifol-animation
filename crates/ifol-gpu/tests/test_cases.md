@@ -61,8 +61,10 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 
 ### TC09 - Pipeline Caching & Bundle Reuse
 - **Mục tiêu:** Tính năng tối ưu cốt lõi của Engine (RenderBundle).
-- **Kịch bản:** Chạy lại Graph TC08 hai lần.
-- **Kỳ vọng hình ảnh xuất ra:** Giống TC08. Thời gian Frame 2 phải giảm xuống mức gần 0ms.
+- **Manifest dùng chung:** `shared_assets/manifests/tc09_caching.json`.
+- **Kịch bản:** Chạy cùng graph một lần cold và 10 lần warm, tái sử dụng graph, pipeline và resource; không rebuild giữa các lần.
+- **Kỳ vọng hình ảnh xuất ra:** Hình nền sao và 10.000 hạt giữ nguyên giữa cold/warm và giữa Desktop/WebGPU. Timing warm chỉ là số liệu quan sát, không áp đặt ngưỡng cố định giữa phần cứng.
+- **Kết quả parity hiện tại:** Raw parity tuyệt đối; cold/warm output giống nhau ở cả hai môi trường. Xem `reports/tc09_caching_report.md`.
 
 ### TC10 - Missing Resources (Edge Case)
 - **Mục tiêu:** Ổn định (Zero-Crash) khi thiếu tài nguyên ảnh.
