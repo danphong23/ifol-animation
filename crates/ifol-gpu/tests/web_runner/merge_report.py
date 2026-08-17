@@ -53,6 +53,10 @@ def format_percent(value) -> str:
     return f"{float(value):.1f}%"
 
 
+def display_value(value) -> str:
+    return "CHƯA GHI NHẬN" if value is None else str(value)
+
+
 def structure_metrics(raw: bytes, background: list[int] | None, width: int) -> tuple[int, tuple[int, int, int, int] | None, list[bool]]:
     if not background:
         return 0, None, []
@@ -184,6 +188,11 @@ def main() -> None:
         if node_pool_spec
         else "Không áp dụng"
     )
+    error_contract = manifest.get("error_contract")
+    error_contract_text = (
+        json.dumps(error_contract, ensure_ascii=False)
+        if error_contract else "Không áp dụng"
+    )
     sampler_text = json.dumps(graph_spec.get("sampler"), ensure_ascii=False) if graph_spec.get("sampler") else "Không khai báo"
     expected_layer_order = evaluation.get("expected_layer_order", [])
     expected_layer_order_text = " → ".join(expected_layer_order) if expected_layer_order else "Không khai báo"
@@ -236,14 +245,15 @@ def main() -> None:
 - **Thứ tự layer kỳ vọng:** `{expected_layer_order_text}`
 - **Graph resources:** nodes=`{node_count_text}`, draw commands=`{draw_commands_text}`, tổng instances=`{instance_count_text}`, procedural particles=`{particle_instance_text}`
 - **Node pool contract:** `{node_pool_text}`
+- **Error/fallback contract:** `{error_contract_text}`
 - **Desktop/Web dùng cùng manifest fingerprint:** `{"ĐẠT" if graph_match else "KHÔNG ĐẠT"}`
 
 ## 2. Môi trường Desktop
 
 - **Thời gian render lần đầu (cold):** `{format_ms(desktop.get("cold_render_time_ms"))}`
 - **Thời gian render lần hai (warm/cache):** `{format_ms(desktop.get("warm_render_time_ms"))}`
-- **Số lần warm được đo:** `{desktop.get("warm_iteration_count", "CHƯA GHI NHẬN")}`
-- **Output cold và warm giống nhau:** `{desktop.get("cache_output_equal", "CHƯA GHI NHẬN")}`
+- **Số lần warm được đo:** `{display_value(desktop.get("warm_iteration_count"))}`
+- **Output cold và warm giống nhau:** `{display_value(desktop.get("cache_output_equal"))}`
 - **Speedup cold → warm:** `{format_percent(desktop.get("speedup_percentage"))}`
 - **Adapter/backend:** `{desktop.get("adapter_name", "không ghi nhận")}` / `{desktop.get("backend", "không ghi nhận")}`
 - **Phạm vi timing:** `{desktop.get("timing_scope", "không ghi nhận")}`
@@ -254,14 +264,15 @@ def main() -> None:
 - **Đánh giá nội dung:** `{desktop_content}`
 - **Đánh giá bằng vision:** {args.vision_desktop}
 {f"- **Graph thực tế:** nodes={desktop.get('node_count')}, draw commands={desktop.get('draw_commands')}, instances={desktop.get('instance_count')}" if graph_spec.get("node_count") is not None else ""}
+{f"- **Validation thực tế:** error={desktop.get('validation_error')}, handle={desktop.get('missing_bind_group')}, passed={desktop.get('validation_passed')}, panic={desktop.get('panic_occurred')}" if error_contract else ""}
 {f"- **Node pool thực tế:** allocated={desktop.get('allocated_nodes')}, freed={desktop.get('freed_nodes')}, surviving={desktop.get('surviving_nodes')}" if node_pool_spec else ""}
 
 ## 3. Môi trường WebGPU
 
 - **Thời gian render lần đầu (cold):** `{format_ms(web.get("cold_render_time_ms"))}`
 - **Thời gian render lần hai (warm/cache):** `{format_ms(web.get("warm_render_time_ms"))}`
-- **Số lần warm được đo:** `{web.get("warm_iteration_count", "CHƯA GHI NHẬN")}`
-- **Output cold và warm giống nhau:** `{web.get("cache_output_equal", "CHƯA GHI NHẬN")}`
+- **Số lần warm được đo:** `{display_value(web.get("warm_iteration_count"))}`
+- **Output cold và warm giống nhau:** `{display_value(web.get("cache_output_equal"))}`
 - **Speedup cold → warm:** `{format_percent(web.get("speedup_percentage"))}`
 - **Adapter:** `{web.get("adapter_name", "không ghi nhận")}`
 - **Phạm vi timing:** `{web.get("timing_scope", "không ghi nhận")}`
@@ -272,6 +283,7 @@ def main() -> None:
 - **Đánh giá nội dung:** `{web_content}`
 - **Đánh giá bằng vision:** {args.vision_web}
 {f"- **Graph thực tế:** nodes={web.get('node_count')}, draw commands={web.get('draw_commands')}, instances={web.get('instance_count')}" if graph_spec.get("node_count") is not None else ""}
+{f"- **Validation contract mirror:** error={web.get('validation_error')}, handle={web.get('missing_bind_group')}, passed={web.get('validation_passed')}, panic={web.get('panic_occurred')}" if error_contract else ""}
 {f"- **Node pool thực tế:** allocated={web.get('allocated_nodes')}, freed={web.get('freed_nodes')}, surviving={web.get('surviving_nodes')}, check={web.get('pool_check')}" if node_pool_spec else ""}
 
 ## 4. So sánh và kết luận
@@ -292,6 +304,7 @@ def main() -> None:
 | Số pixel mask khác nhau | `{mask_diff}` (ngưỡng `{mask_tolerance}`) |
 | Parity cấu trúc không phụ thuộc màu | `{"ĐẠT" if structure_match else "KHÔNG ĐẠT"}` |
 | Cache giữ nguyên output cold/warm ở cả hai môi trường | `{cache_output_text}` |
+| Validation/fallback contract không panic | `{"ĐẠT" if (not error_contract) or (desktop.get("validation_passed") is True and web.get("validation_passed") is True and desktop.get("panic_occurred") is False and web.get("panic_occurred") is False) else "KHÔNG ĐẠT"}` |
 | Đúng mô tả test case | `{"ĐẠT" if desktop_content == "ĐẠT" and web_content == "ĐẠT" else "CẦN XEM LẠI"}` |
 
 **Kết luận:** `{"ĐẠT - output giống tuyệt đối từng byte." if graph_match and exact_match else ("ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo." if graph_match and structure_match else "KHÔNG ĐẠT - cần điều tra khác biệt.")}`

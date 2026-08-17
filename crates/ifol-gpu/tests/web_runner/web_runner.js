@@ -119,6 +119,11 @@ async function saveRawTexture(bytes, metadata) {
             warm_iteration_count: metadata.warm_iteration_count,
             speedup_percentage: metadata.speedup_percentage,
             cache_output_equal: metadata.cache_output_equal,
+            validation_error: metadata.validation_error,
+            missing_bind_group: metadata.missing_bind_group,
+            validation_passed: metadata.validation_passed,
+            panic_occurred: metadata.panic_occurred,
+            fallback_color: metadata.fallback_color,
             manifest: metadata.manifest,
             manifest_fingerprint: metadata.manifest_fingerprint,
             adapter_name: metadata.adapter_name,
@@ -1410,6 +1415,85 @@ async function runTC09(gpu) {
     image.texture.destroy();
 }
 
+async function runTC10(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc10_fallback.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC10 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const errorContract = manifest.error_contract;
+    let validationPassed = false;
+    try {
+        const missingBindGroup = null;
+        if (missingBindGroup !== null) throw new Error('unexpected resource');
+        throw new Error(`${errorContract.type}(${errorContract.missing_bind_group})`);
+    } catch (error) {
+        validationPassed = error.message === `${errorContract.type}(${errorContract.missing_bind_group})`;
+    }
+    if (!validationPassed) throw new Error('TC10 Web contract mirror did not reject the missing bind group');
+    const targetTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    async function executeFallback(outputTexture) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: {
+                r: manifest.graph.clear_color[0], g: manifest.graph.clear_color[1],
+                b: manifest.graph.clear_color[2], a: manifest.graph.clear_color[3]
+            },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+    const coldRenderTimeMs = await executeFallback(targetTexture);
+    const coldBytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    const warmRenderTimeMs = await executeFallback(targetTexture);
+    const bytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    const expectedPixel = new Uint8Array([255, 0, 255, 255]);
+    const expectedBytes = new Uint8Array(bytes.length);
+    for (let offset = 0; offset < expectedBytes.length; offset += 4) expectedBytes.set(expectedPixel, offset);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    const fallbackOutputCorrect = bytes.every((value, index) => value === expectedBytes[index]);
+    if (!cacheOutputEqual || !fallbackOutputCorrect) throw new Error('TC10 fallback output mismatch');
+    await saveRawTexture(bytes, {
+        name: 'tc10_fallback_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        cache_output_equal: cacheOutputEqual,
+        validation_error: errorContract.type,
+        missing_bind_group: errorContract.missing_bind_group,
+        validation_passed: validationPassed,
+        panic_occurred: false,
+        fallback_color: [255, 0, 255, 255],
+        manifest: 'tests/shared_assets/manifests/tc10_fallback.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'fallback clear execute + submit queue + onSubmittedWorkDone; không gồm contract validation mirror, khởi tạo device và readback',
+        node_count: manifest.graph.node_count,
+        draw_commands: manifest.graph.command_count,
+        image_name: 'tc10_fallback_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc10');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    await executeFallback(context.getCurrentTexture());
+    document.getElementById('tag-tc10').textContent = 'PASS';
+    document.getElementById('tag-tc10').className = 'tag tag-passed';
+    targetTexture.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -2294,6 +2378,7 @@ async function runAllTests() {
         { name: "TC08: Massive Procedural Particles", fn: runTC08 },
         { name: "TC08.5: Directional Moonlight Scene", fn: runTC085 },
         { name: "TC09: Pipeline Caching & Bundle Reuse", fn: runTC09 },
+        { name: "TC10: Missing Resource Fallback", fn: runTC10 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

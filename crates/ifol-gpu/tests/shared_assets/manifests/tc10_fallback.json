@@ -1,0 +1,30 @@
+{
+  "test_case": "TC10",
+  "title": "Missing Resource Safe Error Handling and Magenta Fallback",
+  "title_vi": "Tài nguyên thiếu: typed error an toàn và fallback magenta",
+  "description": "Validate a missing bind-group handle without panic, then render the declared fallback target.",
+  "description_vi": "Xác nhận handle BindGroup bị thiếu trả typed error không panic, sau đó render target fallback đã khai báo.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "operations": [],
+    "command_count": 0,
+    "node_count": 0,
+    "clear_color": [1.0, 0.0, 1.0, 1.0]
+  },
+  "error_contract": {
+    "type": "RenderGraphValidationError::MissingBindGroup",
+    "missing_bind_group": 999999,
+    "panic_allowed": false,
+    "web_validation_mode": "contract-mirror"
+  },
+  "evaluation": {
+    "expected_rgba8": [255, 0, 255, 255],
+    "expected_same_output_after_cache": true,
+    "visual_check": "Toàn bộ target có màu magenta đồng nhất như fallback khi thiếu resource; validation phải trả typed error, không panic và không để lại artifact."
+  }
+}

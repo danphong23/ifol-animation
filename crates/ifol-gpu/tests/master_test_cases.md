@@ -70,8 +70,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 
 ### TC10 - Missing Resources (Edge Case)
 - **Mục tiêu:** Ổn định (Zero-Crash).
-- **Kịch bản:** Đăng ký 1 DrawCommand yêu cầu đọc Texture (Slot 0) nhưng Texture đó bị xóa khỏi bộ nhớ hoặc ID bị sai.
-- **Kỳ vọng:** GPU Engine không Panic, thay vào đó hiển thị màu hồng cánh sen / đen (Fallback Shader) cho vật thể đó.
+- **Manifest dùng chung:** `shared_assets/manifests/tc10_fallback.json`.
+- **Kịch bản:** Đăng ký DrawCommand với `BindGroupHandle(999999)` sai, xác nhận typed error rồi chạy fallback graph.
+- **Kỳ vọng:** Desktop trả `RenderGraphValidationError::MissingBindGroup` không panic; Web giữ cùng contract mirror; fallback output magenta giống nhau.
 
 ### TC11 - Multi-Viewport Isolation
 - **Mục tiêu:** Khả năng chạy song song nhiều Camera / Scene trên 1 Arena Pool.

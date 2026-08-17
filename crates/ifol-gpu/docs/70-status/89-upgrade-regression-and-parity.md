@@ -76,6 +76,9 @@ Các report canonical hiện tại:
   parity đạt; raw còn khác 1 byte ở 1 pixel, sai số kênh tối đa `1/255`.
 - [TC09](../../tests/reports/tc09_caching_report.md): cold + 10 warm lần,
   output cache không đổi và raw parity đạt tuyệt đối.
+- [TC10](../../tests/reports/tc10_fallback_report.md): typed error
+  `MissingBindGroup(999999)` không panic, fallback magenta và raw parity đạt
+  tuyệt đối; Web validation là contract mirror.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

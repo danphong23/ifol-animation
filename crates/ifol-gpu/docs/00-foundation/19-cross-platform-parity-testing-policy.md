@@ -125,6 +125,8 @@ thay đổi boundary của core.
 - TC09: cùng graph được chạy cold và 10 warm lần trên mỗi môi trường; output
   cold/warm giữ nguyên và raw parity Desktop/WebGPU đạt tuyệt đối. Timing warm
   được báo cáo để quan sát cache, không phải ngưỡng phần cứng cố định.
+- TC10: Desktop xác nhận `MissingBindGroup(999999)` trả typed error không panic;
+  Web mirror cùng error contract, fallback magenta và raw parity đạt tuyệt đối.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

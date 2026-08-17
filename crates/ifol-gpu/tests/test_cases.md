@@ -68,8 +68,10 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 
 ### TC10 - Missing Resources (Edge Case)
 - **Mục tiêu:** Ổn định (Zero-Crash) khi thiếu tài nguyên ảnh.
-- **Kịch bản:** Vẽ 1 hình vuông với TextureSlot ID bị lỗi (không tồn tại trong Registry).
+- **Manifest dùng chung:** `shared_assets/manifests/tc10_fallback.json`.
+- **Kịch bản:** Gửi `BindGroupHandle(999999)` không tồn tại, xác nhận typed error rồi render fallback magenta.
 - **Kỳ vọng hình ảnh xuất ra:** Hình vuông hiển thị màu hồng cánh sen (Magenta) thay vì crash phần mềm.
+- **Kết quả parity hiện tại:** Validation Desktop pass, Web mirror cùng error contract; raw fallback parity tuyệt đối. Xem `reports/tc10_fallback_report.md`.
 
 ### TC11 - Multi-Viewport Isolation
 - **Mục tiêu:** Khả năng chạy song song nhiều Camera / Scene.
