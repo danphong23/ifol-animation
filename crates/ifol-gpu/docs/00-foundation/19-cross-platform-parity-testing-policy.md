@@ -89,6 +89,8 @@ presentation của browser chỉ dùng để preview, không dùng làm source o
 - TC02: vision/structural parity đạt; raw còn sai khác màu/pixel.
 - TC03: vision/structural/depth parity đạt; raw còn sai khác màu/alpha.
 - TC04: vision/structural/depth và raw parity tuyệt đối với fixture canonical.
+- TC05: vision/structural và raw parity tuyệt đối với chuỗi pass A→B→C và
+  fixture canonical.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

@@ -126,18 +126,29 @@ def main() -> None:
     case_id = manifest["test_case"]
     title = manifest.get("title_vi", manifest["title"])
     description_vi = manifest.get("description_vi", manifest["description"])
-    operations = manifest.get("graph", {}).get("operations", [])
-    asset_names = sorted({operation.get("asset") for operation in operations if operation.get("asset")})
-    pipeline_specs = manifest.get("graph", {}).get("pipelines", {})
+    graph_spec = manifest.get("graph", {})
+    operations = graph_spec.get("operations", [])
+    pass_specs = graph_spec.get("passes", [])
+    pass_operations = [operation for pass_spec in pass_specs for operation in pass_spec.get("operations", [])]
+    all_operations = operations + pass_operations
+    asset_names_set = set()
+    for operation in all_operations:
+        if operation.get("asset"):
+            asset_names_set.add(operation["asset"])
+        source = operation.get("source", {})
+        if source.get("asset"):
+            asset_names_set.add(source["asset"])
+    asset_names = sorted(asset_names_set)
+    pipeline_specs = graph_spec.get("pipelines", {})
     shader_names = sorted(
         {
             operation.get("shader")
-            for operation in operations
+            for operation in all_operations
             if operation.get("shader")
         }
         | {
             pipeline_specs.get(operation.get("pipeline"), {}).get("shader")
-            for operation in operations
+            for operation in all_operations
             if operation.get("pipeline")
             and pipeline_specs.get(operation.get("pipeline"), {}).get("shader")
         }
@@ -150,6 +161,14 @@ def main() -> None:
         else "Dùng asset theo manifest; chưa có chuẩn hóa input canonical riêng."
     )
     depth_text = json.dumps(manifest["graph"]["depth_stencil"], ensure_ascii=False) if "depth_stencil" in manifest.get("graph", {}) else "Không áp dụng"
+    pass_text = (
+        " → ".join(
+            f"{pass_spec.get('id', '?')} ({pass_spec.get('name', 'không tên')}, target {pass_spec.get('target', '?')})"
+            for pass_spec in pass_specs
+        )
+        if pass_specs
+        else "Không khai báo dạng pass"
+    )
     desktop_image_link = os.path.relpath(args.desktop_image, args.report.parent).replace(os.sep, "/")
     web_image_link = os.path.relpath(args.web_image, args.report.parent).replace(os.sep, "/")
 
@@ -167,6 +186,8 @@ def main() -> None:
 - **Asset/input:** {asset_text}
 - **Chính sách input:** {input_policy}
 - **Depth/stencil:** `{depth_text}`
+- **Chuỗi pass:** {pass_text}
+- **Số pass:** `{len(pass_specs) if pass_specs else 'KHÔNG ÁP DỤNG'}`
 - **Desktop/Web dùng cùng manifest fingerprint:** `{"ĐẠT" if graph_match else "KHÔNG ĐẠT"}`
 
 ## 2. Môi trường Desktop

@@ -1,173 +1,185 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
+use std::time::{Duration, Instant};
+
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn array2(value: &Value) -> [f32; 2] {
+    [value[0].as_f64().unwrap() as f32, value[1].as_f64().unwrap() as f32]
+}
+
+fn execute_chain(h: &mut DesktopTestHarness<'_>, graphs: &[RenderGraph]) -> Duration {
+    let started = Instant::now();
+    let mut last_submission = None;
+    for graph in graphs {
+        last_submission = Some(
+            h.executor
+                .execute_checked(&h.engine, &h.registry, &mut h.pool, graph)
+                .expect("TC05 pass execution failed"),
+        );
+    }
+    let submission = last_submission.expect("TC05 graph chain must contain passes");
+    let _ = h.engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission),
+        timeout: None,
+    });
+    started.elapsed()
+}
 
 #[test]
 fn run_tc05_interleaved() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
+        let manifest_text = include_str!("../shared_assets/manifests/tc05_interleaved.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC05 manifest");
+        let graph_spec = &manifest["graph"];
+        let target_spec = &graph_spec["target"];
+        let width = target_spec["width"].as_u64().unwrap() as u32;
+        let height = target_spec["height"].as_u64().unwrap() as u32;
+        let mut h = DesktopTestHarness::new(width, height).await;
 
-        // 1. Load assets
-        let tex_bg = h.load_texture("bg_forest.jpeg");
-        let tex_props = h.load_texture("bg_forest_props1.jpeg");
-        let tex_heroes = h.load_texture("sprites_heroes.jpeg");
+        let mut pipelines = HashMap::new();
+        for (pipeline_name, pipeline_spec) in graph_spec["pipelines"].as_object().unwrap() {
+            let blend = match pipeline_spec["blend"].as_str().unwrap() {
+                "Replace" => wgpu::BlendState::REPLACE,
+                "AlphaBlend" => wgpu::BlendState::ALPHA_BLENDING,
+                other => panic!("Unsupported TC05 blend mode: {other}"),
+            };
+            let shader = pipeline_spec["shader"].as_str().unwrap();
+            let has_uniform = pipeline_spec["has_uniform"].as_bool().unwrap();
+            pipelines.insert(
+                pipeline_name.clone(),
+                h.register_pipeline(shader, Some(blend), false, has_uniform),
+            );
+        }
 
-        // 2. Setup Pipelines
-        let pipe_blit = h.register_pipeline("texture_blit.wgsl", Some(wgpu::BlendState::REPLACE), false, false);
-        let pipe_chroma = h.register_pipeline("chroma_key_cropped.wgsl", Some(wgpu::BlendState::ALPHA_BLENDING), false, true);
+        let mut targets = HashMap::new();
+        let mut target_textures = HashMap::new();
+        for target_spec in graph_spec["targets"].as_array().unwrap() {
+            let target_id = target_spec["id"].as_str().unwrap().to_owned();
+            let (handle, texture) = h.create_target(&format!("TC05 Target {target_id}"));
+            targets.insert(target_id.clone(), handle);
+            target_textures.insert(target_id, texture);
+        }
 
-        // 3. Targets for 3-pass chaining
-        let (target_a, _) = h.create_target("Pass 1 Target (Background)");
-        let (target_b, _) = h.create_target("Pass 2 Target (Environment)");
-        let (target_c, target_c_tex) = h.create_target("Pass 3 Target (Final Composite)");
+        let mut target_bind_groups = HashMap::new();
+        for target_id in ["A", "B"] {
+            let target = *targets.get(target_id).expect("TC05 source target missing");
+            let bind_group = h.create_texture_bind_group(target, &format!("TC05 Target {target_id} View"));
+            target_bind_groups.insert(target_id.to_owned(), bind_group);
+        }
 
-        let bg_target_a = h.create_texture_bind_group(target_a, "Target A View");
-        let bg_target_b = h.create_texture_bind_group(target_b, "Target B View");
+        let mut graphs = Vec::new();
+        for pass_spec in graph_spec["passes"].as_array().unwrap() {
+            let target_id = pass_spec["target"].as_str().unwrap();
+            let color = *targets.get(target_id).expect("TC05 pass target missing");
+            let clear = &pass_spec["clear_color"];
+            let clear_color = [
+                clear[0].as_f64().unwrap() as f32,
+                clear[1].as_f64().unwrap() as f32,
+                clear[2].as_f64().unwrap() as f32,
+                clear[3].as_f64().unwrap() as f32,
+            ];
+            let mut graph = RenderGraph::new(RenderTarget::Offscreen { color, width, height })
+                .with_clear_color(clear_color);
+            let mut commands = Vec::new();
 
-        // Uniforms for Tree & Archer with aspect ratio correction
-        let tree_uni = h.build_sprite_uniform(
-            &tex_props,
-            [-0.35, 0.0],
-            0.95,
-            [0.0, 0.0],
-            [0.18, 0.42],
-            0.40,
-            0.10,
-            0.5,
-            1.0,
-        );
-        let bg_tree_uni = h.create_sprite_uniform_bind_group(tree_uni);
+            for operation in pass_spec["operations"].as_array().unwrap() {
+                let pipeline_name = operation["pipeline"].as_str().unwrap();
+                let pipeline = *pipelines.get(pipeline_name).expect("TC05 pipeline missing");
+                let source = &operation["source"];
+                let source_kind = source["kind"].as_str().unwrap();
+                let loaded_asset = if source_kind == "asset" {
+                    Some(h.load_texture(source["asset"].as_str().unwrap()))
+                } else {
+                    None
+                };
+                let texture_bind_group = if source_kind == "asset" {
+                    loaded_asset.as_ref().unwrap().bind_group
+                } else {
+                    *target_bind_groups
+                        .get(source["target"].as_str().unwrap())
+                        .expect("TC05 source target bind group missing")
+                };
 
-        let archer_uni = h.build_sprite_uniform(
-            &tex_heroes,
-            [0.25, -0.15],
-            0.75,
-            [0.52, 0.0],
-            [0.76, 1.0],
-            0.45,
-            0.12,
-            0.5,
-            1.0,
-        );
-        let bg_archer_uni = h.create_sprite_uniform_bind_group(archer_uni);
+                let mut draw = DrawCommand::new(
+                    pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: operation["vertex_count"].as_u64().unwrap() as u32,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, texture_bind_group, Vec::new());
 
-        // 4. Graph Construction (3 chained subgraphs / passes)
-        // Pass 1: Render Background to Target A
-        let mut graph_a = RenderGraph::new(RenderTarget::Offscreen {
-            color: target_a,
-            width: 800,
-            height: 600,
-        })
-        .with_clear_color([0.0, 0.0, 0.0, 1.0]);
+                if operation["kind"].as_str().unwrap() == "sprite" {
+                    let texture = loaded_asset.as_ref().expect("TC05 sprite asset missing");
+                    let crop = operation["crop_uv"].as_array().unwrap();
+                    let uniform = h.build_sprite_uniform(
+                        texture,
+                        array2(&operation["position"]),
+                        operation["target_height_scale"].as_f64().unwrap() as f32,
+                        [crop[0].as_f64().unwrap() as f32, crop[1].as_f64().unwrap() as f32],
+                        [crop[2].as_f64().unwrap() as f32, crop[3].as_f64().unwrap() as f32],
+                        operation["tolerance"].as_f64().unwrap() as f32,
+                        operation["smoothness"].as_f64().unwrap() as f32,
+                        operation["z_depth"].as_f64().unwrap() as f32,
+                        operation["opacity"].as_f64().unwrap() as f32,
+                    );
+                    let uniform_bind_group = h.create_sprite_uniform_bind_group(uniform);
+                    draw = draw.with_bind_group(1, uniform_bind_group, Vec::new());
+                }
+                commands.push(draw);
+            }
+            graph.add_batch(&mut h.pool, commands);
+            graphs.push(graph);
+        }
 
-        graph_a.add_batch(
-            &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_blit, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_bg.bind_group, Vec::new()),
-            ],
-        );
+        let cold_render_time = execute_chain(&mut h, &graphs);
+        let warm_render_time = execute_chain(&mut h, &graphs);
 
-        // Pass 2: Blit Target A + Draw Tree on top -> Target B
-        let mut graph_b = RenderGraph::new(RenderTarget::Offscreen {
-            color: target_b,
-            width: 800,
-            height: 600,
-        })
-        .with_clear_color([0.0, 0.0, 0.0, 1.0]);
-
-        graph_b.add_batch(
-            &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_blit, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, bg_target_a, Vec::new()),
-                DrawCommand::new(pipe_chroma, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new())
-                    .with_bind_group(1, bg_tree_uni, Vec::new()),
-            ],
-        );
-
-        // Pass 3: Blit Target B + Draw Archer on top -> Final Target C
-        let mut graph_c = RenderGraph::new(RenderTarget::Offscreen {
-            color: target_c,
-            width: 800,
-            height: 600,
-        })
-        .with_clear_color([0.0, 0.0, 0.0, 1.0]);
-
-        graph_c.add_batch(
-            &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_blit, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, bg_target_b, Vec::new()),
-                DrawCommand::new(pipe_chroma, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_heroes.bind_group, Vec::new())
-                    .with_bind_group(1, bg_archer_uni, Vec::new()),
-            ],
-        );
-
-        // 5. Execute 3 passes in chain
-        let t_cold_start = std::time::Instant::now();
-        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_a).unwrap();
-        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_b).unwrap();
-        let sub_idx = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_c).unwrap();
-
-        let _ = h.engine.device().poll(wgpu::PollType::Wait {
-            submission_index: Some(sub_idx),
-            timeout: None,
+        let final_texture = target_textures.get("C").expect("TC05 final target missing");
+        let output_path = "tests/outputs/desktop/tc05_interleaved.png";
+        h.save_texture_to_file_checked(final_texture, wgpu::TextureFormat::Rgba8UnormSrgb, output_path)
+            .expect("Failed to save TC05 output");
+        let raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(final_texture, wgpu::TextureFormat::Rgba8UnormSrgb)
+            .expect("Failed to read TC05 raw output");
+        fs::create_dir_all("tests/outputs/desktop").unwrap();
+        fs::write("tests/outputs/desktop/tc05_interleaved_desktop.bin", &raw.bytes).unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC05",
+            "manifest": "tests/shared_assets/manifests/tc05_interleaved.json",
+            "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "width": raw.width,
+            "height": raw.height,
+            "format": "Rgba8UnormSrgb",
+            "adapter_name": h.engine.adapter_info().name,
+            "backend": format!("{:?}", h.engine.adapter_info().backend),
+            "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "execute_checked của 3 pass + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "pass_count": graphs.len(),
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "cold_render_time_ms": cold_render_time.as_secs_f64() * 1000.0,
+            "warm_render_time_ms": warm_render_time.as_secs_f64() * 1000.0
         });
-        let elapsed_cold = t_cold_start.elapsed();
-
-        let t_warm_start = std::time::Instant::now();
-        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_a).unwrap();
-        let _ = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_b).unwrap();
-        let sub_idx_2 = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, &graph_c).unwrap();
-
-        let _ = h.engine.device().poll(wgpu::PollType::Wait {
-            submission_index: Some(sub_idx_2),
-            timeout: None,
-        });
-        let elapsed_warm = t_warm_start.elapsed();
-
-        // 6. Save output image & report
-        let output_img_name = "tc05_interleaved.png";
-        let output_img_path = std::path::Path::new("tests/outputs/desktop").join(output_img_name);
-        h.save_texture_to_file_checked(&target_c_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &output_img_path).unwrap();
-
-        // Serialize Graph JSON
-        let graph_json = serde_json::json!({
-            "test_case": "TC05 - Interleaved Multi-Pass SubGraph Compositing",
-            "passes": [
-                { "pass": 1, "name": "Background Pass", "target": "Target A", "source": "bg_forest.jpeg" },
-                { "pass": 2, "name": "Environment Pass", "target": "Target B", "input": "Target A", "add": "Tree Prop" },
-                { "pass": 3, "name": "Hero Pass", "target": "Target C", "input": "Target B", "add": "Archer Hero" }
-            ]
-        });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc05_interleaved.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        // Report
-        let report_content = format!(
-            "# Báo cáo: TC05 - Interleaved Passes & Multi-Pass Compositing\n\n\
-            Đây là báo cáo tổng hợp chất lượng render của TC05 trên các nền tảng.\n\n\
-            ## 1. Môi trường Desktop (Tauri/wgpu)\n\
-            - **Thời gian Render (Cold Start - Lần đầu):** {:?}\n\
-            - **Thời gian Render (Warm/Cached - Các lần sau):** {:?}\n\
-            - **Kết quả ảnh (Thực tế):**\n\n\
-            ![TC05 Desktop Render](../outputs/desktop/{})\n\n\
-            - **Kỳ vọng:** Bức tranh rừng hoàn chỉnh: Nền rừng huyền bí $\\rightarrow$ Cây sồi cổ thụ bên trái $\\rightarrow$ Nữ cung thủ tóc xanh bên phải.\n\
-            - **Mô tả (Vision AI / Đánh giá):** Chuỗi 3 RenderPass lồng nhau hoạt động mượt mà không bị mất dữ liệu hay rò rỉ bộ nhớ đệm VRAM. Nền rừng, cây sồi và nữ cung thủ được ghép chính xác từng pixel, viền phông xanh được lọc sạch đẹp mắt.\n\
-            - **Core Engine Errors:** Không có lỗi.\n\n\
-            ## 2. Môi trường Web (WASM/WebGPU)\n\
-            *(Sẽ cập nhật khi chạy trên môi trường Web)*\n\n\
-            ## 3. Đánh giá Tổng quan (Cross-Platform Consistency)\n\
-            - Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế Multi-Pass Compositor.\n",
-            elapsed_cold, elapsed_warm, output_img_name
-        );
-        fs::write("tests/reports/tc05_report.md", report_content).unwrap();
-        println!("Saved TC05 report to tests/reports/tc05_report.md");
+        fs::write(
+            "tests/outputs/desktop/tc05_interleaved_desktop.json",
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
     });
 }

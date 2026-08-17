@@ -698,6 +698,189 @@ async function runTC04(gpu) {
     }
 }
 
+async function runTC05(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc05_interleaved.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC05 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const passes = manifest.graph.passes;
+    const targetSpecs = manifest.graph.targets;
+    const clearByPass = Object.fromEntries(passes.map(pass => [pass.id, pass.clear_color]));
+    const shaderModules = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaderModules[spec.shader]) {
+            shaderModules[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+        }
+    }
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    function blendState(name) {
+        if (name === 'Replace') return undefined;
+        if (name === 'AlphaBlend') return {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        };
+        throw new Error(`Unsupported TC05 blend mode: ${name}`);
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            const layouts = spec.has_uniform ? [textureLayout, uniformLayout] : [textureLayout];
+            result[name] = device.createRenderPipeline({
+                layout: device.createPipelineLayout({ bindGroupLayouts: layouts }),
+                vertex: { module: shaderModules[spec.shader], entryPoint: 'vs_main' },
+                fragment: {
+                    module: shaderModules[spec.shader],
+                    entryPoint: 'fs_main',
+                    targets: [{ format, blend: blendState(spec.blend) }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+        return result;
+    }
+
+    const targetTextures = {};
+    for (const spec of targetSpecs) {
+        targetTextures[spec.id] = device.createTexture({
+            size: [spec.width, spec.height],
+            format: 'rgba8unorm-srgb',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+        });
+    }
+    const sampler = device.createSampler({
+        addressModeU: 'repeat',
+        addressModeV: 'repeat',
+        addressModeW: 'repeat',
+        magFilter: 'linear',
+        minFilter: 'linear',
+        mipmapFilter: 'linear'
+    });
+    const targetBindGroups = {};
+    for (const targetId of ['A', 'B']) {
+        targetBindGroups[targetId] = device.createBindGroup({
+            layout: textureLayout,
+            entries: [{ binding: 0, resource: targetTextures[targetId].createView() }, { binding: 1, resource: sampler }]
+        });
+    }
+    const assetCache = {};
+    async function getAsset(name) {
+        if (!assetCache[name]) {
+            const image = await loadImageTexture(device, name);
+            assetCache[name] = {
+                image,
+                bindGroup: device.createBindGroup({
+                    layout: textureLayout,
+                    entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+                })
+            };
+        }
+        return assetCache[name];
+    }
+
+    const operationResources = [];
+    for (const pass of passes) {
+        const resources = [];
+        for (const operation of pass.operations) {
+            const source = operation.source;
+            const asset = source.kind === 'asset' ? await getAsset(source.asset) : null;
+            const textureBindGroup = source.kind === 'asset'
+                ? asset.bindGroup
+                : targetBindGroups[source.target];
+            let uniformBindGroup = null;
+            let uniformBuffer = null;
+            if (operation.kind === 'sprite') {
+                const crop = operation.crop_uv;
+                const image = asset.image;
+                const cropAspect = ((crop[2] - crop[0]) * image.width) / Math.max((crop[3] - crop[1]) * image.height, 1);
+                const scaleY = operation.target_height_scale;
+                const scaleX = scaleY * (cropAspect / (target.width / target.height));
+                const uniformData = new Float32Array([
+                    operation.position[0], operation.position[1], scaleX, scaleY,
+                    crop[0], crop[1], crop[2], crop[3],
+                    image.keyColor[0], image.keyColor[1], image.keyColor[2], operation.tolerance,
+                    operation.smoothness, operation.z_depth, operation.opacity, 0
+                ]);
+                uniformBuffer = device.createBuffer({
+                    size: uniformData.byteLength,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+                device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+                uniformBindGroup = device.createBindGroup({
+                    layout: uniformLayout,
+                    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+                });
+            }
+            resources.push({ pipeline: operation.pipeline, textureBindGroup, uniformBindGroup, uniformBuffer, vertexCount: operation.vertex_count });
+        }
+        operationResources.push({ target: pass.target, clear: clearByPass[pass.id], resources });
+    }
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+
+    async function executeChain(renderTargets, pipelines) {
+        const started = performance.now();
+        for (const pass of operationResources) {
+            const clear = pass.clear;
+            const encoder = device.createCommandEncoder();
+            const renderPass = encoder.beginRenderPass({
+                colorAttachments: [{
+                    view: renderTargets[pass.target].createView(),
+                    clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+                    loadOp: 'clear', storeOp: 'store'
+                }]
+            });
+            for (const operation of pass.resources) {
+                renderPass.setPipeline(pipelines[operation.pipeline]);
+                renderPass.setBindGroup(0, operation.textureBindGroup);
+                if (operation.uniformBindGroup) renderPass.setBindGroup(1, operation.uniformBindGroup);
+                renderPass.draw(operation.vertexCount, 1, 0, 0);
+            }
+            renderPass.end();
+            device.queue.submit([encoder.finish()]);
+        }
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+
+    const coldRenderTimeMs = await executeChain(targetTextures, offscreenPipelines);
+    const warmRenderTimeMs = await executeChain(targetTextures, offscreenPipelines);
+    const bytes = await readTextureBytes(device, targetTextures.C, target.width, target.height);
+    await saveRawTexture(bytes, {
+        name: 'tc05_interleaved_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        manifest: 'tests/shared_assets/manifests/tc05_interleaved.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'execute offscreen của 3 pass + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        image_name: 'tc05_interleaved_web.png'
+    });
+
+    const canvas = document.getElementById('canvas-tc05');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    await executeChain({ ...targetTextures, C: context.getCurrentTexture() }, createPipelines(canvasFormat));
+    document.getElementById('tag-tc05').textContent = 'PASS';
+    document.getElementById('tag-tc05').className = 'tag tag-passed';
+
+    for (const texture of Object.values(targetTextures)) texture.destroy();
+    for (const asset of Object.values(assetCache)) asset.image.texture.destroy();
+    for (const pass of operationResources) {
+        for (const operation of pass.resources) if (operation.uniformBuffer) operation.uniformBuffer.destroy();
+    }
+}
+
 async function fetchShader(name) {
     const res = await fetch(`/shaders/${name}`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
@@ -1412,6 +1595,7 @@ async function runAllTests() {
         { name: "TC02: Single Quad Chroma Key", fn: runTC02 },
         { name: "TC03: Z-Buffer Depth Testing", fn: runTC03 },
         { name: "TC04: Alpha Blend + Z-Buffer", fn: runTC04 },
+        { name: "TC05: Interleaved Multi-Pass", fn: runTC05 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

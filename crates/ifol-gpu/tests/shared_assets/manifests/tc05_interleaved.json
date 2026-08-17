@@ -1,0 +1,108 @@
+{
+  "test_case": "TC05",
+  "title": "Interleaved Multi-Pass Offscreen Compositing",
+  "title_vi": "Compositing nhiều pass offscreen nối tiếp",
+  "description": "Execute three dependent offscreen passes: background into A, A plus a chroma-keyed tree into B, and B plus a chroma-keyed archer into C.",
+  "description_vi": "Thực thi ba pass offscreen phụ thuộc nhau: nền rừng vào A, A cộng cây đã chroma key vào B, rồi B cộng cung thủ đã chroma key vào C.",
+  "graph": {
+    "target": {
+      "kind": "offscreen_final",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "targets": [
+      { "id": "A", "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "B", "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "C", "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "pipelines": {
+      "blit": {
+        "shader": "texture_blit.wgsl",
+        "blend": "Replace",
+        "has_uniform": false
+      },
+      "chroma": {
+        "shader": "chroma_key_cropped.wgsl",
+        "blend": "AlphaBlend",
+        "has_uniform": true
+      }
+    },
+    "passes": [
+      {
+        "id": "A",
+        "name": "Background Pass",
+        "target": "A",
+        "clear_color": [0.0, 0.0, 0.0, 1.0],
+        "operations": [
+          {
+            "kind": "draw",
+            "pipeline": "blit",
+            "source": { "kind": "asset", "asset": "canonical_bg_forest.png" },
+            "vertex_count": 6
+          }
+        ]
+      },
+      {
+        "id": "B",
+        "name": "Environment Pass",
+        "target": "B",
+        "clear_color": [0.0, 0.0, 0.0, 1.0],
+        "operations": [
+          {
+            "kind": "draw",
+            "pipeline": "blit",
+            "source": { "kind": "target", "target": "A" },
+            "vertex_count": 6
+          },
+          {
+            "kind": "sprite",
+            "pipeline": "chroma",
+            "source": { "kind": "asset", "asset": "canonical_bg_forest_props1.png" },
+            "position": [-0.35, 0.0],
+            "target_height_scale": 0.95,
+            "crop_uv": [0.0, 0.0, 0.18, 0.42],
+            "tolerance": 0.40,
+            "smoothness": 0.10,
+            "z_depth": 0.5,
+            "opacity": 1.0,
+            "vertex_count": 6
+          }
+        ]
+      },
+      {
+        "id": "C",
+        "name": "Hero Pass",
+        "target": "C",
+        "clear_color": [0.0, 0.0, 0.0, 1.0],
+        "operations": [
+          {
+            "kind": "draw",
+            "pipeline": "blit",
+            "source": { "kind": "target", "target": "B" },
+            "vertex_count": 6
+          },
+          {
+            "kind": "sprite",
+            "pipeline": "chroma",
+            "source": { "kind": "asset", "asset": "canonical_sprites_archer.png" },
+            "position": [0.25, -0.15],
+            "target_height_scale": 0.75,
+            "crop_uv": [0.0, 0.0, 1.0, 1.0],
+            "tolerance": 0.45,
+            "smoothness": 0.12,
+            "z_depth": 0.5,
+            "opacity": 1.0,
+            "vertex_count": 6
+          }
+        ]
+      }
+    ]
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_background_rgba8": [0, 0, 0, 255],
+    "non_background_mask_diff_tolerance": 0,
+    "visual_check": "Output C phải giữ nguyên toàn bộ nền rừng từ A, có cây đã loại phông ở bên trái từ B, và cung thủ tóc xanh ở bên phải từ C. Không được mất dữ liệu giữa các target hoặc lấy nhầm target trước đó."
+  }
+}
