@@ -1,8 +1,0 @@
-{
-  "features": [
-    "Math-based Diagonal Sweep",
-    "Distance tracking in UV space",
-    "Additive Blending"
-  ],
-  "test_case": "TC31 - Light Sweep (Shine Effect)"
-}

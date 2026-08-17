@@ -184,3 +184,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử graph hai pass gồm chroma key và dissolve/burn với noise map.
 - **Kịch bản:** Tách nhân vật từ sprite sheet PNG canonical ở pass đầu, sau đó dùng noise map và viền màu cam để làm tan biến ở pass cuối.
 - **Kỳ vọng:** Nền xám có các mảnh nhân vật còn lại sau dissolve và viền cháy phát sáng; không có ảnh đen, texture mất hoặc validation error.
+
+### TC31 - Light Sweep / Shine Effect
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → light sweep trên nhân vật mage.
+- **Kịch bản:** Tách mage từ sprite sheet PNG canonical, sau đó tính luồng sáng xiên 45 độ bằng UV rotation và giữ nguyên alpha.
+- **Kỳ vọng:** Nhân vật trên nền xám có dải sáng trắng-vàng quét chéo rõ ràng; không có ảnh đen hoặc validation error.

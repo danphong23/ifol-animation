@@ -152,6 +152,9 @@ Các report canonical hiện tại:
 - [TC30](../../tests/reports/tc30_dissolve_report.md): hai pass chroma key →
   dissolve/burn trên sprite sheet và noise map PNG canonical; vision/structural,
   validation, cache và raw parity đạt tuyệt đối (`0` byte khác).
+- [TC31](../../tests/reports/tc31_light_sweep_report.md): hai pass chroma key →
+  light sweep trên mage PNG canonical; vision/structural, validation, cache và
+  raw parity đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

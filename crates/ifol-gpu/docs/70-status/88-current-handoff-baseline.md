@@ -297,6 +297,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web dùng cùng hai PNG canonical; vision/structural, validation,
   cache và raw parity đạt tuyệt đối (`0` byte khác). Xem
   `tests/reports/tc30_dissolve_report.md`;
+- TC31 đã được chuẩn hóa thành graph 2 pass chroma key → light sweep với
+  manifest fingerprint `e8c707cfcbf0e9a7`, hai draw command và hai instance.
+  Desktop/Web dùng cùng PNG canonical; vision/structural, validation, cache và
+  raw parity đạt tuyệt đối (`0` byte khác). Xem
+  `tests/reports/tc31_light_sweep_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
