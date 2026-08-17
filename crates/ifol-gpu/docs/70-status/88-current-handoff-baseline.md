@@ -186,6 +186,14 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - Web runner có canonical offscreen parity probe và đo timing riêng;
 - chưa có runtime matrix đầy đủ cho Metal, Linux, Android và iOS; browser mới
   có evidence cho WebGPU runner và canonical probe;
+- canonical render/export path chưa thuộc `ifol-gpu`; asset decode, renderer
+  deterministic và media encoder vẫn là responsibility của higher layer;
+- PNG canonical trong `tests/shared_assets/textures/` chỉ là test fixture để
+  giảm khác biệt decoder, không phải giới hạn format của core;
+- TC01 đã đạt raw parity tuyệt đối; TC02 và TC03 đạt vision/structural/depth
+  parity nhưng raw pixel parity còn có sai khác màu/alpha có điều kiện. Xem
+  [chính sách parity](../00-foundation/19-cross-platform-parity-testing-policy.md)
+  và các report TC tương ứng trong `tests/reports/`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

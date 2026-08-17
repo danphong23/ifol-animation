@@ -4,6 +4,11 @@
 `docs/ifol-gpu-upgrade-plan.md` là architecture backlog dài hạn, không phải
 danh sách task chạy nguyên khối.
 
+Parity Desktop/Web và canonical media export là một boundary riêng, không được
+đưa file decoder/encoder hoặc color policy vào core chỉ để làm test pass. Quy
+trình chứng nhận và các mức `vision/structural/raw/file parity` được định nghĩa
+trong [chính sách kiểm thử parity](19-cross-platform-parity-testing-policy.md).
+
 ## Gate nền trước khi bắt đầu
 
 ```bash

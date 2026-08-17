@@ -36,6 +36,15 @@ Readback phải trả raw bytes cùng kích thước và format thực tế. Chu
 Core không chứa API lưu file và không phụ thuộc `image`. Test/example support có
 thể tự encode output từ raw readback ở dev-dependency hoặc higher layer.
 
+## Preview parity và canonical export
+
+Preview Desktop/WebGPU có thể dùng backend GPU khác nhau và không phải source of
+truth của media. Canonical render/export path do higher layer quản lý: tầng đó
+chuẩn hóa asset bytes, chọn renderer deterministic và encoder cố định. `ifol-gpu`
+chỉ thực thi resource/graph/pipeline contract và trả raw readback. Xem
+[canonical render và media output contract](18-canonical-render-and-media-output-contract.md)
+và [chính sách parity](19-cross-platform-parity-testing-policy.md).
+
 ## Nguyên tắc thay đổi
 
 1. Không viết lại graph đang hoạt động.

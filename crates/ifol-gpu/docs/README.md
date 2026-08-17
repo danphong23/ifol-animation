@@ -10,6 +10,10 @@ cho engine, game, animation, video pipeline và các ứng dụng GPU bên ngoà
 Đọc [ý định kiến trúc và workflow](00-foundation/16-current-intent-and-refactor-workflow.md),
 sau đó đọc [kế hoạch tách module từng bước](00-foundation/17-incremental-module-splitting-plan.md).
 
+Đối với asset, parity và file output, đọc thêm [canonical render và media output
+contract](00-foundation/18-canonical-render-and-media-output-contract.md) và
+[chính sách kiểm thử parity](00-foundation/19-cross-platform-parity-testing-policy.md).
+
 Điểm bàn giao hiện tại nằm ở
 [baseline và handoff](70-status/88-current-handoff-baseline.md).
 Kết quả regression và Desktop/Web canonical parity gần nhất nằm ở

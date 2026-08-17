@@ -47,3 +47,18 @@ Production core hiện không encode PNG/JPEG và không phụ thuộc windowing
 file, browser surface và platform color policy thuộc lớp bên ngoài. `ifol-gpu`
 chỉ nhận resource/format contract, thực thi graph/shader/pipeline và trả raw
 readback khi caller yêu cầu.
+
+## Chứng nhận theo test case
+
+Các report canonical hiện tại:
+
+- [TC01](../../tests/reports/tc01_report.md): raw parity tuyệt đối;
+- [TC02](../../tests/reports/tc02_single_quad_report.md): vision và structural
+  parity đạt, raw còn sai khác màu/pixel;
+- [TC03](../../tests/reports/tc03_zbuffer_report.md): vision, structural và
+  depth parity đạt, raw còn sai khác màu/alpha.
+
+TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
+canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
+đo; canonical export thực sự vẫn phải do higher layer quản lý theo
+[canonical render và media output contract](../00-foundation/18-canonical-render-and-media-output-contract.md).
