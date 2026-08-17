@@ -164,3 +164,8 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Mục tiêu:** Kiểm thử glitch theo dải ngang và tách kênh RGB với hash xác định giữa backend.
 - **Kịch bản:** Dùng `glitch.wgsl` tạo block shift theo integer hash từ `time`, sau đó lấy mẫu lệch cho kênh đỏ/xanh và loại phông xanh.
 - **Kỳ vọng hình ảnh xuất ra:** Sprite vẫn nhận diện được nhưng có dải glitch ngang và RGB split rõ, không có black output hoặc lỗi validation.
+
+### TC27 - GodRays (Volumetric Light Shafts)
+- **Mục tiêu:** Kiểm thử vòng lặp tích lũy tia sáng tỏa tâm với 100 mẫu texture.
+- **Kịch bản:** Dùng `godrays.wgsl` lấy mẫu lùi dần từ pixel về vùng sáng `[0.5, 0.2]`, áp dụng decay, density, weight và exposure.
+- **Kỳ vọng hình ảnh xuất ra:** Nền rừng rõ, có tia sáng thể tích tỏa từ vùng sáng phía trên giữa, không có ảnh đen hoặc lỗi validation.

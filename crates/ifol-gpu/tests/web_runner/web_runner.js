@@ -4081,6 +4081,144 @@ async function runTC26(gpu) {
     uniformBuffer.destroy();
 }
 
+async function runTC27(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc27_godrays.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC27 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operation = manifest.graph.operations[0];
+    const passSpec = manifest.graph.passes[0];
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const shaderModule = device.createShaderModule({ code: await fetchShader('godrays.wgsl') });
+    const compilationInfo = await shaderModule.getCompilationInfo();
+    const shaderErrors = compilationInfo.messages.filter(message => message.type === 'error');
+    if (shaderErrors.length) throw new Error(`TC27 shader godrays.wgsl: ${shaderErrors.map(message => message.message).join('; ')}`);
+    const pipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+        vertex: { module: shaderModule, entryPoint: 'vs_main' },
+        fragment: { module: shaderModule, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        } }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const image = await loadImageTexture(device, 'canonical_bg_forest.png');
+    const sourceBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const u = operation.uniform;
+    const uniformData = new Float32Array([
+        ...u.light_pos,
+        u.exposure, u.decay, u.density, u.weight,
+        0, 0
+    ]);
+    const uniformBuffer = device.createBuffer({
+        size: uniformData.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+    const uniformBindGroup = device.createBindGroup({
+        layout: uniformLayout,
+        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+    });
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    async function render() {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const renderPass = encoder.beginRenderPass({ colorAttachments: [{
+            view: finalTexture.createView(),
+            clearValue: { r: passSpec.clear_color[0], g: passSpec.clear_color[1], b: passSpec.clear_color[2], a: passSpec.clear_color[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        renderPass.setPipeline(pipeline);
+        renderPass.setBindGroup(0, sourceBindGroup);
+        renderPass.setBindGroup(1, uniformBindGroup);
+        renderPass.draw(operation.vertex_count, operation.instance_count, 0, 0);
+        renderPass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC27 validation error: ${error.message}`);
+    }
+    const startedCold = performance.now();
+    await render();
+    const coldRenderTimeMs = performance.now() - startedCold;
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const startedWarm = performance.now();
+    await render();
+    const warmRenderTimeMs = performance.now() - startedWarm;
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC27 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc27_godrays_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc27_godrays.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '1 pass (100-sample radial godrays accumulation) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count,
+        instance_count: operation.instance_count, pass_count: manifest.graph.passes.length,
+        image_name: 'tc27_godrays_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc27');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const canvasBlit = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }),
+        vertex: { module: blitShader, entryPoint: 'vs_main' },
+        fragment: { module: blitShader, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const finalBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: finalTexture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const encoder = device.createCommandEncoder();
+    const previewPass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+    }]});
+    previewPass.setPipeline(canvasBlit);
+    previewPass.setBindGroup(0, finalBindGroup);
+    previewPass.draw(6, 1, 0, 0);
+    previewPass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc27_godrays_web_preview.png');
+    document.getElementById('tag-tc27').textContent = 'PASS';
+    document.getElementById('tag-tc27').className = 'tag tag-passed';
+    finalTexture.destroy();
+    image.texture.destroy();
+    uniformBuffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -4991,6 +5129,7 @@ async function runAllTests() {
         { name: "TC24: Vertex Deformation", fn: runTC24 },
         { name: "TC25: Rimlight and Shadow", fn: runTC25 },
         { name: "TC26: Glitch and Chromatic Aberration", fn: runTC26 },
+        { name: "TC27: Godrays", fn: runTC27 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

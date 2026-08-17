@@ -137,6 +137,10 @@ Các report canonical hiện tại:
   glitch/RGB split với một draw command; integer hash loại bỏ sai khác backend,
   vision/structural, validation, cache và raw parity đều đạt tuyệt đối (`0` byte
   khác).
+- [TC27](../../tests/reports/tc27_godrays_report.md): một pass 100-sample radial
+  godrays trên nền rừng; vision/structural, validation và cache parity đạt, raw
+  còn khác 33 byte ở 33 pixel với sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU
+  KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

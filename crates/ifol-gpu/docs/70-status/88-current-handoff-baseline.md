@@ -276,6 +276,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Shader dùng integer hash để giữ block selection đồng nhất giữa backend;
   Desktop/Web đạt vision/structural, validation, cold/warm và raw parity tuyệt
   đối (`0` byte khác). Xem `tests/reports/tc26_glitch_report.md`;
+- TC27 đã được chuẩn hóa thành graph 1 pass 100-sample radial godrays với
+  manifest fingerprint `39041e2d99fd185f`, một draw command và một instance.
+  Desktop/Web đạt vision/structural, validation và cold/warm parity; raw còn
+  khác 33 byte ở 33 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`.
+  Xem `tests/reports/tc27_godrays_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

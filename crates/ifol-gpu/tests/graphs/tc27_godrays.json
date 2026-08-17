@@ -1,7 +1,0 @@
-{
-  "features": [
-    "Radial Blur algorithm",
-    "Heavy Texture Sampling loop in Fragment Shader"
-  ],
-  "test_case": "TC27 - GodRays (Volumetric Light Shafts)"
-}
