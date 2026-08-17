@@ -1,20 +1,94 @@
-# Báo cáo: TC26_GLITCH - Glitch & Chromatic Aberration
+# Báo cáo: TC26 - Glitch và quang sai màu
 
-Đây là báo cáo tổng hợp chất lượng render của TC26_GLITCH trên các nền tảng.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
-## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.9638ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 992.7µs
-- **Kết quả ảnh (Thực tế):**
+## 1. Mô tả và graph dùng chung
 
-![TC26_GLITCH Desktop Render](../outputs/desktop/tc26_glitch.png)
+- **Manifest:** `tests/shared_assets/manifests/tc26_glitch.json`
+- **Graph fingerprint (FNV-1a):** `9b01f0a73634c199`
+- **Mô tả test case:** Áp dụng các dải glitch ngang xác định và tách kênh RGB cho sprite canonical.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `glitch.wgsl`
+- **Asset/input:** `canonical_sprites_heroes.png`
+- **Chính sách input:** Dùng PNG canonical để Desktop/WebGPU giải mã cùng một input byte-level.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** glitch_scene (Deterministic glitch sprite, target final)
+- **Số pass:** `1`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `glitch_sprite`
+- **Sampler contract:** `{"address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear"}`
+- **Thứ tự layer kỳ vọng:** `glitch_scene`
+- **Graph resources:** nodes=`1`, draw commands=`1`, tổng instances=`1`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-- **Kỳ vọng:** Sử dụng kỹ thuật dịch chuyển kênh màu (RGB Split/Chromatic Aberration) kết hợp với các dải nhiễu ngang (Horizontal Block Noise) theo biến thời gian (time).
-- **Mô tả (Vision AI / Đánh giá):** Mô phỏng hiệu ứng Glitch kiểu Cyberpunk/Retro hoặc hiệu ứng chuyển cảnh (Transition) mạnh mẽ trực tiếp trên Sprite 2D.
-- **Core Engine Errors:** Không có lỗi.
+## 2. Môi trường Desktop
 
-## 2. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+- **Thời gian render lần đầu (cold):** `4.1775 ms`
+- **Thời gian render lần hai (warm/cache):** `0.7868 ms (786.8 µs)`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `81.2%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `1 pass (deterministic glitch + RGB split) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `tests/outputs/desktop/tc26_glitch_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `0cdcbfe03205a70d`
+- **SHA-256:** `effdba1b1bc1e022f46f6067237d46d872bd831787b72ab17b0c700417bc4216`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc26_glitch.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận sprite vẫn nhận diện được nhưng có các dải glitch ngang mạnh và tách kênh RGB cyan/magenta/vàng; phông xanh bị loại, không có black output ngoài nền hoặc artefact ngoài mô tả.
+- **Graph thực tế:** nodes=1, draw commands=1, instances=1
 
-## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+
+
+## 3. Môi trường WebGPU
+
+- **Thời gian render lần đầu (cold):** `12.7000 ms`
+- **Thời gian render lần hai (warm/cache):** `3.6000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `71.7%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 pass (deterministic glitch + RGB split) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `tests/outputs/web/tc26_glitch_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `0cdcbfe03205a70d`
+- **SHA-256:** `effdba1b1bc1e022f46f6067237d46d872bd831787b72ab17b0c700417bc4216`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc26_glitch_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận output Web trùng Desktop; các dải glitch ngang và RGB split rõ, sprite vẫn nhận diện được, không có black output ngoài nền hoặc artefact ngoài mô tả.
+- **Graph thực tế:** nodes=1, draw commands=1, instances=1
+
+
+
+## 4. So sánh và kết luận
+
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `ĐẠT` |
+| Số byte khác nhau | `0` |
+| Số pixel khác nhau | `0` |
+| Sai số kênh màu lớn nhất | `0/255` |
+| Khác biệt màu/presentation | `KHÔNG` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT - output giống tuyệt đối từng byte.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

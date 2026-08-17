@@ -1,7 +1,0 @@
-{
-  "features": [
-    "Time-based UV horizontal slice shifting",
-    "RGB channel separation (Chromatic Aberration)"
-  ],
-  "test_case": "TC26 - Glitch & Chromatic Aberration"
-}

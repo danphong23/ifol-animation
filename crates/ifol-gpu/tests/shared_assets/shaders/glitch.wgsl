@@ -17,8 +17,19 @@ struct VertexOutput {
 @group(0) @binding(1) var s_diffuse: sampler;
 @group(1) @binding(0) var<uniform> config: GlitchUniform;
 
-fn hash(n: f32) -> f32 {
-    return fract(sin(n) * 43758.5453);
+// Integer hash keeps block selection deterministic across shader backends.
+fn hash_u32(value: u32) -> u32 {
+    var h = value;
+    h = h ^ (h >> 16u);
+    h = h * 2146121005u;
+    h = h ^ (h >> 15u);
+    h = h * 2221713035u;
+    h = h ^ (h >> 16u);
+    return h;
+}
+
+fn hash01(value: u32) -> f32 {
+    return f32(hash_u32(value)) / 4294967295.0;
 }
 
 @vertex
@@ -53,8 +64,9 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Generate blocky glitch offsets
-    let block_y = floor(in.uv.y * 20.0);
-    let glitch_noise = hash(block_y + config.time) * 2.0 - 1.0;
+    let block_y = u32(floor(in.uv.y * 20.0));
+    let time_seed = u32(max(config.time, 0.0) * 1000.0);
+    let glitch_noise = hash01(block_y + time_seed) * 2.0 - 1.0;
     
     var uv_offset = 0.0;
     if (abs(glitch_noise) > (1.0 - config.intensity * 0.5)) {

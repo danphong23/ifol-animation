@@ -159,3 +159,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử rim light và drop shadow bằng hai instance trong một draw command.
 - **Kịch bản:** Instance 0 dịch sprite để tạo bóng đen bán trong suốt; instance 1 render sprite chính và tính viền sáng vàng bằng cách dò alpha lân cận.
 - **Kỳ vọng:** Sprite chính có viền sáng vàng và bóng đổ lệch phía sau, không có black output hoặc validation error.
+
+### TC26 - Glitch & Chromatic Aberration
+- **Mục tiêu:** Kiểm thử glitch theo dải ngang và tách kênh RGB với hash xác định giữa backend.
+- **Kịch bản:** Dùng `glitch.wgsl` tạo block shift theo integer hash từ `time`, sau đó lấy mẫu lệch cho kênh đỏ/xanh và loại phông xanh.
+- **Kỳ vọng:** Sprite vẫn nhận diện được nhưng có dải glitch ngang và RGB split rõ, không có black output hoặc validation error.

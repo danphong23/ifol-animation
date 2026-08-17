@@ -271,6 +271,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   dùng chung graph, đạt vision/structural, validation, cold/warm và raw parity
   tuyệt đối (`0` byte khác). Xem
   `tests/reports/tc25_shadow_rimlight_report.md`;
+- TC26 đã được chuẩn hóa thành graph 1 pass deterministic glitch/RGB split với
+  manifest fingerprint `9b01f0a73634c199`, một draw command và một instance.
+  Shader dùng integer hash để giữ block selection đồng nhất giữa backend;
+  Desktop/Web đạt vision/structural, validation, cold/warm và raw parity tuyệt
+  đối (`0` byte khác). Xem `tests/reports/tc26_glitch_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
