@@ -1,20 +1,94 @@
-# Báo cáo: TC33_PIXELATION - Pixelation / Mosaic
+# Báo cáo: TC33 - Bộ lọc khảm điểm ảnh
 
-Đây là báo cáo tổng hợp chất lượng render của TC33_PIXELATION trên các nền tảng.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
-## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.4191ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 612.6µs
-- **Kết quả ảnh (Thực tế):**
+## 1. Mô tả và graph dùng chung
 
-![TC33_PIXELATION Desktop Render](../outputs/desktop/tc33_pixelation.png)
+- **Manifest:** `tests/shared_assets/manifests/tc33_pixelation.json`
+- **Graph fingerprint (FNV-1a):** `de9a0f7f14975043`
+- **Mô tả test case:** Tách nhân vật paladin canonical rồi lấy mẫu UV theo các ô vuông 16 pixel.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `chroma_key_cropped.wgsl`, `pixelation.wgsl`
+- **Asset/input:** `canonical_sprites_heroes.png`
+- **Chính sách input:** Desktop và WebGPU dùng sprite sheet PNG canonical; không dùng decoder JPEG trong phép đo parity.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** chroma_pass (Chroma key extraction, target chroma) → pixelation_pass (16px mosaic filter, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `chroma_extract_paladin → pixelate_16px`
+- **Sampler contract:** `{"address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear"}`
+- **Thứ tự layer kỳ vọng:** `chroma_pass → pixelation_pass`
+- **Graph resources:** nodes=`2`, draw commands=`2`, tổng instances=`2`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-- **Kỳ vọng:** Bộ lọc khảm điểm ảnh (Mosaic/Pixelation) biến đổi kết cấu thành các ô vuông. Ở TC này đang cấu hình Block Size = 16px.
-- **Mô tả (Vision AI / Đánh giá):** Xác thực khả năng bẻ cong UV bằng hàm Floor để lấy mẫu theo mảng thay vì mượt mà.
-- **Core Engine Errors:** Không có lỗi.
+## 2. Môi trường Desktop
 
-## 2. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+- **Thời gian render lần đầu (cold):** `2.7705 ms`
+- **Thời gian render lần hai (warm/cache):** `1.1469 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `58.6%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `2 pass (chroma key → 16px pixelation) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `tests/outputs/desktop/tc33_pixelation_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `02be333d07d14925`
+- **SHA-256:** `15e45262f8757a6b9b5cdf27b51e416a1cbcc87f05312a1d0d1f72260773daae`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc33_pixelation.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận nhân vật paladin đã được chroma key, hiển thị trên nền xanh đậm với các ô mosaic 16px lớn và vuông rõ ràng; không có ảnh đen hoặc validation error.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=2
 
-## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+
+
+## 3. Môi trường WebGPU
+
+- **Thời gian render lần đầu (cold):** `16.5000 ms`
+- **Thời gian render lần hai (warm/cache):** `3.1000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `81.2%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `2 pass (chroma key → 16px pixelation) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `tests/outputs/web/tc33_pixelation_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `02be333d07d14925`
+- **SHA-256:** `15e45262f8757a6b9b5cdf27b51e416a1cbcc87f05312a1d0d1f72260773daae`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc33_pixelation_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận nhân vật paladin đã được chroma key, hiển thị trên nền xanh đậm với các ô mosaic 16px lớn và vuông rõ ràng; không có ảnh đen hoặc validation error.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=2
+
+
+
+## 4. So sánh và kết luận
+
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `ĐẠT` |
+| Số byte khác nhau | `0` |
+| Số pixel khác nhau | `0` |
+| Sai số kênh màu lớn nhất | `0/255` |
+| Khác biệt màu/presentation | `KHÔNG` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT - output giống tuyệt đối từng byte.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

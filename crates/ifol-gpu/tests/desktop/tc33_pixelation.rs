@@ -1,114 +1,197 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct PixelationUniform {
-    block_size: f32, // Size of pixels in screen coords
+    block_size: f32,
     screen_width: f32,
     screen_height: f32,
-    _pad0: f32,
+    _pad: f32,
+}
+
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn execute_pair(h: &mut DesktopTestHarness, first: &RenderGraph, second: &RenderGraph) -> f64 {
+    let started = Instant::now();
+    h.executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, first)
+        .expect("TC33 chroma pass failed");
+    let submission = h
+        .executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, second)
+        .expect("TC33 pixelation pass failed");
+    let _ = h.engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission),
+        timeout: None,
+    });
+    started.elapsed().as_secs_f64() * 1000.0
 }
 
 #[test]
 fn run_tc33_pixelation() {
     let _ = env_logger::builder().is_test(true).try_init();
-
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
-        
-        let screen_aspect = 800.0f32 / 600.0f32;
-        let tex_heroes = h.load_texture("sprites_heroes.jpeg");
-        
-        let pipe_chroma = h.register_pipeline("chroma_key_cropped.wgsl", Some(wgpu::BlendState::ALPHA_BLENDING), false, true);
-        let pipe_pixel = h.register_pipeline("pixelation.wgsl", Some(wgpu::BlendState::ALPHA_BLENDING), false, true);
-
-        // Paladin
-        let p_scale_y = 0.80f32;
-        let p_crop_w = (0.28 - 0.005) * tex_heroes.width as f32;
-        let p_crop_h = (0.98 - 0.01) * tex_heroes.height as f32;
-        let p_scale_x = p_scale_y * (p_crop_w / p_crop_h) * (1.0 / screen_aspect);
-        let paladin_uni = harness::SpriteUniform {
+        let manifest_text = include_str!("../shared_assets/manifests/tc33_pixelation.json");
+        let manifest: Value = serde_json::from_str(manifest_text).unwrap();
+        let graph = &manifest["graph"];
+        let chroma = &graph["operations"][0];
+        let pixel = &graph["operations"][1];
+        let width = graph["target"]["width"].as_u64().unwrap() as u32;
+        let height = graph["target"]["height"].as_u64().unwrap() as u32;
+        let mut h = DesktopTestHarness::new(width, height).await;
+        let heroes = h.load_texture_exact("canonical_sprites_heroes.png");
+        let chroma_pipeline = h.register_pipeline(
+            "chroma_key_cropped.wgsl",
+            Some(wgpu::BlendState::ALPHA_BLENDING),
+            false,
+            true,
+        );
+        let pixel_pipeline = h.register_pipeline(
+            "pixelation.wgsl",
+            Some(wgpu::BlendState::ALPHA_BLENDING),
+            false,
+            true,
+        );
+        let crop = &chroma["uniform"];
+        let crop_width = (crop["uv_max"][0].as_f64().unwrap()
+            - crop["uv_min"][0].as_f64().unwrap())
+            * heroes.width as f64;
+        let crop_height = (crop["uv_max"][1].as_f64().unwrap()
+            - crop["uv_min"][1].as_f64().unwrap())
+            * heroes.height as f64;
+        let scale_y = crop["scale_y"].as_f64().unwrap();
+        let sprite = harness::SpriteUniform {
             pos: [0.0, 0.0],
-            scale: [p_scale_x, p_scale_y],
-            uv_min: [0.005, 0.01],
-            uv_max: [0.28, 0.98],
+            scale: [
+                (scale_y * crop_width / crop_height / (width as f64 / height as f64)) as f32,
+                scale_y as f32,
+            ],
+            uv_min: [
+                crop["uv_min"][0].as_f64().unwrap() as f32,
+                crop["uv_min"][1].as_f64().unwrap() as f32,
+            ],
+            uv_max: [
+                crop["uv_max"][0].as_f64().unwrap() as f32,
+                crop["uv_max"][1].as_f64().unwrap() as f32,
+            ],
             key_color: [0.0, 1.0, 0.0],
-            tolerance: 0.48,
-            smoothness: 0.10,
+            tolerance: crop["tolerance"].as_f64().unwrap() as f32,
+            smoothness: crop["smoothness"].as_f64().unwrap() as f32,
             z_depth: 0.5,
             opacity: 1.0,
             _pad: 0.0,
         };
-        let bg_paladin = h.create_custom_uniform_bind_group(paladin_uni, "Paladin");
-
-        let pixel_uni = PixelationUniform {
-            block_size: 16.0, // 16x16 pixel blocks
-            screen_width: 800.0,
-            screen_height: 600.0,
-            _pad0: 0.0,
-        };
-        let bg_pixel_uni = h.create_custom_uniform_bind_group(pixel_uni, "Pixelation Uniform");
-
-        let (target_a_id, _target_a_tex) = h.create_target("Target A");
-        let (final_target_id, final_target_tex) = h.create_target("Final Target");
-
-        let bg_tex_a = h.create_texture_bind_group(target_a_id, "Pixel Texture BG");
-
-        // Pass 1: Extract Paladin via Chroma Key to transparent offscreen target
-        let mut graph_chroma = RenderGraph::new(RenderTarget::Offscreen {
-            color: target_a_id,
-            width: 800,
-            height: 600,
-        }).with_clear_color([0.0, 0.0, 0.0, 0.0]);
-
-        graph_chroma.add_batch(
-            &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_chroma, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_heroes.bind_group.clone(), Vec::new())
-                    .with_bind_group(1, bg_paladin, Vec::new()),
-            ],
+        let sprite_bg = h.create_custom_uniform_bind_group(sprite, "TC33 Paladin");
+        let pixel_bg = h.create_custom_uniform_bind_group(
+            PixelationUniform {
+                block_size: pixel["uniform"]["block_size"].as_f64().unwrap() as f32,
+                screen_width: pixel["uniform"]["screen_width"].as_f64().unwrap() as f32,
+                screen_height: pixel["uniform"]["screen_height"].as_f64().unwrap() as f32,
+                _pad: 0.0,
+            },
+            "TC33 Pixelation",
         );
-
-        // Pass 2: Apply Pixelation over dark blue background
-        let mut graph_final = RenderGraph::new(RenderTarget::Offscreen {
-            color: final_target_id,
-            width: 800,
-            height: 600,
-        }).with_clear_color([0.1, 0.1, 0.3, 1.0]);
-
-        graph_final.add_batch(
+        let (chroma_id, _chroma_texture) = h.create_target("TC33 Chroma Target");
+        let (final_id, final_texture) = h.create_target("TC33 Final Target");
+        let pixel_texture_bg = h.create_texture_bind_group(chroma_id, "TC33 Pixel Texture");
+        let mut chroma_graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: chroma_id,
+            width,
+            height,
+        })
+        .with_clear_color([0.0, 0.0, 0.0, 0.0]);
+        chroma_graph.add_batch(
             &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_pixel, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, bg_tex_a, Vec::new())
-                    .with_bind_group(1, bg_pixel_uni, Vec::new()),
-            ],
+            vec![DrawCommand::new(
+                chroma_pipeline,
+                DrawAction::Procedural {
+                    vertex_count: 6,
+                    instance_range: 0..1,
+                },
+            )
+            .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+            .with_bind_group(1, sprite_bg, Vec::new())],
         );
-
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_chroma).expect("Execution failed");
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
-
-        let graph_json = serde_json::json!({
-            "test_case": "TC33 - Pixelation / Mosaic Filter",
-            "features": [
-                "Screen Coordinate Snapping",
-                "Resolution Independent Block Size"
-            ]
+        let clear = &graph["passes"][1]["clear_color"];
+        let mut pixel_graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: final_id,
+            width,
+            height,
+        })
+        .with_clear_color([
+            clear[0].as_f64().unwrap() as f32,
+            clear[1].as_f64().unwrap() as f32,
+            clear[2].as_f64().unwrap() as f32,
+            clear[3].as_f64().unwrap() as f32,
+        ]);
+        pixel_graph.add_batch(
+            &mut h.pool,
+            vec![DrawCommand::new(
+                pixel_pipeline,
+                DrawAction::Procedural {
+                    vertex_count: 6,
+                    instance_range: 0..1,
+                },
+            )
+            .with_bind_group(0, pixel_texture_bg, Vec::new())
+            .with_bind_group(1, pixel_bg, Vec::new())],
+        );
+        let cold_ms = execute_pair(&mut h, &chroma_graph, &pixel_graph);
+        let cold_raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &final_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC33 cold readback failed");
+        let warm_ms = execute_pair(&mut h, &chroma_graph, &pixel_graph);
+        let raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &final_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC33 warm readback failed");
+        assert_eq!(
+            cold_raw.bytes, raw.bytes,
+            "TC33 output changed between runs"
+        );
+        h.save_texture_to_file_checked(
+            &final_texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            std::path::Path::new("tests/outputs/desktop/tc33_pixelation.png"),
+        )
+        .expect("TC33 PNG export failed");
+        fs::write(
+            "tests/outputs/desktop/tc33_pixelation_desktop.bin",
+            &raw.bytes,
+        )
+        .unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC33", "width": raw.width, "height": raw.height, "format": "Rgba8UnormSrgb",
+            "adapter_name": h.engine.adapter_info().name, "backend": format!("{:?}", h.engine.adapter_info().backend), "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "2 pass (chroma key → 16px pixelation) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "raw_fingerprint": fnv1a64(&raw.bytes), "manifest": "tests/shared_assets/manifests/tc33_pixelation.json", "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "cold_render_time_ms": cold_ms, "warm_render_time_ms": warm_ms, "warm_iteration_count": 1, "speedup_percentage": (1.0 - warm_ms / cold_ms) * 100.0, "cache_output_equal": true,
+            "node_count": graph["node_count"], "draw_commands": graph["command_count"], "instance_count": 2, "pass_count": graph["passes"].as_array().unwrap().len()
         });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc33_pixelation.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        h.execute_and_record(
-            &graph_final,
-            &final_target_tex,
-            "tc33_pixelation",
-            "Pixelation / Mosaic",
-            "Bộ lọc khảm điểm ảnh (Mosaic/Pixelation) biến đổi kết cấu thành các ô vuông. Ở TC này đang cấu hình Block Size = 16px.",
-            "Xác thực khả năng bẻ cong UV bằng hàm Floor để lấy mẫu theo mảng thay vì mượt mà.",
-        );
+        fs::write(
+            "tests/outputs/desktop/tc33_pixelation_desktop.json",
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
     });
 }

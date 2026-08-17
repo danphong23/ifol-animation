@@ -43,7 +43,7 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (u_params.block_size <= 1.0) {
-        return textureSample(t_diffuse, s_diffuse, in.uv);
+        return textureSampleLevel(t_diffuse, s_diffuse, in.uv, 0.0);
     }
     
     // Convert UV to pixel coordinates
@@ -64,5 +64,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         center_pos.y / u_params.screen_height
     );
     
-    return textureSample(t_diffuse, s_diffuse, pixelated_uv);
+    return textureSampleLevel(t_diffuse, s_diffuse, pixelated_uv, 0.0);
 }

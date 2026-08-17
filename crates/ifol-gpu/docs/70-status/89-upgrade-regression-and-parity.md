@@ -159,6 +159,9 @@ Các report canonical hiện tại:
   B → page curl với dual texture; vision/structural, validation và cache đạt,
   raw còn khác 3 byte ở 3 pixel với sai số tối đa `1/255`, nên là `ĐẠT CÓ
   ĐIỀU KIỆN`.
+- [TC33](../../tests/reports/tc33_pixelation_report.md): hai pass chroma key →
+  pixelation 16px trên paladin PNG canonical; vision/structural, validation,
+  cache và raw parity đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

@@ -308,6 +308,10 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   vision/structural, validation và cache đạt, raw còn khác 3 byte ở 3 pixel với
   sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem
   `tests/reports/tc32_page_curl_report.md`;
+- TC33 đã được chuẩn hóa thành graph 2 pass chroma key → pixelation với manifest
+  fingerprint `de9a0f7f14975043`, hai draw command và hai node. Desktop/Web
+  dùng cùng PNG canonical; vision/structural, validation, cache và raw parity
+  đạt tuyệt đối (`0` byte khác). Xem `tests/reports/tc33_pixelation_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

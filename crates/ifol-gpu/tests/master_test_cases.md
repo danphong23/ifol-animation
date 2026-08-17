@@ -194,3 +194,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử graph ba pass gồm hai scene độc lập và chuyển cảnh lật trang hình trụ.
 - **Kịch bản:** Render scene A paladin và scene B mage với sky khác nhau, sau đó dùng dual texture page-curl ở progress 50%.
 - **Kỳ vọng:** Ảnh cuối thể hiện hai scene và dải cuộn ở giữa với bóng gấp nhẹ; không có ảnh đen hoặc validation error.
+
+### TC33 - Pixelation / Mosaic Filter
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → pixelation với block size 16px.
+- **Kịch bản:** Tách paladin từ sprite sheet canonical rồi snap UV theo lưới 16px trên nền xanh đậm.
+- **Kỳ vọng:** Nhân vật vẫn nhận diện được với các ô mosaic vuông rõ ràng; không có ảnh đen hoặc validation error.

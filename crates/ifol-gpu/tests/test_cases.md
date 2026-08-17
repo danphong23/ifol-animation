@@ -194,3 +194,8 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Mục tiêu:** Kiểm thử graph ba pass gồm hai scene độc lập và chuyển cảnh lật trang hình trụ.
 - **Kịch bản:** Render scene A paladin và scene B mage với sky khác nhau, sau đó dùng dual texture page-curl ở progress 50%.
 - **Kỳ vọng hình ảnh xuất ra:** Ảnh cuối thể hiện hai scene và dải cuộn ở giữa với bóng gấp nhẹ; không có ảnh đen hoặc lỗi validation.
+
+### TC33 - Pixelation / Mosaic Filter
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → pixelation với block size 16px.
+- **Kịch bản:** Tách paladin từ sprite sheet canonical rồi snap UV theo lưới 16px trên nền xanh đậm.
+- **Kỳ vọng hình ảnh xuất ra:** Nhân vật vẫn nhận diện được với các ô mosaic vuông rõ ràng; không có ảnh đen hoặc lỗi validation.
