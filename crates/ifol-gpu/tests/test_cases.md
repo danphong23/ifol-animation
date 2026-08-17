@@ -121,10 +121,10 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kịch bản:** Render cảnh A (sky tím + paladin) và cảnh B (sky xanh + mage) vào hai target offscreen; pass thứ ba ghép chúng với progress `0.5`, block shift và RGB split.
 - **Kỳ vọng hình ảnh xuất ra:** Kết quả chuyển cảnh glitch giữa hai cảnh, có biến dạng block và quang sai RGB; không có black output hoặc validation error.
 
-### TC19 - Dynamic State Change
-- **Mục tiêu:** Thử nghiệm thay đổi Pipeline (BlendMode).
-- **Kịch bản:** 3 Node lồng lên nhau với 3 chế độ hòa trộn: Replace, Additive, Multiply.
-- **Kỳ vọng hình ảnh xuất ra:** Vùng giao nhau hiển thị các kết quả màu chính xác tương ứng với toán tử blend.
+### TC19 - Audio-Reactive Spectrum Visualizer
+- **Mục tiêu:** Kiểm thử truyền mảng 16 dải tần qua uniform buffer và dựng phổ âm thanh neon xác định.
+- **Kịch bản:** Shader nhận 16 frequency bands được đóng gói thành bốn `vec4`, màu cyan cơ sở, thời gian cố định và texture noise canonical để tạo nền grid, cột phổ, glow và peak line.
+- **Kỳ vọng hình ảnh xuất ra:** Nền grid neon cyan/tím với 16 cột có chiều cao khác nhau, glow và peak line rõ; không có black output hoặc validation error.
 
 ---
 

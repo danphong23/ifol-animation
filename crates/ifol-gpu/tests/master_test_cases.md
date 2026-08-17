@@ -121,10 +121,10 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kịch bản:** Render cảnh A (sky tím + paladin) và cảnh B (sky xanh + mage) vào hai target offscreen; pass thứ ba ghép chúng với progress `0.5`, block shift và RGB split.
 - **Kỳ vọng:** Kết quả chuyển cảnh glitch giữa hai cảnh, có biến dạng block và quang sai RGB; không có black output hoặc validation error.
 
-### TC19 - Dynamic State Change
-- **Mục tiêu:** Thử nghiệm thay đổi Pipeline liên tục.
-- **Kịch bản:** Node 1 (Blend Replace), Node 2 (Blend Additive), Node 3 (Blend Multiply). 
-- **Kỳ vọng:** RenderBundle tự động cache và switch pipeline mà không lỗi rác màn hình.
+### TC19 - Audio-Reactive Spectrum Visualizer
+- **Mục tiêu:** Kiểm thử truyền mảng 16 dải tần qua uniform buffer và dựng phổ âm thanh neon xác định.
+- **Kịch bản:** Shader nhận 16 frequency bands được đóng gói thành bốn `vec4`, màu cyan cơ sở, thời gian cố định và texture noise canonical để tạo nền grid, cột phổ, glow và peak line.
+- **Kỳ vọng:** Nền grid neon cyan/tím với 16 cột có chiều cao khác nhau, glow và peak line rõ; không có black output hoặc validation error.
 
 ---
 

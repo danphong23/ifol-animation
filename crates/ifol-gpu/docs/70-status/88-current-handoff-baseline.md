@@ -237,6 +237,12 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   `sin/fract` giữa backend; Desktop/Web đạt vision/structural, validation và
   cold/warm parity, raw còn khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên
   là `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc18_transition_report.md`;
+- TC19 đã được chuẩn hóa thành graph 1 pass audio spectrum với manifest
+  fingerprint `b214133532fd962a`, 1 draw command và 16 frequency bands đóng gói
+  trong uniform. Desktop/Web đạt vision/structural, validation và cold/warm
+  parity; raw còn khác 7 byte ở 7 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ
+  ĐIỀU KIỆN`. Web cold cao do lazy shader/pipeline compilation, warm còn
+  `3.5 ms`. Xem `tests/reports/tc19_audio_viz_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

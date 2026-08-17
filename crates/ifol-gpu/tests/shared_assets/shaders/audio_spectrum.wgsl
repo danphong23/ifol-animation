@@ -94,7 +94,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     // Add noise for a retro screen feel
-    let noise = textureSample(t_noise, s_noise, uv + vec2<f32>(0.0, audio.time * 0.1)).r;
+    let noise = textureSampleLevel(t_noise, s_noise, uv + vec2<f32>(0.0, audio.time * 0.1), 0.0).r;
     final_color = final_color + (noise - 0.5) * 0.05;
 
     return vec4<f32>(final_color, 1.0);

@@ -108,6 +108,11 @@ Các report canonical hiện tại:
   validation và cache parity đạt, integer hash giúp loại bỏ sai khác block lớn
   giữa backend, raw còn khác 1 byte ở 1 pixel với sai số tối đa `1/255`, nên là
   `ĐẠT CÓ ĐIỀU KIỆN`.
+- [TC19](../../tests/reports/tc19_audio_viz_report.md): một pass audio spectrum
+  với 16 frequency bands và một draw command; vision/structural, validation và
+  cache parity đạt, raw còn khác 7 byte ở 7 pixel với sai số tối đa `1/255`,
+  nên là `ĐẠT CÓ ĐIỀU KIỆN`. Web cold cao do lazy shader/pipeline compilation;
+  warm còn `3.5 ms`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
