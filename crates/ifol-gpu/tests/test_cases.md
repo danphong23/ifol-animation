@@ -43,6 +43,7 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 ### TC07 - Deep Recursion SubGraphs
 - **Mục tiêu:** Kiểm thử chống tràn Stack và đệ quy đồ thị sâu.
 - **Kịch bản:** A lồng B, B lồng C, C lồng D, D lồng E (5 cấp độ SubGraph).
+- **Manifest dùng chung:** `shared_assets/manifests/tc07_recursion.json`.
 - **Kỳ vọng hình ảnh xuất ra:** Output phải bao gồm kết quả của cấp E (sâu nhất) được render lên nền của D, C, B, A. 
 
 ### TC08 - Massive Draw Commands VS Massive Nodes

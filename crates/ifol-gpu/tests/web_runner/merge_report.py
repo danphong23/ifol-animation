@@ -170,6 +170,9 @@ def main() -> None:
         if node_pool_spec
         else "Không áp dụng"
     )
+    sampler_text = json.dumps(graph_spec.get("sampler"), ensure_ascii=False) if graph_spec.get("sampler") else "Không khai báo"
+    expected_layer_order = evaluation.get("expected_layer_order", [])
+    expected_layer_order_text = " → ".join(expected_layer_order) if expected_layer_order else "Không khai báo"
     pass_text = (
         " → ".join(
             f"{pass_spec.get('id', '?')} ({pass_spec.get('name', 'không tên')}, target {pass_spec.get('target', '?')})"
@@ -177,6 +180,13 @@ def main() -> None:
         )
         if pass_specs
         else "Không khai báo dạng pass"
+    )
+    recursion_depth = graph_spec.get("depth")
+    hierarchy_text = graph_spec.get("hierarchy", "Không khai báo")
+    operation_order_text = (
+        " → ".join(operation.get("id", "?") for operation in all_operations)
+        if all_operations
+        else "Không khai báo"
     )
     desktop_image_link = os.path.relpath(args.desktop_image, args.report.parent).replace(os.sep, "/")
     web_image_link = os.path.relpath(args.web_image, args.report.parent).replace(os.sep, "/")
@@ -197,6 +207,11 @@ def main() -> None:
 - **Depth/stencil:** `{depth_text}`
 - **Chuỗi pass:** {pass_text}
 - **Số pass:** `{len(pass_specs) if pass_specs else 'KHÔNG ÁP DỤNG'}`
+- **Độ sâu graph:** `{recursion_depth if recursion_depth is not None else 'KHÔNG ÁP DỤNG'}`
+- **Hierarchy:** `{hierarchy_text}`
+- **Thứ tự operation sau flatten:** `{operation_order_text}`
+- **Sampler contract:** `{sampler_text}`
+- **Thứ tự layer kỳ vọng:** `{expected_layer_order_text}`
 - **Node pool contract:** `{node_pool_text}`
 - **Desktop/Web dùng cùng manifest fingerprint:** `{"ĐẠT" if graph_match else "KHÔNG ĐẠT"}`
 

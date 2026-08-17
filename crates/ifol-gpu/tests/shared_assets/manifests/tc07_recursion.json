@@ -1,0 +1,112 @@
+{
+  "test_case": "TC07",
+  "title": "Deep Recursion SubGraphs",
+  "title_vi": "Đồ thị con đệ quy sâu 5 cấp",
+  "description": "Render a five-level nested subgraph: background, tree, golem, wizard, and chest.",
+  "description_vi": "Render graph A lồng B, B lồng C, C lồng D, D lồng E; sau khi flatten phải giữ đúng thứ tự E nền, D cây, C golem, B pháp sư, A rương.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "depth": 5,
+    "hierarchy": "Root A (Chest) -> B (Wizard) -> C (Golem) -> D (Tree) -> E (SciFi Background)",
+    "pipelines": {
+      "background": {
+        "shader": "texture_blit.wgsl",
+        "blend": "Replace",
+        "depth": false,
+        "has_uniform": false
+      },
+      "sprite": {
+        "shader": "chroma_key_cropped.wgsl",
+        "blend": "AlphaBlend",
+        "depth": false,
+        "has_uniform": true
+        }
+    },
+    "sampler": {
+      "mag_filter": "nearest",
+      "min_filter": "nearest",
+      "mipmap_filter": "nearest"
+    },
+    "operations": [
+      {
+        "id": "E.background",
+        "node_path": "Root/E",
+        "kind": "texture",
+        "pipeline": "background",
+        "source": { "kind": "asset", "asset": "canonical_bg_scifi.png" },
+        "vertex_count": 6
+      },
+      {
+        "id": "D.tree",
+        "node_path": "Root/D",
+        "kind": "sprite",
+        "pipeline": "sprite",
+        "source": { "kind": "asset", "asset": "canonical_tc07_tree.png" },
+        "position": [-0.45, -0.1],
+        "target_height_scale": 0.85,
+        "crop_uv": [0.0, 0.0, 1.0, 1.0],
+        "tolerance": 0.40,
+        "smoothness": 0.10,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6
+      },
+      {
+        "id": "C.golem",
+        "node_path": "Root/C",
+        "kind": "sprite",
+        "pipeline": "sprite",
+        "source": { "kind": "asset", "asset": "canonical_tc07_golem.png" },
+        "position": [-0.05, -0.15],
+        "target_height_scale": 0.7,
+        "crop_uv": [0.0, 0.0, 1.0, 1.0],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6
+      },
+      {
+        "id": "B.wizard",
+        "node_path": "Root/B",
+        "kind": "sprite",
+        "pipeline": "sprite",
+        "source": { "kind": "asset", "asset": "canonical_tc07_wizard.png" },
+        "position": [0.35, -0.1],
+        "target_height_scale": 0.75,
+        "crop_uv": [0.0, 0.0, 1.0, 1.0],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6
+      },
+      {
+        "id": "A.chest",
+        "node_path": "Root/A",
+        "kind": "sprite",
+        "pipeline": "sprite",
+        "source": { "kind": "asset", "asset": "canonical_tc07_chest.png" },
+        "position": [0.0, -0.4],
+        "target_height_scale": 0.4,
+        "crop_uv": [0.0, 0.0, 1.0, 1.0],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6
+      }
+    ],
+    "clear_color": [0.0, 0.0, 0.0, 1.0]
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "visual_check": "Ảnh phải có đủ SciFi background, cây, golem, pháp sư và rương; không crash hoặc tràn stack; thứ tự layer phải là E -> D -> C -> B -> A.",
+    "expected_layer_order": ["E.background", "D.tree", "C.golem", "B.wizard", "A.chest"]
+  }
+}

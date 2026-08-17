@@ -124,6 +124,8 @@ async function saveRawTexture(bytes, metadata) {
             freed_nodes: metadata.freed_nodes,
             surviving_nodes: metadata.surviving_nodes,
             pool_check: metadata.pool_check,
+            recursion_depth: metadata.recursion_depth,
+            flattened_operations: metadata.flattened_operations,
             image_name: metadata.image_name
         })
     });
@@ -1006,6 +1008,164 @@ async function runTC06(gpu) {
     uniformBuffer.destroy();
 }
 
+async function runTC07(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc07_recursion.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC07 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const shaderModules = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaderModules[spec.shader]) {
+            shaderModules[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+        }
+    }
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    function blendState(name) {
+        if (name === 'Replace') return undefined;
+        if (name === 'AlphaBlend') return {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        };
+        throw new Error(`Unsupported TC07 blend mode: ${name}`);
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            const layouts = spec.has_uniform ? [textureLayout, uniformLayout] : [textureLayout];
+            result[name] = device.createRenderPipeline({
+                layout: device.createPipelineLayout({ bindGroupLayouts: layouts }),
+                vertex: { module: shaderModules[spec.shader], entryPoint: 'vs_main' },
+                fragment: {
+                    module: shaderModules[spec.shader],
+                    entryPoint: 'fs_main',
+                    targets: [{ format, blend: blendState(spec.blend) }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+        return result;
+    }
+    const sampler = device.createSampler({
+        addressModeU: 'repeat', addressModeV: 'repeat', addressModeW: 'repeat',
+        magFilter: manifest.graph.sampler.mag_filter,
+        minFilter: manifest.graph.sampler.min_filter,
+        mipmapFilter: manifest.graph.sampler.mipmap_filter
+    });
+    const assetCache = {};
+    async function getAsset(name) {
+        if (!assetCache[name]) {
+            const image = await loadImageTexture(device, name);
+            assetCache[name] = {
+                image,
+                bindGroup: device.createBindGroup({
+                    layout: textureLayout,
+                    entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+                })
+            };
+        }
+        return assetCache[name];
+    }
+    const operationResources = [];
+    for (const operation of operations) {
+        const asset = await getAsset(operation.source.asset);
+        let uniformBindGroup = null;
+        let uniformBuffer = null;
+        if (operation.kind === 'sprite') {
+            const crop = operation.crop_uv;
+            const cropAspect = ((crop[2] - crop[0]) * asset.image.width) / Math.max((crop[3] - crop[1]) * asset.image.height, 1);
+            const scaleY = operation.target_height_scale;
+            const scaleX = scaleY * (cropAspect / (target.width / target.height));
+            const uniformData = new Float32Array([
+                operation.position[0], operation.position[1], scaleX, scaleY,
+                crop[0], crop[1], crop[2], crop[3],
+                asset.image.keyColor[0], asset.image.keyColor[1], asset.image.keyColor[2], operation.tolerance,
+                operation.smoothness, operation.z_depth, operation.opacity, 0
+            ]);
+            uniformBuffer = device.createBuffer({
+                size: uniformData.byteLength,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            });
+            device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+            uniformBindGroup = device.createBindGroup({
+                layout: uniformLayout,
+                entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+            });
+        }
+        operationResources.push({
+            pipeline: operation.pipeline,
+            textureBindGroup: asset.bindGroup,
+            uniformBindGroup,
+            uniformBuffer,
+            vertexCount: operation.vertex_count
+        });
+    }
+    const targetTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+    async function executeGraph(outputTexture, pipelines) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: {
+                r: manifest.graph.clear_color[0], g: manifest.graph.clear_color[1],
+                b: manifest.graph.clear_color[2], a: manifest.graph.clear_color[3]
+            },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        for (const operation of operationResources) {
+            pass.setPipeline(pipelines[operation.pipeline]);
+            pass.setBindGroup(0, operation.textureBindGroup);
+            if (operation.uniformBindGroup) pass.setBindGroup(1, operation.uniformBindGroup);
+            pass.draw(operation.vertexCount, 1, 0, 0);
+        }
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+    const coldRenderTimeMs = await executeGraph(targetTexture, offscreenPipelines);
+    const warmRenderTimeMs = await executeGraph(targetTexture, offscreenPipelines);
+    const bytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    await saveRawTexture(bytes, {
+        name: 'tc07_recursion_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        manifest: 'tests/shared_assets/manifests/tc07_recursion.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'execute offscreen của graph flatten 5 cấp + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        recursion_depth: manifest.graph.depth,
+        flattened_operations: operations.length,
+        image_name: 'tc07_recursion_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc07');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    await executeGraph(context.getCurrentTexture(), createPipelines(canvasFormat));
+    document.getElementById('tag-tc07').textContent = 'PASS';
+    document.getElementById('tag-tc07').className = 'tag tag-passed';
+    targetTexture.destroy();
+    for (const asset of Object.values(assetCache)) asset.image.texture.destroy();
+    for (const operation of operationResources) if (operation.uniformBuffer) operation.uniformBuffer.destroy();
+}
+
 async function fetchShader(name) {
     const res = await fetch(`/shaders/${name}`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
@@ -1722,6 +1882,7 @@ async function runAllTests() {
         { name: "TC04: Alpha Blend + Z-Buffer", fn: runTC04 },
         { name: "TC05: Interleaved Multi-Pass", fn: runTC05 },
         { name: "TC06: RenderNodePool GC", fn: runTC06 },
+        { name: "TC07: Deep Recursion SubGraphs", fn: runTC07 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },
