@@ -1,0 +1,41 @@
+{
+  "test_case": "TC38",
+  "title": "Kaleidoscope",
+  "title_vi": "Kính vạn hoa",
+  "description": "Extract a canonical mage sprite and mirror it across six polar segments.",
+  "description_vi": "Tách nhân vật mage canonical rồi gập tọa độ cực thành sáu phân đoạn đối xứng.",
+  "input_policy_vi": "Desktop và WebGPU dùng sprite sheet PNG canonical; không dùng decoder JPEG trong phép đo parity.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "chroma", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": { "address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear" },
+    "pipelines": {
+      "chroma": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" },
+      "kaleidoscope": { "shader": "kaleidoscope.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" }
+    },
+    "operations": [
+      {
+        "id": "chroma_extract_mage", "kind": "chroma_key", "pass": "chroma_pass", "pipeline": "chroma", "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "uniform": { "scale_y": 0.8, "uv_min": [0.27, 0.01], "uv_max": [0.54, 0.98], "key_color": [0.0, 1.0, 0.0], "tolerance": 0.48, "smoothness": 0.1 },
+        "vertex_count": 6, "instance_count": 1
+      },
+      {
+        "id": "kaleidoscope_six_segments", "kind": "kaleidoscope", "pass": "kaleidoscope_pass", "pipeline": "kaleidoscope", "shader": "kaleidoscope.wgsl",
+        "source": [{ "kind": "target", "target": "chroma" }],
+        "uniform": { "segments": 6.0 },
+        "vertex_count": 6, "instance_count": 1
+      }
+    ],
+    "passes": [
+      { "id": "chroma_pass", "name": "Chroma key extraction", "target": "chroma", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "kaleidoscope_pass", "name": "Six-segment kaleidoscope", "target": "final", "clear_color": [0.2, 0.0, 0.4, 1.0] }
+    ],
+    "command_count": 2,
+    "node_count": 2
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["chroma_pass", "kaleidoscope_pass"], "expected_instance_count": 2, "visual_check": "Nền tím huyền ảo có hình mage được phản chiếu theo sáu phân đoạn kính vạn hoa; không có ảnh đen hoặc validation error." }
+}

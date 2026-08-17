@@ -1,20 +1,94 @@
-# Báo cáo: TC38_KALEIDOSCOPE - Kaleidoscope Mirror Filter
+# Báo cáo: TC38 - Kính vạn hoa
 
-Đây là báo cáo tổng hợp chất lượng render của TC38_KALEIDOSCOPE trên các nền tảng.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
-## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.0191ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.6754ms
-- **Kết quả ảnh (Thực tế):**
+## 1. Mô tả và graph dùng chung
 
-![TC38_KALEIDOSCOPE Desktop Render](../outputs/desktop/tc38_kaleidoscope.png)
+- **Manifest:** `crates/ifol-gpu/tests/shared_assets/manifests/tc38_kaleidoscope.json`
+- **Graph fingerprint (FNV-1a):** `cf4713957e83abbf`
+- **Mô tả test case:** Tách nhân vật mage canonical rồi gập tọa độ cực thành sáu phân đoạn đối xứng.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `chroma_key_cropped.wgsl`, `kaleidoscope.wgsl`
+- **Asset/input:** `canonical_sprites_heroes.png`
+- **Chính sách input:** Desktop và WebGPU dùng sprite sheet PNG canonical; không dùng decoder JPEG trong phép đo parity.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** chroma_pass (Chroma key extraction, target chroma) → kaleidoscope_pass (Six-segment kaleidoscope, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `chroma_extract_mage → kaleidoscope_six_segments`
+- **Sampler contract:** `{"address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear"}`
+- **Thứ tự layer kỳ vọng:** `chroma_pass → kaleidoscope_pass`
+- **Graph resources:** nodes=`2`, draw commands=`2`, tổng instances=`2`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-- **Kỳ vọng:** Biến dạng hình ảnh theo phong cách kính vạn hoa bằng cách chuyển hệ tọa độ Descartes sang hệ tọa độ Cực (Polar Coordinates).
-- **Mô tả (Vision AI / Đánh giá):** Xác thực phép gập góc (Angular fold) bằng cách sử dụng modulo và abs trên 6 phân đoạn (segments).
-- **Core Engine Errors:** Không có lỗi.
+## 2. Môi trường Desktop
 
-## 2. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+- **Thời gian render lần đầu (cold):** `3.6158 ms`
+- **Thời gian render lần hai (warm/cache):** `1.2442 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `65.6%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `2 pass (chroma key → effect) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `crates/ifol-gpu/tests/outputs/desktop/tc38_kaleidoscope_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `999f5f01cc0ef7e1`
+- **SHA-256:** `5b5ae6e1618483d4431b1614a9dc021faf4350f02daa185ee4dfb814949144e2`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc38_kaleidoscope.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận nền tím có hình mage được biến đổi thành họa tiết đối xứng sáu nhánh theo kính vạn hoa; output hợp lý, không có ảnh đen bất thường hoặc validation error.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=2
 
-## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+
+
+## 3. Môi trường WebGPU
+
+- **Thời gian render lần đầu (cold):** `14.9000 ms`
+- **Thời gian render lần hai (warm/cache):** `2.9000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `80.5%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `2 pass (chroma key → six-segment kaleidoscope) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `crates/ifol-gpu/tests/outputs/web/tc38_kaleidoscope_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `8e7b717bb1e1ffbc`
+- **SHA-256:** `294c7c3feede1536e0ae6f7c878ef0a0ae468aae840b33e275feaed77c809556`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc38_kaleidoscope_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận Web có cùng họa tiết sáu nhánh, nền tím và bố cục như Desktop; không có ảnh đen bất thường hoặc validation error.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=2
+
+
+
+## 4. So sánh và kết luận
+
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `63` |
+| Số pixel khác nhau | `47` |
+| Sai số kênh màu lớn nhất | `1/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

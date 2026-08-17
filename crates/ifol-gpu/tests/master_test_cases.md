@@ -218,3 +218,24 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kỳ vọng:** Nền tím tối có nhân vật bị kéo mờ tỏa tâm nhưng vẫn nhận diện được; không có ảnh đen hoặc validation error.
 - **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `e8635023d0c9c2fb`; vision đạt; raw parity tuyệt đối `0 byte` khác.
 - **Báo cáo:** [`tc36_radial_blur_report.md`](reports/tc36_radial_blur_report.md)
+
+### TC37 - Chromatic Aberration / RGB Split
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → phân tách kênh RGB theo khoảng cách tới tâm.
+- **Kịch bản:** Tách paladin canonical rồi lấy mẫu riêng R/G/B với độ lệch xuyên tâm `amount=0.1`.
+- **Kỳ vọng:** Viền đỏ/xanh tách nhẹ quanh paladin trên nền xanh ngọc; không có ảnh đen hoặc validation error.
+- **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `7f5f010b70f54583`; vision đạt; raw parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc37_chromatic_aberration_report.md`](reports/tc37_chromatic_aberration_report.md)
+
+### TC38 - Kaleidoscope
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → gập tọa độ cực thành sáu phân đoạn đối xứng.
+- **Kịch bản:** Tách mage canonical rồi áp dụng polar mapping, modulo và angular fold với `segments=6`.
+- **Kỳ vọng:** Họa tiết kính vạn hoa sáu nhánh trên nền tím; không có ảnh đen hoặc validation error.
+- **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `cf4713957e83abbf`; vision đạt; raw khác 63 byte ở 47 pixel, tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc38_kaleidoscope_report.md`](reports/tc38_kaleidoscope_report.md)
+
+### TC39 - Hologram Scanlines
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → sọc quét hologram cyan xác định.
+- **Kịch bản:** Tách mage canonical rồi điều chế màu/alpha bằng sóng sin với 200 dòng, time cố định `1.0`.
+- **Kỳ vọng:** Mage có sọc quét ngang cyan và hiệu ứng hologram; không có ảnh đen hoặc validation error.
+- **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `5ea108ce90344f78`; vision đạt; raw khác 5 byte ở 5 pixel, tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc39_scanlines_report.md`](reports/tc39_scanlines_report.md)

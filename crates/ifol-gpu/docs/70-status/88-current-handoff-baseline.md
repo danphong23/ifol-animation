@@ -327,6 +327,21 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web dùng cùng PNG canonical; vision/structural, validation, cache và
   raw parity đạt tuyệt đối (`0` byte khác). Xem
   `tests/reports/tc36_radial_blur_report.md`;
+- TC37 đã được chuẩn hóa thành graph 2 pass chroma key → chromatic aberration
+  với manifest fingerprint `7f5f010b70f54583`, hai draw command và hai node.
+  Desktop/Web dùng cùng PNG canonical; vision/structural, validation, cache và
+  raw parity đạt tuyệt đối (`0` byte khác). Xem
+  `tests/reports/tc37_chromatic_aberration_report.md`;
+- TC38 đã được chuẩn hóa thành graph 2 pass chroma key → kaleidoscope với
+  manifest fingerprint `cf4713957e83abbf`, hai draw command và hai node.
+  Desktop/Web dùng cùng PNG canonical; vision/structural, validation và cache
+  parity đạt; raw còn khác 63 byte ở 47 pixel, sai số tối đa `1/255`, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc38_kaleidoscope_report.md`;
+- TC39 đã được chuẩn hóa thành graph 2 pass chroma key → hologram scanlines
+  với manifest fingerprint `5ea108ce90344f78`, hai draw command và hai node.
+  Desktop/Web dùng cùng PNG canonical; vision/structural, validation và cache
+  parity đạt; raw còn khác 5 byte ở 5 pixel, sai số tối đa `1/255`, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc39_scanlines_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

@@ -172,6 +172,17 @@ Các report canonical hiện tại:
 - [TC36](../../tests/reports/tc36_radial_blur_report.md): hai pass chroma key →
   radial zoom blur 30 mẫu trên paladin PNG canonical; vision/structural,
   validation, cache và raw parity đạt tuyệt đối (`0` byte khác).
+- [TC37](../../tests/reports/tc37_chromatic_aberration_report.md): hai pass
+  chroma key → RGB split xuyên tâm trên paladin PNG canonical; vision/structural,
+  validation, cache và raw parity đạt tuyệt đối (`0` byte khác).
+- [TC38](../../tests/reports/tc38_kaleidoscope_report.md): hai pass chroma key
+  → kaleidoscope sáu phân đoạn trên mage PNG canonical; vision/structural,
+  validation và cache đạt, raw khác 63 byte ở 47 pixel, tối đa `1/255`, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`.
+- [TC39](../../tests/reports/tc39_scanlines_report.md): hai pass chroma key →
+  hologram scanlines 200 dòng trên mage PNG canonical; vision/structural,
+  validation và cache đạt, raw khác 5 byte ở 5 pixel, tối đa `1/255`, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
