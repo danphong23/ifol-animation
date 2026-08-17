@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC08_MASSIVE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.6307ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 979.5µs
+- **Thời gian Render (Cold Start - Lần đầu):** 4.2712ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 871.6µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC08_MASSIVE Desktop Render](../outputs/desktop/tc08_massive.png)

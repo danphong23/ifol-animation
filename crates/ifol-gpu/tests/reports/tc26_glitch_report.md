@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC26_GLITCH trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.283ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 728.4µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.9638ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 992.7µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC26_GLITCH Desktop Render](../outputs/desktop/tc26_glitch.png)

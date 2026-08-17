@@ -12,6 +12,8 @@ sau đó đọc [kế hoạch tách module từng bước](00-foundation/17-incr
 
 Điểm bàn giao hiện tại nằm ở
 [baseline và handoff](70-status/88-current-handoff-baseline.md).
+Kết quả regression và Desktop/Web canonical parity gần nhất nằm ở
+[báo cáo nâng cấp và parity](70-status/89-upgrade-regression-and-parity.md).
 
 Các tài liệu design, invariant, test, audit và migration được giữ lại nhưng
 không phải user manual:

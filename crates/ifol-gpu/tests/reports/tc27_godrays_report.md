@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC27_GODRAYS trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 4.9121ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 3.475ms
+- **Thời gian Render (Cold Start - Lần đầu):** 3.7864ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 3.0078ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC27_GODRAYS Desktop Render](../outputs/desktop/tc27_godrays.png)

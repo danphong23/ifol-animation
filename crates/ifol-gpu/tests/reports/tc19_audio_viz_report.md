@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC19_AUDIO_VIZ trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.435ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 680.4µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.5881ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 897.4µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC19_AUDIO_VIZ Desktop Render](../outputs/desktop/tc19_audio_viz.png)

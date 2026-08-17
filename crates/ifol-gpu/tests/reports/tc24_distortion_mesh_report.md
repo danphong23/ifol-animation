@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC24_DISTORTION_MESH trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.0071ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 743µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.3822ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 562.5µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC24_DISTORTION_MESH Desktop Render](../outputs/desktop/tc24_distortion_mesh.png)

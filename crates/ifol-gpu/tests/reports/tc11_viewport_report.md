@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC11_VIEWPORT trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 719.8µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 724.3µs
+- **Thời gian Render (Cold Start - Lần đầu):** 727.5µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 628.4µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC11_VIEWPORT Desktop Render](../outputs/desktop/tc11_viewport.png)

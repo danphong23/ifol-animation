@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC56_DYNAMIC_RESIZE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 996µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 811.1µs
+- **Thời gian Render (Cold Start - Lần đầu):** 924.4µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 810.8µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC56_DYNAMIC_RESIZE Desktop Render](../outputs/desktop/tc56_dynamic_resize.png)

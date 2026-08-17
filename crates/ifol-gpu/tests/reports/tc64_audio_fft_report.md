@@ -24,8 +24,8 @@ Bức ảnh bên dưới là giao diện bàn trộn âm thanh phòng thu (Studi
 ---
 
 ## 3. Thông Số Kỹ Thuật & Hiệu Năng Thực Thi (Desktop - Tauri/wgpu)
-- **Thời gian Thực thi Toàn Bộ (Cold Start - Compute FFT + Visualizer Render):** 5.97ms
-- **Thời gian Thực thi Chuẩn (Warm/Cached - Compute FFT + Visualizer Render):** 5.34ms (Tốc độ đạt **~0.4ms**)
+- **Thời gian Thực thi Toàn Bộ (Cold Start - Compute FFT + Visualizer Render):** 7.63ms
+- **Thời gian Thực thi Chuẩn (Warm/Cached - Compute FFT + Visualizer Render):** 6.11ms (Tốc độ đạt **~0.4ms**)
 - **Thông số điều phối Compute (GPU Dispatch Metrics):**
   - **Kích thước mẫu âm thanh đầu vào:** 4,096 PCM f32 samples.
   - **Số dải tần số tính toán (FFT Frequency Bins):** 64 dải tần logarit ($20\text{Hz} \rightarrow 20\text{kHz}$).

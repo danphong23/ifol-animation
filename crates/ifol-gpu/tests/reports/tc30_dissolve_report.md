@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC30_DISSOLVE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 857.2µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 713.1µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4832ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 813.8µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC30_DISSOLVE Desktop Render](../outputs/desktop/tc30_dissolve.png)

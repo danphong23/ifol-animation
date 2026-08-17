@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC40_VIGNETTE_GRAIN trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.0227ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 697µs
+- **Thời gian Render (Cold Start - Lần đầu):** 926.7µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 746.4µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC40_VIGNETTE_GRAIN Desktop Render](../outputs/desktop/tc40_vignette_grain.png)

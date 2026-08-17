@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC49_TRIM_PATHS trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.6462ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 744.6µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4314ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 719.1µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC49_TRIM_PATHS Desktop Render](../outputs/desktop/tc49_trim_paths.png)

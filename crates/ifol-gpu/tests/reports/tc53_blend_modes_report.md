@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC53_BLEND_MODES trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.5458ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 972.8µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.669ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 910.1µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC53_BLEND_MODES Desktop Render](../outputs/desktop/tc53_blend_modes.png)

@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC39_SCANLINES trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.3553ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 601.4µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.8768ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 779.1µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC39_SCANLINES Desktop Render](../outputs/desktop/tc39_scanlines.png)

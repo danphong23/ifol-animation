@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC60_PING_PONG trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 752.1µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 549.9µs
+- **Thời gian Render (Cold Start - Lần đầu):** 602.5µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 458µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC60_PING_PONG Desktop Render](../outputs/desktop/tc60_ping_pong.png)

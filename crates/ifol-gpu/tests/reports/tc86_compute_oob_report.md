@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp kết quả kiểm thử an toàn bộ nhớ VRAM cho bài test TC86.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render Cold:** 2.71ms
-- **Thời gian Render Warm:** 630.70µs
+- **Thời gian Render Cold:** 21.44ms
+- **Thời gian Render Warm:** 595.30µs
 - **Kết quả ảnh (Thực tế):**
 
 <img src="../outputs/desktop/tc86_compute_oob.png" alt="TC86 Desktop Render" />

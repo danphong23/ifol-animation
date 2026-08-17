@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC16_SDF trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.4982ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 560.6µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.294ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 586.9µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC16_SDF Desktop Render](../outputs/desktop/tc16_sdf.png)

@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC43_TRACK_MATTE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.5609ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 770.1µs
+- **Thời gian Render (Cold Start - Lần đầu):** 997.4µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 702.6µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC43_TRACK_MATTE Desktop Render](../outputs/desktop/tc43_track_matte.png)

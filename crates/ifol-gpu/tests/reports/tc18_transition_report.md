@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC18_TRANSITION trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 974.8µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 663µs
+- **Thời gian Render (Cold Start - Lần đầu):** 752.8µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 722.1µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC18_TRANSITION Desktop Render](../outputs/desktop/tc18_transition.png)

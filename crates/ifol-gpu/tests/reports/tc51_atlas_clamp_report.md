@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC51_ATLAS_CLAMP trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.2879ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0944ms
+- **Thời gian Render (Cold Start - Lần đầu):** 2.9683ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.3801ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC51_ATLAS_CLAMP Desktop Render](../outputs/desktop/tc51_atlas_clamp.png)

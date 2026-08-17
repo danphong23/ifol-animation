@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC08_5_NIGHTSKY trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.018ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 811.9µs
+- **Thời gian Render (Cold Start - Lần đầu):** 944.8µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 845.7µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC08_5_NIGHTSKY Desktop Render](../outputs/desktop/tc08_5_nightsky.png)

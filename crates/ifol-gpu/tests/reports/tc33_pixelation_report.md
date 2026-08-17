@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC33_PIXELATION trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.6605ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 755.8µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4191ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 612.6µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC33_PIXELATION Desktop Render](../outputs/desktop/tc33_pixelation.png)

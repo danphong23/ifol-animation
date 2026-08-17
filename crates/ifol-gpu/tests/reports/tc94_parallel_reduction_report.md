@@ -9,7 +9,7 @@
 - **Kích thước Mảng Dữ Liệu:** 1,000,000 phần tử `f32` (4 MB VRAM Storage Buffer)
 - **Vị trí Phần tử Max Đặc Biệt:** Index `543,210` có giá trị `9999.5` (Các phần tử còn lại nằm trong dải `0.0` đến `99.9`)
 - **Cấu hình Workgroup Compute:** 256 threads / workgroup (3,907 Workgroups)
-- **Thời gian Thực thi:** 3.95ms
+- **Thời gian Thực thi:** 3.42ms
 
 ### Kết quả Ảnh Render (Radar Target Visualizer):
 

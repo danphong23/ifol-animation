@@ -12,7 +12,7 @@
 - **Lượt Cấp Phát Thực tế (Fresh Allocations):** 24
 - **Lượt Tái Sử Dụng Thành Công (Reused from Pool):** 56
 - **Tài nguyên Thu hồi sau khi xả (Drained):** 18 Textures, 6 Buffers
-- **Thời gian Thực thi:** 389.10µs
+- **Thời gian Thực thi:** 2.44ms
 
 ---
 

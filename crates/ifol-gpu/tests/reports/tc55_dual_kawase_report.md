@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC55_DUAL_KAWASE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.2055ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 882.1µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.1824ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0442ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC55_DUAL_KAWASE Desktop Render](../outputs/desktop/tc55_dual_kawase.png)

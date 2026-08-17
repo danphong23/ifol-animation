@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC15_SNOW trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 10.7669ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.5631ms
+- **Thời gian Render (Cold Start - Lần đầu):** 6.2603ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.9997ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC15_SNOW Desktop Render](../outputs/desktop/tc15_snow.png)

@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC46_SELECTIVE_COLOR trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.7123ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 685.7µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.5966ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 728.2µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC46_SELECTIVE_COLOR Desktop Render](../outputs/desktop/tc46_selective_color.png)

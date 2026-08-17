@@ -9,7 +9,7 @@
 - **Cấu hình Dispatch:** 5 Workgroups (Tổng 320 luồng GPU đồng thời)
 - **Kích thước Mảng Thực tế:** 301 phần tử `f32` (Phần tử lẻ - Unaligned)
 - **Kích thước Mảng Bộ Nhớ VRAM Allocated:** 320 phần tử (Bao gồm 19 phần tử Padding)
-- **Thời gian Thực thi:** 2.22ms
+- **Thời gian Thực thi:** 3.19ms
 
 ### Kết quả Ảnh Render (Biểu Đồ Trực Quan):
 

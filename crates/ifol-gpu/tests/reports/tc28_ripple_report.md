@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC28_RIPPLE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.016ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 784.5µs
+- **Thời gian Render (Cold Start - Lần đầu):** 2.0673ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 927.6µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC28_RIPPLE Desktop Render](../outputs/desktop/tc28_ripple.png)

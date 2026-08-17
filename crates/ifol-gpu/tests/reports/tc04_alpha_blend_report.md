@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC04_ALPHA_BLEND trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 3.1577ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.184ms
+- **Thời gian Render (Cold Start - Lần đầu):** 3.3523ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0487ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC04_ALPHA_BLEND Desktop Render](../outputs/desktop/tc04_alpha_blend.png)

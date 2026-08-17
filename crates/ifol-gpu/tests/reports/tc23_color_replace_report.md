@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC23_COLOR_REPLACE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.9089ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 593.6µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.39ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 692.7µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC23_COLOR_REPLACE Desktop Render](../outputs/desktop/tc23_color_replace.png)

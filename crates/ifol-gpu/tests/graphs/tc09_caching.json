@@ -1,6 +1,6 @@
 {
-  "avg_warm_time_us": 422,
-  "cold_start_time_us": 1610,
-  "speedup_percentage": "73.7%",
+  "avg_warm_time_us": 309,
+  "cold_start_time_us": 1842,
+  "speedup_percentage": "83.2%",
   "test_case": "TC09 - Pipeline Caching & Bundle Reuse Benchmark"
 }

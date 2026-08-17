@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC57_STENCIL_MASK trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.9498ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1218ms
+- **Thời gian Render (Cold Start - Lần đầu):** 8.0125ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 2.2238ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC57_STENCIL_MASK Desktop Render](../outputs/desktop/tc57_stencil_mask.png)

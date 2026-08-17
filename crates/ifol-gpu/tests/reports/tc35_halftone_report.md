@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC35_HALFTONE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 649.7µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 501.6µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4645ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 684.9µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC35_HALFTONE Desktop Render](../outputs/desktop/tc35_halftone.png)

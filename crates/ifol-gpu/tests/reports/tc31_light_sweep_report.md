@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC31_LIGHT_SWEEP trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.4451ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 605.1µs
+- **Thời gian Render (Cold Start - Lần đầu):** 890.8µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 570.7µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC31_LIGHT_SWEEP Desktop Render](../outputs/desktop/tc31_light_sweep.png)

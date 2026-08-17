@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC50_EXPOSURE_INSPECTOR trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.6327ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 701.9µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.3592ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 858.2µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC50_EXPOSURE_INSPECTOR Desktop Render](../outputs/desktop/tc50_exposure_inspector.png)

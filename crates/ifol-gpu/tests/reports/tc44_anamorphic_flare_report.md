@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC44_ANAMORPHIC_FLARE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.8104ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 2.0866ms
+- **Thời gian Render (Cold Start - Lần đầu):** 3.1986ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 2.0943ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC44_ANAMORPHIC_FLARE Desktop Render](../outputs/desktop/tc44_anamorphic_flare.png)

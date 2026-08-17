@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC07_RECURSION trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 32.6417ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 2.9878ms
+- **Thời gian Render (Cold Start - Lần đầu):** 8.7338ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.7489ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC07_RECURSION Desktop Render](../outputs/desktop/tc07_recursion.png)

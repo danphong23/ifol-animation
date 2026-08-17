@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC41_ASPECT_FILL trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 3.6627ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 2.598ms
+- **Thời gian Render (Cold Start - Lần đầu):** 3.073ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 2.5736ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC41_ASPECT_FILL Desktop Render](../outputs/desktop/tc41_aspect_fill.png)

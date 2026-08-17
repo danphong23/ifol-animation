@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC29_CRT_VHS trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.5583ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 696.7µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4933ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0176ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC29_CRT_VHS Desktop Render](../outputs/desktop/tc29_crt_vhs.png)

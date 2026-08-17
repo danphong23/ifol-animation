@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC45_GLASSMORPHISM trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.893ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1472ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.1872ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.2091ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC45_GLASSMORPHISM Desktop Render](../outputs/desktop/tc45_glassmorphism.png)

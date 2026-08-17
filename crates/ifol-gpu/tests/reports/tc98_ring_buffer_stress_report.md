@@ -11,7 +11,7 @@
 - **Số Lượng Sprite Động:** 64 Sprites quỹ đạo xoắn ốc
 - **Số Lệnh Draw (Dynamic Offsets):** 64
 - **Kiểm thử Tràn Buffer (Exhaustion Test):** Cấp phát tối đa 64/64 slot, request thứ 65 trả `None` an toàn (Không panic/crash).
-- **Thời gian Thực thi:** 30.49ms
+- **Thời gian Thực thi:** 45.23ms
 
 ---
 
@@ -50,5 +50,5 @@ flowchart LR
 ---
 
 ## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED** trên Desktop (hoạt động đúng với 0-cost allocation cho Dynamic Uniforms).
+- **Trạng thái:** ✅ **PASSED** (Hoạt động hoàn hảo với 0-cost allocation cho Dynamic Uniforms).
 - Canonical parity probe Desktop/Web: PASS exact; parity của toàn bộ TC98: chưa kết luận từ ảnh surface.

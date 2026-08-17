@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC34_DIRECTIONAL_BLUR trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.8387ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1104ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4649ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.426ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC34_DIRECTIONAL_BLUR Desktop Render](../outputs/desktop/tc34_directional_blur.png)

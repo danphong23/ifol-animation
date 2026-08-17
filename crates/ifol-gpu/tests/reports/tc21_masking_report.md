@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC21_MASKING trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.0886ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 676.7µs
+- **Thời gian Render (Cold Start - Lần đầu):** 2.2604ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0626ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC21_MASKING Desktop Render](../outputs/desktop/tc21_masking.png)

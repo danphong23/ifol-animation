@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC05 trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 5.3942ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 997.1µs
+- **Thời gian Render (Cold Start - Lần đầu):** 6.9514ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.4043ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC05 Desktop Render](../outputs/desktop/tc05_interleaved.png)

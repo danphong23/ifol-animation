@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC37_CHROMATIC_ABERRATION trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 845.8µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 500.8µs
+- **Thời gian Render (Cold Start - Lần đầu):** 723.6µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 591.5µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC37_CHROMATIC_ABERRATION Desktop Render](../outputs/desktop/tc37_chromatic_aberration.png)

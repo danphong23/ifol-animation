@@ -29,8 +29,8 @@ Bức ảnh bên dưới trực quan hóa quá trình chuyển đổi từ **D�
 ---
 
 ## 3. Thông Số Kỹ Thuật & Hiệu Năng Thực Thi (Desktop - Tauri/wgpu)
-- **Thời gian Thực thi Compute (Cold Start - Lần đầu):** 1.84ms
-- **Thời gian Thực thi Compute (Warm/Cached - Các lần sau):** 464.10µs (Tốc độ đạt **~0.5ms cho 10,240 luồng**)
+- **Thời gian Thực thi Compute (Cold Start - Lần đầu):** 3.90ms
+- **Thời gian Thực thi Compute (Warm/Cached - Các lần sau):** 951.20µs (Tốc độ đạt **~0.5ms cho 10,240 luồng**)
 - **Thông số điều phối Compute (GPU Dispatch Metrics):**
   - **Kích thước mảng:** 10,240 vector 4 chiều (40,960 số thực f32).
   - **Cấu hình Thread Group:** 64 luồng / workgroup.

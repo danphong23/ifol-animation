@@ -1,0 +1,49 @@
+# Báo cáo nâng cấp ifol-gpu: regression và parity
+
+Ngày kiểm tra: 2026-08-17
+
+## Kết quả
+
+- Full desktop regression suite: PASS, 0 failed.
+- Các test số TC01–TC105 hiện có trong repository đều pass; repository không có
+  target `TC95`. Suite cũng chạy canonical offscreen parity probe.
+- Unit tests: 114 passed với default features và 114 passed với
+  `--no-default-features`.
+- `cargo check -p ifol-gpu --tests --examples --benches`: PASS.
+- `cargo check -p ifol-gpu --no-default-features --tests --examples --benches`:
+  PASS.
+- `git diff --check`: PASS sau khi loại whitespace phát sinh trong report.
+
+## Canonical Desktop/Web output
+
+Probe dùng cùng graph, cùng clear value `[0.03, 0.04, 0.07, 1.0]`, kích thước
+`800x600` và format `Rgba8Unorm`. Raw readback Desktop/Web có cùng kích thước
+`1,920,000` bytes, `different_bytes=0`, `max_byte_delta=0`.
+
+SHA-256 của cả hai raw output:
+
+```text
+4F2AB7130334569606F07A9F0304A2A39DDFCC89C2563B54F8B4384777C813E2
+```
+
+Timing quan sát được trong môi trường kiểm thử:
+
+| Path | Render time |
+| --- | ---: |
+| Desktop native | 1.5224 ms |
+| WebGPU browser | 23.90 ms |
+
+Timing chỉ có ý nghĩa so sánh trong cùng môi trường chạy; nó không phải
+benchmark giữa mọi GPU/OS/browser.
+
+## Phạm vi kết luận
+
+Canonical offscreen path đã chứng minh contract raw output giống nhau từng byte
+giữa Desktop và WebGPU. Điều này chưa chứng minh pixel parity của mọi graph,
+mọi shader, mọi surface format hoặc mọi backend native. Các report test case
+không được gắn nhãn pixel-perfect Web nếu chưa có probe riêng cho test case đó.
+
+Production core hiện không encode PNG/JPEG và không phụ thuộc windowing; output
+file, browser surface và platform color policy thuộc lớp bên ngoài. `ifol-gpu`
+chỉ nhận resource/format contract, thực thi graph/shader/pipeline và trả raw
+readback khi caller yêu cầu.

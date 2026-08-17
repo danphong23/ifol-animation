@@ -25,8 +25,8 @@ Bức ảnh bên dưới thể hiện bố cục so sánh **Side-by-Side (Split-
 ---
 
 ## 3. Thông Số Kỹ Thuật & Hiệu Năng Thực Thi (Desktop - Tauri/wgpu)
-- **Thời gian Thực thi Compute (Cold Start - Lần đầu):** 16.27ms
-- **Thời gian Thực thi Compute (Warm/Cached - Các lần sau):** 2.28ms (Tốc độ làm mờ toàn màn hình **~0.6ms**)
+- **Thời gian Thực thi Compute (Cold Start - Lần đầu):** 7.66ms
+- **Thời gian Thực thi Compute (Warm/Cached - Các lần sau):** 2.01ms (Tốc độ làm mờ toàn màn hình **~0.6ms**)
 - **Thông số điều phối Compute (GPU Dispatch Metrics):**
   - **Kích thước Workgroup:** $16 \times 16$ threads (256 threads / workgroup).
   - **Kích thước Tile bộ nhớ chia sẻ (Shared Memory Tile):** $24 \times 24 \times 16\text{ bytes} = 9,216\text{ bytes}$ L1 SRAM.

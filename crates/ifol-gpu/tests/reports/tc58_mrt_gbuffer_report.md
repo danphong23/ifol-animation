@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC58_MRT_GBUFFER trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.0645ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 742.9µs
+- **Thời gian Render (Cold Start - Lần đầu):** 3.7467ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.455ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC58_MRT_GBUFFER Desktop Render](../outputs/desktop/tc58_mrt_gbuffer.png)
@@ -14,8 +14,8 @@
 - **Core Engine Errors:** Không có lỗi.
 
 ## 2. Môi trường Web (WASM/WebGPU)
-Chưa chạy TC58 trên Web. Canonical parity probe `Rgba8Unorm` đã pass exact,
-nhưng không đại diện cho toàn bộ MRT output của TC58.
+Chưa chạy riêng test case này trên WebGPU. Canonical offscreen probe Desktop/Web đã
+pass exact từng byte, nhưng không thay thế cho pixel parity của TC58.
 
 ## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Desktop: PASS. Cross-platform pixel parity của TC58: CHƯA ĐỦ BẰNG CHỨNG.
+- Desktop: PASS. Pixel parity riêng của TC58 trên Web chưa được kết luận.

@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC20_PERSPECTIVE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.4882ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 588.9µs
+- **Thời gian Render (Cold Start - Lần đầu):** 2.2167ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1046ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC20_PERSPECTIVE Desktop Render](../outputs/desktop/tc20_perspective.png)

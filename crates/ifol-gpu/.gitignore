@@ -1,3 +1,4 @@
 tests/outputs/desktop/canonical_parity_rgba8unorm.*
 tests/outputs/web/canonical_parity_rgba8unorm.*
 examples/outputs/
+tests/web_runner/__pycache__/

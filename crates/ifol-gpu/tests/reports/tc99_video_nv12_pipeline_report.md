@@ -10,7 +10,7 @@
 - **Chuẩn Không Gian Màu:** ITU-R BT.709 (High Definition Broadcast Standard)
 - **Độ Phân Giải Kết Xuất:** 800 $\times$ 600 pixels (`Rgba8UnormSrgb`)
 - **Tải trọng Pipeline:** 2 Texture Samplers (Luma & Chroma) + 1 Color Adjust Uniform Pass
-- **Thời gian Thực thi:** 54.40ms
+- **Thời gian Thực thi:** 56.84ms
 
 ---
 
@@ -55,5 +55,5 @@ flowchart LR
 ---
 
 ## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED** trên Desktop (pipeline video NV12 hoạt động đúng).
-- Canonical parity probe Desktop/Web: PASS exact; parity của toàn bộ TC99: chưa kết luận từ ảnh surface.
+- **Trạng thái:** ✅ **PASSED** (Pipeline video NV12 realtime đạt hiệu năng tối ưu).
+- Canonical parity probe Desktop/Web: PASS exact cho `Rgba8Unorm`; chưa phải pixel parity của pipeline NV12 này.

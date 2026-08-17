@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp kết quả kiểm thử phép toán nguyên tử Atomic & Workgroup Shared Memory của TC90.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Thực thi Cold Start:** 1.72ms
-- **Thời gian Thực thi Warm/Cached:** 655.20µs
+- **Thời gian Thực thi Cold Start:** 3.24ms
+- **Thời gian Thực thi Warm/Cached:** 1.05ms
 - **Kết quả ảnh (Thực tế):**
 
 <img src="../outputs/desktop/tc90_atomic_histogram.png" alt="TC90 Desktop Render" />

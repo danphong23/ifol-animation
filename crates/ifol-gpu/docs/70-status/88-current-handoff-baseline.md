@@ -12,12 +12,17 @@ cargo test -p ifol-gpu --lib        114 passed, 0 failed
 cargo test -p ifol-gpu --no-default-features --lib 114 passed, 0 failed
 cargo check -p ifol-gpu --examples --benches PASS (default features)
 cargo test -p ifol-gpu --test tc_parity_canonical PASS
+cargo test -p ifol-gpu --tests -- --test-threads=1 PASS (full desktop suite)
+cargo check -p ifol-gpu --no-default-features --tests --examples --benches PASS
 ```
 
-Dự án còn có bộ test desktop đến TC105 và WebGPU runner. Canonical parity probe
+Full desktop regression suite đã chạy pass với 0 failed; TC95 hiện không có
+target trong repository. Dự án còn có bộ test desktop đến TC105 và WebGPU runner.
+Canonical parity probe
 Desktop/Web đã tạo raw `Rgba8Unorm` giống nhau từng byte; xem
-`tests/reports/webgpu_verification_report.md`. Kết quả này chưa chứng minh
-pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
+`tests/reports/webgpu_verification_report.md` và
+`docs/70-status/89-upgrade-regression-and-parity.md`. Kết quả này chưa chứng
+minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 
 ## Đã có và cần giữ lại
 

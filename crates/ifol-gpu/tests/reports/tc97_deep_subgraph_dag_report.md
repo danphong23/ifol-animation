@@ -10,7 +10,7 @@
 - **Số Node được Flattened:** 5
 - **Tổng Lệnh Draw (DrawCommands):** 4
 - **Tổng Lệnh Compute (ComputeCommands):** 1
-- **Thời gian Thực thi:** 14.79ms
+- **Thời gian Thực thi:** 132.51ms
 
 ---
 

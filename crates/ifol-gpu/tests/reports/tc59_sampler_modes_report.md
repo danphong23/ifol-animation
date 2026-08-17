@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC59_SAMPLER_MODES trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.9525ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 708.5µs
+- **Thời gian Render (Cold Start - Lần đầu):** 2.1348ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 772.2µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC59_SAMPLER_MODES Desktop Render](../outputs/desktop/tc59_sampler_modes.png)

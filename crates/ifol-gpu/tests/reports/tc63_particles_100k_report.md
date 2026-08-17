@@ -22,9 +22,9 @@ Bức ảnh bên dưới thể hiện trạng thái kết xuất của **$100,00
 ---
 
 ## 3. Thông Số Kỹ Thuật & Hiệu Năng Thực Thi (Desktop - Tauri/wgpu)
-- **Thời gian Thực thi Toàn Bộ (Cold Start - 30 bước compute + render):** 8.81ms
-- **Thời gian Thực thi Chuẩn (Warm/Cached - 30 bước compute + render):** 7.31ms
-- **Thời gian Tính toán Trung bình Mỗi Bước Vật Lý (Per-Step Compute):** 243.62µs (Tương đương **1,500+ FPS**)
+- **Thời gian Thực thi Toàn Bộ (Cold Start - 30 bước compute + render):** 10.51ms
+- **Thời gian Thực thi Chuẩn (Warm/Cached - 30 bước compute + render):** 7.52ms
+- **Thời gian Tính toán Trung bình Mỗi Bước Vật Lý (Per-Step Compute):** 250.78µs (Tương đương **1,500+ FPS**)
 - **Thông số điều phối Compute (GPU Dispatch Metrics):**
   - **Số lượng hạt mô phỏng:** 100,000 particles ($4.8\text{ MB}$ VRAM).
   - **Cấu hình Workgroup:** 64 luồng / workgroup.

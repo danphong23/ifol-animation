@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC25_SHADOW_RIMLIGHT trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 7.7594ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.2399ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4387ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 673.1µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC25_SHADOW_RIMLIGHT Desktop Render](../outputs/desktop/tc25_shadow_rimlight.png)

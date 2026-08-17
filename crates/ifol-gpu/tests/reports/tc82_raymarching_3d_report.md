@@ -3,17 +3,18 @@
 Đây là báo cáo tổng hợp chất lượng render của TC82_RAYMARCHING_3D trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render:** ~2.6ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.31ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.2305ms
 - **Kết quả ảnh (Thực tế):**
 
-<img src="../outputs/desktop/tc82_raymarching_3d.png" alt="TC82 Desktop Render" />
+![TC82_RAYMARCHING_3D Desktop Render](../outputs/desktop/tc82_raymarching_3d.png)
 
-- **Kỳ vọng:** Dựng hình 3D (khối Torus) trực tiếp trên Fragment Shader thông qua thuật toán Raymarching Signed Distance Field (SDF) kết hợp tính toán ánh sáng Phong/Specular và Normal.
-- **Mô tả (Vision AI / Đánh giá):** Một khối Torus màu cam rực rỡ được dựng từ không gian SDF 3D, chiếu trên 1 quad đơn duy nhất (phủ đầy màn hình). Shader thực hiện 96 bước truy vết tia (Raymarching loop), tính toán Vector pháp tuyến (Normal estimation via finite differences), và chiếu sáng dạng Phong Shading (Ambient, Diffuse, Specular reflection). Kết quả render khối 3D đổ bóng mượt mà, viền mượt không có vệt rách hay rạn nứt.
-- **Core Engine Errors:** Không có lỗi. Vòng lặp Raymarching trên Fragment Shader chạy mịn và nhanh.
+- **Kỳ vọng:** Rendering 3D Torus with Phong lighting and SDF Raymarching on fullscreen quad
+- **Mô tả (Vision AI / Đánh giá):** Render output
+- **Core Engine Errors:** Không có lỗi.
 
 ## 2. Môi trường Web (WASM/WebGPU)
 *(Sẽ cập nhật khi chạy trên môi trường Web)*
 
 ## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt 100%. Khẳng định khả năng tạo hiệu ứng 3D Motion Graphics động không cần nạp tệp Mesh tĩnh.
+- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.

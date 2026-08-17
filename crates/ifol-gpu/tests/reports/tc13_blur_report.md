@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC13_BLUR trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.4666ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 971.8µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.1098ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 921.5µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC13_BLUR Desktop Render](../outputs/desktop/tc13_blur.png)

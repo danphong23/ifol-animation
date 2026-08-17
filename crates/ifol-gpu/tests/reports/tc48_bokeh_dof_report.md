@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC48_BOKEH_DOF trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.5857ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 2.1745ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.9227ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.7959ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC48_BOKEH_DOF Desktop Render](../outputs/desktop/tc48_bokeh_dof.png)

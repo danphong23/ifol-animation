@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC47_MOTION_ECHO trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.9644ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0658ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.5157ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.3853ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC47_MOTION_ECHO Desktop Render](../outputs/desktop/tc47_motion_echo.png)

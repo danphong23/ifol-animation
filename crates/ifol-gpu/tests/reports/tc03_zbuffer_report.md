@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC03_ZBUFFER trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 5.39ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1073ms
+- **Thời gian Render (Cold Start - Lần đầu):** 4.7903ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1123ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC03_ZBUFFER Desktop Render](../outputs/desktop/tc03_zbuffer.png)

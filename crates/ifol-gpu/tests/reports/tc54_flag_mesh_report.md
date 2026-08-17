@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC54_FLAG_MESH trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 3.51ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 829.8µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.6849ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 737.5µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC54_FLAG_MESH Desktop Render](../outputs/desktop/tc54_flag_mesh.png)

@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC10_FALLBACK trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 14.6795ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 849.9µs
+- **Thời gian Render (Cold Start - Lần đầu):** 3.7949ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 520.1µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC10_FALLBACK Desktop Render](../outputs/desktop/tc10_fallback.png)

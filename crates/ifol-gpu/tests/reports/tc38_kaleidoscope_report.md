@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC38_KALEIDOSCOPE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.4187ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 722.3µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.0191ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.6754ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC38_KALEIDOSCOPE Desktop Render](../outputs/desktop/tc38_kaleidoscope.png)

@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC22_PARTICLES_INSTANCED trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.2932ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 760.6µs
+- **Thời gian Render (Cold Start - Lần đầu):** 2.6274ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0896ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC22_PARTICLES_INSTANCED Desktop Render](../outputs/desktop/tc22_particles_instanced.png)

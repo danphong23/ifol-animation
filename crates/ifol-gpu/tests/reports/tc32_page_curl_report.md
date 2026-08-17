@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC32_PAGE_CURL trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 863.6µs
-- **Thời gian Render (Warm/Cached - Các lần sau):** 726.8µs
+- **Thời gian Render (Cold Start - Lần đầu):** 758.1µs
+- **Thời gian Render (Warm/Cached - Các lần sau):** 673.1µs
 - **Kết quả ảnh (Thực tế):**
 
 ![TC32_PAGE_CURL Desktop Render](../outputs/desktop/tc32_page_curl.png)

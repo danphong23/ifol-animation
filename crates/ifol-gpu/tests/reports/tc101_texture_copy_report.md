@@ -1,17 +1,18 @@
 # Báo cáo: TC101_TEXTURE_COPY - Hardware DMA Texture-to-Texture Direct Replication
 
-Đây là báo cáo tổng hợp chi tiết kết quả kiểm thử sao chép song song khối pixel giữa các Texture trên VRAM (`CopyCommand::TextureToTexture`) bằng bộ điều khiển DMA phần cứng (0% Shader Cost) trên cả hai môi trường **Desktop (WGPU)** và **Web (WebGPU)**.
+Đây là báo cáo tổng hợp chi tiết kết quả kiểm thử sao chép song song khối pixel giữa các Texture trên VRAM (`CopyCommand::TextureToTexture`) bằng bộ điều khiển DMA phần cứng (0% Shader Cost).
 
 ---
 
 ## 1. Môi trường & Thông số Thực thi
 
-- **Kích thước Texture Nguồn $A$:** $400 \times 600$ pixels (`Rgba8Unorm`)
-- **Kích thước Texture Đích $B$:** $800 \times 600$ pixels (`Rgba8Unorm`)
+- **Kích thước Texture Nguồn $A$:** $400 \times 600$ pixels (`Rgba8UnormSrgb`)
+- **Kích thước Texture Đích $B$:** $800 \times 600$ pixels (`Rgba8UnormSrgb`)
 - **Số Lệnh DMA Copy:** 2 lệnh song song
   - **Lệnh 1 (Left Half Copy):** Sao chép toàn bộ Texture Nguồn $A$ $[400 \times 600]$ vào Nửa Trái của $B$ $[0, 0]$.
   - **Lệnh 2 (Right Half Clone):** Sao chép toàn bộ Texture Nguồn $A$ $[400 \times 600]$ vào Nửa Phải của $B$ $[400, 0]$.
 - **Chi phí Shader cho Thao Tác Copy:** 0% (DMA thuần phần cứng).
+- **Thời gian Thực thi:** 64.99ms
 
 ---
 
@@ -39,24 +40,9 @@ flowchart TD
 
 ---
 
-## 3. Ảnh Render Kết Quả & Đối Chiếu Đa Nền Tảng
+## 3. Ảnh Render Kết Quả (Side-by-Side Twin)
 
-### 3.1. Kết Quả Render Trên Desktop (WGPU Native)
-- **Thời gian Thực thi:** 11.16 ms
-- **Độ phân giải:** $800 \times 600$
-
-![TC101 Desktop Output](../outputs/desktop/tc101_texture_copy.png)
-
-### 3.2. Kết Quả Render Trên Web (WebGPU / Browser)
-- **Thời gian Thực thi:** 1.50 ms
-- **Độ phân giải:** $800 \times 600$
-
-![TC101 Web Output](../outputs/web/tc101_texture_copy.png)
-
-### 3.3. Đánh Giá Đối Chiếu Đa Nền Tảng (Cross-Platform Comparison)
-- **Kích thước & Bố cục:** Khớp **100%** ($800 \times 600$ pixels).
-- **Tỉ lệ & Hình học:** Khớp **100%** (Nửa trái $0..400$ và nửa phải $400..800$ là bản sao song sinh tuyệt đối).
-- **Màu sắc & Chi tiết:** Khớp **100%** pixel-perfect giữa Desktop Native và WebGPU Browser.
+![TC101 Texture Copy Output](../outputs/desktop/tc101_texture_copy.png)
 
 ---
 
@@ -70,4 +56,4 @@ flowchart TD
 ---
 
 ## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED (Desktop & Web 100% Matched)**
+- **Trạng thái:** ✅ **PASSED** (Xác minh hoàn hảo khả năng DMA Texture Blit & Nhân bản Texture).

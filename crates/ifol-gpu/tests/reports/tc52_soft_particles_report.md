@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC52_SOFT_PARTICLES trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 3.1737ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.3443ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.8992ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.0503ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC52_SOFT_PARTICLES Desktop Render](../outputs/desktop/tc52_soft_particles.png)

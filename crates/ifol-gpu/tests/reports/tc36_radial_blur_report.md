@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC36_RADIAL_BLUR trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 1.3556ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.223ms
+- **Thời gian Render (Cold Start - Lần đầu):** 1.57ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.3805ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC36_RADIAL_BLUR Desktop Render](../outputs/desktop/tc36_radial_blur.png)

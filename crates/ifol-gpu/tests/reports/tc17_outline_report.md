@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC17_OUTLINE trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.2697ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.2087ms
+- **Thời gian Render (Cold Start - Lần đầu):** 2.5167ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.2941ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC17_OUTLINE Desktop Render](../outputs/desktop/tc17_outline.png)

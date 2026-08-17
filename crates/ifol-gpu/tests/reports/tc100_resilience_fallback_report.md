@@ -8,11 +8,11 @@
 
 - **Các Kịch Bản Lỗi Đã Kiểm Thử:**
   1. `MissingTexture(999999)`: Target Texture không tồn tại trong Registry.
-  2. `MissingPipeline(888888)`: Pipeline Handle bị thiếu khi thực thi DrawCommand.
+  2. `MissingIndirectBuffer(888888)`: Indirect Buffer bị thiếu.
   3. `DependencyCycle(1 <-> 2)`: Đồ thị chứa chu trình phụ thuộc vòng kín.
 - **Kết quả Validation:** 100% bắt chính xác các biến thể `RenderGraphValidationError` trước khi nạp GPU.
 - **Cơ Chế Cứu Hộ:** Tự động thế chỗ node lỗi bằng `FallbackCheckerboardNode` và xuất hình an toàn.
-- **Thời gian Thực thi:** 36.36ms
+- **Thời gian Thực thi:** 56.60ms
 
 ---
 
