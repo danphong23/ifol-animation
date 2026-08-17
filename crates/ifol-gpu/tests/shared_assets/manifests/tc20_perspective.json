@@ -1,0 +1,63 @@
+{
+  "test_case": "TC20",
+  "title": "3D Perspective Projection & Card Flip (2.5D)",
+  "title_vi": "Phối cảnh 3D và lật card 2.5D",
+  "description": "Render a canonical sprite through a fixed model-view-projection matrix with perspective projection and chroma-key despill.",
+  "description_vi": "Render sprite canonical qua ma trận model-view-projection cố định với phối cảnh và lọc phông xanh/despill.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": {
+      "address_mode_u": "repeat",
+      "address_mode_v": "repeat",
+      "address_mode_w": "repeat",
+      "mag_filter": "linear",
+      "min_filter": "linear",
+      "mipmap_filter": "linear"
+    },
+    "pipelines": {
+      "perspective": { "shader": "perspective_sprite.wgsl", "blend": "AlphaBlend", "layout": "texture_uniform" }
+    },
+    "operations": [
+      {
+        "id": "perspective_card",
+        "kind": "perspective_sprite",
+        "pass": "perspective_scene",
+        "pipeline": "perspective",
+        "shader": "perspective_sprite.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "asset": "canonical_sprites_heroes.png",
+        "uniform": {
+          "mvp": [
+            [1.1948227, 0.0, 0.38136464, 0.3809833],
+            [0.35147497, 3.4979267, -0.33655235, -0.3362158],
+            [0.8744816, -0.62484443, -0.8373536, -0.83651626],
+            [0.0, 0.0, 2.902903, 3.0]
+          ],
+          "uv_min": [0.005, 0.01],
+          "uv_max": [0.28, 0.98],
+          "key_color": [0.0, 1.0, 0.0],
+          "tolerance": 0.48,
+          "smoothness": 0.1,
+          "opacity": 1.0
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      }
+    ],
+    "passes": [
+      { "id": "perspective_scene", "name": "2.5D perspective card", "target": "final", "clear_color": [0.2, 0.2, 0.2, 1.0] }
+    ],
+    "clear_color": [0.2, 0.2, 0.2, 1.0],
+    "command_count": 1,
+    "node_count": 1
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["perspective_scene"],
+    "expected_instance_count": 1,
+    "visual_check": "Sprite paladin nghiêng theo phối cảnh 3D trên nền xám, vẫn giữ crop và chroma-key/despill, không bị đen toàn ảnh hoặc validation error."
+  }
+}

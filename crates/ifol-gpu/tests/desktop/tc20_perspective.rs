@@ -1,7 +1,10 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -17,64 +20,71 @@ struct PerspectiveUniform {
     _pad2: f32,
 }
 
-// Minimal Math for 3D Projection
-fn mat_mul(a: [[f32; 4]; 4], b: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
-    let mut out = [[0.0; 4]; 4];
-    for col in 0..4 {
-        for row in 0..4 {
-            out[col][row] = a[0][row] * b[col][0] +
-                            a[1][row] * b[col][1] +
-                            a[2][row] * b[col][2] +
-                            a[3][row] * b[col][3];
-        }
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
     }
-    out
+    format!("{hash:016x}")
 }
 
-fn perspective(fov_y_radians: f32, aspect: f32, z_near: f32, z_far: f32) -> [[f32; 4]; 4] {
-    let f = 1.0 / (fov_y_radians / 2.0).tan();
-    let mut out = [[0.0; 4]; 4];
-    out[0][0] = f / aspect;
-    out[1][1] = f;
-    out[2][2] = z_far / (z_near - z_far);
-    out[2][3] = -1.0;
-    out[3][2] = (z_far * z_near) / (z_near - z_far);
-    out
+fn values(value: &Value) -> Vec<f32> {
+    value
+        .as_array()
+        .expect("TC20 value must be an array")
+        .iter()
+        .map(|item| item.as_f64().expect("TC20 value must be numeric") as f32)
+        .collect()
 }
 
-fn translation(x: f32, y: f32, z: f32) -> [[f32; 4]; 4] {
-    let mut out = [[0.0; 4]; 4];
-    out[0][0] = 1.0; out[1][1] = 1.0; out[2][2] = 1.0; out[3][3] = 1.0;
-    out[3][0] = x; out[3][1] = y; out[3][2] = z;
-    out
+fn value2(value: &Value) -> [f32; 2] {
+    values(value)
+        .try_into()
+        .expect("TC20 value must have two elements")
 }
 
-fn rotation_y(angle: f32) -> [[f32; 4]; 4] {
-    let c = angle.cos();
-    let s = angle.sin();
-    let mut out = [[0.0; 4]; 4];
-    out[0][0] = c; out[0][2] = -s;
-    out[1][1] = 1.0;
-    out[2][0] = s; out[2][2] = c;
-    out[3][3] = 1.0;
-    out
+fn value3(value: &Value) -> [f32; 3] {
+    values(value)
+        .try_into()
+        .expect("TC20 value must have three elements")
 }
 
-fn rotation_x(angle: f32) -> [[f32; 4]; 4] {
-    let c = angle.cos();
-    let s = angle.sin();
-    let mut out = [[0.0; 4]; 4];
-    out[0][0] = 1.0;
-    out[1][1] = c; out[1][2] = s;
-    out[2][1] = -s; out[2][2] = c;
-    out[3][3] = 1.0;
-    out
+fn value4(value: &Value) -> [f32; 4] {
+    values(value)
+        .try_into()
+        .expect("TC20 value must have four elements")
 }
 
-fn scale(x: f32, y: f32, z: f32) -> [[f32; 4]; 4] {
-    let mut out = [[0.0; 4]; 4];
-    out[0][0] = x; out[1][1] = y; out[2][2] = z; out[3][3] = 1.0;
-    out
+fn matrix4(value: &Value) -> [[f32; 4]; 4] {
+    value
+        .as_array()
+        .expect("TC20 matrix must be an array")
+        .iter()
+        .map(|column| value4(column))
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("TC20 matrix must have four columns")
+}
+
+fn fnv_operation<'a>(operations: &'a [Value], id: &str) -> &'a Value {
+    operations
+        .iter()
+        .find(|item| item["id"] == id)
+        .unwrap_or_else(|| panic!("Missing TC20 operation: {id}"))
+}
+
+fn execute(h: &mut DesktopTestHarness, graph: &RenderGraph) -> f64 {
+    let started = Instant::now();
+    let submission = h
+        .executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, graph)
+        .expect("TC20 graph pass failed");
+    let _ = h.engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission),
+        timeout: None,
+    });
+    started.elapsed().as_secs_f64() * 1000.0
 }
 
 #[test]
@@ -82,96 +92,116 @@ fn run_tc20_perspective() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
-
-        let tex_props = h.load_texture("sprites_heroes.jpeg");
-
-        let pipe_perspective = h.register_pipeline(
+        let manifest_text = include_str!("../shared_assets/manifests/tc20_perspective.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC20 manifest");
+        let graph_spec = &manifest["graph"];
+        let target_spec = &graph_spec["target"];
+        let width = target_spec["width"].as_u64().unwrap() as u32;
+        let height = target_spec["height"].as_u64().unwrap() as u32;
+        let operations = graph_spec["operations"].as_array().unwrap();
+        let passes = graph_spec["passes"].as_array().unwrap();
+        let spec = fnv_operation(operations, "perspective_card");
+        let u = &spec["uniform"];
+        let mut h = DesktopTestHarness::new(width, height).await;
+        let sprite = h.load_texture_exact("canonical_sprites_heroes.png");
+        let pipeline = h.register_pipeline(
             "perspective_sprite.wgsl",
             Some(wgpu::BlendState::ALPHA_BLENDING),
-            false, // Disable depth to test
+            false,
             true,
         );
-
-        let screen_aspect = 800.0 / 600.0;
-        
-        // MVP Matrix Calculation
-        let proj = perspective(45.0f32.to_radians(), screen_aspect, 0.1, 100.0);
-        let view = translation(0.0, 0.0, -3.0); // Move camera back
-        
-        let rot_y = rotation_y(30.0f32.to_radians());
-        let rot_x = rotation_x(15.0f32.to_radians());
-        let p_scale_y = 1.5f32;
-        let p_crop_w = (0.28 - 0.005) * tex_props.width as f32;
-        let p_crop_h = (0.98 - 0.01) * tex_props.height as f32;
-        let p_scale_x = p_scale_y * (p_crop_w / p_crop_h);
-        
-        let sc = scale(p_scale_x, p_scale_y, 1.0);
-        
-        let model = mat_mul(rot_x, sc);
-        let model = mat_mul(rot_y, model);
-        
-        let view_proj = mat_mul(proj, view);
-        let mvp = mat_mul(view_proj, model);
-        
-        println!("MVP Matrix: {:?}", mvp);
-
-        // Map chest from sprites_props
-        // Let's guess uv from previous tests (like 0.4,0.4 to 0.6,0.6 or similar)
-        // If not exact, it's fine, we are demonstrating 3D perspective.
-        let uni = PerspectiveUniform {
-            mvp,
-            uv_min: [0.005, 0.01],
-            uv_max: [0.28, 0.98],
-            key_color: [0.0, 1.0, 0.0],
-            tolerance: 0.48,
-            smoothness: 0.1,
-            opacity: 1.0,
-            _pad1: 0.0,
-            _pad2: 0.0,
-        };
-
-        let bg_perspective = h.create_custom_uniform_bind_group(uni, "Perspective Uniform");
-
-        let (target_id, target_tex) = h.create_target("TC20 Target");
-
+        let uniform = h.create_custom_uniform_bind_group(
+            PerspectiveUniform {
+                mvp: matrix4(&u["mvp"]),
+                uv_min: value2(&u["uv_min"]),
+                uv_max: value2(&u["uv_max"]),
+                key_color: value3(&u["key_color"]),
+                tolerance: u["tolerance"].as_f64().unwrap() as f32,
+                smoothness: u["smoothness"].as_f64().unwrap() as f32,
+                opacity: u["opacity"].as_f64().unwrap() as f32,
+                _pad1: 0.0,
+                _pad2: 0.0,
+            },
+            "TC20 Perspective Uniform",
+        );
+        let (target_id, target_texture) = h.create_target("TC20 Perspective Target");
         let mut graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_id,
-            width: 800,
-            height: 600,
+            width,
+            height,
         })
-        .with_clear_color([0.2, 0.2, 0.2, 1.0]);
-
+        .with_clear_color(value4(&passes[0]["clear_color"]));
         graph.add_batch(
             &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_perspective, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new())
-                    .with_bind_group(1, bg_perspective, Vec::new()),
-            ],
+            vec![DrawCommand::new(
+                pipeline,
+                DrawAction::Procedural {
+                    vertex_count: spec["vertex_count"].as_u64().unwrap() as u32,
+                    instance_range: 0..spec["instance_count"].as_u64().unwrap() as u32,
+                },
+            )
+            .with_bind_group(0, sprite.bind_group, Vec::new())
+            .with_bind_group(1, uniform, Vec::new())],
         );
 
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
-
-        let graph_json = serde_json::json!({
-            "test_case": "TC20 - 3D Perspective Projection & Card Flip (2.5D)",
-            "features": [
-                "MVP Matrix calculation (Model View Projection)",
-                "3D Perspective rendering for 2D planes",
-                "Chroma-key despill in 3D shader",
-                "Depth-buffer integration"
-            ]
+        fs::create_dir_all("tests/outputs/desktop").unwrap();
+        let cold_render_time_ms = execute(&mut h, &graph);
+        let cold_raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC20 cold readback failed");
+        let warm_render_time_ms = execute(&mut h, &graph);
+        let raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC20 warm readback failed");
+        assert_eq!(
+            cold_raw.bytes, raw.bytes,
+            "TC20 output changed between runs"
+        );
+        h.save_texture_to_file_checked(
+            &target_texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            "tests/outputs/desktop/tc20_perspective.png",
+        )
+        .expect("TC20 PNG save failed");
+        fs::write(
+            "tests/outputs/desktop/tc20_perspective_desktop.bin",
+            &raw.bytes,
+        )
+        .unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC20",
+            "manifest": "tests/shared_assets/manifests/tc20_perspective.json",
+            "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "width": raw.width,
+            "height": raw.height,
+            "format": "Rgba8UnormSrgb",
+            "adapter_name": h.engine.adapter_info().name,
+            "backend": format!("{:?}", h.engine.adapter_info().backend),
+            "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "1 pass (fixed MVP perspective sprite) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "node_count": graph_spec["node_count"],
+            "draw_commands": graph_spec["command_count"],
+            "pass_count": passes.len(),
+            "instance_count": spec["instance_count"],
+            "cache_output_equal": cold_raw.bytes == raw.bytes,
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "cold_render_time_ms": cold_render_time_ms,
+            "warm_render_time_ms": warm_render_time_ms,
+            "warm_iteration_count": 1,
+            "speedup_percentage": (1.0 - warm_render_time_ms / cold_render_time_ms) * 100.0
         });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc20_perspective.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        h.execute_and_record(
-            &graph,
-            &target_tex,
-            "tc20_perspective",
-            "3D Perspective Projection (2.5D Flip)",
-            "Hiệu ứng lật Card 2.5D trong không gian 3D. Sử dụng Ma trận MVP (Model-View-Projection) để xoay Prop theo trục Y (30 độ) và trục X (15 độ) trong môi trường phối cảnh (Perspective) có camera.",
-            "Chứng minh khả năng hỗ trợ 2.5D animation (Camera và 3D Transform) bằng cách truyền ma trận 4x4 vào WGSL Shader, đồng thời kết hợp lọc phông xanh.",
-        );
+        fs::write(
+            "tests/outputs/desktop/tc20_perspective_desktop.json",
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
     });
 }

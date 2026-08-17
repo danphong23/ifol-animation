@@ -130,7 +130,7 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 
 ## Nhóm 4: Bài Thi Masterpiece Tích Hợp (TC20)
 
-### TC20 - "Anime Scene" Master Compositing
-- **Mục tiêu:** Tích hợp cực hạn.
-- **Kịch bản:** Background Night Sky + Character Chroma Key (Layer 1) + Snow (Layer 2) + Glow Bloom + Color grading.
-- **Kỳ vọng hình ảnh xuất ra:** Một scene hoàn chỉnh: nhân vật đứng dưới trời tuyết đêm, các vùng sáng tỏa hào quang, không có viền xanh xung quanh nhân vật, màu sắc đồng nhất (đã color grade).
+### TC20 - 3D Perspective Projection & Card Flip (2.5D)
+- **Mục tiêu:** Kiểm thử truyền ma trận model-view-projection cố định vào WGSL và render sprite 2D trong phối cảnh 3D.
+- **Kịch bản:** Một sprite paladin canonical được crop, xoay theo MVP với phối cảnh camera, đồng thời áp dụng chroma-key/despill.
+- **Kỳ vọng hình ảnh xuất ra:** Sprite nghiêng theo phối cảnh trên nền xám, crop và alpha đúng, không có black output hoặc validation error.

@@ -243,6 +243,10 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   parity; raw còn khác 7 byte ở 7 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ
   ĐIỀU KIỆN`. Web cold cao do lazy shader/pipeline compilation, warm còn
   `3.5 ms`. Xem `tests/reports/tc19_audio_viz_report.md`;
+- TC20 đã được chuẩn hóa thành graph 1 pass perspective sprite với manifest
+  fingerprint `990a63feb8c50405`, 1 draw command và MVP matrix cố định trong
+  manifest. Desktop/Web đạt vision/structural, validation, cold/warm và raw
+  parity tuyệt đối (`0` byte khác). Xem `tests/reports/tc20_perspective_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

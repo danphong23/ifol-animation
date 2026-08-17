@@ -130,12 +130,7 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 
 ## Nhóm 4: Bài Thi Masterpiece Tích Hợp (TC20)
 
-### TC20 - "Anime Scene" Master Compositing
-- **Mục tiêu:** Tích hợp mọi tinh hoa đồ họa và logic của Engine vào 1 scene hoàn chỉnh. Chứng minh hệ thống chịu tải và tương tác hoàn hảo.
-- **Kịch bản (Từ dưới lên):**
-  1. `Background Node`: Đọc ảnh nền Bầu Trời Đêm Anime thực tế.
-  2. `Character Node`: Đọc ảnh nhân vật phông xanh thật. Qua Pipeline Chroma Key bóc nền. Nằm chồng lên Lớp 1 (Z-Culling).
-  3. `Snow Node`: Particle Tuyết 10,000 hạt (Instancing) phủ tràn màn hình (Alpha Blend).
-  4. `Glow Compositing Node`: Lấy Offscreen của 3 bước trên, Bloom vùng sáng và add ngược lại.
-  5. `Color Grading Node`: Bước Post-Process cuối cùng làm không khí lạnh/xanh.
-- **Kỳ vọng:** Một khung cảnh đẹp siêu thực, kiến trúc Graph dày dặn (có subgraph, multi-pass), render chính xác từng điểm ảnh.
+### TC20 - 3D Perspective Projection & Card Flip (2.5D)
+- **Mục tiêu:** Kiểm thử truyền ma trận model-view-projection cố định vào WGSL và render sprite 2D trong phối cảnh 3D.
+- **Kịch bản:** Một sprite paladin canonical được crop, xoay theo MVP với phối cảnh camera, đồng thời áp dụng chroma-key/despill.
+- **Kỳ vọng:** Sprite nghiêng theo phối cảnh trên nền xám, crop và alpha đúng, không có black output hoặc validation error.

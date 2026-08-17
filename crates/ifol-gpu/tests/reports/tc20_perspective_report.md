@@ -1,20 +1,94 @@
-# Báo cáo: TC20_PERSPECTIVE - 3D Perspective Projection (2.5D Flip)
+# Báo cáo: TC20 - Phối cảnh 3D và lật card 2.5D
 
-Đây là báo cáo tổng hợp chất lượng render của TC20_PERSPECTIVE trên các nền tảng.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
-## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.2167ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.1046ms
-- **Kết quả ảnh (Thực tế):**
+## 1. Mô tả và graph dùng chung
 
-![TC20_PERSPECTIVE Desktop Render](../outputs/desktop/tc20_perspective.png)
+- **Manifest:** `tests/shared_assets/manifests/tc20_perspective.json`
+- **Graph fingerprint (FNV-1a):** `990a63feb8c50405`
+- **Mô tả test case:** Render sprite canonical qua ma trận model-view-projection cố định với phối cảnh và lọc phông xanh/despill.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `perspective_sprite.wgsl`
+- **Asset/input:** `canonical_sprites_heroes.png`
+- **Chính sách input:** Dùng PNG canonical để Desktop/WebGPU giải mã cùng một input byte-level.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** perspective_scene (2.5D perspective card, target final)
+- **Số pass:** `1`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `perspective_card`
+- **Sampler contract:** `{"address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear"}`
+- **Thứ tự layer kỳ vọng:** `perspective_scene`
+- **Graph resources:** nodes=`1`, draw commands=`1`, tổng instances=`1`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-- **Kỳ vọng:** Hiệu ứng lật Card 2.5D trong không gian 3D. Sử dụng Ma trận MVP (Model-View-Projection) để xoay Prop theo trục Y (30 độ) và trục X (15 độ) trong môi trường phối cảnh (Perspective) có camera.
-- **Mô tả (Vision AI / Đánh giá):** Chứng minh khả năng hỗ trợ 2.5D animation (Camera và 3D Transform) bằng cách truyền ma trận 4x4 vào WGSL Shader, đồng thời kết hợp lọc phông xanh.
-- **Core Engine Errors:** Không có lỗi.
+## 2. Môi trường Desktop
 
-## 2. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+- **Thời gian render lần đầu (cold):** `3.1466 ms`
+- **Thời gian render lần hai (warm/cache):** `0.9517 ms (951.7 µs)`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `69.8%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `1 pass (fixed MVP perspective sprite) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `tests/outputs/desktop/tc20_perspective_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `23a37c5d846c0c89`
+- **SHA-256:** `7e68bae14ee5144a033c3d53813e3d55bfd57c7199b686e374100607d78a29b4`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc20_perspective.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận sprite paladin được crop đúng, nghiêng theo phối cảnh 2.5D trên nền xám, alpha/chroma-key sạch và không có black output hoặc artefact.
+- **Graph thực tế:** nodes=1, draw commands=1, instances=1
 
-## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+
+
+## 3. Môi trường WebGPU
+
+- **Thời gian render lần đầu (cold):** `74.2000 ms`
+- **Thời gian render lần hai (warm/cache):** `1.8000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `97.6%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 pass (fixed MVP perspective sprite) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Dữ liệu raw:** `tests/outputs/web/tc20_perspective_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `23a37c5d846c0c89`
+- **SHA-256:** `7e68bae14ee5144a033c3d53813e3d55bfd57c7199b686e374100607d78a29b4`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc20_perspective_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** ĐẠT: Vision xác nhận sprite paladin được crop đúng, nghiêng theo phối cảnh 2.5D trên nền xám, alpha/chroma-key sạch và không có black output hoặc artefact.
+- **Graph thực tế:** nodes=1, draw commands=1, instances=1
+
+
+
+## 4. So sánh và kết luận
+
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `ĐẠT` |
+| Số byte khác nhau | `0` |
+| Số pixel khác nhau | `0` |
+| Sai số kênh màu lớn nhất | `0/255` |
+| Khác biệt màu/presentation | `KHÔNG` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT - output giống tuyệt đối từng byte.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

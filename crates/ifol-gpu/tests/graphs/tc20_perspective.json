@@ -1,9 +1,0 @@
-{
-  "features": [
-    "MVP Matrix calculation (Model View Projection)",
-    "3D Perspective rendering for 2D planes",
-    "Chroma-key despill in 3D shader",
-    "Depth-buffer integration"
-  ],
-  "test_case": "TC20 - 3D Perspective Projection & Card Flip (2.5D)"
-}

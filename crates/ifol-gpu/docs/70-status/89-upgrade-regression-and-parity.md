@@ -113,6 +113,9 @@ Các report canonical hiện tại:
   cache parity đạt, raw còn khác 7 byte ở 7 pixel với sai số tối đa `1/255`,
   nên là `ĐẠT CÓ ĐIỀU KIỆN`. Web cold cao do lazy shader/pipeline compilation;
   warm còn `3.5 ms`.
+- [TC20](../../tests/reports/tc20_perspective_report.md): một pass sprite
+  perspective 2.5D với MVP matrix cố định và một draw command; vision/structural,
+  validation, cache và raw parity đều đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
