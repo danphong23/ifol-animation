@@ -169,3 +169,8 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Mục tiêu:** Kiểm thử vòng lặp tích lũy tia sáng tỏa tâm với 100 mẫu texture.
 - **Kịch bản:** Dùng `godrays.wgsl` lấy mẫu lùi dần từ pixel về vùng sáng `[0.5, 0.2]`, áp dụng decay, density, weight và exposure.
 - **Kỳ vọng hình ảnh xuất ra:** Nền rừng rõ, có tia sáng thể tích tỏa từ vùng sáng phía trên giữa, không có ảnh đen hoặc lỗi validation.
+
+### TC28 - Ripple (Water/Shockwave Distortion)
+- **Mục tiêu:** Kiểm thử biến dạng gợn sóng tỏa tâm với dịch chuyển UV bằng sin/cos.
+- **Kịch bản:** Dùng `ripple.wgsl` lấy khoảng cách tới tâm `[0.5, 0.5]`, tạo wave theo `frequency/time/speed`, giảm biên độ theo khoảng cách và sample nền city canonical.
+- **Kỳ vọng hình ảnh xuất ra:** Nền thành phố vẫn đầy đủ, có biến dạng gợn sóng nhận diện được; không có ảnh đen hoặc lỗi validation.

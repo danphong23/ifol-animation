@@ -281,6 +281,12 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web đạt vision/structural, validation và cold/warm parity; raw còn
   khác 33 byte ở 33 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`.
   Xem `tests/reports/tc27_godrays_report.md`;
+- TC28 đã được chuẩn hóa thành graph 1 pass radial ripple với manifest
+  fingerprint `01228a36813398ce`, một draw command và một instance. Fixture
+  JPEG city đã được materialize thành PNG canonical để Desktop/Web nạp cùng
+  input bytes; vision/structural, validation, cache và raw parity đạt với 15
+  byte khác ở 15 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem
+  `tests/reports/tc28_ripple_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

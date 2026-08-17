@@ -176,7 +176,10 @@ def main() -> None:
     )
     asset_text = ", ".join(f"`{asset}`" for asset in asset_names) or "KHÔNG KHAI BÁO"
     shader_text = ", ".join(f"`{shader}`" for shader in shader_names) or "KHÔNG KHAI BÁO"
-    if not asset_names:
+    custom_input_policy = manifest.get("input_policy_vi")
+    if custom_input_policy:
+        input_policy = custom_input_policy
+    elif not asset_names:
         input_policy = "Không dùng texture/asset; input là uniform và graph canonical từ manifest."
     elif all(asset.startswith("canonical_") for asset in asset_names):
         input_policy = "Dùng PNG canonical để Desktop/WebGPU giải mã cùng một input byte-level."
