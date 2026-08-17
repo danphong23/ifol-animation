@@ -111,10 +111,10 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kịch bản:** Một pass vẽ bốn hình bằng `sdf_shapes.wgsl`: Circle, Rounded Rect, Neon Ring và Triangle; mỗi hình có màu, viền, glow, scale và rotation riêng.
 - **Kỳ vọng:** Bốn hình rõ ràng, anti-aliasing mượt, viền/glow đúng thiết kế, không có black output hoặc validation error.
 
-### TC17 - Luma Masking
-- **Mục tiêu:** Trích xuất kết quả SubGraph làm mặt nạ Alpha.
-- **Kịch bản:** Node A vẽ ngôi sao (đủ màu). Node B vẽ ảnh nhân vật, dùng hàm Shader trích lấy ảnh sao làm mask.
-- **Kỳ vọng:** Nhân vật bị cắt gọn vào trong hình khối ngôi sao.
+### TC17 - Multi-Pass Outline Stroke & Drop Shadow
+- **Mục tiêu:** Hậu kỳ outline và drop shadow dựa trên alpha của layer offscreen.
+- **Kịch bản:** Pass đầu render paladin, mage và rương vào layer trong suốt; pass sau render sky rồi áp dụng shader dò biên 8 hướng để tạo viền trắng và bóng đổ đen.
+- **Kỳ vọng:** Ba sprite rõ ràng trên nền sky tím/magenta, viền trắng và bóng đổ đúng mô tả.
 
 ### TC18 - Color Grading
 - **Mục tiêu:** Post-processing Pipeline.

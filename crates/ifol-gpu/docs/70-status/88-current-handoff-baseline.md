@@ -226,6 +226,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   đã được loại bỏ khỏi test contract; shader chỉ nhận uniform ở group 0.
   Vision/structural, validation và cold/warm đạt; raw còn khác 1 byte ở 1 pixel,
   nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc16_sdf_report.md`;
+- TC17 đã được chuẩn hóa thành graph 2 pass outline/drop shadow với manifest
+  fingerprint `bd209137e1b026dc`, cùng 5 draw command và 5 instances. Desktop /
+  Web dùng chung manifest, vision/structural, validation và cold/warm đều đạt;
+  raw còn khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU
+  KIỆN`. Xem `tests/reports/tc17_outline_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

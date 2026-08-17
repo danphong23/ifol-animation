@@ -1,0 +1,135 @@
+{
+  "test_case": "TC17",
+  "title": "Multi-Pass Outline Stroke and Drop Shadow",
+  "title_vi": "Outline nhiều pass và bóng đổ hậu kỳ",
+  "description": "Render canonical sprites into a transparent offscreen layer, then composite a sky with an alpha-derived outline and drop shadow.",
+  "description_vi": "Render sprite canonical vào layer offscreen trong suốt, sau đó ghép với sky bằng outline và drop shadow lấy từ alpha.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "heroes", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": {
+      "address_mode_u": "repeat",
+      "address_mode_v": "repeat",
+      "address_mode_w": "repeat",
+      "mag_filter": "linear",
+      "min_filter": "linear",
+      "mipmap_filter": "linear"
+    },
+    "pipelines": {
+      "chroma": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlend", "layout": "texture_uniform" },
+      "sky": { "shader": "sky_composite.wgsl", "blend": "Replace", "layout": "texture_uniform" },
+      "outline": { "shader": "outline_shadow.wgsl", "blend": "AlphaBlend", "layout": "texture_uniform" }
+    },
+    "operations": [
+      {
+        "id": "paladin",
+        "pass": "heroes_pass",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "asset": "canonical_sprites_heroes.png",
+        "position": [-0.35, -0.1],
+        "target_height_scale": 0.70,
+        "crop_uv": [0.005, 0.01, 0.28, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "mage",
+        "pass": "heroes_pass",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "asset": "canonical_sprites_heroes.png",
+        "position": [0.35, -0.1],
+        "target_height_scale": 0.70,
+        "crop_uv": [0.27, 0.01, 0.54, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "chest",
+        "pass": "heroes_pass",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_items.png" }],
+        "asset": "canonical_sprites_items.png",
+        "position": [0.0, -0.4],
+        "target_height_scale": 0.35,
+        "crop_uv": [0.10, 0.52, 0.42, 0.95],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.2,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "sky",
+        "pass": "final_pass",
+        "kind": "sky",
+        "pipeline": "sky",
+        "shader": "sky_composite.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_tc085_noise.png" }],
+        "asset": "canonical_tc085_noise.png",
+        "uniform": {
+          "top_color": [0.15, 0.08, 0.25],
+          "noise_strength": 0.02,
+          "bottom_color": [0.4, 0.15, 0.3],
+          "time": 1.0
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "outline_shadow",
+        "pass": "final_pass",
+        "kind": "outline_shadow_postprocess",
+        "pipeline": "outline",
+        "shader": "outline_shadow.wgsl",
+        "source": [{ "kind": "target", "target": "heroes" }],
+        "source_target": "heroes",
+        "uniform": {
+          "outline_color": [1.0, 1.0, 1.0, 1.0],
+          "shadow_color": [0.0, 0.0, 0.0, 0.7],
+          "shadow_offset": [-0.03, 0.03],
+          "texel_size": [0.00125, 0.0016666667],
+          "outline_thickness": 3.5
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      }
+    ],
+    "passes": [
+      { "id": "heroes_pass", "name": "Transparent hero layer", "target": "heroes", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "final_pass", "name": "Sky with outline and shadow", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "clear_color": [0.0, 0.0, 0.0, 1.0],
+    "command_count": 5,
+    "node_count": 2
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["heroes_pass", "final_pass"],
+    "expected_instance_count": 5,
+    "expected_sprite_instances": 3,
+    "visual_check": "Nền sky tím/magenta, paladin và mage hai bên, rương ở giữa; viền trắng rõ quanh sprite và bóng đổ đen lệch nhẹ, không có black output hoặc validation error."
+  }
+}

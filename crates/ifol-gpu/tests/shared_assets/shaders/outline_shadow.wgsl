@@ -45,7 +45,7 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let center = textureSample(t_input, s_input, in.uv);
+    let center = textureSampleLevel(t_input, s_input, in.uv, 0.0);
     var result_color = center;
 
     // 1. Drop Shadow
@@ -53,7 +53,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let shadow_uv = in.uv - fx.shadow_offset;
     var shadow_sample = vec4<f32>(0.0);
     if (shadow_uv.x >= 0.0 && shadow_uv.x <= 1.0 && shadow_uv.y >= 0.0 && shadow_uv.y <= 1.0) {
-        shadow_sample = textureSample(t_input, s_input, shadow_uv);
+        shadow_sample = textureSampleLevel(t_input, s_input, shadow_uv, 0.0);
     }
     
     // Composite shadow BEHIND the object
@@ -71,15 +71,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let ts = fx.texel_size;
         
         // 8-way sampling
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>( t,  0.0) * ts).a);
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>(-t,  0.0) * ts).a);
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>( 0.0,  t) * ts).a);
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>( 0.0, -t) * ts).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>( t,  0.0) * ts, 0.0).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>(-t,  0.0) * ts, 0.0).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>( 0.0,  t) * ts, 0.0).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>( 0.0, -t) * ts, 0.0).a);
         
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>( t,  t) * ts).a);
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>(-t, -t) * ts).a);
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>(-t,  t) * ts).a);
-        max_alpha = max(max_alpha, textureSample(t_input, s_input, in.uv + vec2<f32>( t, -t) * ts).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>( t,  t) * ts, 0.0).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>(-t, -t) * ts, 0.0).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>(-t,  t) * ts, 0.0).a);
+        max_alpha = max(max_alpha, textureSampleLevel(t_input, s_input, in.uv + vec2<f32>( t, -t) * ts, 0.0).a);
 
         // Smooth outline blending
         if (max_alpha > 0.1) {

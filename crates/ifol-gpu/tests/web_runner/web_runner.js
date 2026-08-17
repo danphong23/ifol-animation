@@ -2504,6 +2504,227 @@ async function runTC16(gpu) {
     for (const resource of resources) resource.buffer.destroy();
 }
 
+async function runTC17(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc17_outline.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC17 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const passes = manifest.graph.passes;
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const shaderModules = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaderModules[spec.shader]) {
+            shaderModules[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+            const compilationInfo = await shaderModules[spec.shader].getCompilationInfo();
+            const errors = compilationInfo.messages.filter(message => message.type === 'error');
+            if (errors.length) throw new Error(`TC17 shader ${spec.shader}: ${errors.map(message => message.message).join('; ')}`);
+        }
+    }
+    function blendState(name) {
+        if (name === 'Replace') return undefined;
+        if (name === 'AlphaBlend') return {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        };
+        throw new Error(`Unsupported TC17 blend mode: ${name}`);
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            result[name] = device.createRenderPipeline({
+                layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+                vertex: { module: shaderModules[spec.shader], entryPoint: 'vs_main' },
+                fragment: {
+                    module: shaderModules[spec.shader],
+                    entryPoint: 'fs_main',
+                    targets: [{ format, blend: blendState(spec.blend) }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+        return result;
+    }
+    function createNoUniformPipeline(shaderModule, format) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }),
+            vertex: { module: shaderModule, entryPoint: 'vs_main' },
+            fragment: { module: shaderModule, entryPoint: 'fs_main', targets: [{ format }] },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const assetNames = [...new Set(operations.flatMap(operation => (operation.source || [])
+        .filter(source => source.kind === 'asset').map(source => source.asset)))];
+    const assets = {};
+    for (const asset of assetNames) {
+        const image = await loadImageTexture(device, asset);
+        assets[asset] = {
+            image,
+            bindGroup: device.createBindGroup({
+                layout: textureLayout,
+                entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+            })
+        };
+    }
+    const heroesTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+    });
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    const targetBindGroups = {
+        heroes: device.createBindGroup({
+            layout: textureLayout,
+            entries: [{ binding: 0, resource: heroesTexture.createView() }, { binding: 1, resource: sampler }]
+        })
+    };
+    const uniformBuffers = [];
+    function createUniform(values, minimumSize = 0) {
+        const data = new Float32Array(values);
+        const buffer = device.createBuffer({
+            size: Math.max(data.byteLength, minimumSize),
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        device.queue.writeBuffer(buffer, 0, data);
+        uniformBuffers.push(buffer);
+        return device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer } }] });
+    }
+    function uniformData(operation) {
+        const u = operation.uniform;
+        if (operation.kind === 'sky') {
+            return { values: [...u.top_color, u.noise_strength, ...u.bottom_color, u.time], minimumSize: 64 };
+        }
+        if (operation.kind === 'chroma_sprite') {
+            const image = assets[operation.asset].image;
+            const crop = operation.crop_uv;
+            const cropAspect = ((crop[2] - crop[0]) * image.width) / Math.max((crop[3] - crop[1]) * image.height, 1);
+            const scaleY = operation.target_height_scale;
+            const scaleX = scaleY * (cropAspect / (target.width / target.height));
+            return { values: [
+                operation.position[0], operation.position[1], scaleX, scaleY,
+                crop[0], crop[1], crop[2], crop[3],
+                operation.key_color[0], operation.key_color[1], operation.key_color[2], operation.tolerance,
+                operation.smoothness, operation.z_depth, operation.opacity, 0
+            ] };
+        }
+        if (operation.kind === 'outline_shadow_postprocess') {
+            return { values: [
+                ...u.outline_color, ...u.shadow_color,
+                ...u.shadow_offset, ...u.texel_size,
+                u.outline_thickness, 0, 0, 0
+            ] };
+        }
+        throw new Error(`Unsupported TC17 operation kind: ${operation.kind}`);
+    }
+    const resources = operations.map(operation => {
+        const bindGroups = [];
+        for (const source of operation.source || []) {
+            if (source.kind === 'asset') bindGroups.push(assets[source.asset].bindGroup);
+            else if (source.kind === 'target') bindGroups.push(targetBindGroups[source.target]);
+            else throw new Error(`Unsupported TC17 source kind: ${source.kind}`);
+        }
+        const uniform = uniformData(operation);
+        bindGroups.push(createUniform(uniform.values, uniform.minimumSize || 0));
+        return { operation, bindGroups };
+    });
+    async function submitPass(outputTexture, passSpec, pipelines) {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const clear = passSpec.clear_color;
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        for (const resource of resources.filter(item => item.operation.pass === passSpec.id)) {
+            pass.setPipeline(pipelines[resource.operation.pipeline]);
+            resource.bindGroups.forEach((bindGroup, index) => pass.setBindGroup(index, bindGroup));
+            pass.draw(resource.operation.vertex_count, resource.operation.instance_count, 0, 0);
+        }
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC17 validation error: ${error.message}`);
+    }
+    async function renderAll(finalOutput, pipelines) {
+        const started = performance.now();
+        await submitPass(heroesTexture, passes[0], pipelines);
+        await submitPass(finalOutput, passes[1], pipelines);
+        return performance.now() - started;
+    }
+    device.pushErrorScope('validation');
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+    const pipelineError = await device.popErrorScope();
+    if (pipelineError) throw new Error(`TC17 pipeline validation error: ${pipelineError.message}`);
+    const coldRenderTimeMs = await renderAll(finalTexture, offscreenPipelines);
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const warmRenderTimeMs = await renderAll(finalTexture, offscreenPipelines);
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC17 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc17_outline_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc17_outline.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '2 pass (transparent heroes → sky/outline final) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count,
+        instance_count: operations.reduce((sum, operation) => sum + operation.instance_count, 0),
+        pass_count: manifest.graph.passes.length, image_name: 'tc17_outline_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc17');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const canvasBlit = createNoUniformPipeline(blitShader, canvasFormat);
+    const finalBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: finalTexture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+    }]});
+    pass.setPipeline(canvasBlit);
+    pass.setBindGroup(0, finalBindGroup);
+    pass.draw(6, 1, 0, 0);
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc17_outline_web_preview.png');
+    document.getElementById('tag-tc17').textContent = 'PASS';
+    document.getElementById('tag-tc17').className = 'tag tag-passed';
+    heroesTexture.destroy();
+    finalTexture.destroy();
+    for (const asset of Object.values(assets)) asset.image.texture.destroy();
+    for (const buffer of uniformBuffers) buffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -2669,7 +2890,7 @@ async function runTC085(gpu) {
 }
 
 async function fetchShader(name) {
-    const res = await fetch(`/shaders/${name}?runner_shader_revision=2`);
+    const res = await fetch(`/shaders/${name}?runner_shader_revision=3`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
     return await res.text();
 }
@@ -3369,12 +3590,18 @@ async function runAllTests() {
     const gpu = await initWebGPU();
     if (!gpu) return;
 
-    log('Executing canonical offscreen parity probe...');
-    try {
-        await runCanonicalParityProbe(gpu);
-        log('Canonical offscreen parity probe saved', 'success');
-    } catch (e) {
-        log(`Canonical parity probe FAILED: ${e.message}`, 'error');
+    const query = new URLSearchParams(window.location.search);
+    const skipProbe = query.get('skip_probe') === '1';
+    if (skipProbe) {
+        log('Skipping canonical parity probe for this focused run');
+    } else {
+        log('Executing canonical offscreen parity probe...');
+        try {
+            await runCanonicalParityProbe(gpu);
+            log('Canonical offscreen parity probe saved', 'success');
+        } catch (e) {
+            log(`Canonical parity probe FAILED: ${e.message}`, 'error');
+        }
     }
 
     const testCatalog = [
@@ -3395,6 +3622,7 @@ async function runAllTests() {
         { name: "TC14: Cinematic Color Grading", fn: runTC14 },
         { name: "TC15: Instanced Snow Physics", fn: runTC15 },
         { name: "TC16: 2D SDF Vector Shapes", fn: runTC16 },
+        { name: "TC17: Outline & Drop Shadow", fn: runTC17 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },
@@ -3403,7 +3631,7 @@ async function runAllTests() {
         { name: "TC104: Extension Dispatch", fn: runTC104 },
         { name: "TC105: PingPong Echo Hybrid", fn: runTC105 }
     ];
-    const requestedCases = new URLSearchParams(window.location.search).get('cases');
+    const requestedCases = query.get('cases');
     const requestedNames = requestedCases
         ? requestedCases.split(',').map(value => value.trim().toUpperCase()).filter(Boolean)
         : ['TC01'];

@@ -111,10 +111,10 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kịch bản:** Một pass vẽ bốn hình bằng `sdf_shapes.wgsl`: circle, rounded rectangle, ring và triangle; mỗi hình có thông số vị trí, scale, màu, viền, glow và rotation riêng.
 - **Kỳ vọng hình ảnh xuất ra:** Bốn hình phân biệt rõ trên nền slate, anti-aliasing mượt, viền/glow đúng mô tả, không có black output hoặc validation error.
 
-### TC17 - Luma Masking
-- **Mục tiêu:** Alpha Masking.
-- **Kịch bản:** Node A vẽ ngôi sao đen trắng. Node B vẽ nhân vật, dùng Node A làm mask.
-- **Kỳ vọng hình ảnh xuất ra:** Hình nhân vật bị cắt gọt theo khung hình ngôi sao, nền ngoài ngôi sao là màu đen.
+### TC17 - Multi-Pass Outline Stroke & Drop Shadow
+- **Mục tiêu:** Hậu kỳ outline và drop shadow dựa trên alpha của layer offscreen.
+- **Kịch bản:** Pass đầu render paladin, mage và rương vào target trong suốt; pass sau render sky rồi lấy target đó để dò biên 8 hướng, vẽ viền trắng và bóng đổ đen.
+- **Kỳ vọng hình ảnh xuất ra:** Nền sky tím/magenta, ba sprite rõ ràng, viền trắng bao quanh và bóng đổ lệch nhẹ, không có black output hoặc validation error.
 
 ### TC18 - Color Grading
 - **Mục tiêu:** Post-processing Pipeline (Brightness, Contrast, Desaturation).
