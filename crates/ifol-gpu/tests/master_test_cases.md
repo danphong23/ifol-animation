@@ -204,3 +204,10 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử graph hai pass chroma key → directional blur 30 độ với 20 mẫu.
 - **Kịch bản:** Tách mage từ sprite sheet canonical rồi tích lũy các mẫu texture dọc theo vector góc 30 độ.
 - **Kỳ vọng:** Nhân vật có vệt nhòe kéo chéo rõ ràng trên nền đỏ tối; không có ảnh đen hoặc validation error.
+
+### TC35 - Halftone / Comic Filter
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → halftone với lưới điểm xoay 45 độ.
+- **Kịch bản:** Tách nhân vật paladin canonical rồi chuyển vùng sáng/tối thành các chấm halftone đen/trắng theo độ sáng.
+- **Kỳ vọng:** Nền vàng comic có nhân vật vẫn nhận diện được dưới dạng halftone; không có ảnh đen hoặc validation error.
+- **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `0bfdc815933931d8`; vision đạt; raw khác 6 byte ở 2 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc35_halftone_report.md`](reports/tc35_halftone_report.md)

@@ -18,6 +18,7 @@ struct VertexOutput {
 
 @group(1) @binding(0) var<uniform> u_params: HalftoneUniform;
 
+
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
     var pos = array<vec2<f32>, 6>(
@@ -45,7 +46,8 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureSample(t_diffuse, s_diffuse, in.uv);
+    let uv = in.uv;
+    let color = textureSampleLevel(t_diffuse, s_diffuse, uv, 0.0);
     if (color.a < 0.01) {
         return color; // Preserve transparent background
     }
