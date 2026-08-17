@@ -35,6 +35,15 @@ impl<'a> GpuEngine<'a> {
 `ifol-gpu` chỉ cung cấp raw readback. Việc lưu PNG/JPEG/EXR hoặc encode video
 thuộc về tầng higher-level bên ngoài core.
 
+### Canonical media boundary
+
+Public API của crate không bao gồm decoder, color converter, image encoder hay
+video encoder. Host phải chuẩn hóa asset bytes trước khi đăng ký texture và
+phải tự đóng gói `RawTextureReadback` thành file media. Cùng một file output
+giữa Desktop/Web chỉ có thể được cam kết khi host khóa cùng input bytes, graph,
+shader/pipeline contract và encoder policy; surface preview không phải output
+canonical.
+
 ### `struct GpuEngineBuilder<'a>`
 Builder khởi tạo đa nền tảng linh hoạt.
 

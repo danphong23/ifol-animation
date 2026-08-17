@@ -83,6 +83,15 @@ presentation của browser chỉ dùng để preview, không dùng làm source o
 - Raw khác nhưng vision/structure đạt: kết luận là parity có điều kiện, không
   che giấu bằng nhãn pass tuyệt đối.
 
+## Canonical path nằm ngoài core
+
+Các test Desktop/Web trong thư mục này chứng minh contract thực thi và raw
+readback của `ifol-gpu`; chúng không chuyển `ifol-gpu` thành image/video
+pipeline. Test harness có thể dùng fixture PNG để kiểm soát input, nhưng sản
+phẩm phải để tầng asset/media quản lý decoder, canonical asset bytes, color
+policy và encoder. Khi tầng ngoài chạy export thật, cần ghi thêm hash của input,
+raw frame và file cuối cùng để phân biệt lỗi decode, render và encode.
+
 ## Trạng thái hiện tại
 
 - TC01: raw parity tuyệt đối giữa Desktop/WebGPU.
@@ -91,6 +100,8 @@ presentation của browser chỉ dùng để preview, không dùng làm source o
 - TC04: vision/structural/depth và raw parity tuyệt đối với fixture canonical.
 - TC05: vision/structural và raw parity tuyệt đối với chuỗi pass A→B→C và
   fixture canonical.
+- TC06: pool invariant `100 → remove 99 → 1 survivor`, vision/structural và raw
+  parity tuyệt đối với fixture canonical.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

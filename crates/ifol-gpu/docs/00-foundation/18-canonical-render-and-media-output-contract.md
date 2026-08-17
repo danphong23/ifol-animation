@@ -28,6 +28,34 @@ Preview path phục vụ tương tác. Canonical export path phục vụ file so
 truth. Không được dùng ảnh chụp canvas hoặc output đã qua compositor của
 browser làm bằng chứng canonical.
 
+## Ai quản lý canonical render/export path?
+
+Canonical path là một workflow của tầng ngoài, không phải một tính năng ẩn bên
+trong `ifol-gpu`. Tầng ngoài phải gọi cùng một quy trình chuẩn hóa cho Desktop,
+Web và các host khác:
+
+```mermaid
+flowchart LR
+    A[Project + asset gốc] --> B[Tầng ngoài: decode/normalize]
+    B --> C[Canonical asset bytes + hash]
+    C --> D[Tầng ngoài: tạo graph/shader/pipeline contract]
+    D --> E[ifol-gpu: validate + execute]
+    E --> F[ifol-gpu: raw readback]
+    F --> G[Tầng ngoài: canonical encoder]
+    G --> H[PNG / JPEG / EXR / video]
+```
+
+Tầng ngoài chịu trách nhiệm chọn và khóa decoder, asset bytes, color/alpha
+metadata, renderer/export policy, encoder, codec profile và metadata file.
+`ifol-gpu` chỉ nhận contract đã được quyết định, thực thi nó và trả raw bytes.
+Vì vậy việc `ifol-gpu` không có API decode/encode không phải thiếu chức năng;
+đó là boundary bắt buộc để core không phụ thuộc nền tảng hay định dạng media.
+
+Nếu cần bit-exact giữa Desktop và Web, hai host phải gửi cùng canonical input và
+cùng graph/shader/pipeline contract vào một canonical renderer. Việc chỉ gọi
+`ifol-gpu` trên hai GPU khác nhau có thể đạt raw parity cho các case đã chứng
+minh, nhưng không tự động là cam kết bit-exact cho mọi thiết bị.
+
 ## Ranh giới trách nhiệm
 
 ### Tầng ngoài (`ifol-asset`, media/export hoặc application host)
@@ -62,6 +90,10 @@ Core chịu trách nhiệm:
 - trả raw readback kèm width, height và format;
 - không tự decode asset, đổi màu, encode PNG/JPEG/video hoặc quyết định display
   policy.
+
+API tối thiểu mà tầng ngoài sử dụng là: upload/register resource, tạo graph và
+pipeline contract, execute, rồi readback raw. Tầng ngoài không được lấy
+`Surface`/canvas preview làm dữ liệu export canonical.
 
 ## Điều kiện để output giống tuyệt đối
 

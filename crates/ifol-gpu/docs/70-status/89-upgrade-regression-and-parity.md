@@ -61,6 +61,8 @@ Các report canonical hiện tại:
   depth và raw parity đạt tuyệt đối với fixture canonical.
 - [TC05](../../tests/reports/tc05_interleaved_report.md): vision, structural và
   raw parity đạt tuyệt đối với chuỗi pass A→B→C và fixture canonical.
+- [TC06](../../tests/reports/tc06_gc_report.md): pool invariant, vision,
+  structural và raw parity đạt tuyệt đối với fixture canonical.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

@@ -1,0 +1,46 @@
+{
+  "test_case": "TC06",
+  "title": "RenderNodePool Garbage Collection and Slot Recycling",
+  "title_vi": "Thu hồi node và tái sử dụng slot của RenderNodePool",
+  "description": "Allocate 100 render nodes, remove the first 99, keep the final node, and render only that surviving node.",
+  "description_vi": "Cấp phát 100 render node, xóa 99 node đầu, giữ node cuối và chỉ render node còn sống đó.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "node_pool": {
+      "allocated": 100,
+      "freed": 99,
+      "surviving": 1,
+      "surviving_node": "node_99"
+    },
+    "pipeline": {
+      "shader": "chroma_key_cropped.wgsl",
+      "blend": "AlphaBlend",
+      "depth": false,
+      "has_uniform": true
+    },
+    "operation": {
+      "kind": "sprite",
+      "source": { "kind": "asset", "asset": "canonical_sprites_warrior.png" },
+      "position": [0.0, 0.0],
+      "target_height_scale": 0.8,
+      "crop_uv": [0.0, 0.0, 1.0, 1.0],
+      "tolerance": 0.45,
+      "smoothness": 0.12,
+      "z_depth": 0.5,
+      "opacity": 1.0,
+      "vertex_count": 6
+    },
+    "clear_color": [0.1, 0.1, 0.14, 1.0]
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_background_rgba8": [89, 89, 105, 255],
+    "non_background_mask_diff_tolerance": 0,
+    "visual_check": "Chỉ một warrior xuất hiện ở giữa ảnh. 99 node đã xóa không được render trùng, không gây crash, use-after-free hoặc dữ liệu rác; RenderNodePool phải còn đúng một node sống sót."
+  }
+}

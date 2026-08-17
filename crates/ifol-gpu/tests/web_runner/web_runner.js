@@ -120,6 +120,10 @@ async function saveRawTexture(bytes, metadata) {
             manifest_fingerprint: metadata.manifest_fingerprint,
             adapter_name: metadata.adapter_name,
             timing_scope: metadata.timing_scope,
+            allocated_nodes: metadata.allocated_nodes,
+            freed_nodes: metadata.freed_nodes,
+            surviving_nodes: metadata.surviving_nodes,
+            pool_check: metadata.pool_check,
             image_name: metadata.image_name
         })
     });
@@ -881,6 +885,127 @@ async function runTC05(gpu) {
     }
 }
 
+async function runTC06(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc06_gc.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC06 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const poolSpec = manifest.graph.node_pool;
+    const operation = manifest.graph.operation;
+    const pool = Array.from({ length: poolSpec.allocated }, (_, index) => ({ id: `node_${index}` }));
+    pool.splice(0, poolSpec.freed);
+    const poolCheck = pool.length === poolSpec.surviving && pool[0]?.id === poolSpec.surviving_node;
+    if (!poolCheck) throw new Error('TC06 Web RenderNodePool invariant failed');
+
+    const shaderCode = await fetchShader(manifest.graph.pipeline.shader);
+    const shaderModule = device.createShaderModule({ code: shaderCode });
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    function createPipeline(format) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+            vertex: { module: shaderModule, entryPoint: 'vs_main' },
+            fragment: {
+                module: shaderModule,
+                entryPoint: 'fs_main',
+                targets: [{ format, blend: {
+                    color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                    alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                }}]
+            },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    const image = await loadImageTexture(device, operation.source.asset);
+    const crop = operation.crop_uv;
+    const cropAspect = ((crop[2] - crop[0]) * image.width) / Math.max((crop[3] - crop[1]) * image.height, 1);
+    const scaleY = operation.target_height_scale;
+    const scaleX = scaleY * (cropAspect / (target.width / target.height));
+    const uniformData = new Float32Array([
+        operation.position[0], operation.position[1], scaleX, scaleY,
+        crop[0], crop[1], crop[2], crop[3],
+        image.keyColor[0], image.keyColor[1], image.keyColor[2], operation.tolerance,
+        operation.smoothness, operation.z_depth, operation.opacity, 0
+    ]);
+    const uniformBuffer = device.createBuffer({
+        size: uniformData.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+    const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
+    const textureBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const uniformBindGroup = device.createBindGroup({
+        layout: uniformLayout,
+        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+    });
+    const targetTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    const pipeline = createPipeline('rgba8unorm-srgb');
+
+    async function executeDraw(outputTexture, renderPipeline) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: { r: manifest.graph.clear_color[0], g: manifest.graph.clear_color[1], b: manifest.graph.clear_color[2], a: manifest.graph.clear_color[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        pass.setPipeline(renderPipeline);
+        pass.setBindGroup(0, textureBindGroup);
+        pass.setBindGroup(1, uniformBindGroup);
+        pass.draw(operation.vertex_count, 1, 0, 0);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+
+    const coldRenderTimeMs = await executeDraw(targetTexture, pipeline);
+    const warmRenderTimeMs = await executeDraw(targetTexture, pipeline);
+    const bytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    await saveRawTexture(bytes, {
+        name: 'tc06_gc_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        manifest: 'tests/shared_assets/manifests/tc06_gc.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'execute offscreen của graph còn một node + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        allocated_nodes: poolSpec.allocated,
+        freed_nodes: poolSpec.freed,
+        surviving_nodes: pool.length,
+        pool_check: poolCheck,
+        image_name: 'tc06_gc_web.png'
+    });
+
+    const canvas = document.getElementById('canvas-tc06');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    await executeDraw(context.getCurrentTexture(), createPipeline(canvasFormat));
+    document.getElementById('tag-tc06').textContent = 'PASS';
+    document.getElementById('tag-tc06').className = 'tag tag-passed';
+    targetTexture.destroy();
+    image.texture.destroy();
+    uniformBuffer.destroy();
+}
+
 async function fetchShader(name) {
     const res = await fetch(`/shaders/${name}`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
@@ -1596,6 +1721,7 @@ async function runAllTests() {
         { name: "TC03: Z-Buffer Depth Testing", fn: runTC03 },
         { name: "TC04: Alpha Blend + Z-Buffer", fn: runTC04 },
         { name: "TC05: Interleaved Multi-Pass", fn: runTC05 },
+        { name: "TC06: RenderNodePool GC", fn: runTC06 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

@@ -130,7 +130,8 @@ def main() -> None:
     operations = graph_spec.get("operations", [])
     pass_specs = graph_spec.get("passes", [])
     pass_operations = [operation for pass_spec in pass_specs for operation in pass_spec.get("operations", [])]
-    all_operations = operations + pass_operations
+    single_operation = [graph_spec["operation"]] if graph_spec.get("operation") else []
+    all_operations = operations + pass_operations + single_operation
     asset_names_set = set()
     for operation in all_operations:
         if operation.get("asset"):
@@ -140,6 +141,7 @@ def main() -> None:
             asset_names_set.add(source["asset"])
     asset_names = sorted(asset_names_set)
     pipeline_specs = graph_spec.get("pipelines", {})
+    single_pipeline_shader = graph_spec.get("pipeline", {}).get("shader")
     shader_names = sorted(
         {
             operation.get("shader")
@@ -152,6 +154,7 @@ def main() -> None:
             if operation.get("pipeline")
             and pipeline_specs.get(operation.get("pipeline"), {}).get("shader")
         }
+        | ({single_pipeline_shader} if single_pipeline_shader else set())
     )
     asset_text = ", ".join(f"`{asset}`" for asset in asset_names) or "KHÔNG KHAI BÁO"
     shader_text = ", ".join(f"`{shader}`" for shader in shader_names) or "KHÔNG KHAI BÁO"
@@ -161,6 +164,12 @@ def main() -> None:
         else "Dùng asset theo manifest; chưa có chuẩn hóa input canonical riêng."
     )
     depth_text = json.dumps(manifest["graph"]["depth_stencil"], ensure_ascii=False) if "depth_stencil" in manifest.get("graph", {}) else "Không áp dụng"
+    node_pool_spec = graph_spec.get("node_pool")
+    node_pool_text = (
+        f"allocated={node_pool_spec.get('allocated')}, freed={node_pool_spec.get('freed')}, surviving={node_pool_spec.get('surviving')}"
+        if node_pool_spec
+        else "Không áp dụng"
+    )
     pass_text = (
         " → ".join(
             f"{pass_spec.get('id', '?')} ({pass_spec.get('name', 'không tên')}, target {pass_spec.get('target', '?')})"
@@ -188,6 +197,7 @@ def main() -> None:
 - **Depth/stencil:** `{depth_text}`
 - **Chuỗi pass:** {pass_text}
 - **Số pass:** `{len(pass_specs) if pass_specs else 'KHÔNG ÁP DỤNG'}`
+- **Node pool contract:** `{node_pool_text}`
 - **Desktop/Web dùng cùng manifest fingerprint:** `{"ĐẠT" if graph_match else "KHÔNG ĐẠT"}`
 
 ## 2. Môi trường Desktop
@@ -202,6 +212,7 @@ def main() -> None:
 - **Ảnh:** ![Desktop output]({desktop_image_link})
 - **Đánh giá nội dung:** `{desktop_content}`
 - **Đánh giá bằng vision:** {args.vision_desktop}
+{f"- **Node pool thực tế:** allocated={desktop.get('allocated_nodes')}, freed={desktop.get('freed_nodes')}, surviving={desktop.get('surviving_nodes')}" if node_pool_spec else ""}
 
 ## 3. Môi trường WebGPU
 
@@ -215,6 +226,7 @@ def main() -> None:
 - **Ảnh:** ![WebGPU output]({web_image_link})
 - **Đánh giá nội dung:** `{web_content}`
 - **Đánh giá bằng vision:** {args.vision_web}
+{f"- **Node pool thực tế:** allocated={web.get('allocated_nodes')}, freed={web.get('freed_nodes')}, surviving={web.get('surviving_nodes')}, check={web.get('pool_check')}" if node_pool_spec else ""}
 
 ## 4. So sánh và kết luận
 

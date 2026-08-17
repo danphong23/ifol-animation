@@ -26,6 +26,11 @@ Dùng `begin_texture_readback_checked` cho async hoặc
 `read_texture_to_raw_with_format_checked` cho synchronous readback. Cả hai
 trả `ReadbackError`; format phải được truyền rõ ràng.
 
+Readback là điểm giao giữa core và tầng media. Core trả raw bytes, kích thước và
+format thực tế; host quyết định decode input, color/alpha policy, chuyển đổi
+định dạng và encode PNG/JPEG/EXR/video. Không dùng surface hoặc canvas preview
+để thay thế raw readback khi cần output canonical.
+
 ## Resource lifetime
 
 Host phải giữ resource sống trong lúc graph đang dùng. Với owned texture và

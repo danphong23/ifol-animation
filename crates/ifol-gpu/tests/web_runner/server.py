@@ -121,6 +121,10 @@ class WebGpuTestHandler(http.server.SimpleHTTPRequestHandler):
                         'manifest_fingerprint': payload.get('manifest_fingerprint'),
                         'adapter_name': payload.get('adapter_name'),
                         'timing_scope': payload.get('timing_scope'),
+                        'allocated_nodes': payload.get('allocated_nodes'),
+                        'freed_nodes': payload.get('freed_nodes'),
+                        'surviving_nodes': payload.get('surviving_nodes'),
+                        'pool_check': payload.get('pool_check'),
                         'byte_length': len(raw_bytes),
                         'sha256': hashlib.sha256(raw_bytes).hexdigest(),
                     }, f, indent=2)
