@@ -127,6 +127,9 @@ Các report canonical hiện tại:
 - [TC23](../../tests/reports/tc23_color_replace_report.md): một pass HSV palette
   replacement với một draw command; vision/structural, validation, cache và raw
   parity đều đạt tuyệt đối (`0` byte khác).
+- [TC24](../../tests/reports/tc24_distortion_mesh_report.md): một pass vertex
+  wind/sway deformation với một draw command; vision/structural, validation,
+  cache và raw parity đều đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

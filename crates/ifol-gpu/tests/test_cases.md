@@ -149,3 +149,8 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Mục tiêu:** Kiểm thử thay bảng màu HSV từ hồng sang cyan nhưng giữ shading/highlight.
 - **Kịch bản:** Crop sprite canonical, dùng `color_replace.wgsl` để tính khoảng cách HSV, dịch hue/saturation, giữ value và loại phông xanh.
 - **Kỳ vọng hình ảnh xuất ra:** Giáp và chi tiết chuyển sang cyan, shading/highlight giữ nguyên, không có output đen hoặc lỗi validation.
+
+### TC24 - Vertex Deformation (Wind/Sway)
+- **Mục tiêu:** Kiểm thử biến dạng đỉnh của sprite theo hiệu ứng gió xác định.
+- **Kịch bản:** Dùng `distortion.wgsl` để neo phần dưới sprite và uốn phần trên theo `sin(time * frequency) * amplitude`.
+- **Kỳ vọng hình ảnh xuất ra:** Sprite nằm trên nền xám, phần dưới được neo, phần trên uốn theo gió; không có black output hoặc lỗi validation.

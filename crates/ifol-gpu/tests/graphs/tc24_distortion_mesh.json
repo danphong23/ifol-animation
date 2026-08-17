@@ -1,7 +1,0 @@
-{
-  "features": [
-    "Vertex shader offset based on Y-axis (Sway)",
-    "Time-based evaluation (Wind simulation)"
-  ],
-  "test_case": "TC24 - Vertex Deformation"
-}

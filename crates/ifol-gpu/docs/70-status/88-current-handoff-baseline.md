@@ -261,6 +261,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   fingerprint `5e6dcfeb32712bc9`, một draw command và một instance. Desktop/Web
   dùng chung graph, đạt vision/structural, validation, cold/warm và raw parity
   tuyệt đối (`0` byte khác). Xem `tests/reports/tc23_color_replace_report.md`;
+- TC24 đã được chuẩn hóa thành graph 1 pass vertex wind/sway deformation với
+  manifest fingerprint `f409de1bc9146473`, một draw command và một instance.
+  Desktop/Web dùng chung graph, đạt vision/structural, validation, cold/warm và
+  raw parity tuyệt đối (`0` byte khác). Xem
+  `tests/reports/tc24_distortion_mesh_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

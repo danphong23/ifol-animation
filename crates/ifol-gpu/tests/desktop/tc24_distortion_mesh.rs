@@ -1,7 +1,10 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -15,79 +18,173 @@ struct DistortionUniform {
     _pad: f32,
 }
 
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn values(value: &Value) -> Vec<f32> {
+    value
+        .as_array()
+        .expect("TC24 value must be an array")
+        .iter()
+        .map(|item| item.as_f64().expect("TC24 value must be numeric") as f32)
+        .collect()
+}
+
+fn value2(value: &Value) -> [f32; 2] {
+    values(value)
+        .try_into()
+        .expect("TC24 value must have two elements")
+}
+
+fn value4(value: &Value) -> [f32; 4] {
+    values(value)
+        .try_into()
+        .expect("TC24 value must have four elements")
+}
+
+fn matrix4(value: &Value) -> [[f32; 4]; 4] {
+    value
+        .as_array()
+        .expect("TC24 matrix must be an array")
+        .iter()
+        .map(|column| value4(column))
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("TC24 matrix must have four columns")
+}
+
+fn execute(h: &mut DesktopTestHarness, graph: &RenderGraph) -> f64 {
+    let started = Instant::now();
+    let submission = h
+        .executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, graph)
+        .expect("TC24 graph pass failed");
+    let _ = h.engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission),
+        timeout: None,
+    });
+    started.elapsed().as_secs_f64() * 1000.0
+}
+
 #[test]
 fn run_tc24_distortion_mesh() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
-        
-        let tex_heroes = h.load_texture("sprites_heroes.jpeg");
+        let manifest_text = include_str!("../shared_assets/manifests/tc24_distortion_mesh.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC24 manifest");
+        let graph_spec = &manifest["graph"];
+        let target_spec = &graph_spec["target"];
+        let width = target_spec["width"].as_u64().unwrap() as u32;
+        let height = target_spec["height"].as_u64().unwrap() as u32;
+        let operation = &graph_spec["operations"][0];
+        let pass = &graph_spec["passes"][0];
+        let u = &operation["uniform"];
 
-        let pipe_distortion = h.register_pipeline(
+        let mut h = DesktopTestHarness::new(width, height).await;
+        let sprite = h.load_texture_exact("canonical_sprites_heroes.png");
+        let pipeline = h.register_pipeline(
             "distortion.wgsl",
             Some(wgpu::BlendState::ALPHA_BLENDING),
             false,
             true,
         );
-
-        let s_y = 1.5f32;
-        let s_x = s_y * (600.0 / 800.0) * (0.275 / 0.97);
-
-        let uniform = DistortionUniform {
-            transform: [
-                [s_x, 0.0, 0.0, 0.0],
-                [0.0, s_y, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
-            ],
-            uv_min: [0.005, 0.01],
-            uv_max: [0.28, 0.98],
-            time: 1.5, // Hardcoded time to show the sway in a still image
-            amplitude: 0.3,
-            frequency: 2.0,
-            _pad: 0.0,
-        };
-
-        let bg_distortion = h.create_custom_uniform_bind_group(uniform, "Distortion Uniform");
-
-        let (target_id, target_tex) = h.create_target("TC24 Target");
-
+        let uniform = h.create_custom_uniform_bind_group(
+            DistortionUniform {
+                transform: matrix4(&u["transform"]),
+                uv_min: value2(&u["uv_min"]),
+                uv_max: value2(&u["uv_max"]),
+                time: u["time"].as_f64().unwrap() as f32,
+                amplitude: u["amplitude"].as_f64().unwrap() as f32,
+                frequency: u["frequency"].as_f64().unwrap() as f32,
+                _pad: 0.0,
+            },
+            "TC24 Distortion Uniform",
+        );
+        let (target_id, target_texture) = h.create_target("TC24 Distortion Mesh");
         let mut graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_id,
-            width: 800,
-            height: 600,
+            width,
+            height,
         })
-        .with_clear_color([0.2, 0.2, 0.2, 1.0]);
-
+        .with_clear_color(value4(&pass["clear_color"]));
         graph.add_batch(
             &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_distortion, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_heroes.bind_group, Vec::new())
-                    .with_bind_group(1, bg_distortion, Vec::new()),
-            ],
+            vec![DrawCommand::new(
+                pipeline,
+                DrawAction::Procedural {
+                    vertex_count: operation["vertex_count"].as_u64().unwrap() as u32,
+                    instance_range: 0..operation["instance_count"].as_u64().unwrap() as u32,
+                },
+            )
+            .with_bind_group(0, sprite.bind_group, Vec::new())
+            .with_bind_group(1, uniform, Vec::new())],
         );
 
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
-
-        let graph_json = serde_json::json!({
-            "test_case": "TC24 - Vertex Deformation",
-            "features": [
-                "Vertex shader offset based on Y-axis (Sway)",
-                "Time-based evaluation (Wind simulation)",
-            ]
+        fs::create_dir_all("tests/outputs/desktop").unwrap();
+        let cold_render_time_ms = execute(&mut h, &graph);
+        let cold_raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC24 cold readback failed");
+        let warm_render_time_ms = execute(&mut h, &graph);
+        let raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC24 warm readback failed");
+        assert_eq!(
+            cold_raw.bytes, raw.bytes,
+            "TC24 output changed between runs"
+        );
+        h.save_texture_to_file_checked(
+            &target_texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            "tests/outputs/desktop/tc24_distortion_mesh.png",
+        )
+        .expect("TC24 PNG save failed");
+        fs::write(
+            "tests/outputs/desktop/tc24_distortion_mesh_desktop.bin",
+            &raw.bytes,
+        )
+        .unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC24",
+            "manifest": "tests/shared_assets/manifests/tc24_distortion_mesh.json",
+            "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "width": raw.width,
+            "height": raw.height,
+            "format": "Rgba8UnormSrgb",
+            "adapter_name": h.engine.adapter_info().name,
+            "backend": format!("{:?}", h.engine.adapter_info().backend),
+            "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "1 pass (vertex wind/sway deformation) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "node_count": graph_spec["node_count"],
+            "draw_commands": graph_spec["command_count"],
+            "pass_count": graph_spec["passes"].as_array().unwrap().len(),
+            "instance_count": operation["instance_count"],
+            "cache_output_equal": cold_raw.bytes == raw.bytes,
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "cold_render_time_ms": cold_render_time_ms,
+            "warm_render_time_ms": warm_render_time_ms,
+            "warm_iteration_count": 1,
+            "speedup_percentage": (1.0 - warm_render_time_ms / cold_render_time_ms) * 100.0
         });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc24_distortion_mesh.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        h.execute_and_record(
-            &graph,
-            &target_tex,
-            "tc24_distortion_mesh",
-            "Vertex Deformation (Wind/Sway)",
-            "Mô phỏng hiệu ứng gió thổi (Wind/Sway) bằng cách tác động lên các đỉnh (vertices) của Sprite theo hàm sin(time). Phần dưới của sprite được neo (anchor) và phần trên bị uốn cong.",
-            "Xác thực khả năng tạo motion động trên GPU mà không cần tạo xương (bone) hay frame-by-frame animation.",
-        );
+        fs::write(
+            "tests/outputs/desktop/tc24_distortion_mesh_desktop.json",
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
     });
 }
