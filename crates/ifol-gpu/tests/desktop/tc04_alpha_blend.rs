@@ -1,128 +1,121 @@
 mod harness;
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn array2(value: &Value) -> [f32; 2] {
+    [
+        value[0].as_f64().unwrap() as f32,
+        value[1].as_f64().unwrap() as f32,
+    ]
+}
 
 #[test]
 fn run_tc04_alpha_blend() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
+        let manifest_text = include_str!("../shared_assets/manifests/tc04_alpha_blend.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC04 manifest");
+        let graph_spec = &manifest["graph"];
+        let target_spec = &graph_spec["target"];
+        let width = target_spec["width"].as_u64().unwrap() as u32;
+        let height = target_spec["height"].as_u64().unwrap() as u32;
+        let mut h = DesktopTestHarness::new(width, height).await;
 
-        // 1. Load items texture
-        let tex_items = h.load_texture("sprites_items.jpeg");
+        let mut pipelines = std::collections::HashMap::new();
+        for (pipeline_name, pipeline_spec) in graph_spec["pipelines"].as_object().unwrap() {
+            let blend = match pipeline_spec["blend"].as_str().unwrap() {
+                "Replace" => wgpu::BlendState::REPLACE,
+                "AlphaBlend" => wgpu::BlendState::ALPHA_BLENDING,
+                other => panic!("Unsupported TC04 blend mode: {other}"),
+            };
+            let shader = pipeline_spec["shader"].as_str().unwrap();
+            pipelines.insert(
+                pipeline_name.clone(),
+                h.register_pipeline(shader, Some(blend), true, true),
+            );
+        }
 
-        // 2. Setup 3 Sprites with aspect ratio correction:
-        // A. Opaque Chest at Z = 0.5 (Center [0.0, 0.0])
-        let chest_uni = h.build_sprite_uniform(
-            &tex_items,
-            [0.0, 0.0],
-            0.55,
-            [0.0, 0.5],
-            [0.5, 1.0],
-            0.45,
-            0.12,
-            0.5,
-            1.0,
-        );
-        let bg_chest_uni = h.create_sprite_uniform_bind_group(chest_uni);
-
-        // B. Transparent Scroll in FRONT at Z = 0.2 (Offset [0.15, -0.1], Opacity 0.75)
-        let scroll_uni = h.build_sprite_uniform(
-            &tex_items,
-            [0.15, -0.1],
-            0.5,
-            [0.5, 0.5],
-            [1.0, 1.0],
-            0.45,
-            0.12,
-            0.2,
-            0.75,
-        );
-        let bg_scroll_uni = h.create_sprite_uniform_bind_group(scroll_uni);
-
-        // C. Transparent Potion BEHIND at Z = 0.8 (Offset [-0.15, 0.1], Opacity 0.75)
-        let potion_uni = h.build_sprite_uniform(
-            &tex_items,
-            [-0.15, 0.1],
-            0.45,
-            [0.0, 0.0],
-            [0.5, 0.5],
-            0.45,
-            0.12,
-            0.8,
-            0.75,
-        );
-        let bg_potion_uni = h.create_sprite_uniform_bind_group(potion_uni);
-
-        // 3. Pipelines: Opaque (Replace, Depth write) & Transparent (Alpha Blend, Depth test)
-        let pipe_opaque = h.register_pipeline(
-            "chroma_key_cropped.wgsl",
-            Some(wgpu::BlendState::REPLACE),
-            true,
-            true,
-        );
-
-        let pipe_alpha = h.register_pipeline(
-            "chroma_key_cropped.wgsl",
-            Some(wgpu::BlendState::ALPHA_BLENDING),
-            true,
-            true,
-        );
-
-        // 4. Target & Depth
+        let clear_color = [
+            graph_spec["clear_color"][0].as_f64().unwrap() as f32,
+            graph_spec["clear_color"][1].as_f64().unwrap() as f32,
+            graph_spec["clear_color"][2].as_f64().unwrap() as f32,
+            graph_spec["clear_color"][3].as_f64().unwrap() as f32,
+        ];
         let (target_id, target_tex) = h.create_target("TC04 Color Target");
         let (depth_id, _depth_tex) = h.create_depth_target("TC04 Depth Target");
-
         let mut graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_id,
-            width: 800,
-            height: 600,
+            width,
+            height,
         })
-        .with_clear_color([0.08, 0.08, 0.1, 1.0])
+        .with_clear_color(clear_color)
         .with_depth_stencil(depth_id);
 
-        // Draw order:
-        // 1. Draw Opaque Chest (writes depth Z = 0.5)
-        // 2. Draw Transparent Potion (Z = 0.8, should be culled/hidden by chest)
-        // 3. Draw Transparent Scroll (Z = 0.2, in front, should blend with chest)
-        graph.add_batch(
-            &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_opaque, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_items.bind_group, Vec::new())
-                    .with_bind_group(1, bg_chest_uni, Vec::new()),
-                DrawCommand::new(pipe_alpha, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_items.bind_group, Vec::new())
-                    .with_bind_group(1, bg_potion_uni, Vec::new()),
-                DrawCommand::new(pipe_alpha, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_items.bind_group, Vec::new())
-                    .with_bind_group(1, bg_scroll_uni, Vec::new()),
-            ],
-        );
+        let mut commands = Vec::new();
+        for operation in graph_spec["operations"].as_array().unwrap() {
+            let texture = h.load_texture(operation["asset"].as_str().unwrap());
+            let crop = operation["crop_uv"].as_array().unwrap();
+            let uniform = h.build_sprite_uniform(
+                &texture,
+                array2(&operation["position"]),
+                operation["target_height_scale"].as_f64().unwrap() as f32,
+                [
+                    crop[0].as_f64().unwrap() as f32,
+                    crop[1].as_f64().unwrap() as f32,
+                ],
+                [
+                    crop[2].as_f64().unwrap() as f32,
+                    crop[3].as_f64().unwrap() as f32,
+                ],
+                operation["tolerance"].as_f64().unwrap() as f32,
+                operation["smoothness"].as_f64().unwrap() as f32,
+                operation["z_depth"].as_f64().unwrap() as f32,
+                operation["opacity"].as_f64().unwrap() as f32,
+            );
+            let uniform_bind_group = h.create_sprite_uniform_bind_group(uniform);
+            let pipeline_name = operation["pipeline"].as_str().unwrap();
+            let pipeline = *pipelines.get(pipeline_name).expect("TC04 pipeline missing");
+            commands.push(
+                DrawCommand::new(
+                    pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: operation["vertex_count"].as_u64().unwrap() as u32,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, texture.bind_group, Vec::new())
+                .with_bind_group(1, uniform_bind_group, Vec::new()),
+            );
+        }
+        graph.add_batch(&mut h.pool, commands);
 
-        // 5. Serialize Graph JSON
-        let graph_json = serde_json::json!({
-            "test_case": "TC04 - Alpha Blending & Depth Interaction",
-            "clear_color": [0.08, 0.08, 0.1, 1.0],
-            "objects": [
-                { "name": "Opaque Chest", "z_depth": 0.5, "blend": "Replace", "write_depth": true },
-                { "name": "Behind Potion", "z_depth": 0.8, "blend": "AlphaBlend", "expected": "Occluded" },
-                { "name": "Front Scroll", "z_depth": 0.2, "blend": "AlphaBlend", "expected": "Translucent over Chest" }
-            ]
-        });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc04_alpha_blend.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        // 6. Execute & Record
         h.execute_and_record(
             &graph,
             &target_tex,
             "tc04_alpha_blend",
-            "Alpha Blending & Depth Interaction",
-            "Cuộn phép tím (Z=0.2) bán trong suốt phủ mờ nhìn xuyên thấu qua Rương gỗ (Z=0.5). Bình thuốc (Z=0.8) bị rương gỗ che hoàn toàn.",
-            "Khả năng hòa trộn Alpha Blending hoạt động hoàn hảo: Ánh hào quang tím của cuộn phép bán trong suốt nhìn xuyên qua bề mặt gỗ của rương. Bình thuốc phía sau bị che khuất đúng theo Z-Buffer mà không bị rò rỉ pixel.",
+            manifest["title_vi"].as_str().unwrap(),
+            manifest["description_vi"].as_str().unwrap(),
+            manifest["evaluation"]["visual_check"].as_str().unwrap(),
         );
+
+        let metadata_path = "tests/outputs/desktop/tc04_alpha_blend_desktop.json";
+        let mut metadata: Value =
+            serde_json::from_str(&fs::read_to_string(metadata_path).unwrap()).unwrap();
+        metadata["manifest"] =
+            Value::String("tests/shared_assets/manifests/tc04_alpha_blend.json".into());
+        metadata["manifest_fingerprint"] = Value::String(fnv1a64(manifest_text.as_bytes()));
+        fs::write(metadata_path, serde_json::to_vec_pretty(&metadata).unwrap()).unwrap();
     });
 }

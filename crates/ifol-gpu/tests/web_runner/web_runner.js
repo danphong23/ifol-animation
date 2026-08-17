@@ -532,6 +532,172 @@ async function runTC03(gpu) {
     }
 }
 
+async function runTC04(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc04_alpha_blend.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC04 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const clear = manifest.graph.clear_color;
+    const depthSpec = manifest.graph.depth_stencil;
+    const shaderCode = await fetchShader(manifest.graph.pipelines.opaque.shader);
+    const shaderModule = device.createShaderModule({ code: shaderCode });
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    function blendState(name) {
+        if (name === 'Replace') return undefined;
+        if (name === 'AlphaBlend') return {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        };
+        throw new Error(`Unsupported TC04 blend mode: ${name}`);
+    }
+    function createPipeline(pipelineSpec, format) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+            vertex: { module: shaderModule, entryPoint: 'vs_main' },
+            fragment: {
+                module: shaderModule,
+                entryPoint: 'fs_main',
+                targets: [{ format, blend: blendState(pipelineSpec.blend) }]
+            },
+            primitive: { topology: 'triangle-list' },
+            depthStencil: {
+                format: depthSpec.format.toLowerCase(),
+                depthWriteEnabled: pipelineSpec.depth_write,
+                depthCompare: depthSpec.compare === 'LessEqual' ? 'less-equal' : depthSpec.compare.toLowerCase()
+            }
+        });
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            result[name] = createPipeline(spec, format);
+        }
+        return result;
+    }
+
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+    const sprites = [];
+    for (const drawSpec of operations) {
+        const image = await loadImageTexture(device, drawSpec.asset);
+        const crop = drawSpec.crop_uv;
+        const cropAspect = ((crop[2] - crop[0]) * image.width) / Math.max((crop[3] - crop[1]) * image.height, 1);
+        const screenAspect = target.width / target.height;
+        const scaleY = drawSpec.target_height_scale;
+        const scaleX = scaleY * (cropAspect / screenAspect);
+        const uniformData = new Float32Array([
+            drawSpec.position[0], drawSpec.position[1], scaleX, scaleY,
+            crop[0], crop[1], crop[2], crop[3],
+            image.keyColor[0], image.keyColor[1], image.keyColor[2], drawSpec.tolerance,
+            drawSpec.smoothness, drawSpec.z_depth, drawSpec.opacity, 0
+        ]);
+        const uniformBuffer = device.createBuffer({
+            size: uniformData.byteLength,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+        const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
+        sprites.push({
+            image,
+            pipeline: drawSpec.pipeline,
+            textureBindGroup: device.createBindGroup({
+                layout: textureLayout,
+                entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+            }),
+            uniformBindGroup: device.createBindGroup({
+                layout: uniformLayout,
+                entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+            }),
+            uniformBuffer,
+            vertexCount: drawSpec.vertex_count
+        });
+    }
+    const targetTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    const depthTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: depthSpec.format.toLowerCase(),
+        usage: GPUTextureUsage.RENDER_ATTACHMENT
+    });
+
+    async function executeDraw(outputTexture, outputDepthTexture, pipelines) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+                view: outputTexture.createView(),
+                clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+                loadOp: 'clear', storeOp: 'store'
+            }],
+            depthStencilAttachment: {
+                view: outputDepthTexture.createView(),
+                depthClearValue: depthSpec.clear,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'discard'
+            }
+        });
+        for (const sprite of sprites) {
+            pass.setPipeline(pipelines[sprite.pipeline]);
+            pass.setBindGroup(0, sprite.textureBindGroup);
+            pass.setBindGroup(1, sprite.uniformBindGroup);
+            pass.draw(sprite.vertexCount, 1, 0, 0);
+        }
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+
+    const coldRenderTimeMs = await executeDraw(targetTexture, depthTexture, offscreenPipelines);
+    const warmRenderTimeMs = await executeDraw(targetTexture, depthTexture, offscreenPipelines);
+    const bytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    await saveRawTexture(bytes, {
+        name: 'tc04_alpha_blend_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        manifest: 'tests/shared_assets/manifests/tc04_alpha_blend.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'execute offscreen + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        image_name: 'tc04_alpha_blend_web.png'
+    });
+
+    const canvas = document.getElementById('canvas-tc04');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const canvasPipelines = createPipelines(canvasFormat);
+    const canvasDepthTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: depthSpec.format.toLowerCase(),
+        usage: GPUTextureUsage.RENDER_ATTACHMENT
+    });
+    await executeDraw(context.getCurrentTexture(), canvasDepthTexture, canvasPipelines);
+    document.getElementById('tag-tc04').textContent = 'PASS';
+    document.getElementById('tag-tc04').className = 'tag tag-passed';
+    targetTexture.destroy();
+    depthTexture.destroy();
+    canvasDepthTexture.destroy();
+    for (const sprite of sprites) {
+        sprite.image.texture.destroy();
+        sprite.uniformBuffer.destroy();
+    }
+}
+
 async function fetchShader(name) {
     const res = await fetch(`/shaders/${name}`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
@@ -1245,6 +1411,7 @@ async function runAllTests() {
         { name: "TC01: Empty Render", fn: runTC01 },
         { name: "TC02: Single Quad Chroma Key", fn: runTC02 },
         { name: "TC03: Z-Buffer Depth Testing", fn: runTC03 },
+        { name: "TC04: Alpha Blend + Z-Buffer", fn: runTC04 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

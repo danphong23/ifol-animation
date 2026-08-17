@@ -1,0 +1,85 @@
+{
+  "test_case": "TC04",
+  "title": "Alpha Blending and Depth Interaction",
+  "title_vi": "Alpha Blending và tương tác với Z-Buffer",
+  "description": "Render one opaque sprite and two transparent sprites with overlapping regions. The front transparent sprite must blend over the opaque sprite, while the rear transparent sprite must be rejected by depth testing.",
+  "description_vi": "Render một sprite đục và hai sprite trong suốt có vùng chồng lấn. Sprite trong suốt phía trước phải blend lên sprite đục; sprite trong suốt phía sau phải bị depth test loại bỏ.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "depth_stencil": {
+      "format": "Depth32Float",
+      "compare": "LessEqual",
+      "write": true,
+      "clear": 1.0
+    },
+    "pipelines": {
+      "opaque": {
+        "shader": "chroma_key_cropped.wgsl",
+        "blend": "Replace",
+        "depth_write": true
+      },
+      "alpha": {
+        "shader": "chroma_key_cropped.wgsl",
+        "blend": "AlphaBlend",
+        "depth_write": true
+      }
+    },
+    "operations": [
+      {
+        "name": "Opaque Chest",
+        "pipeline": "opaque",
+        "asset": "canonical_sprites_items.png",
+        "position": [0.0, 0.0],
+        "target_height_scale": 0.55,
+        "crop_uv": [0.0, 0.5, 0.5, 1.0],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "expected": "Opaque base writes depth"
+      },
+      {
+        "name": "Behind Potion",
+        "pipeline": "alpha",
+        "asset": "canonical_sprites_items.png",
+        "position": [-0.15, 0.1],
+        "target_height_scale": 0.45,
+        "crop_uv": [0.0, 0.0, 0.5, 0.5],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.8,
+        "opacity": 0.75,
+        "vertex_count": 6,
+        "expected": "Occluded by the opaque chest"
+      },
+      {
+        "name": "Front Scroll",
+        "pipeline": "alpha",
+        "asset": "canonical_sprites_items.png",
+        "position": [0.15, -0.1],
+        "target_height_scale": 0.5,
+        "crop_uv": [0.5, 0.5, 1.0, 1.0],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.2,
+        "opacity": 0.75,
+        "vertex_count": 6,
+        "expected": "Alpha blends over the opaque chest"
+      }
+    ],
+    "clear_color": [0.08, 0.08, 0.1, 1.0],
+    "submission_order": ["Opaque Chest", "Behind Potion", "Front Scroll"]
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_background_rgba8": [80, 80, 89, 255],
+    "non_background_mask_diff_tolerance": 4096,
+    "visual_check": "Cuộn phép phía trước ở z=0.2 phải blend với rương ở z=0.5; bình thuốc phía sau ở z=0.8 phải bị che hoàn toàn bởi depth test, không rò rỉ pixel ngoài vùng kỳ vọng."
+  }
+}

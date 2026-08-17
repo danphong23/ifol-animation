@@ -128,7 +128,20 @@ def main() -> None:
     description_vi = manifest.get("description_vi", manifest["description"])
     operations = manifest.get("graph", {}).get("operations", [])
     asset_names = sorted({operation.get("asset") for operation in operations if operation.get("asset")})
-    shader_names = sorted({operation.get("shader") for operation in operations if operation.get("shader")})
+    pipeline_specs = manifest.get("graph", {}).get("pipelines", {})
+    shader_names = sorted(
+        {
+            operation.get("shader")
+            for operation in operations
+            if operation.get("shader")
+        }
+        | {
+            pipeline_specs.get(operation.get("pipeline"), {}).get("shader")
+            for operation in operations
+            if operation.get("pipeline")
+            and pipeline_specs.get(operation.get("pipeline"), {}).get("shader")
+        }
+    )
     asset_text = ", ".join(f"`{asset}`" for asset in asset_names) or "KHÔNG KHAI BÁO"
     shader_text = ", ".join(f"`{shader}`" for shader in shader_names) or "KHÔNG KHAI BÁO"
     input_policy = (

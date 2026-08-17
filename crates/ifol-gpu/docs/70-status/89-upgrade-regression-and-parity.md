@@ -57,6 +57,8 @@ Các report canonical hiện tại:
   parity đạt, raw còn sai khác màu/pixel;
 - [TC03](../../tests/reports/tc03_zbuffer_report.md): vision, structural và
   depth parity đạt, raw còn sai khác màu/alpha.
+- [TC04](../../tests/reports/tc04_alpha_blend_report.md): vision, structural,
+  depth và raw parity đạt tuyệt đối với fixture canonical.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
