@@ -120,6 +120,10 @@ Các report canonical hiện tại:
   cho avatar crop với một draw command; vision/structural, validation và cache
   parity đạt, raw còn khác 1 byte ở 1 pixel với sai số tối đa `1/255`, nên là
   `ĐẠT CÓ ĐIỀU KIỆN`.
+- [TC22](../../tests/reports/tc22_particles_instanced_report.md): một pass
+  hardware instancing với 100 instance trong một draw command; integer hash giúp
+  placement/scale/rotation xác định, vision/structural, validation, cache và raw
+  parity đều đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

@@ -1,0 +1,50 @@
+{
+  "test_case": "TC22",
+  "title": "Hardware Instancing (Props)",
+  "title_vi": "Instancing phần cứng cho nhiều prop",
+  "description": "Render one canonical sprite crop in one draw command across one hundred deterministic hardware instances.",
+  "description_vi": "Render một crop sprite canonical bằng một draw command với 100 instance phần cứng xác định.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": {
+      "address_mode_u": "repeat",
+      "address_mode_v": "repeat",
+      "address_mode_w": "repeat",
+      "mag_filter": "linear",
+      "min_filter": "linear",
+      "mipmap_filter": "linear"
+    },
+    "pipelines": {
+      "instanced": { "shader": "instanced_prop.wgsl", "blend": "AlphaBlend", "layout": "texture_uniform" }
+    },
+    "operations": [
+      {
+        "id": "instanced_props",
+        "kind": "instanced_sprite",
+        "pass": "instance_scene",
+        "pipeline": "instanced",
+        "shader": "instanced_prop.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "asset": "canonical_sprites_heroes.png",
+        "uniform": { "aspect_ratio": 1.3333334, "time": 0.0 },
+        "vertex_count": 6,
+        "instance_count": 100
+      }
+    ],
+    "passes": [
+      { "id": "instance_scene", "name": "One hundred instanced props", "target": "final", "clear_color": [0.1, 0.1, 0.15, 1.0] }
+    ],
+    "clear_color": [0.1, 0.1, 0.15, 1.0],
+    "command_count": 1,
+    "node_count": 1
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["instance_scene"],
+    "expected_instance_count": 100,
+    "visual_check": "Một draw command tạo 100 prop nhỏ phân bố và xoay xác định trên nền xanh đậm; chroma green bị loại bỏ, không có black output hoặc validation error."
+  }
+}

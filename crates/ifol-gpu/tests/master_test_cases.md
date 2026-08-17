@@ -139,3 +139,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử mask tròn SDF kết hợp chroma-key/despill cho avatar.
 - **Kịch bản:** Crop avatar paladin canonical, áp dụng transform cố định, lọc phông xanh rồi nhân alpha với mask tròn mềm trong local space.
 - **Kỳ vọng:** Avatar nằm trong vùng mask tròn, nền xám bên ngoài được giữ nguyên, không có black output hoặc validation error.
+
+### TC22 - Hardware Instancing (Props)
+- **Mục tiêu:** Kiểm thử 100 instance phần cứng bằng một draw command.
+- **Kịch bản:** Dùng chung một crop sprite canonical, shader tạo vị trí, scale và rotation xác định theo `instance_index`, có sửa aspect ratio và loại phông xanh.
+- **Kỳ vọng:** 100 prop nhỏ phân bố xác định trên nền xanh đậm, không có black output hoặc validation error.

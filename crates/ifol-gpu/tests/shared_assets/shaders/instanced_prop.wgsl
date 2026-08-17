@@ -13,9 +13,19 @@ struct VertexOutput {
 @group(0) @binding(1) var s_diffuse: sampler;
 @group(1) @binding(0) var<uniform> config: InstancedUniform;
 
-// Pseudo-random function
-fn hash(n: f32) -> f32 {
-    return fract(sin(n) * 43758.5453);
+// Integer hash keeps per-instance placement deterministic across shader backends.
+fn hash_u32(value: u32) -> u32 {
+    var h = value;
+    h = h ^ (h >> 16u);
+    h = h * 2146121005u;
+    h = h ^ (h >> 15u);
+    h = h * 2221713035u;
+    h = h ^ (h >> 16u);
+    return h;
+}
+
+fn hash01(value: u32) -> f32 {
+    return f32(hash_u32(value)) / 4294967295.0;
 }
 
 @vertex
@@ -50,11 +60,10 @@ fn vs_main(
     let p = pos[vi];
     
     // Generate pseudo-random instance properties
-    let i_f = f32(ii);
-    let rand_x = hash(i_f * 1.1) * 2.0 - 1.0;
-    let rand_y = hash(i_f * 2.3) * 2.0 - 1.0;
-    let rand_scale = hash(i_f * 3.7) * 0.1 + 0.05;
-    let rand_rot = hash(i_f * 4.1) * 6.28;
+    let rand_x = hash01(ii * 11u) * 2.0 - 1.0;
+    let rand_y = hash01(ii * 23u) * 2.0 - 1.0;
+    let rand_scale = hash01(ii * 37u) * 0.1 + 0.05;
+    let rand_rot = hash01(ii * 41u) * 6.28;
     
     // Base scale
     let s_x = rand_scale * (1.0 / config.aspect_ratio);

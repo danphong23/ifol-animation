@@ -252,6 +252,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web đạt vision/structural, validation và cold/warm parity; raw còn
   khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`.
   Xem `tests/reports/tc21_masking_report.md`;
+- TC22 đã được chuẩn hóa thành graph 1 pass hardware instancing với manifest
+  fingerprint `91868a1a00433fd4`, một draw command và 100 instance. Shader dùng
+  integer hash cho placement/scale/rotation xác định giữa backend; Desktop/Web
+  đạt vision/structural, validation, cold/warm và raw parity tuyệt đối (`0` byte
+  khác). Xem `tests/reports/tc22_particles_instanced_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
