@@ -209,6 +209,10 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   vision/structural parity nhưng còn 4 byte sai khác ở 4 pixel. Xem
   [chính sách parity](../00-foundation/19-cross-platform-parity-testing-policy.md)
   và các report TC tương ứng trong `tests/reports/`;
+- TC13 đã đạt raw parity tuyệt đối cho graph 4 pass ping-pong Gaussian blur;
+  Desktop/Web dùng cùng manifest fingerprint `4f37a8fd4102496e`, cùng 11 draw
+  command và output cold/warm không đổi. Xem report TC13 trong
+  `tests/reports/tc13_blur_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

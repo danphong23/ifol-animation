@@ -146,6 +146,9 @@ thay đổi boundary của core.
 - TC12: một pass gồm sky canonical và 5 sprite chroma-key; vision/structural
   parity đạt, raw còn khác 4 byte ở 4 pixel với sai số kênh tối đa `1/255`,
   nên kết luận là `ĐẠT CÓ ĐIỀU KIỆN`.
+- TC13: bốn pass `background → blur H → blur V → final`, hai target ping-pong,
+  11 draw command; vision/structural parity và raw parity đạt tuyệt đối, cold/
+  warm output không đổi trên Desktop/WebGPU.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

@@ -1,0 +1,203 @@
+{
+  "test_case": "TC13",
+  "title": "Two-Direction Gaussian Blur and Cinematic Depth of Field",
+  "title_vi": "Gaussian blur hai chiều và depth of field điện ảnh",
+  "description": "Render a canonical forest background, blur it horizontally and vertically through ping-pong targets, then composite sharp foreground sprites.",
+  "description_vi": "Render hậu cảnh rừng canonical, blur Gaussian theo hai hướng qua target ping-pong, rồi ghép ba đối tượng tiền cảnh sắc nét.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "targets": [
+      { "id": "background_a", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "blur_b", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": {
+      "address_mode_u": "repeat",
+      "address_mode_v": "repeat",
+      "address_mode_w": "repeat",
+      "mag_filter": "linear",
+      "min_filter": "linear",
+      "mipmap_filter": "linear"
+    },
+    "pipelines": {
+      "sky": { "shader": "sky_composite.wgsl", "blend": "Replace", "layout": "texture_uniform" },
+      "chroma": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlend", "layout": "texture_uniform" },
+      "wisps": { "shader": "star_particles_sprite.wgsl", "blend": "Additive", "layout": "texture", "has_uniform": false },
+      "blur": { "shader": "gaussian_blur_separable.wgsl", "blend": "Replace", "layout": "texture_uniform" },
+      "blit": { "shader": "texture_blit.wgsl", "blend": "Replace", "layout": "texture", "has_uniform": false }
+    },
+    "operations": [
+      {
+        "id": "forest_sky",
+        "kind": "sky",
+        "pipeline": "sky",
+        "shader": "sky_composite.wgsl",
+        "asset": "canonical_tc085_noise.png",
+        "uniform": { "top_color": [0.03, 0.12, 0.18], "noise_strength": 0.05, "bottom_color": [0.02, 0.22, 0.08], "time": 1.0 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "forest_wisps",
+        "kind": "particles",
+        "pipeline": "wisps",
+        "shader": "star_particles_sprite.wgsl",
+        "asset": "canonical_tc085_props.png",
+        "vertex_count": 6,
+        "instance_count": 40
+      },
+      {
+        "id": "tree_left",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_bg_forest_props1.png",
+        "position": [-0.65, 0.25],
+        "target_height_scale": 0.65,
+        "crop_uv": [0.01, 0.01, 0.18, 0.42],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.7,
+        "opacity": 0.95,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "tree_center",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_bg_forest_props1.png",
+        "position": [0.0, 0.32],
+        "target_height_scale": 0.72,
+        "crop_uv": [0.56, 0.01, 0.72, 0.43],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.8,
+        "opacity": 0.95,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "tree_right",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_bg_forest_props1.png",
+        "position": [0.65, 0.25],
+        "target_height_scale": 0.65,
+        "crop_uv": [0.39, 0.01, 0.57, 0.42],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.7,
+        "opacity": 0.95,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "blur_horizontal",
+        "kind": "blur",
+        "pipeline": "blur",
+        "shader": "gaussian_blur_separable.wgsl",
+        "source_target": "background_a",
+        "target": "blur_b",
+        "uniform": { "direction": [0.00125, 0.0], "radius": 4.5 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "blur_vertical",
+        "kind": "blur",
+        "pipeline": "blur",
+        "shader": "gaussian_blur_separable.wgsl",
+        "source_target": "blur_b",
+        "target": "background_a",
+        "uniform": { "direction": [0.0, 0.0016666667], "radius": 4.5 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "background_blit",
+        "kind": "texture_blit",
+        "pipeline": "blit",
+        "shader": "texture_blit.wgsl",
+        "source_target": "background_a",
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "paladin_foreground",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_heroes.png",
+        "position": [-0.35, -0.18],
+        "target_height_scale": 0.58,
+        "crop_uv": [0.005, 0.01, 0.28, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.3,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "archer_foreground",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_heroes.png",
+        "position": [0.38, -0.15],
+        "target_height_scale": 0.56,
+        "crop_uv": [0.54, 0.01, 0.80, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.3,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "chest_foreground",
+        "kind": "chroma_sprite",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "asset": "canonical_sprites_items.png",
+        "position": [0.0, -0.62],
+        "target_height_scale": 0.30,
+        "crop_uv": [0.10, 0.52, 0.42, 0.95],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.2,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      }
+    ],
+    "passes": [
+      { "id": "background_scene", "name": "Forest environment", "target": "background_a", "clear_color": [0.02, 0.10, 0.15, 1.0] },
+      { "id": "blur_horizontal_pass", "name": "Horizontal 9-tap Gaussian blur", "target": "blur_b", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "blur_vertical_pass", "name": "Vertical 9-tap Gaussian blur", "target": "background_a", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "final_composite", "name": "Blurred background and sharp foreground", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "clear_color": [0.0, 0.0, 0.0, 1.0],
+    "command_count": 11,
+    "node_count": 4
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["background_scene", "blur_horizontal_pass", "blur_vertical_pass", "final_composite"],
+    "visual_check": "Hậu cảnh rừng và wisps được blur mềm theo hai hướng; ba đối tượng tiền cảnh giữ nét; không có banding, ping-pong state leak hoặc artifact."
+  }
+}

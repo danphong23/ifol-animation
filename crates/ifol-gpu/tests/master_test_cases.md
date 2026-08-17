@@ -89,10 +89,10 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kịch bản:** Dùng sky và atlas PNG canonical; render 5 crop sprite theo một graph, áp dụng `chroma_key_cropped.wgsl` với key màu, tolerance và smoothness cố định.
 - **Kỳ vọng:** Nền hoàng hôn phủ toàn khung; 5 đối tượng đúng vị trí/tỷ lệ, phông xanh bị loại bỏ và alpha feather không tạo artifact.
 
-### TC13 - Gaussian Blur (2-Pass)
-- **Mục tiêu:** Kỹ thuật Multi-pass kinh điển.
-- **Kịch bản:** Render ảnh nhân vật -> Pass 1: Blur Horizontal (wgsl) -> Pass 2: Blur Vertical (wgsl).
-- **Kỳ vọng:** Nhân vật nhòe đều theo 2 chiều mà vẫn giữ được màu chuẩn.
+### TC13 - Gaussian Blur & Cinematic Depth of Field (4-Pass Ping-Pong)
+- **Mục tiêu:** Kiểm thử graph multi-pass với hai target trung gian ping-pong và phân biệt hậu cảnh blur với tiền cảnh sắc nét.
+- **Kịch bản:** `background_scene` → `blur_horizontal_pass` → `blur_vertical_pass` → `final_composite`; hậu cảnh rừng/wisps được blur qua `background_a` và `blur_b`, sau đó ghép ba sprite tiền cảnh sắc nét.
+- **Kỳ vọng:** Cùng manifest, 4 pass, 11 draw command; hậu cảnh blur hai hướng, foreground sắc nét, không có banding hoặc ping-pong state leak.
 
 ### TC14 - Glow / Bloom
 - **Mục tiêu:** Filter & Additive Blending.

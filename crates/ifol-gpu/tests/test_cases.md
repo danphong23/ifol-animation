@@ -88,10 +88,11 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kịch bản:** Dùng sky và atlas PNG canonical; render 5 crop sprite theo một graph, áp dụng `chroma_key_cropped.wgsl` với key màu, tolerance và smoothness cố định.
 - **Kỳ vọng hình ảnh xuất ra:** Nền hoàng hôn phủ toàn khung; 5 đối tượng đúng vị trí/tỷ lệ, phông xanh bị loại bỏ, viền xanh giảm và không có artifact.
 
-### TC13 - Gaussian Blur (2-Pass)
-- **Mục tiêu:** Kỹ thuật Multi-pass kinh điển.
-- **Kịch bản:** Render ảnh nhân vật -> Pass 1: Blur Horizontal -> Pass 2: Blur Vertical.
-- **Kỳ vọng hình ảnh xuất ra:** Bức ảnh nhân vật bị làm nhòe mịn, không nhìn rõ chi tiết sắc nét, không bị dải màu (banding).
+### TC13 - Gaussian Blur & Cinematic Depth of Field (4-Pass Ping-Pong)
+- **Mục tiêu:** Kiểm thử graph multi-pass với hai target trung gian ping-pong và phân biệt hậu cảnh blur với tiền cảnh sắc nét.
+- **Kịch bản:** Render hậu cảnh rừng canonical và wisps vào `background_a`; chạy Gaussian blur ngang vào `blur_b`, blur dọc trả về `background_a`; blit hậu cảnh đã blur rồi ghép paladin, archer và chest tiền cảnh sắc nét vào `final`.
+- **Kỳ vọng hình ảnh xuất ra:** Hậu cảnh rừng được blur mềm theo hai hướng, ba đối tượng tiền cảnh vẫn sắc nét; không có banding, ping-pong state leak hoặc artifact rõ ràng.
+- **Hợp đồng parity:** Desktop/Web dùng manifest `shared_assets/manifests/tc13_blur.json`, cùng target `800x600 Rgba8UnormSrgb`, 4 pass và 11 draw command.
 
 ### TC14 - Glow / Bloom
 - **Mục tiêu:** Filter & Additive Blending.
