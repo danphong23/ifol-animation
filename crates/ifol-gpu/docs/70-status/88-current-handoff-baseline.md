@@ -197,6 +197,9 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - quyết định boundary đã chốt: decoder, canonical asset bytes, color/alpha
   policy, media encoder và file output đều do tầng ngoài quản lý; không thêm
   API decode/encode hoặc nhánh PNG/JPEG/WebP/video vào `ifol-gpu`;
+- canonical render/export là workflow do tầng ngoài sở hữu và điều phối. Tầng
+  ngoài có thể dùng `ifol-gpu` làm execution backend, nhưng phải giữ quyền chọn
+  canonical input, deterministic policy, readback verification và encoder;
 - TC01, TC04, TC05, TC06, TC07 và TC08 đã đạt raw parity tuyệt đối; TC02 và
   TC03 đạt vision/structural/depth parity, còn TC08.5 đạt vision/structural
   parity. TC09 đạt raw parity tuyệt đối và xác nhận cold/warm output không đổi.

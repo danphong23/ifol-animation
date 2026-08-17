@@ -51,6 +51,25 @@ metadata, renderer/export policy, encoder, codec profile và metadata file.
 Vì vậy việc `ifol-gpu` không có API decode/encode không phải thiếu chức năng;
 đó là boundary bắt buộc để core không phụ thuộc nền tảng hay định dạng media.
 
+### Phân quyền workflow
+
+| Trách nhiệm | Tầng ngoài | `ifol-gpu` |
+|---|---:|---:|
+| Đọc/giải mã JPG, PNG, WebP, EXR, video | Có | Không |
+| Tạo canonical asset bytes và input hash | Có | Không |
+| Chọn color/alpha policy ở cấp sản phẩm | Có | Không |
+| Mô tả và truyền resource/graph/shader/pipeline contract | Có | Tiếp nhận và validate |
+| Encode PNG/JPEG/EXR/video và ghi metadata file | Có | Không |
+| Thực thi GPU contract và trả raw readback | Gọi/điều phối | Có |
+
+“Canonical render/export path do tầng ngoài quản lý” không có nghĩa là tầng
+ngoài phải tự viết một GPU renderer khác. Tầng ngoài có thể điều phối
+`ifol-gpu` làm execution backend; nó chỉ phải giữ quyền quyết định về input,
+policy, cách chứng nhận và encoder. Nếu yêu cầu bit-exact vượt quá bảo đảm của
+GPU/backend, tầng ngoài phải chọn một renderer deterministic dùng chung cho
+export (software/CPU hoặc service chuẩn), còn `ifol-gpu` tiếp tục phục vụ
+preview và các export path đã được chứng minh phù hợp.
+
 ### Quyết định kiến trúc đã chốt
 
 `ifol-gpu` là một execution core mù về media. Core không được tự chọn hoặc tự
@@ -98,6 +117,10 @@ TextureUpload {
     // color/alpha metadata do higher layer quản lý
 }
 ```
+
+Nếu hai host đã tạo cùng canonical bytes thì core nhận cùng một resource
+contract; nếu bytes khác nhau, sai khác phải được báo ở lớp decode/input thay vì
+“sửa” trong core.
 
 Core chịu trách nhiệm:
 

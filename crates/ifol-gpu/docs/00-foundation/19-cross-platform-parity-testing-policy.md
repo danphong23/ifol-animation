@@ -99,6 +99,20 @@ Vì vậy một test parity đầy đủ phải tách ba nguồn sai khác:
    có cho cùng frame hay không;
 3. **Encode/output:** hai host có dùng cùng encoder/profile/metadata hay không.
 
+Khi tầng ngoài triển khai canonical export, workflow chuẩn phải có ownership
+rõ ràng:
+
+```text
+asset/media layer -> canonical decoded bytes + hash
+graph/shader layer -> shared graph/pipeline contract
+ifol-gpu -> execute + raw readback
+export layer -> canonical encoder + metadata + file hash
+```
+
+`ifol-gpu` không tự động trở thành decoder, color-management service hoặc media
+encoder. Thêm API decode/encode vào core, kể cả chỉ để test hoặc benchmark gọi,
+là mở rộng sai boundary.
+
 Chỉ mục thứ hai thuộc phạm vi chứng nhận trực tiếp của `ifol-gpu`. Hai mục còn
 lại thuộc tầng ngoài và phải có report riêng khi canonical export được triển
 khai. JPEG, PNG, WebP và video đều có thể được hỗ trợ ở tầng ngoài mà không làm

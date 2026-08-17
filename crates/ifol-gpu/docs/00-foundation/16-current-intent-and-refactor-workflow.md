@@ -39,11 +39,24 @@ thể tự encode output từ raw readback ở dev-dependency hoặc higher laye
 ## Preview parity và canonical export
 
 Preview Desktop/WebGPU có thể dùng backend GPU khác nhau và không phải source of
-truth của media. Canonical render/export path do higher layer quản lý: tầng đó
-chuẩn hóa asset bytes, chọn renderer deterministic và encoder cố định. `ifol-gpu`
-chỉ thực thi resource/graph/pipeline contract và trả raw readback. Xem
+truth của media. Canonical render/export path do higher layer quản lý. Higher
+layer sở hữu toàn bộ workflow và policy: chuẩn hóa input, chọn cách render, gọi
+`ifol-gpu` khi phù hợp, lấy raw readback, rồi encode file. `ifol-gpu` không sở
+hữu workflow đó và không tự quyết định decoder, encoder hay định dạng output.
+Xem
 [canonical render và media output contract](18-canonical-render-and-media-output-contract.md)
 và [chính sách parity](19-cross-platform-parity-testing-policy.md).
+
+Nói ngắn gọn:
+
+```text
+higher layer: file/media -> canonical bytes -> graph/shader/pipeline contract
+ifol-gpu:     contract -> GPU execution -> raw frame/readback
+higher layer: raw frame -> canonical encoder -> media file
+```
+
+Vì vậy việc bổ sung JPG, PNG, WebP, EXR hoặc video là việc của asset/media và
+export layer. Không thêm các API đó vào `ifol-gpu` chỉ để phục vụ một host.
 
 ## Nguyên tắc thay đổi
 
