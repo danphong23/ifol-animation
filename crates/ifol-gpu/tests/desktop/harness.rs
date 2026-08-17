@@ -15,6 +15,9 @@ use ifol_gpu::resources::{
 use image::GenericImageView;
 use wgpu::util::DeviceExt;
 
+#[path = "output.rs"]
+mod output;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SpriteUniform {
@@ -56,6 +59,15 @@ pub struct DesktopTestHarness<'a> {
 }
 
 impl<'a> DesktopTestHarness<'a> {
+    pub fn save_texture_to_file_checked(
+        &self,
+        texture: &wgpu::Texture,
+        format: wgpu::TextureFormat,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        output::save_texture_as_png(&self.engine, texture, format, path)
+    }
+
     pub async fn new(width: u32, height: u32) -> Self {
         let engine = GpuEngineBuilder::new()
             .with_required_limits(wgpu::Limits::default())
@@ -150,19 +162,9 @@ impl<'a> DesktopTestHarness<'a> {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-        let tex_clone = self.engine.device().create_texture(&wgpu::TextureDescriptor {
-            label: Some(label),
-            size: wgpu::Extent3d { width: self.width, height: self.height, depth_or_array_layers: 1 },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
         let t_handle = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.insert_owned_texture(t_handle, tex_clone, TextureResourceDescriptor {
+        self.registry.insert_owned_texture(t_handle, tex.clone(), TextureResourceDescriptor {
             width: self.width,
             height: self.height,
             depth_or_array_layers: 1,
@@ -193,20 +195,9 @@ impl<'a> DesktopTestHarness<'a> {
             view_formats: &[],
         });
 
-        let tex_clone = self.engine.device().create_texture(&wgpu::TextureDescriptor {
-            label: Some(&format!("{}_internal", label)),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-
         let t_handle = TextureHandle(self.next_tex_id);
         self.next_tex_id += 1;
-        self.registry.insert_owned_texture(t_handle, tex_clone, TextureResourceDescriptor {
+        self.registry.insert_owned_texture(t_handle, tex.clone(), TextureResourceDescriptor {
             width,
             height,
             depth_or_array_layers: 1,
@@ -981,10 +972,27 @@ impl<'a> DesktopTestHarness<'a> {
 
         let actual_rendered_tex = match graph.target {
             RenderTarget::Offscreen { color, .. } => self.registry.owned_texture(&color).unwrap_or(target_tex),
+            RenderTarget::OffscreenMsaa { resolve, .. } => self.registry.owned_texture(&resolve).unwrap_or(target_tex),
             _ => target_tex,
         };
 
-        self.engine.save_texture_to_file_checked(actual_rendered_tex, &output_img_path)
+        let output_format = match graph.target {
+            RenderTarget::Offscreen { color, .. } => self
+                .registry
+                .texture_descriptor(&color)
+                .map(|descriptor| descriptor.format)
+                .expect("offscreen target must have a registered texture descriptor"),
+            RenderTarget::OffscreenMsaa { resolve, .. } => self
+                .registry
+                .texture_descriptor(&resolve)
+                .map(|descriptor| descriptor.format)
+                .expect("MSAA resolve target must have a registered texture descriptor"),
+            RenderTarget::Screen => self
+                .engine
+                .surface_format()
+                .expect("screen target requires a configured surface"),
+        };
+        self.save_texture_to_file_checked(actual_rendered_tex, output_format, &output_img_path)
             .expect("Failed to save output texture to file");
 
         // Save report MD

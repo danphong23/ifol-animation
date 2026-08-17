@@ -24,11 +24,16 @@ impl<'a> GpuEngine<'a> {
     pub fn try_resize_surface(&self, width: u32, height: u32) -> Result<(), SurfaceResizeError>;
     pub fn reconfigure_surface(&self) -> Result<(), SurfaceResizeError>;
     pub fn surface_format(&self) -> Option<wgpu::TextureFormat>;
-    
-    // Lưu texture ra file ảnh PNG hỗ trợ kiểm thử & xuất file
-    pub fn save_texture_to_file_checked(&self, texture: &wgpu::Texture, path: &Path) -> Result<(), TextureSaveError>;
+    pub fn read_texture_to_raw_with_format_checked(
+        &self,
+        texture: &wgpu::Texture,
+        format: wgpu::TextureFormat,
+    ) -> Result<RawTextureReadback, ReadbackError>;
 }
 ```
+
+`ifol-gpu` chỉ cung cấp raw readback. Việc lưu PNG/JPEG/EXR hoặc encode video
+thuộc về tầng higher-level bên ngoài core.
 
 ### `struct GpuEngineBuilder<'a>`
 Builder khởi tạo đa nền tảng linh hoạt.

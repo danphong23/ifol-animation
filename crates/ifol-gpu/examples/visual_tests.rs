@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+mod support;
 use ifol_gpu::backend::GpuEngineBuilder;
 use ifol_gpu::execution::RenderGraphExecutor;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
@@ -347,7 +348,13 @@ fn main() {
 
     fn save_texture(engine: &ifol_gpu::backend::GpuEngine, texture: &wgpu::Texture, filename: &str) {
         let path = std::path::Path::new("examples/outputs").join(filename);
-        engine.save_texture_to_file_checked(texture, &path).expect("Lỗi lưu ảnh");
+        support::save_texture_as_png(
+            engine,
+            texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            &path,
+        )
+        .expect("Lỗi lưu ảnh");
     }
 
     std::fs::create_dir_all("examples/outputs").unwrap();

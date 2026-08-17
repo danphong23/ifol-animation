@@ -9,12 +9,8 @@ mod builder_build;
 pub mod capabilities;
 pub mod engine;
 mod readback;
-#[cfg(feature = "image-encode")]
-mod texture_save;
 
 pub use builder::{GpuEngineBuilder, GpuError};
 pub use capabilities::{CapabilityError, GpuCapabilities};
 pub use engine::{GpuEngine, SurfaceResizeError};
 pub use readback::{RawTextureReadback, ReadbackError, ReadbackTicket};
-#[cfg(feature = "image-encode")]
-pub use texture_save::TextureSaveError;

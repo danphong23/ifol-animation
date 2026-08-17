@@ -106,8 +106,8 @@ fn run_tc58_mrt_gbuffer() {
 
         // Save individual attachment outputs
         fs::create_dir_all("tests/outputs/desktop").unwrap();
-        h.engine.save_texture_to_file_checked(&albedo_tex, std::path::Path::new("tests/outputs/desktop/tc58_mrt_albedo.png")).unwrap();
-        h.engine.save_texture_to_file_checked(&emissive_tex, std::path::Path::new("tests/outputs/desktop/tc58_mrt_emissive.png")).unwrap();
+        h.save_texture_to_file_checked(&albedo_tex, wgpu::TextureFormat::Rgba8UnormSrgb, std::path::Path::new("tests/outputs/desktop/tc58_mrt_albedo.png")).unwrap();
+        h.save_texture_to_file_checked(&emissive_tex, wgpu::TextureFormat::Rgba8UnormSrgb, std::path::Path::new("tests/outputs/desktop/tc58_mrt_emissive.png")).unwrap();
 
         // 3. Side-by-Side Composite on Final 800x600 Canvas using sprite_blit
         let blit_pipe = h.register_pipeline(

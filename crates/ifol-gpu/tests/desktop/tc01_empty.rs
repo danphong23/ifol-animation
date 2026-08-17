@@ -5,6 +5,9 @@ use ifol_gpu::execution::RenderGraphExecutor;
 use std::time::Instant;
 use std::fs;
 
+#[path = "output.rs"]
+mod output;
+
 #[test]
 fn run_tc01_empty() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -96,7 +99,13 @@ fn run_tc01_empty() {
     // 5. Save output image
     fs::create_dir_all("tests/outputs/desktop").unwrap();
     let path = std::path::Path::new("tests/outputs/desktop/tc01_empty.png");
-    engine.save_texture_to_file_checked(&target_tex, &path).expect("Failed to save image");
+    output::save_texture_as_png(
+        &engine,
+        &target_tex,
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+        &path,
+    )
+    .expect("Failed to save image");
     
     // 6. Write rich report
     let report = format!(

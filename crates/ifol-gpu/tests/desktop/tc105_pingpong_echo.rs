@@ -411,7 +411,7 @@ fn test_tc105_pingpong_echo() {
         let png_path = outputs_dir.join("tc105_pingpong_echo.png");
 
         let actual_rendered_tex = h.registry.owned_texture(&target_h).unwrap();
-        h.engine.save_texture_to_file_checked(actual_rendered_tex, &png_path).unwrap();
+        h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &png_path).unwrap();
 
         let reports_dir = std::path::Path::new(manifest_dir).join("tests").join("reports");
         std::fs::create_dir_all(&reports_dir).unwrap();

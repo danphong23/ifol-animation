@@ -177,7 +177,7 @@ fn test_tc93_storage_texture_3d() {
         let png_path = outputs_dir.join("tc93_storage_texture_3d.png");
 
         let actual_rendered_tex = h.registry.owned_texture(&target_h).unwrap_or(&target_tex);
-        h.engine.save_texture_to_file_checked(actual_rendered_tex, &png_path).unwrap();
+        h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &png_path).unwrap();
 
         let reports_dir = std::path::Path::new(manifest_dir).join("tests").join("reports");
         std::fs::create_dir_all(&reports_dir).unwrap();

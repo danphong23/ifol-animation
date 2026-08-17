@@ -208,6 +208,6 @@ fn test_tc66_histogram() {
         let outputs_dir = std::path::Path::new(manifest_dir).join("tests").join("outputs").join("desktop");
         std::fs::create_dir_all(&outputs_dir).unwrap();
         let png_path = outputs_dir.join("tc66_histogram.png");
-        h.engine.save_texture_to_file_checked(actual_rendered_tex, &png_path).expect("Save failed");
+        h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &png_path).expect("Save failed");
     });
 }

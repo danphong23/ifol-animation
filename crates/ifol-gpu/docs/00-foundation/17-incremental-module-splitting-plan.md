@@ -75,11 +75,9 @@ Tiến độ hiện tại: primitive readback đã được tách khỏi `backen
 thành `backend/readback.rs`, giữ nguyên checked API và public backend export.
 Bước raw readback kèm `format` đã được khóa bằng `RawTextureReadback`; tuple
 API cũ đã được loại bỏ sau khi migrate consumer. Save/encode boundary cũng đã được tách
-thành `backend/texture_save.rs`; hardcoded output policy hiện được cô lập ở
-module này. Feature `image-encode` giờ bật mặc định để giữ behavior, nhưng
-`--no-default-features --lib` đã compile mà không kéo image vào core GPU.
-Boundary dependency đã rõ; bước kế tiếp là đánh giá higher-layer encoder mà
-không làm thay đổi checked error contract.
+thành test/example output helpers bên ngoài `src/`; production core không còn
+feature `image-encode`, dependency `image` hoặc API lưu file.
+Boundary dependency đã rõ; raw readback là contract duy nhất của core.
 
 Chỉ bắt đầu sau khi A-C đã pass:
 
@@ -87,7 +85,7 @@ Chỉ bắt đầu sau khi A-C đã pass:
 2. xác nhận format thực tế khi readback;
 3. trả raw readback kèm format;
 4. tách file encoding khỏi `GpuEngine`;
-5. chuyển `image` thành dependency của higher layer hoặc feature riêng;
+5. chuyển `image` thành dependency của test/example support hoặc higher layer;
 6. thêm test format mismatch và raw output;
 7. chạy lại toàn bộ regression ảnh ở tầng test/engine.
 

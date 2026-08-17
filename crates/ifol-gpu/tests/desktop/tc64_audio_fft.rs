@@ -239,7 +239,7 @@ fn test_tc64_audio_fft() {
         let png_path = outputs_dir.join("tc64_audio_fft.png");
 
         let actual_rendered_tex = h.registry.owned_texture(&target_handle).unwrap_or(&target_tex);
-        h.engine.save_texture_to_file_checked(actual_rendered_tex, &png_path)
+        h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &png_path)
             .expect("Failed to save output texture to file");
 
         // 10. Write Comprehensive Report

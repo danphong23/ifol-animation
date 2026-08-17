@@ -33,8 +33,8 @@ PQ, HLG hoặc màu hiển thị.
 Readback phải trả raw bytes cùng kích thước và format thực tế. Chuyển đổi màu,
 đóng gói ảnh và encode video phải nằm ở tầng ngoài.
 
-`save_texture_to_file_checked` và dependency `image` là technical debt cần xử lý
-ở task riêng; không giải quyết đồng thời với task tách file đầu tiên.
+Core không chứa API lưu file và không phụ thuộc `image`. Test/example support có
+thể tự encode output từ raw readback ở dev-dependency hoặc higher layer.
 
 ## Nguyên tắc thay đổi
 
@@ -76,4 +76,3 @@ Commit không được chứa code đang fail. Test không được bị xóa ho
 - có test mới nếu boundary mới tạo ra invariant;
 - `git diff` chỉ chứa đúng task đó;
 - commit message mô tả đúng responsibility vừa tách.
-

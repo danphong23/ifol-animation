@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+mod support;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use ifol_gpu::backend::GpuEngineBuilder;
@@ -33,7 +34,13 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
 // Helper: Lưu ảnh
     fn save_texture(engine: &ifol_gpu::backend::GpuEngine, texture: &wgpu::Texture, filename: &str) {
     let path = std::path::Path::new("examples/outputs").join(filename);
-    engine.save_texture_to_file_checked(texture, &path).expect("Lỗi lưu ảnh");
+    support::save_texture_as_png(
+        engine,
+        texture,
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+        &path,
+    )
+    .expect("Lỗi lưu ảnh");
 }
 
     fn test_01_clear_color(engine: &ifol_gpu::backend::GpuEngine, executor: &RenderGraphExecutor) {

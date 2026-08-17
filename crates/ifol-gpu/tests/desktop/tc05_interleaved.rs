@@ -135,7 +135,7 @@ fn run_tc05_interleaved() {
         // 6. Save output image & report
         let output_img_name = "tc05_interleaved.png";
         let output_img_path = std::path::Path::new("tests/outputs/desktop").join(output_img_name);
-        h.engine.save_texture_to_file_checked(&target_c_tex, &output_img_path).unwrap();
+        h.save_texture_to_file_checked(&target_c_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &output_img_path).unwrap();
 
         // Serialize Graph JSON
         let graph_json = serde_json::json!({

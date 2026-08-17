@@ -1,8 +1,6 @@
 pub mod profiling;
 
 pub use crate::backend::capabilities::{CapabilityError, GpuCapabilities};
-#[cfg(feature = "image-encode")]
-pub use crate::backend::TextureSaveError;
 pub use crate::backend::{
     GpuEngine, RawTextureReadback, ReadbackError, ReadbackTicket, SurfaceResizeError,
 };

@@ -9,6 +9,7 @@ use ifol_gpu::resources::{
     TextureResourceDescriptor,
 };
 use image::GenericImageView;
+mod support;
 
 struct TestHarness<'a> {
     engine: GpuEngine<'a>,
@@ -189,7 +190,13 @@ impl<'a> TestHarness<'a> {
     fn save_texture(&self, texture: &wgpu::Texture, filename: &str) {
         let path = std::path::Path::new("examples/outputs").join(filename);
         std::fs::create_dir_all("examples/outputs").unwrap();
-        self.engine.save_texture_to_file_checked(texture, &path).expect("Lỗi lưu ảnh");
+        support::save_texture_as_png(
+            &self.engine,
+            texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            &path,
+        )
+        .expect("Lỗi lưu ảnh");
         println!("Saved output to {:?}", path);
     }
 

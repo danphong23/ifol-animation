@@ -171,9 +171,8 @@ chỉ từ compile hoặc test trên Windows.
 - compatibility facades cũ đã được loại bỏ khỏi source; các public domain modules
   hiện là canonical API. Alias execution `execute` và `execute_with_surface`
   cũng đã được migrate toàn bộ consumer sang các API `*_checked` và loại bỏ;
-- `image` thuộc feature `image-encode` (bật mặc định), không bắt buộc với
-  core build `--no-default-features`;
-- save/encode đã tách khỏi engine vào `backend/texture_save.rs`;
+- `image` chỉ còn là dev-dependency phục vụ test/example support;
+- production core không còn save/encode API hoặc `backend/texture_save.rs`;
 - readback contract đã trả raw bytes kèm format qua `RawTextureReadback`; tuple
   readback API cũ đã được loại bỏ;
 - chưa có runtime matrix đầy đủ cho Metal, Linux, browser, Android và iOS;

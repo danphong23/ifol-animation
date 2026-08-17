@@ -288,7 +288,7 @@ fn test_tc61_compute_buffer_math() {
         let png_path = outputs_dir.join("tc61_compute_buffer_math.png");
 
         let actual_rendered_tex = h.registry.owned_texture(&target_handle).unwrap_or(&target_tex);
-        h.engine.save_texture_to_file_checked(actual_rendered_tex, &png_path)
+        h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &png_path)
             .expect("Failed to save output texture to file");
 
         let reports_dir = std::path::Path::new(manifest_dir).join("tests").join("reports");
