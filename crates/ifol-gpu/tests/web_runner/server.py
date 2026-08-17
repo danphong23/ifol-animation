@@ -2,6 +2,7 @@ import http.server
 import socketserver
 import json
 import base64
+import hashlib
 import os
 import sys
 
@@ -11,6 +12,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", "..", ".."))
 GPU_CRATE_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 OUTPUT_DIR = os.path.join(GPU_CRATE_DIR, "tests", "outputs", "web")
 SHADERS_DIR = os.path.join(GPU_CRATE_DIR, "tests", "shared_assets", "shaders")
+MANIFESTS_DIR = os.path.join(GPU_CRATE_DIR, "tests", "shared_assets", "manifests")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -21,6 +23,9 @@ class WebGpuTestHandler(http.server.SimpleHTTPRequestHandler):
         if clean_path.startswith('/shaders/'):
             filename = clean_path[len('/shaders/'):]
             return os.path.join(SHADERS_DIR, filename)
+        elif clean_path.startswith('/manifests/'):
+            filename = clean_path[len('/manifests/'):]
+            return os.path.join(MANIFESTS_DIR, filename)
         elif clean_path == '/' or clean_path == '/index.html':
             return os.path.join(BASE_DIR, "index.html")
         elif clean_path == '/web_runner.js':
@@ -76,7 +81,12 @@ class WebGpuTestHandler(http.server.SimpleHTTPRequestHandler):
                         'height': payload.get('height'),
                         'format': payload.get('format'),
                         'render_time_ms': payload.get('render_time_ms'),
+                        'cold_render_time_ms': payload.get('cold_render_time_ms'),
+                        'warm_render_time_ms': payload.get('warm_render_time_ms'),
+                        'manifest': payload.get('manifest'),
+                        'manifest_fingerprint': payload.get('manifest_fingerprint'),
                         'byte_length': len(raw_bytes),
+                        'sha256': hashlib.sha256(raw_bytes).hexdigest(),
                     }, f, indent=2)
                 print(f"[Server] Saved raw WebGPU output: {raw_path} ({len(raw_bytes)} bytes)")
                 self.send_response(200)

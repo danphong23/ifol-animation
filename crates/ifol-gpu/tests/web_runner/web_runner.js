@@ -35,6 +35,44 @@ function bytesToBase64(bytes) {
     return btoa(binary);
 }
 
+function fnv1a64(bytes) {
+    let hash = 0xcbf29ce484222325n;
+    for (const byte of bytes) {
+        hash ^= BigInt(byte);
+        hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+    }
+    return hash.toString(16).padStart(16, '0');
+}
+
+async function readTextureBytes(device, texture, width, height) {
+    const bytesPerRow = width * 4;
+    const paddedBytesPerRow = Math.ceil(bytesPerRow / 256) * 256;
+    const readbackBuffer = device.createBuffer({
+        size: paddedBytesPerRow * height,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    const encoder = device.createCommandEncoder();
+    encoder.copyTextureToBuffer(
+        { texture },
+        { buffer: readbackBuffer, bytesPerRow: paddedBytesPerRow, rowsPerImage: height },
+        [width, height, 1]
+    );
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await readbackBuffer.mapAsync(GPUMapMode.READ);
+    const mapped = new Uint8Array(readbackBuffer.getMappedRange());
+    const bytes = new Uint8Array(bytesPerRow * height);
+    for (let row = 0; row < height; row++) {
+        bytes.set(
+            mapped.subarray(row * paddedBytesPerRow, row * paddedBytesPerRow + bytesPerRow),
+            row * bytesPerRow
+        );
+    }
+    readbackBuffer.unmap();
+    readbackBuffer.destroy();
+    return bytes;
+}
+
 async function saveRawTexture(bytes, metadata) {
     const res = await fetch('/save_raw', {
         method: 'POST',
@@ -45,7 +83,11 @@ async function saveRawTexture(bytes, metadata) {
             width: metadata.width,
             height: metadata.height,
             format: metadata.format,
-            render_time_ms: metadata.render_time_ms
+            render_time_ms: metadata.render_time_ms,
+            cold_render_time_ms: metadata.cold_render_time_ms,
+            warm_render_time_ms: metadata.warm_render_time_ms,
+            manifest: metadata.manifest,
+            manifest_fingerprint: metadata.manifest_fingerprint
         })
     });
     if (!res.ok) throw new Error(`Raw output save failed: ${res.status}`);
@@ -105,6 +147,76 @@ async function runCanonicalParityProbe(gpu) {
     });
     texture.destroy();
     readbackBuffer.destroy();
+}
+
+async function runTC01(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc01_empty.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC01 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const clear = manifest.graph.operations[0].color;
+    const width = target.width;
+    const height = target.height;
+    const manifestFingerprint = fnv1a64(new TextEncoder().encode(manifestText));
+    const texture = device.createTexture({
+        size: [width, height],
+        format: 'rgba8unorm',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+
+    async function executeClear() {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+                view: texture.createView(),
+                clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+                loadOp: 'clear',
+                storeOp: 'store'
+            }]
+        });
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+
+    const coldRenderTimeMs = await executeClear();
+    const warmRenderTimeMs = await executeClear();
+    const bytes = await readTextureBytes(device, texture, width, height);
+    await saveRawTexture(bytes, {
+        name: 'tc01_empty_web',
+        width,
+        height,
+        format: 'Rgba8Unorm',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        manifest: 'tests/shared_assets/manifests/tc01_empty.json',
+        manifest_fingerprint: manifestFingerprint
+    });
+
+    const canvas = document.getElementById('canvas-tc01');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const canvasEncoder = device.createCommandEncoder();
+    const canvasPass = canvasEncoder.beginRenderPass({
+        colorAttachments: [{
+            view: context.getCurrentTexture().createView(),
+            clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+            loadOp: 'clear',
+            storeOp: 'store'
+        }]
+    });
+    canvasPass.end();
+    device.queue.submit([canvasEncoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc01_empty_web.png');
+    document.getElementById('tag-tc01').textContent = 'PASS';
+    document.getElementById('tag-tc01').className = 'tag tag-passed';
+    texture.destroy();
 }
 
 async function fetchShader(name) {
@@ -816,7 +928,8 @@ async function runAllTests() {
         log(`Canonical parity probe FAILED: ${e.message}`, 'error');
     }
 
-    const tests = [
+    const testCatalog = [
+        { name: "TC01: Empty Render", fn: runTC01 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },
@@ -825,6 +938,13 @@ async function runAllTests() {
         { name: "TC104: Extension Dispatch", fn: runTC104 },
         { name: "TC105: PingPong Echo Hybrid", fn: runTC105 }
     ];
+    const requestedCases = new URLSearchParams(window.location.search).get('cases');
+    const requestedNames = requestedCases
+        ? requestedCases.split(',').map(value => value.trim().toUpperCase()).filter(Boolean)
+        : ['TC01'];
+    const tests = testCatalog.filter(test => requestedNames.some(name => test.name.startsWith(`${name}:`)));
+    if (tests.length === 0) throw new Error(`No supported test case selected: ${requestedNames.join(', ')}`);
+    log(`Selected batch: ${tests.map(test => test.name).join(', ')}`);
 
     for (const test of tests) {
         log(`Executing ${test.name}...`);
@@ -840,7 +960,7 @@ async function runAllTests() {
     }
 
     const badge = document.getElementById('overall-status');
-    badge.textContent = "All 7 WebGPU Test Cases PASSED ✅";
+    badge.textContent = `Selected ${tests.length} WebGPU Test Case(s) PASSED ✅`;
     badge.className = "status-badge passed";
     log("=== ALL WEBGPU CROSS-PLATFORM TESTS PASSED ===", 'success');
 }
