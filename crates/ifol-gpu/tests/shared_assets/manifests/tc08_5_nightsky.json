@@ -1,0 +1,125 @@
+{
+  "test_case": "TC08.5",
+  "title": "Directional Moonlight Distribution and Organic Lunar Scene",
+  "title_vi": "Phân bổ ánh trăng định hướng và cảnh đêm hữu cơ",
+  "description": "Render a procedural night sky, stars, moon, four directional-light clouds, and a bloom post-process pass.",
+  "description_vi": "Render sky procedural, 100 sao, mặt trăng, 4 lớp mây có silver lining và một pass post-bloom; graph dùng 2 pass scene → final.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "sampler": { "address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "nearest", "min_filter": "nearest", "mipmap_filter": "nearest" },
+    "targets": [
+      { "id": "scene", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "pipelines": {
+      "sky": { "shader": "sky_composite.wgsl", "blend": "Replace", "layout": "texture_uniform" },
+      "stars": { "shader": "star_particles_sprite.wgsl", "blend": "Additive", "layout": "texture", "has_uniform": false },
+      "moon": { "shader": "moon_surface.wgsl", "blend": "AlphaBlend", "layout": "texture_texture_uniform" },
+      "cloud": { "shader": "cloud_depth.wgsl", "blend": "AlphaBlend", "layout": "texture_uniform" },
+      "post": { "shader": "postprocess_night_bloom.wgsl", "blend": "Replace", "layout": "texture_uniform" }
+    },
+    "passes": [
+      {
+        "id": "scene",
+        "name": "Procedural sky and celestial layers",
+        "target": "scene",
+        "clear_color": [0.005, 0.008, 0.02, 1.0],
+        "operations": [
+          {
+            "id": "sky",
+            "kind": "sky",
+            "pipeline": "sky",
+            "source": [{ "kind": "asset", "asset": "canonical_tc085_noise.png" }],
+            "uniform": { "top_color": [0.008, 0.012, 0.045], "noise_strength": 0.04, "bottom_color": [0.025, 0.065, 0.16], "time": 1.0 },
+            "vertex_count": 6,
+            "instance_count": 1
+          },
+          {
+            "id": "stars",
+            "kind": "stars",
+            "pipeline": "stars",
+            "source": [{ "kind": "asset", "asset": "canonical_tc085_props.png" }],
+            "vertex_count": 6,
+            "instance_count": 100
+          },
+          {
+            "id": "moon",
+            "kind": "moon",
+            "pipeline": "moon",
+            "source": [
+              { "kind": "asset", "asset": "canonical_tc085_props.png" },
+              { "kind": "asset", "asset": "canonical_tc085_noise.png" }
+            ],
+            "uniform": {
+              "model_view": [0.285, 0.0, 0.0, 0.0, 0.0, 0.38, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.38, 0.42, 0.0, 1.0],
+              "uv_min": [0.39, 0.03], "uv_max": [0.52, 0.28], "key_color": [0.0, 1.0, 0.0],
+              "tolerance": 0.48, "smoothness": 0.10, "noise_strength": 0.85, "glow_intensity": 1.05
+            },
+            "vertex_count": 6,
+            "instance_count": 1
+          },
+          {
+            "id": "cloud_1",
+            "kind": "cloud",
+            "pipeline": "cloud",
+            "source": [{ "kind": "asset", "asset": "canonical_tc085_props.png" }],
+            "uniform": { "model_view": [0.315, 0.0, 0.0, 0.0, 0.0, 0.28, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.12, 0.20, 0.0, 1.0], "uv_bounds": [0.70, 0.34, 0.97, 0.54], "key_color_tol": [0.0, 1.0, 0.0, 0.48], "params": [0.10, 0.75, 0.88, 0.95], "lighting_pos": [-0.38, 0.42, -0.12, 0.20] },
+            "vertex_count": 6,
+            "instance_count": 1
+          },
+          {
+            "id": "cloud_2",
+            "kind": "cloud",
+            "pipeline": "cloud",
+            "source": [{ "kind": "asset", "asset": "canonical_tc085_props.png" }],
+            "uniform": { "model_view": [0.3709091, 0.0, 0.0, 0.0, 0.0, 0.32, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.38, 0.12, 0.0, 1.0], "uv_bounds": [0.38, 0.34, 0.67, 0.54], "key_color_tol": [0.0, 1.0, 0.0, 0.48], "params": [0.10, 0.45, 0.92, 0.75], "lighting_pos": [-0.38, 0.42, 0.38, 0.12] },
+            "vertex_count": 6,
+            "instance_count": 1
+          },
+          {
+            "id": "cloud_3",
+            "kind": "cloud",
+            "pipeline": "cloud",
+            "source": [{ "kind": "asset", "asset": "canonical_tc085_props.png" }],
+            "uniform": { "model_view": [0.405, 0.0, 0.0, 0.0, 0.0, 0.36, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.42, -0.26, 0.0, 1.0], "uv_bounds": [0.69, 0.03, 0.97, 0.25], "key_color_tol": [0.0, 1.0, 0.0, 0.48], "params": [0.10, 0.30, 0.94, 0.55], "lighting_pos": [-0.38, 0.42, -0.42, -0.26] },
+            "vertex_count": 6,
+            "instance_count": 1
+          },
+          {
+            "id": "cloud_4",
+            "kind": "cloud",
+            "pipeline": "cloud",
+            "source": [{ "kind": "asset", "asset": "canonical_tc085_props.png" }],
+            "uniform": { "model_view": [0.4932692, 0.0, 0.0, 0.0, 0.0, 0.45, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.22, -0.50, 0.0, 1.0], "uv_bounds": [0.02, 0.72, 0.36, 0.98], "key_color_tol": [0.0, 1.0, 0.0, 0.48], "params": [0.10, 0.08, 0.98, 0.40], "lighting_pos": [-0.38, 0.42, 0.22, -0.50] },
+            "vertex_count": 6,
+            "instance_count": 1
+          }
+        ]
+      },
+      {
+        "id": "final",
+        "name": "Celestial bloom post-process",
+        "target": "final",
+        "clear_color": [0.0, 0.0, 0.0, 1.0],
+        "operations": [
+          {
+            "id": "post",
+            "kind": "postprocess",
+            "pipeline": "post",
+            "source": [{ "kind": "target", "target": "scene" }],
+            "uniform": { "bloom_intensity": 1.10, "exposure": 1.0, "contrast": 1.05 },
+            "vertex_count": 6,
+            "instance_count": 1
+          }
+        ]
+      }
+    ],
+    "command_count": 8,
+    "node_count": 2
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_passes": 2,
+    "visual_check": "Mặt trăng ở upper-left là nguồn sáng chính; có silver lining trên 4 lớp mây, phía khuất tối hơn, sky có sao và post-bloom mềm; không crash hoặc mất pass."
+  }
+}

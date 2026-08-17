@@ -1,7 +1,10 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -45,37 +48,79 @@ struct PostProcessUniform {
     _pad: f32,
 }
 
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn address_mode(value: &str) -> wgpu::AddressMode {
+    match value {
+        "repeat" => wgpu::AddressMode::Repeat,
+        "mirror-repeat" => wgpu::AddressMode::MirrorRepeat,
+        "clamp-to-edge" => wgpu::AddressMode::ClampToEdge,
+        other => panic!("Unsupported TC08.5 sampler address mode: {other}"),
+    }
+}
+
+fn filter_mode(value: &str) -> wgpu::FilterMode {
+    match value {
+        "nearest" => wgpu::FilterMode::Nearest,
+        "linear" => wgpu::FilterMode::Linear,
+        other => panic!("Unsupported TC08.5 sampler filter mode: {other}"),
+    }
+}
+
+fn mipmap_filter_mode(value: &str) -> wgpu::MipmapFilterMode {
+    match value {
+        "nearest" => wgpu::MipmapFilterMode::Nearest,
+        "linear" => wgpu::MipmapFilterMode::Linear,
+        other => panic!("Unsupported TC08.5 sampler mipmap filter mode: {other}"),
+    }
+}
+
 #[test]
 fn run_tc08_5_nightsky() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
+        let manifest_text = include_str!("../shared_assets/manifests/tc08_5_nightsky.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC08.5 manifest");
+        let graph_spec = &manifest["graph"];
+        assert_eq!(graph_spec["passes"].as_array().unwrap().len(), 2);
+        assert_eq!(graph_spec["command_count"], 8);
         let mut h = DesktopTestHarness::new(800, 600).await;
+        let sampler_spec = &graph_spec["sampler"];
+        h.sampler = h.engine.device().create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: address_mode(sampler_spec["address_mode_u"].as_str().unwrap()),
+            address_mode_v: address_mode(sampler_spec["address_mode_v"].as_str().unwrap()),
+            address_mode_w: address_mode(sampler_spec["address_mode_w"].as_str().unwrap()),
+            mag_filter: filter_mode(sampler_spec["mag_filter"].as_str().unwrap()),
+            min_filter: filter_mode(sampler_spec["min_filter"].as_str().unwrap()),
+            mipmap_filter: mipmap_filter_mode(sampler_spec["mipmap_filter"].as_str().unwrap()),
+            ..Default::default()
+        });
 
-        // 1. Load Assets (Noise Texture & Props Sheet ONLY - Zero full image!)
-        let tex_noise = h.load_texture("noise_perlin.jpeg");
-        let tex_props = h.load_texture("bg_nightsky_props.jpeg");
+        let tex_noise = h.load_texture("canonical_tc085_noise.png");
+        let tex_props = h.load_texture("canonical_tc085_props.png");
 
-        // 2. Pure Procedural Sky Uniform: Deep cosmic midnight palette
-        let sky_uniform = SkyUniform {
+        let sky_uni_bg = h.create_custom_uniform_bind_group(SkyUniform {
             top_color: [0.008, 0.012, 0.045],
             noise_strength: 0.04,
             bottom_color: [0.025, 0.065, 0.16],
             time: 1.0,
-        };
-        let sky_uni_bg = h.create_custom_uniform_bind_group(sky_uniform, "Sky Procedural Uniform");
-
-        // 3. Post-Processing Uniform Buffer (Radiant Celestial Bloom)
-        let post_uniform = PostProcessUniform {
+        }, "TC08.5 Sky Uniform");
+        let post_uni_bg = h.create_custom_uniform_bind_group(PostProcessUniform {
             bloom_intensity: 1.10,
             exposure: 1.0,
             contrast: 1.05,
             _pad: 0.0,
-        };
-        let post_uni_bg = h.create_custom_uniform_bind_group(post_uniform, "Post Uniform");
+        }, "TC08.5 Post Uniform");
 
-        // 4. Register Pipelines
-        let pipe_sky = h.register_pipeline("sky_composite.wgsl", Some(wgpu::BlendState::REPLACE), false, true);
+        let pipe_sky = h.register_sky_pipeline();
         let pipe_moon = h.register_moon_pipeline();
         let pipe_cloud = h.register_pipeline("cloud_depth.wgsl", Some(wgpu::BlendState::ALPHA_BLENDING), false, true);
         let pipe_stars = h.register_pipeline(
@@ -93,17 +138,8 @@ fn run_tc08_5_nightsky() {
         );
         let pipe_post = h.register_pipeline("postprocess_night_bloom.wgsl", Some(wgpu::BlendState::REPLACE), false, true);
 
-        // 5. Full Moon - Primary Celestial Light Source (Position: [-0.38, 0.42])
-        let moon_pos = [-0.38, 0.42];
-        let moon_scale_y = 0.38;
-        let moon_scale_x = moon_scale_y * (600.0 / 800.0);
-        let moon_uni = MoonUniform {
-            model_view: [
-                moon_scale_x, 0.0, 0.0, 0.0,
-                0.0, moon_scale_y, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                moon_pos[0], moon_pos[1], 0.0, 1.0,
-            ],
+        let moon_uni = h.create_custom_uniform_bind_group(MoonUniform {
+            model_view: [0.285, 0.0, 0.0, 0.0, 0.0, 0.38, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.38, 0.42, 0.0, 1.0],
             uv_min: [0.39, 0.03],
             uv_max: [0.52, 0.28],
             key_color: [0.0, 1.0, 0.0],
@@ -112,177 +148,78 @@ fn run_tc08_5_nightsky() {
             noise_strength: 0.85,
             glow_intensity: 1.05,
             _pad: 0.0,
+        }, "TC08.5 Moon Uniform");
+
+        let cloud_uniform = |h: &mut DesktopTestHarness<'_>, model_view, uv_bounds, params, lighting_pos, label| {
+            h.create_custom_uniform_bind_group(CloudUniform {
+                model_view,
+                uv_bounds,
+                key_color_tol: [0.0, 1.0, 0.0, 0.48],
+                params,
+                lighting_pos,
+            }, label)
         };
-        let bg_moon = h.create_custom_uniform_bind_group(moon_uni, "Moon Surface Uniform");
+        let cloud1 = cloud_uniform(&mut h, [0.315, 0.0, 0.0, 0.0, 0.0, 0.28, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.12, 0.20, 0.0, 1.0], [0.70, 0.34, 0.97, 0.54], [0.10, 0.75, 0.88, 0.95], [-0.38, 0.42, -0.12, 0.20], "TC08.5 Cloud 1");
+        let cloud2 = cloud_uniform(&mut h, [0.3709091, 0.0, 0.0, 0.0, 0.0, 0.32, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.38, 0.12, 0.0, 1.0], [0.38, 0.34, 0.67, 0.54], [0.10, 0.45, 0.92, 0.75], [-0.38, 0.42, 0.38, 0.12], "TC08.5 Cloud 2");
+        let cloud3 = cloud_uniform(&mut h, [0.405, 0.0, 0.0, 0.0, 0.0, 0.36, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.42, -0.26, 0.0, 1.0], [0.69, 0.03, 0.97, 0.25], [0.10, 0.30, 0.94, 0.55], [-0.38, 0.42, -0.42, -0.26], "TC08.5 Cloud 3");
+        let cloud4 = cloud_uniform(&mut h, [0.4932692, 0.0, 0.0, 0.0, 0.0, 0.45, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.22, -0.50, 0.0, 1.0], [0.02, 0.72, 0.36, 0.98], [0.10, 0.08, 0.98, 0.40], [-0.38, 0.42, 0.22, -0.50], "TC08.5 Cloud 4");
 
-        // 6. Multi-Layer Depth Clouds with Directional Moonlight Silver Lining
-        // Cloud 1: Wispy Cloud drifting near Full Moon (High silver rim & proximity glow)
-        let c1_center = [-0.12, 0.20];
-        let c1_scale_y = 0.28;
-        let c1_scale_x = c1_scale_y * (600.0 / 800.0) * (330.0 / 220.0);
-        let cloud1_uni = CloudUniform {
-            model_view: [
-                c1_scale_x, 0.0, 0.0, 0.0,
-                0.0, c1_scale_y, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                c1_center[0], c1_center[1], 0.0, 1.0,
-            ],
-            uv_bounds: [0.70, 0.34, 0.97, 0.54],
-            key_color_tol: [0.0, 1.0, 0.0, 0.48],
-            params: [0.10, 0.75, 0.88, 0.95], // smoothness, depth_softness, opacity, silver_rim
-            lighting_pos: [moon_pos[0], moon_pos[1], c1_center[0], c1_center[1]],
+        let (scene_target_id, _) = h.create_target("TC08.5 Scene Target");
+        let scene_view = h.create_texture_bind_group(scene_target_id, "TC08.5 Scene View");
+        let (final_target_id, final_target_tex) = h.create_target("TC08.5 Final Target");
+        let mut scene_graph = RenderGraph::new(RenderTarget::Offscreen { color: scene_target_id, width: 800, height: 600 })
+            .with_clear_color([0.005, 0.008, 0.02, 1.0]);
+        scene_graph.add_batch(&mut h.pool, vec![
+            DrawCommand::new(pipe_sky, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, tex_noise.bind_group, Vec::new()).with_bind_group(1, sky_uni_bg, Vec::new()),
+            DrawCommand::new(pipe_stars, DrawAction::Procedural { vertex_count: 6, instance_range: 0..100 }).with_bind_group(0, tex_props.bind_group, Vec::new()),
+            DrawCommand::new(pipe_moon, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, tex_props.bind_group, Vec::new()).with_bind_group(1, tex_noise.bind_group, Vec::new()).with_bind_group(2, moon_uni, Vec::new()),
+            DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, tex_props.bind_group, Vec::new()).with_bind_group(1, cloud1, Vec::new()),
+            DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, tex_props.bind_group, Vec::new()).with_bind_group(1, cloud2, Vec::new()),
+            DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, tex_props.bind_group, Vec::new()).with_bind_group(1, cloud3, Vec::new()),
+            DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, tex_props.bind_group, Vec::new()).with_bind_group(1, cloud4, Vec::new()),
+        ]);
+        let mut final_graph = RenderGraph::new(RenderTarget::Offscreen { color: final_target_id, width: 800, height: 600 })
+            .with_clear_color([0.0, 0.0, 0.0, 1.0]);
+        final_graph.add_batch(&mut h.pool, vec![
+            DrawCommand::new(pipe_post, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, scene_view, Vec::new()).with_bind_group(1, post_uni_bg, Vec::new()),
+        ]);
+
+        let execute_pair = |h: &mut DesktopTestHarness<'_>, scene: &RenderGraph, final_graph: &RenderGraph| {
+            let scene_submission = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, scene).expect("TC08.5 scene execution failed");
+            let _ = h.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(scene_submission), timeout: None });
+            let final_submission = h.executor.execute_checked(&h.engine, &h.registry, &mut h.pool, final_graph).expect("TC08.5 final execution failed");
+            let _ = h.engine.device().poll(wgpu::PollType::Wait { submission_index: Some(final_submission), timeout: None });
         };
-        let bg_cloud1 = h.create_custom_uniform_bind_group(cloud1_uni, "Cloud 1 Wispy");
+        let cold_start = Instant::now();
+        execute_pair(&mut h, &scene_graph, &final_graph);
+        let cold_render_time = cold_start.elapsed();
+        let warm_start = Instant::now();
+        execute_pair(&mut h, &scene_graph, &final_graph);
+        let warm_render_time = warm_start.elapsed();
 
-        // Cloud 2: Midground Cyan Glowing Cloud (Floating mid-right)
-        let c2_center = [0.38, 0.12];
-        let c2_scale_y = 0.32;
-        let c2_scale_x = c2_scale_y * (600.0 / 800.0) * (340.0 / 220.0);
-        let cloud2_uni = CloudUniform {
-            model_view: [
-                c2_scale_x, 0.0, 0.0, 0.0,
-                0.0, c2_scale_y, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                c2_center[0], c2_center[1], 0.0, 1.0,
-            ],
-            uv_bounds: [0.38, 0.34, 0.67, 0.54],
-            key_color_tol: [0.0, 1.0, 0.0, 0.48],
-            params: [0.10, 0.45, 0.92, 0.75],
-            lighting_pos: [moon_pos[0], moon_pos[1], c2_center[0], c2_center[1]],
-        };
-        let bg_cloud2 = h.create_custom_uniform_bind_group(cloud2_uni, "Cloud 2 Cyan");
-
-        // Cloud 3: Mid-Horizon Dark Blue Cloud
-        let c3_center = [-0.42, -0.26];
-        let c3_scale_y = 0.36;
-        let c3_scale_x = c3_scale_y * (600.0 / 800.0) * (330.0 / 220.0);
-        let cloud3_uni = CloudUniform {
-            model_view: [
-                c3_scale_x, 0.0, 0.0, 0.0,
-                0.0, c3_scale_y, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                c3_center[0], c3_center[1], 0.0, 1.0,
-            ],
-            uv_bounds: [0.69, 0.03, 0.97, 0.25],
-            key_color_tol: [0.0, 1.0, 0.0, 0.48],
-            params: [0.10, 0.30, 0.94, 0.55],
-            lighting_pos: [moon_pos[0], moon_pos[1], c3_center[0], c3_center[1]],
-        };
-        let bg_cloud3 = h.create_custom_uniform_bind_group(cloud3_uni, "Cloud 3 Dark");
-
-        // Cloud 4: Foreground Fluffy Cumulus Cloud
-        let c4_center = [0.22, -0.50];
-        let c4_scale_y = 0.45;
-        let c4_scale_x = c4_scale_y * (600.0 / 800.0) * (380.0 / 260.0);
-        let cloud4_uni = CloudUniform {
-            model_view: [
-                c4_scale_x, 0.0, 0.0, 0.0,
-                0.0, c4_scale_y, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                c4_center[0], c4_center[1], 0.0, 1.0,
-            ],
-            uv_bounds: [0.02, 0.72, 0.36, 0.98],
-            key_color_tol: [0.0, 1.0, 0.0, 0.48],
-            params: [0.10, 0.08, 0.98, 0.40],
-            lighting_pos: [moon_pos[0], moon_pos[1], c4_center[0], c4_center[1]],
-        };
-        let bg_cloud4 = h.create_custom_uniform_bind_group(cloud4_uni, "Cloud 4 Cumulus");
-
-        // 7. Intermediate & Final Targets
-        let (scene_target_id, _) = h.create_target("Pass 1 Scene Intermediate");
-        let bg_scene_view = h.create_texture_bind_group(scene_target_id, "Scene View");
-        let (final_target_id, final_target_tex) = h.create_target("Pass 2 Final Output");
-
-        // PASS 1: Compose Scene with Directional Moonlight Distribution
-        let mut graph_scene = RenderGraph::new(RenderTarget::Offscreen {
-            color: scene_target_id,
-            width: 800,
-            height: 600,
-        })
-        .with_clear_color([0.005, 0.008, 0.02, 1.0]);
-
-        graph_scene.add_batch(
-            &mut h.pool,
-            vec![
-                // 1. Procedural Gradient Sky + Repeating Perlin Noise
-                DrawCommand::new(pipe_sky, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_noise.bind_group, Vec::new())
-                    .with_bind_group(1, sky_uni_bg, Vec::new()),
-
-                // 2. 100 Multi-Tiered Stars (Micro, Mid, Radiant Cross)
-                DrawCommand::new(pipe_stars, DrawAction::Procedural { vertex_count: 6, instance_range: 0..100 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new()),
-                
-                // 3. Radiant Full Moon - Primary Light Source
-                DrawCommand::new(pipe_moon, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new())
-                    .with_bind_group(1, tex_noise.bind_group, Vec::new())
-                    .with_bind_group(2, bg_moon, Vec::new()),
-
-                // 4. Clouds with Directional Moonlight Silver Lining & Ambient Shadow
-                DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new())
-                    .with_bind_group(1, bg_cloud1, Vec::new()),
-                DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new())
-                    .with_bind_group(1, bg_cloud2, Vec::new()),
-                DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new())
-                    .with_bind_group(1, bg_cloud3, Vec::new()),
-                DrawCommand::new(pipe_cloud, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_props.bind_group, Vec::new())
-                    .with_bind_group(1, bg_cloud4, Vec::new()),
-            ],
-        );
-
-        // PASS 2: Fullscreen Post-Processing (Multi-Radius Celestial Bloom)
-        let mut graph_final = RenderGraph::new(RenderTarget::Offscreen {
-            color: final_target_id,
-            width: 800,
-            height: 600,
-        })
-        .with_clear_color([0.0, 0.0, 0.0, 1.0]);
-
-        graph_final.add_batch(
-            &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_post, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, bg_scene_view, Vec::new())
-                    .with_bind_group(1, post_uni_bg, Vec::new()),
-            ],
-        );
-
-        // 8. Execute Both Passes
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_scene).expect("Pass 1 failed");
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Pass 2 failed");
-
-        // 9. Serialize Graph JSON
-        let graph_json = serde_json::json!({
-            "test_case": "TC08.5 - Directional Moonlight Distribution & Organic Lunar Scene",
-            "primary_light_source": {
-                "type": "Emissive Full Moon",
-                "position": [-0.38, 0.42],
-                "shading": "3D Emissive Sphere with Domain-Warped Maria"
-            },
-            "illuminated_entities": [
-                "Wispy Cloud (Silver Lining facing Moon at upper-left)",
-                "Cyan Glowing Cloud (Silver Highlight on top-left edge)",
-                "Dark Horizon Cloud (Shadowed right side, lit top-left)",
-                "Cumulus Foreground Cloud (Ambient moonlight falloff)"
-            ],
-            "target": "Offscreen 800x600"
+        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+        h.save_texture_to_file_checked(&final_target_tex, format, "tests/outputs/desktop/tc08_5_nightsky.png").expect("Failed to save TC08.5 output");
+        let raw = h.engine.read_texture_to_raw_with_format_checked(&final_target_tex, format).expect("Failed to read TC08.5 raw output");
+        fs::create_dir_all("tests/outputs/desktop").unwrap();
+        fs::write("tests/outputs/desktop/tc08_5_nightsky_desktop.bin", &raw.bytes).unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC08.5",
+            "manifest": "tests/shared_assets/manifests/tc08_5_nightsky.json",
+            "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "width": raw.width,
+            "height": raw.height,
+            "format": format!("{format:?}"),
+            "adapter_name": h.engine.adapter_info().name,
+            "backend": format!("{:?}", h.engine.adapter_info().backend),
+            "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "execute_checked của 2 pass scene → final + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "pass_count": 2,
+            "node_count": 2,
+            "draw_commands": 8,
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "cold_render_time_ms": cold_render_time.as_secs_f64() * 1000.0,
+            "warm_render_time_ms": warm_render_time.as_secs_f64() * 1000.0
         });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc08_5_nightsky.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        // 10. Record Final Image & Report
-        h.execute_and_record(
-            &graph_final,
-            &final_target_tex,
-            "tc08_5_nightsky",
-            "Directional Moonlight Distribution & Organic Lunar Scene",
-            "Khung cảnh với Mặt trăng là nguồn sáng chủ đạo: Ánh sáng bạc tỏa rọi trực tiếp lên các viền mây hướng về phía trăng (Silver Lining), phần thân mây quay lưng đổ bóng tối, tạo sự phân bổ ánh sáng chuẩn xác và nghệ thuật.",
-            "Tích hợp mô hình chiếu sáng định hướng Moonlight Vector Shading, kết hợp Moon Surface Maria và Bloom Pass. Hoàn thành xuất sắc toàn bộ yêu cầu về phân bổ nguồn sáng.",
-        );
+        fs::write("tests/outputs/desktop/tc08_5_nightsky_desktop.json", serde_json::to_vec_pretty(&metadata).unwrap()).unwrap();
     });
 }

@@ -119,6 +119,9 @@ thay đổi boundary của core.
 - TC08: một node với 2 draw command và 10.000 procedural instances, vision/
   structural và raw parity tuyệt đối với background canonical và sampler
   `nearest`.
+- TC08.5: cảnh đêm 2 pass `scene → final`, mặt trăng, 4 lớp mây, sao và bloom;
+  vision/structural parity đạt, raw còn khác 1 byte ở 1 pixel với sai số kênh
+  tối đa `1/255`, nên kết luận là `ĐẠT CÓ ĐIỀU KIỆN`.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

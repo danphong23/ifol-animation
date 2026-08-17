@@ -56,6 +56,12 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
   - SubGraph 2: `10,000 Nodes` trong Arena, mỗi Node chứa `1 DrawCommand`.
 - **Kỳ vọng:** Đo lường Overhead của việc look-up Arena. Thời gian compile của SubGraph 2 phải nằm trong mức cho phép (Dưới 5ms).
 
+### TC08.5 - Directional Moonlight Scene
+- **Mục tiêu:** Kiểm thử graph hai pass, nhiều pipeline, sampler/texture contract và post-process bloom trên Desktop/WebGPU.
+- **Manifest dùng chung:** `shared_assets/manifests/tc08_5_nightsky.json`.
+- **Kịch bản:** `scene` gồm sky procedural, 100 sao, mặt trăng và 4 lớp mây; `final` áp dụng bloom/tone mapping.
+- **Kỳ vọng:** Hai môi trường dùng cùng fingerprint graph và có cùng bố cục/layer; report phải ghi raw hash, diff và cold/warm timing riêng.
+
 ### TC09 - Pipeline Caching & Bundle Reuse
 - **Mục tiêu:** Tính năng tối ưu cốt lõi của Engine (RenderBundle).
 - **Kịch bản:** Chạy 1 Graph cực nặng (10,000 Nodes Procedural). Frame 1: Đo Compile Time. Frame 2: Không sửa gì, đo Compile Time.

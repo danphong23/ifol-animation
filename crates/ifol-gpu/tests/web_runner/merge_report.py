@@ -137,8 +137,10 @@ def main() -> None:
         if operation.get("asset"):
             asset_names_set.add(operation["asset"])
         source = operation.get("source", {})
-        if source.get("asset"):
-            asset_names_set.add(source["asset"])
+        source_specs = source if isinstance(source, list) else [source]
+        for source_spec in source_specs:
+            if source_spec.get("asset"):
+                asset_names_set.add(source_spec["asset"])
     asset_names = sorted(asset_names_set)
     pipeline_specs = graph_spec.get("pipelines", {})
     single_pipeline_shader = graph_spec.get("pipeline", {}).get("shader")

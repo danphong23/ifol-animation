@@ -130,6 +130,7 @@ class WebGpuTestHandler(http.server.SimpleHTTPRequestHandler):
                         'node_count': payload.get('node_count'),
                         'draw_commands': payload.get('draw_commands'),
                         'instance_count': payload.get('instance_count'),
+                        'pass_count': payload.get('pass_count'),
                         'byte_length': len(raw_bytes),
                         'sha256': hashlib.sha256(raw_bytes).hexdigest(),
                     }, f, indent=2)

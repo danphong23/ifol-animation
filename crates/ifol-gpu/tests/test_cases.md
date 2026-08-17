@@ -52,6 +52,13 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kịch bản:** Một node chứa background blit và một draw command procedural với 10.000 instance hạt bụi màu vàng, cyan và trắng bằng hash trong shader.
 - **Kỳ vọng hình ảnh xuất ra:** Màn hình lấm tấm 10,000 điểm trắng/vuông nhỏ phân bố giả ngẫu nhiên.
 
+### TC08.5 - Directional Moonlight Scene
+- **Mục tiêu:** Kiểm thử graph nhiều pipeline, texture/sampler contract, ánh sáng định hướng và post-process giữa Desktop/WebGPU.
+- **Manifest dùng chung:** `shared_assets/manifests/tc08_5_nightsky.json`.
+- **Kịch bản:** Pass `scene` vẽ sky procedural, 100 sao, mặt trăng và 4 lớp mây; pass `final` đọc scene để thực hiện bloom/tone mapping.
+- **Kỳ vọng hình ảnh xuất ra:** Mặt trăng ở góc trên trái, sao phân bố trên nền trời đêm, bốn lớp mây có silver lining theo hướng mặt trăng và không có artifact rõ ràng.
+- **Kết quả parity hiện tại:** Vision/structural đạt; raw khác 1 byte ở 1 pixel với sai số tối đa `1/255`, xem `reports/tc08_5_nightsky_report.md`.
+
 ### TC09 - Pipeline Caching & Bundle Reuse
 - **Mục tiêu:** Tính năng tối ưu cốt lõi của Engine (RenderBundle).
 - **Kịch bản:** Chạy lại Graph TC08 hai lần.

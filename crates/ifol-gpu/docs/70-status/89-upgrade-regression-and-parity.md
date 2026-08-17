@@ -72,6 +72,8 @@ Các report canonical hiện tại:
   flatten order và raw parity đạt tuyệt đối với canonical crop/sampler contract.
 - [TC08](../../tests/reports/tc08_massive_report.md): 2 draw command, 10.000
   procedural instances và raw parity đạt tuyệt đối với background canonical.
+- [TC08.5](../../tests/reports/tc08_5_nightsky_report.md): vision/structural
+  parity đạt; raw còn khác 1 byte ở 1 pixel, sai số kênh tối đa `1/255`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

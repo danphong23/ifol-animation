@@ -197,9 +197,9 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - quyết định boundary đã chốt: decoder, canonical asset bytes, color/alpha
   policy, media encoder và file output đều do tầng ngoài quản lý; không thêm
   API decode/encode hoặc nhánh PNG/JPEG/WebP/video vào `ifol-gpu`;
-- TC01, TC04, TC05, TC06, TC07 và TC08 đã đạt raw parity tuyệt đối; TC02 và TC03 đạt
-  vision/structural/depth parity nhưng raw pixel parity còn có sai khác màu/alpha
-  có điều kiện. Xem
+- TC01, TC04, TC05, TC06, TC07 và TC08 đã đạt raw parity tuyệt đối; TC02 và
+  TC03 đạt vision/structural/depth parity, còn TC08.5 đạt vision/structural
+  parity. Các case có điều kiện vì raw pixel parity còn sai khác màu/alpha. Xem
   [chính sách parity](../00-foundation/19-cross-platform-parity-testing-policy.md)
   và các report TC tương ứng trong `tests/reports/`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
