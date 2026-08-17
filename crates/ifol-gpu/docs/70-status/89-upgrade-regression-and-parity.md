@@ -103,6 +103,11 @@ Các report canonical hiện tại:
   shadow với layer trong suốt, sky và 5 draw instances; vision/structural,
   validation và cache parity đạt, raw còn khác 1 byte ở 1 pixel với sai số tối
   đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`.
+- [TC18](../../tests/reports/tc18_transition_report.md): ba pass render hai cảnh
+  rồi chuyển cảnh dual-texture glitch với 5 draw instances; vision/structural,
+  validation và cache parity đạt, integer hash giúp loại bỏ sai khác block lớn
+  giữa backend, raw còn khác 1 byte ở 1 pixel với sai số tối đa `1/255`, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

@@ -116,10 +116,10 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kịch bản:** Pass đầu render paladin, mage và rương vào layer trong suốt; pass sau render sky rồi áp dụng shader dò biên 8 hướng để tạo viền trắng và bóng đổ đen.
 - **Kỳ vọng:** Ba sprite rõ ràng trên nền sky tím/magenta, viền trắng và bóng đổ đúng mô tả.
 
-### TC18 - Color Grading
-- **Mục tiêu:** Post-processing Pipeline.
-- **Kịch bản:** Nhận ảnh đầu vào, shader chỉnh sửa Brightness +20%, Contrast +1.5, Saturation (Desaturated/Trắng đen).
-- **Kỳ vọng:** Màu sắc chính xác như mong muốn.
+### TC18 - Video Transition Effects (Glitch)
+- **Mục tiêu:** Kiểm thử pipeline dual-texture đọc đồng thời hai cảnh đầu vào và tạo chuyển cảnh glitch xác định.
+- **Kịch bản:** Render cảnh A (sky tím + paladin) và cảnh B (sky xanh + mage) vào hai target offscreen; pass thứ ba ghép chúng với progress `0.5`, block shift và RGB split.
+- **Kỳ vọng:** Kết quả chuyển cảnh glitch giữa hai cảnh, có biến dạng block và quang sai RGB; không có black output hoặc validation error.
 
 ### TC19 - Dynamic State Change
 - **Mục tiêu:** Thử nghiệm thay đổi Pipeline liên tục.

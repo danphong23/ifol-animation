@@ -1,0 +1,118 @@
+{
+  "test_case": "TC18",
+  "title": "Video Transition Effects (Glitch)",
+  "title_vi": "Hiệu ứng chuyển cảnh video Glitch",
+  "description": "Render two canonical scenes and combine them with a deterministic dual-texture glitch transition at 50% progress.",
+  "description_vi": "Render hai cảnh canonical rồi ghép bằng hiệu ứng chuyển cảnh glitch dual-texture xác định ở progress 50%.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "scene_a", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "scene_b", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": {
+      "address_mode_u": "repeat",
+      "address_mode_v": "repeat",
+      "address_mode_w": "repeat",
+      "mag_filter": "linear",
+      "min_filter": "linear",
+      "mipmap_filter": "linear"
+    },
+    "pipelines": {
+      "sky": { "shader": "sky_composite.wgsl", "blend": "Replace", "layout": "texture_uniform" },
+      "chroma": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlend", "layout": "texture_uniform" },
+      "transition": { "shader": "transition.wgsl", "blend": "AlphaBlend", "layout": "dual_texture_uniform" }
+    },
+    "operations": [
+      {
+        "id": "sky_a",
+        "kind": "sky",
+        "pass": "scene_a",
+        "pipeline": "sky",
+        "shader": "sky_composite.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_tc085_noise.png" }],
+        "uniform": { "top_color": [0.15, 0.08, 0.25], "noise_strength": 0.02, "bottom_color": [0.4, 0.15, 0.3], "time": 1.0 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "paladin_a",
+        "kind": "chroma_sprite",
+        "pass": "scene_a",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "asset": "canonical_sprites_heroes.png",
+        "position": [0.0, 0.0],
+        "target_height_scale": 0.80,
+        "crop_uv": [0.005, 0.01, 0.28, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "sky_b",
+        "kind": "sky",
+        "pass": "scene_b",
+        "pipeline": "sky",
+        "shader": "sky_composite.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_tc085_noise.png" }],
+        "uniform": { "top_color": [0.05, 0.1, 0.2], "noise_strength": 0.05, "bottom_color": [0.2, 0.4, 0.6], "time": 2.0 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "mage_b",
+        "kind": "chroma_sprite",
+        "pass": "scene_b",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "asset": "canonical_sprites_heroes.png",
+        "position": [0.0, 0.0],
+        "target_height_scale": 0.80,
+        "crop_uv": [0.27, 0.01, 0.54, 0.98],
+        "key_color": [0.0, 1.0, 0.0],
+        "tolerance": 0.48,
+        "smoothness": 0.10,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "glitch_transition",
+        "kind": "dual_texture_postprocess",
+        "pass": "transition",
+        "pipeline": "transition",
+        "shader": "transition.wgsl",
+        "source": [
+          { "kind": "target", "target": "scene_a" },
+          { "kind": "target", "target": "scene_b" }
+        ],
+        "uniform": { "progress": 0.5, "effect_type": 1.0, "direction_x": 1.0, "direction_y": 0.0 },
+        "vertex_count": 6,
+        "instance_count": 1
+      }
+    ],
+    "passes": [
+      { "id": "scene_a", "name": "Purple scene A", "target": "scene_a", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "scene_b", "name": "Blue scene B", "target": "scene_b", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "transition", "name": "Glitch transition A to B", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "clear_color": [0.0, 0.0, 0.0, 1.0],
+    "command_count": 5,
+    "node_count": 3
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["scene_a", "scene_b", "transition"],
+    "expected_instance_count": 5,
+    "visual_check": "Ảnh kết quả phải là chuyển cảnh glitch ở progress 50%, có block shift và RGB split giữa paladin/cảnh tím và mage/cảnh xanh; không được là ảnh đen toàn phần, không có validation error hoặc panic."
+  }
+}

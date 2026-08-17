@@ -2725,6 +2725,250 @@ async function runTC17(gpu) {
     for (const buffer of uniformBuffers) buffer.destroy();
 }
 
+async function runTC18(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc18_transition.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC18 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const passes = manifest.graph.passes;
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const dualTextureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const shaderModules = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaderModules[spec.shader]) {
+            shaderModules[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+            const info = await shaderModules[spec.shader].getCompilationInfo();
+            const errors = info.messages.filter(message => message.type === 'error');
+            if (errors.length) throw new Error(`TC18 shader ${spec.shader}: ${errors.map(message => message.message).join('; ')}`);
+        }
+    }
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    function blendState(name) {
+        if (name === 'Replace') return undefined;
+        if (name === 'AlphaBlend') return {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        };
+        throw new Error(`Unsupported TC18 blend mode: ${name}`);
+    }
+    function pipelineLayouts(spec) {
+        if (spec.layout === 'texture_uniform') return [textureLayout, uniformLayout];
+        if (spec.layout === 'dual_texture_uniform') return [dualTextureLayout, uniformLayout];
+        throw new Error(`Unsupported TC18 pipeline layout: ${spec.layout}`);
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            result[name] = device.createRenderPipeline({
+                layout: device.createPipelineLayout({ bindGroupLayouts: pipelineLayouts(spec) }),
+                vertex: { module: shaderModules[spec.shader], entryPoint: 'vs_main' },
+                fragment: {
+                    module: shaderModules[spec.shader],
+                    entryPoint: 'fs_main',
+                    targets: [{ format, blend: blendState(spec.blend) }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+        return result;
+    }
+    function createNoUniformPipeline(shaderModule, format) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }),
+            vertex: { module: shaderModule, entryPoint: 'vs_main' },
+            fragment: { module: shaderModule, entryPoint: 'fs_main', targets: [{ format }] },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const assetNames = [...new Set(operations.flatMap(operation => (operation.source || [])
+        .filter(source => source.kind === 'asset').map(source => source.asset)))];
+    const assets = {};
+    for (const asset of assetNames) {
+        const image = await loadImageTexture(device, asset);
+        assets[asset] = {
+            image,
+            bindGroup: device.createBindGroup({
+                layout: textureLayout,
+                entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+            })
+        };
+    }
+    const textures = {};
+    for (const spec of manifest.graph.targets) {
+        textures[spec.id] = device.createTexture({
+            size: [spec.width, spec.height],
+            format: 'rgba8unorm-srgb',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+        });
+    }
+    const uniformBuffers = [];
+    function createUniform(values, minimumSize = 0) {
+        const data = new Float32Array(values);
+        const buffer = device.createBuffer({
+            size: Math.max(data.byteLength, minimumSize),
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        device.queue.writeBuffer(buffer, 0, data);
+        uniformBuffers.push(buffer);
+        return device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer } }] });
+    }
+    function assetImage(operation) {
+        return assets[operation.asset].image;
+    }
+    function uniformData(operation) {
+        const u = operation.uniform;
+        if (operation.kind === 'sky') {
+            return { values: [...u.top_color, u.noise_strength, ...u.bottom_color, u.time], minimumSize: 64 };
+        }
+        if (operation.kind === 'chroma_sprite') {
+            const image = assetImage(operation);
+            const crop = operation.crop_uv;
+            const cropAspect = ((crop[2] - crop[0]) * image.width) / Math.max((crop[3] - crop[1]) * image.height, 1);
+            const scaleY = operation.target_height_scale;
+            const scaleX = scaleY * (cropAspect / (target.width / target.height));
+            return { values: [
+                operation.position[0], operation.position[1], scaleX, scaleY,
+                crop[0], crop[1], crop[2], crop[3],
+                operation.key_color[0], operation.key_color[1], operation.key_color[2], operation.tolerance,
+                operation.smoothness, operation.z_depth, operation.opacity, 0
+            ] };
+        }
+        if (operation.kind === 'dual_texture_postprocess') {
+            const u = operation.uniform;
+            return { values: [u.progress, u.effect_type, u.direction_x, u.direction_y] };
+        }
+        throw new Error(`Unsupported TC18 operation kind: ${operation.kind}`);
+    }
+    const targetBindGroups = {};
+    for (const spec of manifest.graph.targets) {
+        targetBindGroups[spec.id] = device.createBindGroup({
+            layout: textureLayout,
+            entries: [{ binding: 0, resource: textures[spec.id].createView() }, { binding: 1, resource: sampler }]
+        });
+    }
+    const resources = operations.map(operation => {
+        let sourceBindGroup;
+        if (operation.kind === 'dual_texture_postprocess') {
+            const sourceTargets = (operation.source || []).map(source => {
+                if (source.kind !== 'target') throw new Error('TC18 dual transition requires target sources');
+                return textures[source.target];
+            });
+            if (sourceTargets.length !== 2) throw new Error('TC18 transition requires exactly two target sources');
+            sourceBindGroup = device.createBindGroup({
+                layout: dualTextureLayout,
+                entries: [
+                    { binding: 0, resource: sourceTargets[0].createView() },
+                    { binding: 1, resource: sampler },
+                    { binding: 2, resource: sourceTargets[1].createView() },
+                    { binding: 3, resource: sampler }
+                ]
+            });
+        } else {
+            const source = (operation.source || [])[0];
+            if (!source || source.kind !== 'asset') throw new Error(`TC18 ${operation.id} requires an asset source`);
+            sourceBindGroup = assets[source.asset].bindGroup;
+        }
+        const uniform = uniformData(operation);
+        return { operation, bindGroups: [sourceBindGroup, createUniform(uniform.values, uniform.minimumSize || 0)] };
+    });
+    async function submitPass(passSpec, pipelines) {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: textures[passSpec.target].createView(),
+            clearValue: { r: passSpec.clear_color[0], g: passSpec.clear_color[1], b: passSpec.clear_color[2], a: passSpec.clear_color[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        for (const resource of resources.filter(item => item.operation.pass === passSpec.id)) {
+            pass.setPipeline(pipelines[resource.operation.pipeline]);
+            resource.bindGroups.forEach((bindGroup, index) => pass.setBindGroup(index, bindGroup));
+            pass.draw(resource.operation.vertex_count, resource.operation.instance_count, 0, 0);
+        }
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC18 validation error: ${error.message}`);
+    }
+    async function renderAll(pipelines) {
+        const started = performance.now();
+        for (const pass of passes) await submitPass(pass, pipelines);
+        return performance.now() - started;
+    }
+    device.pushErrorScope('validation');
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+    const pipelineError = await device.popErrorScope();
+    if (pipelineError) throw new Error(`TC18 pipeline validation error: ${pipelineError.message}`);
+    const coldRenderTimeMs = await renderAll(offscreenPipelines);
+    const coldBytes = await readTextureBytes(device, textures.final, target.width, target.height);
+    const warmRenderTimeMs = await renderAll(offscreenPipelines);
+    const bytes = await readTextureBytes(device, textures.final, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC18 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc18_transition_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc18_transition.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '3 pass (scene A → scene B → dual-texture transition) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count,
+        instance_count: operations.reduce((sum, operation) => sum + operation.instance_count, 0),
+        pass_count: passes.length, image_name: 'tc18_transition_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc18');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const canvasBlit = createNoUniformPipeline(blitShader, canvasFormat);
+    const finalBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: textures.final.createView() }, { binding: 1, resource: sampler }]
+    });
+    const encoder = device.createCommandEncoder();
+    const previewPass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+    }]});
+    previewPass.setPipeline(canvasBlit);
+    previewPass.setBindGroup(0, finalBindGroup);
+    previewPass.draw(6, 1, 0, 0);
+    previewPass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc18_transition_web_preview.png');
+    document.getElementById('tag-tc18').textContent = 'PASS';
+    document.getElementById('tag-tc18').className = 'tag tag-passed';
+    for (const texture of Object.values(textures)) texture.destroy();
+    for (const asset of Object.values(assets)) asset.image.texture.destroy();
+    for (const buffer of uniformBuffers) buffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -2890,7 +3134,7 @@ async function runTC085(gpu) {
 }
 
 async function fetchShader(name) {
-    const res = await fetch(`/shaders/${name}?runner_shader_revision=3`);
+    const res = await fetch(`/shaders/${name}?runner_shader_revision=5`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
     return await res.text();
 }
@@ -3623,6 +3867,7 @@ async function runAllTests() {
         { name: "TC15: Instanced Snow Physics", fn: runTC15 },
         { name: "TC16: 2D SDF Vector Shapes", fn: runTC16 },
         { name: "TC17: Outline & Drop Shadow", fn: runTC17 },
+        { name: "TC18: Video Transition Effects", fn: runTC18 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

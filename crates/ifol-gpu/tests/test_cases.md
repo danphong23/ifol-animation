@@ -116,10 +116,10 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kịch bản:** Pass đầu render paladin, mage và rương vào target trong suốt; pass sau render sky rồi lấy target đó để dò biên 8 hướng, vẽ viền trắng và bóng đổ đen.
 - **Kỳ vọng hình ảnh xuất ra:** Nền sky tím/magenta, ba sprite rõ ràng, viền trắng bao quanh và bóng đổ lệch nhẹ, không có black output hoặc validation error.
 
-### TC18 - Color Grading
-- **Mục tiêu:** Post-processing Pipeline (Brightness, Contrast, Desaturation).
-- **Kịch bản:** Chỉnh ảnh thành đen trắng.
-- **Kỳ vọng hình ảnh xuất ra:** Bức ảnh hoàn toàn không có màu sắc (Grayscale), độ tương phản cao.
+### TC18 - Video Transition Effects (Glitch)
+- **Mục tiêu:** Kiểm thử pipeline dual-texture đọc đồng thời hai cảnh đầu vào và tạo chuyển cảnh glitch xác định.
+- **Kịch bản:** Render cảnh A (sky tím + paladin) và cảnh B (sky xanh + mage) vào hai target offscreen; pass thứ ba ghép chúng với progress `0.5`, block shift và RGB split.
+- **Kỳ vọng hình ảnh xuất ra:** Kết quả chuyển cảnh glitch giữa hai cảnh, có biến dạng block và quang sai RGB; không có black output hoặc validation error.
 
 ### TC19 - Dynamic State Change
 - **Mục tiêu:** Thử nghiệm thay đổi Pipeline (BlendMode).

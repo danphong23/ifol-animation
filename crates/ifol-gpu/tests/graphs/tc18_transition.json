@@ -1,9 +1,0 @@
-{
-  "features": [
-    "Dual-Texture Bind Groups",
-    "Procedural Glitch Effect (RGB Split & Block Shift)",
-    "3-Pass Render Graph execution"
-  ],
-  "passes": 3,
-  "test_case": "TC18 - Video Transition Effects (Glitch)"
-}

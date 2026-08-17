@@ -231,6 +231,12 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Web dùng chung manifest, vision/structural, validation và cold/warm đều đạt;
   raw còn khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU
   KIỆN`. Xem `tests/reports/tc17_outline_report.md`;
+- TC18 đã được chuẩn hóa thành graph 3 pass dual-texture glitch transition với
+  manifest fingerprint `9c9b047f0733fa82`, cùng 5 draw command và 5 instances.
+  Shader đã dùng integer hash để tránh khác biệt quyết định block do hàm
+  `sin/fract` giữa backend; Desktop/Web đạt vision/structural, validation và
+  cold/warm parity, raw còn khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên
+  là `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc18_transition_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
