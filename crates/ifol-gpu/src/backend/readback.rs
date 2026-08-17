@@ -1,4 +1,5 @@
 use super::engine::GpuEngine;
+use crate::resources::{ResourceRegistry, TextureHandle};
 use thiserror::Error;
 
 #[path = "readback_ticket.rs"]
@@ -17,6 +18,8 @@ pub enum ReadbackError {
     MapFailed,
     #[error("GPU readback buffer could not be accessed")]
     AccessFailed,
+    #[error("texture handle {0:?} is not an owned texture with a readback descriptor")]
+    ResourceUnavailable(TextureHandle),
 }
 
 /// Raw texture bytes together with the dimensions and format contract used
@@ -103,6 +106,24 @@ impl<'a> GpuEngine<'a> {
     ) -> Result<RawTextureReadback, ReadbackError> {
         self.begin_texture_readback_checked(texture, format)?
             .resolve_checked(self.device())
+    }
+
+    /// Reads an owned registry texture using the format stored with its
+    /// descriptor. View-only registrations intentionally remain on the
+    /// explicit texture/format API because they do not retain a copy source.
+    pub fn read_texture_to_raw_from_registry_checked(
+        &self,
+        registry: &ResourceRegistry,
+        handle: &TextureHandle,
+    ) -> Result<RawTextureReadback, ReadbackError> {
+        let texture = registry
+            .owned_texture(handle)
+            .ok_or(ReadbackError::ResourceUnavailable(*handle))?;
+        let format = registry
+            .texture_descriptor(handle)
+            .map(|descriptor| descriptor.format)
+            .ok_or(ReadbackError::ResourceUnavailable(*handle))?;
+        self.read_texture_to_raw_with_format_checked(texture, format)
     }
 
 }

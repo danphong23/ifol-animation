@@ -23,6 +23,10 @@ impl ResourceRegistry {
         self.texture_descriptors.get(handle)
     }
 
+    pub fn texture_format(&self, handle: &TextureHandle) -> Option<wgpu::TextureFormat> {
+        self.texture_descriptors.get(handle).map(|descriptor| descriptor.format)
+    }
+
     pub fn owned_texture(&self, handle: &TextureHandle) -> Option<&wgpu::Texture> {
         self.owned_textures
             .get(handle)

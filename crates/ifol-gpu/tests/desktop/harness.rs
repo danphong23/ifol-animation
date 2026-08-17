@@ -979,13 +979,11 @@ impl<'a> DesktopTestHarness<'a> {
         let output_format = match graph.target {
             RenderTarget::Offscreen { color, .. } => self
                 .registry
-                .texture_descriptor(&color)
-                .map(|descriptor| descriptor.format)
+                .texture_format(&color)
                 .expect("offscreen target must have a registered texture descriptor"),
             RenderTarget::OffscreenMsaa { resolve, .. } => self
                 .registry
-                .texture_descriptor(&resolve)
-                .map(|descriptor| descriptor.format)
+                .texture_format(&resolve)
                 .expect("MSAA resolve target must have a registered texture descriptor"),
             RenderTarget::Screen => self
                 .engine
