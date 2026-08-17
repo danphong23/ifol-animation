@@ -154,3 +154,8 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Mục tiêu:** Kiểm thử biến dạng đỉnh của sprite theo hiệu ứng gió xác định.
 - **Kịch bản:** Dùng `distortion.wgsl` để neo phần dưới sprite và uốn phần trên theo `sin(time * frequency) * amplitude`.
 - **Kỳ vọng hình ảnh xuất ra:** Sprite nằm trên nền xám, phần dưới được neo, phần trên uốn theo gió; không có black output hoặc lỗi validation.
+
+### TC25 - Fake Rim Lighting & Drop Shadow
+- **Mục tiêu:** Kiểm thử rim light và drop shadow bằng hai instance trong một draw command.
+- **Kịch bản:** Instance 0 dịch sprite để tạo bóng đen bán trong suốt; instance 1 render sprite chính và tính viền sáng vàng bằng cách dò alpha lân cận.
+- **Kỳ vọng hình ảnh xuất ra:** Sprite chính có viền sáng vàng và bóng đổ lệch phía sau, không có black output hoặc lỗi validation.

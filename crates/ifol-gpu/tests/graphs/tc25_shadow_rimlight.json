@@ -1,7 +1,0 @@
-{
-  "features": [
-    "2-pass instancing (1 shadow, 1 main)",
-    "Edge detection rim lighting in shader"
-  ],
-  "test_case": "TC25 - Fake Rim Lighting & Drop Shadow"
-}

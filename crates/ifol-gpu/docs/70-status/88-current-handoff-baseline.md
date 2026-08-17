@@ -266,6 +266,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web dùng chung graph, đạt vision/structural, validation, cold/warm và
   raw parity tuyệt đối (`0` byte khác). Xem
   `tests/reports/tc24_distortion_mesh_report.md`;
+- TC25 đã được chuẩn hóa thành graph 1 pass rimlight/drop-shadow với manifest
+  fingerprint `15cf62a1e76cb4e2`, một draw command và hai instance. Desktop/Web
+  dùng chung graph, đạt vision/structural, validation, cold/warm và raw parity
+  tuyệt đối (`0` byte khác). Xem
+  `tests/reports/tc25_shadow_rimlight_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
