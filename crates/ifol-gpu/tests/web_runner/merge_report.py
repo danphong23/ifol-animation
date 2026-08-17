@@ -176,11 +176,12 @@ def main() -> None:
     )
     asset_text = ", ".join(f"`{asset}`" for asset in asset_names) or "KHÔNG KHAI BÁO"
     shader_text = ", ".join(f"`{shader}`" for shader in shader_names) or "KHÔNG KHAI BÁO"
-    input_policy = (
-        "Dùng PNG canonical để Desktop/WebGPU giải mã cùng một input byte-level."
-        if asset_names and all(asset.startswith("canonical_") for asset in asset_names)
-        else "Dùng asset theo manifest; chưa có chuẩn hóa input canonical riêng."
-    )
+    if not asset_names:
+        input_policy = "Không dùng texture/asset; input là uniform và graph canonical từ manifest."
+    elif all(asset.startswith("canonical_") for asset in asset_names):
+        input_policy = "Dùng PNG canonical để Desktop/WebGPU giải mã cùng một input byte-level."
+    else:
+        input_policy = "Dùng asset theo manifest; chưa có chuẩn hóa input canonical riêng."
     depth_text = json.dumps(manifest["graph"]["depth_stencil"], ensure_ascii=False) if "depth_stencil" in manifest.get("graph", {}) else "Không áp dụng"
     node_pool_spec = graph_spec.get("node_pool")
     node_pool_text = (

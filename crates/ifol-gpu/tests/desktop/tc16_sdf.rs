@@ -1,7 +1,10 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -22,151 +25,213 @@ struct SdfShapeUniform {
     _pad: f32,
 }
 
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn values(value: &Value) -> Vec<f32> {
+    value
+        .as_array()
+        .expect("TC16 value must be an array")
+        .iter()
+        .map(|item| item.as_f64().expect("TC16 value must be numeric") as f32)
+        .collect()
+}
+
+fn value4(value: &Value) -> [f32; 4] {
+    values(value)
+        .try_into()
+        .expect("TC16 value must have four elements")
+}
+
+fn operation<'a>(operations: &'a [Value], id: &str) -> &'a Value {
+    operations
+        .iter()
+        .find(|item| item["id"] == id)
+        .unwrap_or_else(|| panic!("Missing TC16 operation: {id}"))
+}
+
+fn uniform_from_spec(spec: &Value, aspect_ratio: f32) -> SdfShapeUniform {
+    let uniform = &spec["uniform"];
+    let position = values(&uniform["position"]);
+    SdfShapeUniform {
+        shape_type: uniform["shape_type"].as_f64().unwrap() as f32,
+        size_x: uniform["size_x"].as_f64().unwrap() as f32,
+        size_y: uniform["size_y"].as_f64().unwrap() as f32,
+        corner_radius: uniform["corner_radius"].as_f64().unwrap() as f32,
+        color: value4(&uniform["color"]),
+        border_color: value4(&uniform["border_color"]),
+        border_width: uniform["border_width"].as_f64().unwrap() as f32,
+        glow_strength: uniform["glow_strength"].as_f64().unwrap() as f32,
+        pos_x: position[0],
+        pos_y: position[1],
+        rotation: uniform["rotation"].as_f64().unwrap() as f32,
+        scale: uniform["scale"].as_f64().unwrap() as f32,
+        aspect_ratio,
+        _pad: 0.0,
+    }
+}
+
+fn execute(h: &mut DesktopTestHarness, graph: &RenderGraph) -> f64 {
+    let started = Instant::now();
+    let submission = h
+        .executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, graph)
+        .expect("TC16 graph execution failed");
+    let _ = h.engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission),
+        timeout: None,
+    });
+    started.elapsed().as_secs_f64() * 1000.0
+}
+
 #[test]
 fn run_tc16_sdf() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
-        
-        let tex_noise = h.load_texture("noise_perlin.jpeg"); // Just a dummy texture for BG0
+        let manifest_text = include_str!("../shared_assets/manifests/tc16_sdf.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC16 manifest");
+        let graph_spec = &manifest["graph"];
+        let target_spec = &graph_spec["target"];
+        let width = target_spec["width"].as_u64().unwrap() as u32;
+        let height = target_spec["height"].as_u64().unwrap() as u32;
+        let operations = graph_spec["operations"].as_array().unwrap();
+        let clear_color: [f32; 4] = value4(&graph_spec["clear_color"]);
+        let mut h = DesktopTestHarness::new(width, height).await;
 
-        // Register Pipelines
-        let pipe_sdf = h.register_pipeline(
+        let uniform_layout = h.uniform_bg_layout.clone();
+        let sdf_pipeline = h.register_custom_pipeline(
             "sdf_shapes.wgsl",
             Some(wgpu::BlendState::ALPHA_BLENDING),
             false,
-            true,
+            vec![Some(2)],
+            vec![Some(&uniform_layout)],
+        );
+        let aspect_ratio = width as f32 / height as f32;
+        let circle_bg = h.create_custom_uniform_bind_group(
+            uniform_from_spec(operation(operations, "circle"), aspect_ratio),
+            "TC16 Circle Uniform",
+        );
+        let rounded_rect_bg = h.create_custom_uniform_bind_group(
+            uniform_from_spec(operation(operations, "rounded_rect"), aspect_ratio),
+            "TC16 Rounded Rect Uniform",
+        );
+        let ring_bg = h.create_custom_uniform_bind_group(
+            uniform_from_spec(operation(operations, "ring"), aspect_ratio),
+            "TC16 Ring Uniform",
+        );
+        let triangle_bg = h.create_custom_uniform_bind_group(
+            uniform_from_spec(operation(operations, "triangle"), aspect_ratio),
+            "TC16 Triangle Uniform",
         );
 
-        let screen_aspect = 800.0f32 / 600.0f32;
-
-        // 1. Circle (Red glowing sun)
-        let circle_uni = SdfShapeUniform {
-            shape_type: 0.0,
-            size_x: 0.8,
-            size_y: 0.8,
-            corner_radius: 0.0,
-            color: [0.9, 0.2, 0.3, 1.0], // Crimson Red
-            border_color: [1.0, 0.6, 0.2, 1.0], // Orange Glow
-            border_width: 0.05,
-            glow_strength: 3.5,
-            pos_x: -0.5,
-            pos_y: 0.5,
-            rotation: 0.0,
-            scale: 0.3,
-            aspect_ratio: screen_aspect,
-            _pad: 0.0,
-        };
-        let bg_circle = h.create_custom_uniform_bind_group(circle_uni, "Circle Uniform");
-
-        // 2. Rounded Rect (UI Card)
-        let rect_uni = SdfShapeUniform {
-            shape_type: 1.0,
-            size_x: 0.7,
-            size_y: 0.4,
-            corner_radius: 0.15,
-            color: [0.1, 0.5, 0.8, 0.9], // Blue Semi-transparent
-            border_color: [0.6, 0.9, 1.0, 1.0], // Cyan outline
-            border_width: 0.03,
-            glow_strength: 0.0,
-            pos_x: 0.5,
-            pos_y: 0.5,
-            rotation: 0.2, // Tilted
-            scale: 0.4,
-            aspect_ratio: screen_aspect,
-            _pad: 0.0,
-        };
-        let bg_rect = h.create_custom_uniform_bind_group(rect_uni, "Rect Uniform");
-
-        // 3. Ring (Target reticle)
-        let ring_uni = SdfShapeUniform {
-            shape_type: 2.0,
-            size_x: 0.6,
-            size_y: 0.6,
-            corner_radius: 0.0,
-            color: [0.0, 0.0, 0.0, 0.0], // Fill not used for ring
-            border_color: [0.2, 0.9, 0.4, 1.0], // Neon Green
-            border_width: 0.08,
-            glow_strength: 4.0,
-            pos_x: -0.5,
-            pos_y: -0.4,
-            rotation: 0.0,
-            scale: 0.35,
-            aspect_ratio: screen_aspect,
-            _pad: 0.0,
-        };
-        let bg_ring = h.create_custom_uniform_bind_group(ring_uni, "Ring Uniform");
-
-        // 4. Triangle (Play Button)
-        let tri_uni = SdfShapeUniform {
-            shape_type: 3.0,
-            size_x: 0.6,
-            size_y: 0.6,
-            corner_radius: 0.0,
-            color: [0.8, 0.1, 0.9, 1.0], // Magenta
-            border_color: [1.0, 0.5, 1.0, 1.0],
-            border_width: 0.04,
-            glow_strength: 2.5,
-            pos_x: 0.5,
-            pos_y: -0.4,
-            rotation: -1.5708, // Rotate to point right (Play button)
-            scale: 0.3,
-            aspect_ratio: screen_aspect,
-            _pad: 0.0,
-        };
-        let bg_tri = h.create_custom_uniform_bind_group(tri_uni, "Tri Uniform");
-
-        // Targets
-        let (target_id, target_tex) = h.create_target("TC16 Target");
-
+        let (target_id, target_texture) = h.create_target("TC16 SDF Target");
         let mut graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_id,
-            width: 800,
-            height: 600,
+            width,
+            height,
         })
-        .with_clear_color([0.05, 0.05, 0.08, 1.0]); // Dark slate background
-
+        .with_clear_color(clear_color);
         graph.add_batch(
             &mut h.pool,
             vec![
-                DrawCommand::new(pipe_sdf, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_noise.bind_group.clone(), Vec::new())
-                    .with_bind_group(1, bg_circle, Vec::new()),
-                DrawCommand::new(pipe_sdf, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_noise.bind_group.clone(), Vec::new())
-                    .with_bind_group(1, bg_rect, Vec::new()),
-                DrawCommand::new(pipe_sdf, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_noise.bind_group.clone(), Vec::new())
-                    .with_bind_group(1, bg_ring, Vec::new()),
-                DrawCommand::new(pipe_sdf, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_noise.bind_group, Vec::new())
-                    .with_bind_group(1, bg_tri, Vec::new()),
+                DrawCommand::new(
+                    sdf_pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: 6,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, circle_bg, Vec::new()),
+                DrawCommand::new(
+                    sdf_pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: 6,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, rounded_rect_bg, Vec::new()),
+                DrawCommand::new(
+                    sdf_pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: 6,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, ring_bg, Vec::new()),
+                DrawCommand::new(
+                    sdf_pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: 6,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, triangle_bg, Vec::new()),
             ],
         );
 
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
+        fs::create_dir_all("tests/outputs/desktop").unwrap();
+        let cold_render_time_ms = execute(&mut h, &graph);
+        let cold_raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC16 cold readback failed");
+        let warm_render_time_ms = execute(&mut h, &graph);
+        let raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC16 warm readback failed");
+        assert_eq!(
+            cold_raw.bytes, raw.bytes,
+            "TC16 output changed between runs"
+        );
 
-        let graph_json = serde_json::json!({
-            "test_case": "TC16 - 2D SDF Shapes & Vector Graphics",
-            "features": [
-                "Resolution-independent SDF rendering",
-                "Smoothstep Anti-Aliasing",
-                "Glowing borders and stroke thickness",
-                "Aspect ratio preserved scaling"
-            ],
-            "shapes": ["Circle", "Rounded Rect", "Neon Ring", "Triangle"]
+        h.save_texture_to_file_checked(
+            &target_texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            "tests/outputs/desktop/tc16_sdf.png",
+        )
+        .expect("TC16 PNG save failed");
+        fs::write("tests/outputs/desktop/tc16_sdf_desktop.bin", &raw.bytes).unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC16",
+            "manifest": "tests/shared_assets/manifests/tc16_sdf.json",
+            "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "width": raw.width,
+            "height": raw.height,
+            "format": "Rgba8UnormSrgb",
+            "adapter_name": h.engine.adapter_info().name,
+            "backend": format!("{:?}", h.engine.adapter_info().backend),
+            "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "1 pass (2D SDF scene, 4 draw commands) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "node_count": graph_spec["node_count"],
+            "draw_commands": graph_spec["command_count"],
+            "pass_count": graph_spec["passes"].as_array().unwrap().len(),
+            "shape_count": manifest["evaluation"]["expected_shape_count"],
+            "instance_count": operations.iter().map(|operation| operation["instance_count"].as_u64().unwrap()).sum::<u64>(),
+            "cache_output_equal": cold_raw.bytes == raw.bytes,
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "cold_render_time_ms": cold_render_time_ms,
+            "warm_render_time_ms": warm_render_time_ms,
+            "warm_iteration_count": 1,
+            "speedup_percentage": (1.0 - warm_render_time_ms / cold_render_time_ms) * 100.0
         });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc16_sdf.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        h.execute_and_record(
-            &graph,
-            &target_tex,
-            "tc16_sdf",
-            "2D SDF Shapes & Vector Graphics",
-            "Trình diễn 4 hình cơ bản UI dựng bằng kỹ thuật Signed Distance Field: Mặt trời đỏ (Circle), Thẻ giao diện (Rounded Rect), Vòng tròn Neon (Ring) và Nút Play (Triangle). Tất cả được bo viền sáng (glow) và khử răng cưa mượt mà.",
-            "Xác thực năng lực dựng Vector Graphics bằng GPU (không cần Texture) của ifol-gpu.",
-        );
+        fs::write(
+            "tests/outputs/desktop/tc16_sdf_desktop.json",
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
     });
 }

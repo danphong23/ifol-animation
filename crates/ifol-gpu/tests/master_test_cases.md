@@ -106,10 +106,10 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kịch bản:** Một node và một pass vẽ sky, moon, cloud, hai pine, paladin và 200 snow instances bằng `snow_physics_instanced.wgsl`.
 - **Kỳ vọng:** Desktop/Web dùng cùng fingerprint, 7 draw command và 200 instances; output không rỗng, không validation error, cold/warm không đổi.
 
-### TC16 - UV Displacement
-- **Mục tiêu:** Sampling Texture chéo.
-- **Kịch bản:** Dùng Texture Noise làm Input (Slot 1). Ảnh chính (Slot 0). Shader đọc giá trị R, G của Slot 1 làm Vector bóp méo tọa độ UV của Slot 0.
-- **Kỳ vọng:** Hình ảnh gợn sóng hoặc méo mó chân thực.
+### TC16 - 2D SDF Shapes & Vector Graphics
+- **Mục tiêu:** Dựng hình vector procedural bằng Signed Distance Field, không phụ thuộc texture.
+- **Kịch bản:** Một pass vẽ bốn hình bằng `sdf_shapes.wgsl`: Circle, Rounded Rect, Neon Ring và Triangle; mỗi hình có màu, viền, glow, scale và rotation riêng.
+- **Kỳ vọng:** Bốn hình rõ ràng, anti-aliasing mượt, viền/glow đúng thiết kế, không có black output hoặc validation error.
 
 ### TC17 - Luma Masking
 - **Mục tiêu:** Trích xuất kết quả SubGraph làm mặt nạ Alpha.

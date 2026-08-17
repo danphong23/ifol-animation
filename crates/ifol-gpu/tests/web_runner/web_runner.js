@@ -2390,6 +2390,120 @@ async function runTC15(gpu) {
     for (const buffer of Object.values(uniformBuffers)) buffer.destroy();
 }
 
+async function runTC16(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc16_sdf.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC16 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const shaderModules = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaderModules[spec.shader]) shaderModules[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            result[name] = device.createRenderPipeline({
+                layout: device.createPipelineLayout({ bindGroupLayouts: [uniformLayout] }),
+                vertex: { module: shaderModules[spec.shader], entryPoint: 'vs_main' },
+                fragment: {
+                    module: shaderModules[spec.shader],
+                    entryPoint: 'fs_main',
+                    targets: [{
+                        format,
+                        blend: {
+                            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                        }
+                    }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+        return result;
+    }
+    const aspectRatio = target.width / target.height;
+    const resources = operations.map(operation => {
+        const u = operation.uniform;
+        const values = [
+            u.shape_type, u.size_x, u.size_y, u.corner_radius,
+            ...u.color, ...u.border_color,
+            u.border_width, u.glow_strength,
+            u.position[0], u.position[1], u.rotation, u.scale, aspectRatio, 0
+        ];
+        const data = new Float32Array(values);
+        const buffer = device.createBuffer({ size: data.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        device.queue.writeBuffer(buffer, 0, data);
+        const bindGroup = device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer } }] });
+        return { operation, bindGroup, buffer };
+    });
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    async function render(outputTexture, pipelines) {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const clear = manifest.graph.passes[0].clear_color;
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        for (const resource of resources) {
+            pass.setPipeline(pipelines[resource.operation.pipeline]);
+            pass.setBindGroup(0, resource.bindGroup);
+            pass.draw(resource.operation.vertex_count, resource.operation.instance_count, 0, 0);
+        }
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC16 validation error: ${error.message}`);
+    }
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+    const startedCold = performance.now();
+    await render(finalTexture, offscreenPipelines);
+    const coldRenderTimeMs = performance.now() - startedCold;
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const startedWarm = performance.now();
+    await render(finalTexture, offscreenPipelines);
+    const warmRenderTimeMs = performance.now() - startedWarm;
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC16 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc16_sdf_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc16_sdf.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '1 pass (2D SDF scene, 4 draw commands) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count,
+        shape_count: manifest.evaluation.expected_shape_count,
+        instance_count: operations.reduce((sum, operation) => sum + operation.instance_count, 0),
+        pass_count: manifest.graph.passes.length,
+        image_name: 'tc16_sdf_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc16');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    await render(context.getCurrentTexture(), createPipelines(canvasFormat));
+    await saveCanvasImage(canvas, 'tc16_sdf_web_preview.png');
+    document.getElementById('tag-tc16').textContent = 'PASS';
+    document.getElementById('tag-tc16').className = 'tag tag-passed';
+    finalTexture.destroy();
+    for (const resource of resources) resource.buffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -3280,6 +3394,7 @@ async function runAllTests() {
         { name: "TC13: Gaussian Blur Depth of Field", fn: runTC13 },
         { name: "TC14: Cinematic Color Grading", fn: runTC14 },
         { name: "TC15: Instanced Snow Physics", fn: runTC15 },
+        { name: "TC16: 2D SDF Vector Shapes", fn: runTC16 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

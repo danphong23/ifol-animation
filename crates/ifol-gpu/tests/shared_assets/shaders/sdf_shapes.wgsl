@@ -20,7 +20,7 @@ struct VertexOutput {
     @location(0) local_uv: vec2<f32>, // -1.0 to 1.0
 };
 
-@group(1) @binding(0) var<uniform> shape: SdfShapeUniform;
+@group(0) @binding(0) var<uniform> shape: SdfShapeUniform;
 
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {

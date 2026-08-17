@@ -106,10 +106,10 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kịch bản:** Một pass vẽ sky, moon, cloud, hai pine, paladin và 200 snow instances bằng `snow_physics_instanced.wgsl` từ input `canonical_particle_snow.png`.
 - **Kỳ vọng hình ảnh xuất ra:** Cảnh đêm tuyết không rỗng; 200 hạt tuyết trắng có kích thước/độ mờ theo depth, không có validation error hoặc black output.
 
-### TC16 - UV Displacement
-- **Mục tiêu:** Sampling Texture chéo làm Vector.
-- **Kịch bản:** Dùng Texture Noise làm Input (Slot 1) bóp méo UV (Slot 0).
-- **Kỳ vọng hình ảnh xuất ra:** Hình ảnh bị uốn éo gợn sóng (như nhìn qua gương cầu hoặc mặt nước).
+### TC16 - 2D SDF Shapes & Vector Graphics
+- **Mục tiêu:** Dựng hình vector procedural bằng Signed Distance Field, không phụ thuộc texture.
+- **Kịch bản:** Một pass vẽ bốn hình bằng `sdf_shapes.wgsl`: circle, rounded rectangle, ring và triangle; mỗi hình có thông số vị trí, scale, màu, viền, glow và rotation riêng.
+- **Kỳ vọng hình ảnh xuất ra:** Bốn hình phân biệt rõ trên nền slate, anti-aliasing mượt, viền/glow đúng mô tả, không có black output hoặc validation error.
 
 ### TC17 - Luma Masking
 - **Mục tiêu:** Alpha Masking.

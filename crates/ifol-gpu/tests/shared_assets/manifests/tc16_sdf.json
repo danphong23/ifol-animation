@@ -1,0 +1,114 @@
+{
+  "test_case": "TC16",
+  "title": "2D SDF Shapes and Vector Graphics",
+  "title_vi": "Hình SDF 2D và vector graphics",
+  "description": "Render four deterministic signed-distance-field shapes with smooth anti-aliasing, borders and glow.",
+  "description_vi": "Render bốn hình Signed Distance Field xác định với khử răng cưa mượt, viền và hiệu ứng glow.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "pipelines": {
+      "sdf": { "shader": "sdf_shapes.wgsl", "blend": "AlphaBlend", "layout": "uniform" }
+    },
+    "operations": [
+      {
+        "id": "circle",
+        "kind": "sdf_circle",
+        "pipeline": "sdf",
+        "shader": "sdf_shapes.wgsl",
+        "uniform": {
+          "shape_type": 0.0,
+          "size_x": 0.8,
+          "size_y": 0.8,
+          "corner_radius": 0.0,
+          "color": [0.9, 0.2, 0.3, 1.0],
+          "border_color": [1.0, 0.6, 0.2, 1.0],
+          "border_width": 0.05,
+          "glow_strength": 3.5,
+          "position": [-0.5, 0.5],
+          "rotation": 0.0,
+          "scale": 0.3
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "rounded_rect",
+        "kind": "sdf_rounded_rect",
+        "pipeline": "sdf",
+        "shader": "sdf_shapes.wgsl",
+        "uniform": {
+          "shape_type": 1.0,
+          "size_x": 0.7,
+          "size_y": 0.4,
+          "corner_radius": 0.15,
+          "color": [0.1, 0.5, 0.8, 0.9],
+          "border_color": [0.6, 0.9, 1.0, 1.0],
+          "border_width": 0.03,
+          "glow_strength": 0.0,
+          "position": [0.5, 0.5],
+          "rotation": 0.2,
+          "scale": 0.4
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "ring",
+        "kind": "sdf_ring",
+        "pipeline": "sdf",
+        "shader": "sdf_shapes.wgsl",
+        "uniform": {
+          "shape_type": 2.0,
+          "size_x": 0.6,
+          "size_y": 0.6,
+          "corner_radius": 0.0,
+          "color": [0.0, 0.0, 0.0, 0.0],
+          "border_color": [0.2, 0.9, 0.4, 1.0],
+          "border_width": 0.08,
+          "glow_strength": 4.0,
+          "position": [-0.5, -0.4],
+          "rotation": 0.0,
+          "scale": 0.35
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "triangle",
+        "kind": "sdf_triangle",
+        "pipeline": "sdf",
+        "shader": "sdf_shapes.wgsl",
+        "uniform": {
+          "shape_type": 3.0,
+          "size_x": 0.6,
+          "size_y": 0.6,
+          "corner_radius": 0.0,
+          "color": [0.8, 0.1, 0.9, 1.0],
+          "border_color": [1.0, 0.5, 1.0, 1.0],
+          "border_width": 0.04,
+          "glow_strength": 2.5,
+          "position": [0.5, -0.4],
+          "rotation": -1.5708,
+          "scale": 0.3
+        },
+        "vertex_count": 6,
+        "instance_count": 1
+      }
+    ],
+    "passes": [
+      { "id": "sdf_scene", "name": "2D SDF scene", "target": "final", "clear_color": [0.05, 0.05, 0.08, 1.0] }
+    ],
+    "clear_color": [0.05, 0.05, 0.08, 1.0],
+    "command_count": 4,
+    "node_count": 1
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["sdf_scene"],
+    "expected_shape_count": 4,
+    "visual_check": "Bốn hình rõ ràng trên nền slate: mặt trời đỏ, thẻ bo góc xanh, vòng neon xanh lục và nút play tam giác tím; viền/glow và anti-aliasing không bị mất, không có black output hoặc validation error."
+  }
+}

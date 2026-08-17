@@ -221,6 +221,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   `6ec7f347092fd77a`, cùng 7 draw command và 200 snow instances. Vision/
   structural, validation và cold/warm đạt; raw còn khác 73 byte ở 28 pixel,
   nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc15_snow_report.md`;
+- TC16 đã được chuẩn hóa thành graph 1 pass SDF với manifest fingerprint
+  `8962fd4fa969ea29`, cùng 4 draw command và 4 procedural shapes. Texture dummy
+  đã được loại bỏ khỏi test contract; shader chỉ nhận uniform ở group 0.
+  Vision/structural, validation và cold/warm đạt; raw còn khác 1 byte ở 1 pixel,
+  nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc16_sdf_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

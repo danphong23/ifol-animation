@@ -95,6 +95,10 @@ Các report canonical hiện tại:
   200 snow instances; vision/structural, validation và cache parity đạt, raw
   còn khác 73 byte ở 28 pixel với sai số tối đa `24/255`, nên là `ĐẠT CÓ ĐIỀU
   KIỆN`.
+- [TC16](../../tests/reports/tc16_sdf_report.md): một pass với bốn hình SDF
+  procedural, không dùng texture; vision/structural, validation và cache parity
+  đạt, raw còn khác 1 byte ở 1 pixel với sai số tối đa `1/255`, nên là `ĐẠT CÓ
+  ĐIỀU KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
