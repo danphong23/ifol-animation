@@ -3,8 +3,8 @@
 Đây là báo cáo tổng hợp chất lượng render của TC14_GRADING trên các nền tảng.
 
 ## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 2.1209ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 708.7µs
+- **Thời gian Render (Cold Start - Lần đầu):** 1.4797ms
+- **Thời gian Render (Warm/Cached - Các lần sau):** 1.2572ms
 - **Kết quả ảnh (Thực tế):**
 
 ![TC14_GRADING Desktop Render](../outputs/desktop/tc14_grading.png)
@@ -14,7 +14,8 @@
 - **Core Engine Errors:** Không có lỗi.
 
 ## 2. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+Chưa chạy TC14 trên Web. Canonical parity probe `Rgba8Unorm` đã pass exact,
+nhưng không đại diện cho toàn bộ shader grading của TC14.
 
 ## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+- Desktop: PASS. Cross-platform pixel parity của TC14: CHƯA ĐỦ BẰNG CHỨNG.

@@ -9,13 +9,15 @@ Tài liệu này dùng để bắt đầu chat/task mới mà không mất ý đ
 ```text
 cargo check -p ifol-gpu              PASS
 cargo test -p ifol-gpu --lib        114 passed, 0 failed
-cargo test -p ifol-gpu --no-default-features --lib 113 passed, 0 failed
+cargo test -p ifol-gpu --no-default-features --lib 114 passed, 0 failed
 cargo check -p ifol-gpu --examples --benches PASS (default features)
+cargo test -p ifol-gpu --test tc_parity_canonical PASS
 ```
 
-Dự án còn có bộ test desktop đến TC105 và các artifact kiểm chứng WebGPU trong
-commit gần nhất. Tuy nhiên không được suy ra runtime parity trên mọi platform
-chỉ từ compile hoặc test trên Windows.
+Dự án còn có bộ test desktop đến TC105 và WebGPU runner. Canonical parity probe
+Desktop/Web đã tạo raw `Rgba8Unorm` giống nhau từng byte; xem
+`tests/reports/webgpu_verification_report.md`. Kết quả này chưa chứng minh
+pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 
 ## Đã có và cần giữ lại
 
@@ -175,7 +177,10 @@ chỉ từ compile hoặc test trên Windows.
 - production core không còn save/encode API hoặc `backend/texture_save.rs`;
 - readback contract đã trả raw bytes kèm format qua `RawTextureReadback`; tuple
   readback API cũ đã được loại bỏ;
-- chưa có runtime matrix đầy đủ cho Metal, Linux, browser, Android và iOS;
+- canonical readback từ owned registry texture tự lấy format từ descriptor;
+- Web runner có canonical offscreen parity probe và đo timing riêng;
+- chưa có runtime matrix đầy đủ cho Metal, Linux, Android và iOS; browser mới
+  có evidence cho WebGPU runner và canonical probe;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
