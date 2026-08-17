@@ -189,3 +189,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử graph hai pass chroma key → light sweep trên nhân vật mage.
 - **Kịch bản:** Tách mage từ sprite sheet PNG canonical, sau đó tính luồng sáng xiên 45 độ bằng UV rotation và giữ nguyên alpha.
 - **Kỳ vọng:** Nhân vật trên nền xám có dải sáng trắng-vàng quét chéo rõ ràng; không có ảnh đen hoặc validation error.
+
+### TC32 - Page Curl 3D Transition
+- **Mục tiêu:** Kiểm thử graph ba pass gồm hai scene độc lập và chuyển cảnh lật trang hình trụ.
+- **Kịch bản:** Render scene A paladin và scene B mage với sky khác nhau, sau đó dùng dual texture page-curl ở progress 50%.
+- **Kỳ vọng:** Ảnh cuối thể hiện hai scene và dải cuộn ở giữa với bóng gấp nhẹ; không có ảnh đen hoặc validation error.

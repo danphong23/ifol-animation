@@ -4843,6 +4843,134 @@ async function runTC31(gpu) {
     sweepUniformBuffer.destroy();
 }
 
+async function runTC32(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc32_page_curl.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC32 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const dualTextureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const skyShader = device.createShaderModule({ code: await fetchShader('sky_composite_deterministic.wgsl') });
+    const chromaShader = device.createShaderModule({ code: await fetchShader('chroma_key_cropped.wgsl') });
+    const curlShader = device.createShaderModule({ code: await fetchShader('page_curl.wgsl') });
+    const compilation = await Promise.all([skyShader.getCompilationInfo(), chromaShader.getCompilationInfo(), curlShader.getCompilationInfo()]);
+    const shaderErrors = compilation.flatMap(info => info.messages).filter(message => message.type === 'error');
+    if (shaderErrors.length) throw new Error(`TC32 shader validation: ${shaderErrors.map(message => message.message).join('; ')}`);
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u, addressModeV: samplerSpec.address_mode_v, addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter, minFilter: samplerSpec.min_filter, mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const makePipeline = (module, layout, blend) => device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [layout, uniformLayout] }),
+        vertex: { module, entryPoint: 'vs_main' },
+        fragment: { module, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', ...(blend ? { blend } : {}) }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const alphaBlend = {
+        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+    };
+    const skyPipeline = makePipeline(skyShader, textureLayout, null);
+    const chromaPipeline = makePipeline(chromaShader, textureLayout, alphaBlend);
+    const curlPipeline = makePipeline(curlShader, dualTextureLayout, alphaBlend);
+    const noise = await loadImageTexture(device, 'canonical_tc085_noise.png');
+    const heroes = await loadImageTexture(device, 'canonical_sprites_heroes.png');
+    const makeUniform = (data) => {
+        const buffer = device.createBuffer({ size: data.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        device.queue.writeBuffer(buffer, 0, data);
+        return { buffer, bindGroup: device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer } }] }) };
+    };
+    const skyData = (u) => new Float32Array([
+        u.top_color[0], u.top_color[1], u.top_color[2], u.noise_strength,
+        u.bottom_color[0], u.bottom_color[1], u.bottom_color[2], u.time
+    ]);
+    const cropData = (u) => {
+        const cropWidth = (u.uv_max[0] - u.uv_min[0]) * heroes.width;
+        const cropHeight = (u.uv_max[1] - u.uv_min[1]) * heroes.height;
+        const scaleX = u.scale_y * (cropWidth / cropHeight) / (target.width / target.height);
+        return new Float32Array([
+            0, 0, scaleX, u.scale_y, u.uv_min[0], u.uv_min[1], u.uv_max[0], u.uv_max[1],
+            u.key_color[0], u.key_color[1], u.key_color[2], u.tolerance, u.smoothness, 0.5, 1.0, 0
+        ]);
+    };
+    const skyA = makeUniform(skyData(operations[0].uniform));
+    const skyB = makeUniform(skyData(operations[2].uniform));
+    const paladin = makeUniform(cropData(operations[1].uniform));
+    const mage = makeUniform(cropData(operations[3].uniform));
+    const curl = makeUniform(new Float32Array([operations[4].uniform.progress, operations[4].uniform.radius, 0, 0]));
+    const noiseBindGroup = device.createBindGroup({ layout: textureLayout, entries: [
+        { binding: 0, resource: noise.texture.createView() }, { binding: 1, resource: sampler }
+    ]});
+    const heroesBindGroup = device.createBindGroup({ layout: textureLayout, entries: [
+        { binding: 0, resource: heroes.texture.createView() }, { binding: 1, resource: sampler }
+    ]});
+    const sceneATexture = device.createTexture({ size: [target.width, target.height], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+    const sceneBTexture = device.createTexture({ size: [target.width, target.height], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+    const finalTexture = device.createTexture({ size: [target.width, target.height], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC });
+    const curlBindGroup = device.createBindGroup({ layout: dualTextureLayout, entries: [
+        { binding: 0, resource: sceneATexture.createView() }, { binding: 1, resource: sampler },
+        { binding: 2, resource: sceneBTexture.createView() }, { binding: 3, resource: sampler }
+    ]});
+    async function render() {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const sceneAPass = encoder.beginRenderPass({ colorAttachments: [{ view: sceneATexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+        sceneAPass.setPipeline(skyPipeline); sceneAPass.setBindGroup(0, noiseBindGroup); sceneAPass.setBindGroup(1, skyA.bindGroup); sceneAPass.draw(6, 1, 0, 0);
+        sceneAPass.setPipeline(chromaPipeline); sceneAPass.setBindGroup(0, heroesBindGroup); sceneAPass.setBindGroup(1, paladin.bindGroup); sceneAPass.draw(6, 1, 0, 0); sceneAPass.end();
+        const sceneBPass = encoder.beginRenderPass({ colorAttachments: [{ view: sceneBTexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+        sceneBPass.setPipeline(skyPipeline); sceneBPass.setBindGroup(0, noiseBindGroup); sceneBPass.setBindGroup(1, skyB.bindGroup); sceneBPass.draw(6, 1, 0, 0);
+        sceneBPass.setPipeline(chromaPipeline); sceneBPass.setBindGroup(0, heroesBindGroup); sceneBPass.setBindGroup(1, mage.bindGroup); sceneBPass.draw(6, 1, 0, 0); sceneBPass.end();
+        const curlPass = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+        curlPass.setPipeline(curlPipeline); curlPass.setBindGroup(0, curlBindGroup); curlPass.setBindGroup(1, curl.bindGroup); curlPass.draw(6, 1, 0, 0); curlPass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC32 validation error: ${error.message}`);
+    }
+    const startedCold = performance.now(); await render(); const coldRenderTimeMs = performance.now() - startedCold;
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const startedWarm = performance.now(); await render(); const warmRenderTimeMs = performance.now() - startedWarm;
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC32 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc32_page_curl_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs, warm_iteration_count: 1,
+        speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100, cache_output_equal: cacheOutputEqual,
+        validation_passed: true, validation_error: null, manifest: 'tests/shared_assets/manifests/tc32_page_curl.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '3 pass (scene A + scene B + page curl) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count, instance_count: 5,
+        pass_count: manifest.graph.passes.length, image_name: 'tc32_page_curl_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc32'); const context = canvas.getContext('webgpu'); const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const canvasBlit = device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }), vertex: { module: blitShader, entryPoint: 'vs_main' }, fragment: { module: blitShader, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] }, primitive: { topology: 'triangle-list' } });
+    const finalBindGroup = device.createBindGroup({ layout: textureLayout, entries: [{ binding: 0, resource: finalTexture.createView() }, { binding: 1, resource: sampler }] });
+    const previewEncoder = device.createCommandEncoder(); const previewPass = previewEncoder.beginRenderPass({ colorAttachments: [{ view: context.getCurrentTexture().createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+    previewPass.setPipeline(canvasBlit); previewPass.setBindGroup(0, finalBindGroup); previewPass.draw(6, 1, 0, 0); previewPass.end(); device.queue.submit([previewEncoder.finish()]); await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc32_page_curl_web_preview.png'); document.getElementById('tag-tc32').textContent = 'PASS'; document.getElementById('tag-tc32').className = 'tag tag-passed';
+    finalTexture.destroy(); sceneATexture.destroy(); sceneBTexture.destroy(); noise.texture.destroy(); heroes.texture.destroy();
+    for (const uniform of [skyA, skyB, paladin, mage, curl]) uniform.buffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -5758,6 +5886,7 @@ async function runAllTests() {
         { name: "TC29: CRT/VHS", fn: runTC29 },
         { name: "TC30: Dissolve/Burn", fn: runTC30 },
         { name: "TC31: Light Sweep", fn: runTC31 },
+        { name: "TC32: Page Curl", fn: runTC32 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

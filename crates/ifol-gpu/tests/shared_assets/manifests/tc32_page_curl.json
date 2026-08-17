@@ -1,0 +1,99 @@
+{
+  "test_case": "TC32",
+  "title": "Page Curl 3D Transition",
+  "title_vi": "Chuyển cảnh lật trang 3D",
+  "description": "Render two distinct scenes and transition from the paladin scene to the mage scene with a cylindrical page curl.",
+  "description_vi": "Render hai cảnh khác nhau rồi chuyển từ cảnh paladin sang cảnh mage bằng biến dạng lật trang hình trụ.",
+  "input_policy_vi": "Desktop và WebGPU dùng các fixture PNG canonical cho sprite sheet và noise; không dùng decoder JPEG trong phép đo parity.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "scene_a", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "scene_b", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": {
+      "address_mode_u": "repeat",
+      "address_mode_v": "repeat",
+      "address_mode_w": "repeat",
+      "mag_filter": "linear",
+      "min_filter": "linear",
+      "mipmap_filter": "linear"
+    },
+    "pipelines": {
+      "sky": { "shader": "sky_composite_deterministic.wgsl", "blend": "Replace", "layout": "texture_uniform" },
+      "chroma": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" },
+      "curl": { "shader": "page_curl.wgsl", "blend": "AlphaBlending", "layout": "dual_texture_uniform" }
+    },
+    "operations": [
+      {
+        "id": "scene_a_sky",
+        "kind": "sky_composite",
+        "pass": "scene_a_pass",
+        "pipeline": "sky",
+        "shader": "sky_composite_deterministic.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_tc085_noise.png" }],
+        "uniform": { "top_color": [0.15, 0.08, 0.25], "noise_strength": 0.02, "bottom_color": [0.4, 0.15, 0.3], "time": 1.0 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "scene_a_paladin",
+        "kind": "chroma_key",
+        "pass": "scene_a_pass",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "uniform": { "scale_y": 0.8, "uv_min": [0.005, 0.01], "uv_max": [0.28, 0.98], "key_color": [0.0, 1.0, 0.0], "tolerance": 0.48, "smoothness": 0.1 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "scene_b_sky",
+        "kind": "sky_composite",
+        "pass": "scene_b_pass",
+        "pipeline": "sky",
+        "shader": "sky_composite_deterministic.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_tc085_noise.png" }],
+        "uniform": { "top_color": [0.05, 0.1, 0.2], "noise_strength": 0.05, "bottom_color": [0.2, 0.4, 0.6], "time": 2.0 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "scene_b_mage",
+        "kind": "chroma_key",
+        "pass": "scene_b_pass",
+        "pipeline": "chroma",
+        "shader": "chroma_key_cropped.wgsl",
+        "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }],
+        "uniform": { "scale_y": 0.8, "uv_min": [0.27, 0.01], "uv_max": [0.54, 0.98], "key_color": [0.0, 1.0, 0.0], "tolerance": 0.48, "smoothness": 0.1 },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "page_curl_transition",
+        "kind": "page_curl",
+        "pass": "curl_pass",
+        "pipeline": "curl",
+        "shader": "page_curl.wgsl",
+        "source": [{ "kind": "target", "target": "scene_a" }, { "kind": "target", "target": "scene_b" }],
+        "uniform": { "progress": 0.5, "radius": 0.1 },
+        "vertex_count": 6,
+        "instance_count": 1
+      }
+    ],
+    "passes": [
+      { "id": "scene_a_pass", "name": "Paladin scene", "target": "scene_a", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "scene_b_pass", "name": "Mage scene", "target": "scene_b", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "curl_pass", "name": "Cylindrical page curl", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "command_count": 5,
+    "node_count": 3
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_layer_order": ["scene_a_pass", "scene_b_pass", "curl_pass"],
+    "expected_instance_count": 5,
+    "visual_check": "Ảnh cuối phải thể hiện chuyển cảnh page-curl 3D ở 50% giữa scene A paladin và scene B mage, có nền sky khác nhau và bóng tối nhẹ trên phần cuộn; không có ảnh đen hoặc validation error."
+  }
+}

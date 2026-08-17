@@ -302,6 +302,12 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web dùng cùng PNG canonical; vision/structural, validation, cache và
   raw parity đạt tuyệt đối (`0` byte khác). Xem
   `tests/reports/tc31_light_sweep_report.md`;
+- TC32 đã được chuẩn hóa thành graph 3 pass scene A → scene B → page curl với
+  manifest fingerprint `26faa4396e406466`, năm draw command và ba node. Shader
+  page-curl dùng phép xấp xỉ toán học và ổn định hóa màu để giảm sai khác backend;
+  vision/structural, validation và cache đạt, raw còn khác 3 byte ở 3 pixel với
+  sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem
+  `tests/reports/tc32_page_curl_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
