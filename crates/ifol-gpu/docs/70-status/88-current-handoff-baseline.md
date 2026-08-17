@@ -312,6 +312,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   fingerprint `de9a0f7f14975043`, hai draw command và hai node. Desktop/Web
   dùng cùng PNG canonical; vision/structural, validation, cache và raw parity
   đạt tuyệt đối (`0` byte khác). Xem `tests/reports/tc33_pixelation_report.md`;
+- TC34 đã được chuẩn hóa thành graph 2 pass chroma key → directional blur với
+  manifest fingerprint `22559f51d1e1f5bf`, hai draw command và hai node.
+  Desktop/Web dùng cùng PNG canonical; vision/structural, validation, cache và
+  raw parity đạt tuyệt đối (`0` byte khác). Xem
+  `tests/reports/tc34_directional_blur_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

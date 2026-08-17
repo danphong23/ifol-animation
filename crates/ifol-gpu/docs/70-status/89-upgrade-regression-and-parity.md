@@ -162,6 +162,9 @@ Các report canonical hiện tại:
 - [TC33](../../tests/reports/tc33_pixelation_report.md): hai pass chroma key →
   pixelation 16px trên paladin PNG canonical; vision/structural, validation,
   cache và raw parity đạt tuyệt đối (`0` byte khác).
+- [TC34](../../tests/reports/tc34_directional_blur_report.md): hai pass chroma
+  key → directional blur 30 độ trên mage PNG canonical; vision/structural,
+  validation, cache và raw parity đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

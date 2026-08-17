@@ -43,7 +43,7 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (u_params.strength <= 0.0) {
-        return textureSample(t_diffuse, s_diffuse, in.uv);
+        return textureSampleLevel(t_diffuse, s_diffuse, in.uv, 0.0);
     }
 
     let dir = vec2<f32>(cos(u_params.angle), sin(u_params.angle));
@@ -61,7 +61,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let sample_uv = in.uv + offset;
         
         // Accumulate (simple box filter)
-        color += textureSample(t_diffuse, s_diffuse, sample_uv);
+        color += textureSampleLevel(t_diffuse, s_diffuse, sample_uv, 0.0);
         total_weight += 1.0;
     }
     

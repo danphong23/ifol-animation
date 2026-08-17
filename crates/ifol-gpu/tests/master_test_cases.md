@@ -199,3 +199,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử graph hai pass chroma key → pixelation với block size 16px.
 - **Kịch bản:** Tách paladin từ sprite sheet canonical rồi snap UV theo lưới 16px trên nền xanh đậm.
 - **Kỳ vọng:** Nhân vật vẫn nhận diện được với các ô mosaic vuông rõ ràng; không có ảnh đen hoặc validation error.
+
+### TC34 - Directional Motion Blur
+- **Mục tiêu:** Kiểm thử graph hai pass chroma key → directional blur 30 độ với 20 mẫu.
+- **Kịch bản:** Tách mage từ sprite sheet canonical rồi tích lũy các mẫu texture dọc theo vector góc 30 độ.
+- **Kỳ vọng:** Nhân vật có vệt nhòe kéo chéo rõ ràng trên nền đỏ tối; không có ảnh đen hoặc validation error.
