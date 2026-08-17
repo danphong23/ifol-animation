@@ -126,6 +126,17 @@ def main() -> None:
     case_id = manifest["test_case"]
     title = manifest.get("title_vi", manifest["title"])
     description_vi = manifest.get("description_vi", manifest["description"])
+    operations = manifest.get("graph", {}).get("operations", [])
+    asset_names = sorted({operation.get("asset") for operation in operations if operation.get("asset")})
+    shader_names = sorted({operation.get("shader") for operation in operations if operation.get("shader")})
+    asset_text = ", ".join(f"`{asset}`" for asset in asset_names) or "KHÔNG KHAI BÁO"
+    shader_text = ", ".join(f"`{shader}`" for shader in shader_names) or "KHÔNG KHAI BÁO"
+    input_policy = (
+        "Dùng PNG canonical để Desktop/WebGPU giải mã cùng một input byte-level."
+        if asset_names and all(asset.startswith("canonical_") for asset in asset_names)
+        else "Dùng asset theo manifest; chưa có chuẩn hóa input canonical riêng."
+    )
+    depth_text = json.dumps(manifest["graph"]["depth_stencil"], ensure_ascii=False) if "depth_stencil" in manifest.get("graph", {}) else "Không áp dụng"
     desktop_image_link = os.path.relpath(args.desktop_image, args.report.parent).replace(os.sep, "/")
     web_image_link = os.path.relpath(args.web_image, args.report.parent).replace(os.sep, "/")
 
@@ -139,6 +150,10 @@ def main() -> None:
 - **Graph fingerprint (FNV-1a):** `{manifest_fingerprint}`
 - **Mô tả test case:** {description_vi}
 - **Target:** `{target["width"]}x{target["height"]}`, `{target["format"]}`
+- **Shader/WGSL:** {shader_text}
+- **Asset/input:** {asset_text}
+- **Chính sách input:** {input_policy}
+- **Depth/stencil:** `{depth_text}`
 - **Desktop/Web dùng cùng manifest fingerprint:** `{"ĐẠT" if graph_match else "KHÔNG ĐẠT"}`
 
 ## 2. Môi trường Desktop

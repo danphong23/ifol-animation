@@ -15,7 +15,7 @@
       {
         "kind": "draw",
         "shader": "chroma_key_cropped.wgsl",
-        "asset": "sprites_heroes.jpeg",
+        "asset": "canonical_sprites_heroes.png",
         "position": [0.0, 0.0],
         "target_height_scale": 0.8,
         "crop_uv": [0.30, 0.0, 0.52, 1.0],

@@ -1,27 +1,70 @@
 {
-  "clear_color": [
-    0.1,
-    0.12,
-    0.15,
-    1.0
-  ],
-  "depth_stencil": "Depth32Float",
-  "layers": [
-    {
-      "name": "Tree",
-      "status": "In Front",
-      "z_depth": 0.2
+  "test_case": "TC03",
+  "title": "Z-Buffer Culling and Depth Testing",
+  "title_vi": "Loại bỏ và kiểm thử chiều sâu Z-Buffer",
+  "description": "Render three cropped sprites with overlapping regions and verify that depth values, not submission order, determine visibility.",
+  "description_vi": "Render ba sprite đã crop có vùng chồng lấn và xác nhận độ sâu, không phải thứ tự submit, quyết định phần hiển thị.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
     },
-    {
-      "name": "Golem",
-      "status": "Middle",
-      "z_depth": 0.5
+    "depth_stencil": {
+      "format": "Depth32Float",
+      "compare": "LessEqual",
+      "write": true,
+      "clear": 1.0
     },
-    {
-      "name": "Warrior",
-      "status": "Behind",
-      "z_depth": 0.8
-    }
-  ],
-  "test_case": "TC03 - Z-Buffer Culling & Depth Testing"
+    "operations": [
+      {
+        "name": "Warrior",
+        "asset": "canonical_sprites_heroes.png",
+        "shader": "chroma_key_cropped.wgsl",
+        "position": [-0.25, -0.1],
+        "target_height_scale": 0.75,
+        "crop_uv": [0.03, 0.0, 0.26, 1.0],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.8,
+        "opacity": 1.0,
+        "vertex_count": 6
+      },
+      {
+        "name": "Tree",
+        "asset": "canonical_bg_forest_props1.png",
+        "shader": "chroma_key_cropped.wgsl",
+        "position": [0.0, 0.0],
+        "target_height_scale": 0.85,
+        "crop_uv": [0.0, 0.0, 0.18, 0.42],
+        "tolerance": 0.40,
+        "smoothness": 0.10,
+        "z_depth": 0.2,
+        "opacity": 1.0,
+        "vertex_count": 6
+      },
+      {
+        "name": "Golem",
+        "asset": "canonical_sprites_monsters.png",
+        "shader": "chroma_key_cropped.wgsl",
+        "position": [0.25, -0.1],
+        "target_height_scale": 0.75,
+        "crop_uv": [0.68, 0.5, 0.98, 0.98],
+        "tolerance": 0.45,
+        "smoothness": 0.12,
+        "z_depth": 0.5,
+        "opacity": 1.0,
+        "vertex_count": 6
+      }
+    ],
+    "clear_color": [0.1, 0.12, 0.15, 1.0],
+    "submission_order": ["Warrior", "Tree", "Golem"]
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_background_rgba8": [89, 97, 108, 255],
+    "non_background_mask_diff_tolerance": 1024,
+    "visual_check": "Cây ở z=0.2 phải nằm trên Golem z=0.5 và Warrior z=0.8 tại vùng chồng lấn; không có Z-fighting, không có sprite biến mất ngoài kỳ vọng."
+  }
 }

@@ -1,121 +1,106 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn array2(value: &Value) -> [f32; 2] {
+    [
+        value[0].as_f64().unwrap() as f32,
+        value[1].as_f64().unwrap() as f32,
+    ]
+}
 
 #[test]
 fn run_tc03_zbuffer() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
+        let manifest_text = include_str!("../shared_assets/manifests/tc03_zbuffer.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC03 manifest");
+        let graph_spec = &manifest["graph"];
+        let target_spec = &graph_spec["target"];
+        let width = target_spec["width"].as_u64().unwrap() as u32;
+        let height = target_spec["height"].as_u64().unwrap() as u32;
+        let mut h = DesktopTestHarness::new(width, height).await;
+        let clear_color = [
+            graph_spec["clear_color"][0].as_f64().unwrap() as f32,
+            graph_spec["clear_color"][1].as_f64().unwrap() as f32,
+            graph_spec["clear_color"][2].as_f64().unwrap() as f32,
+            graph_spec["clear_color"][3].as_f64().unwrap() as f32,
+        ];
 
-        // 1. Load textures
-        let tex_heroes = h.load_texture("sprites_heroes.jpeg");
-        let tex_monsters = h.load_texture("sprites_monsters.jpeg");
-        let tex_forest = h.load_texture("bg_forest_props1.jpeg");
-
-        // 2. Setup 3 Sprites with aspect ratio correction
-        // Warrior (Z = 0.8, Furthest back, placed at X = -0.25)
-        let warrior_uniform = h.build_sprite_uniform(
-            &tex_heroes,
-            [-0.25, -0.1],
-            0.75,
-            [0.03, 0.0],
-            [0.26, 1.0],
-            0.45,
-            0.12,
-            0.8,
-            1.0,
-        );
-        let bg_warrior_uni = h.create_sprite_uniform_bind_group(warrior_uniform);
-
-        // Tree (Z = 0.2, Closest in front, placed at X = 0.0)
-        let tree_uniform = h.build_sprite_uniform(
-            &tex_forest,
-            [0.0, 0.0],
-            0.85,
-            [0.0, 0.0],
-            [0.18, 0.42],
-            0.40,
-            0.10,
-            0.2,
-            1.0,
-        );
-        let bg_tree_uni = h.create_sprite_uniform_bind_group(tree_uniform);
-
-        // Golem (Z = 0.5, Middle depth, placed at X = 0.25)
-        let golem_uniform = h.build_sprite_uniform(
-            &tex_monsters,
-            [0.25, -0.1],
-            0.75,
-            [0.68, 0.5],
-            [0.98, 0.98],
-            0.45,
-            0.12,
-            0.5,
-            1.0,
-        );
-        let bg_golem_uni = h.create_sprite_uniform_bind_group(golem_uniform);
-
-        // 3. Register Pipeline with Depth Test enabled
         let pipe_id = h.register_pipeline(
-            "chroma_key_cropped.wgsl",
+            graph_spec["operations"][0]["shader"].as_str().unwrap(),
             Some(wgpu::BlendState::REPLACE),
-            true, // Enable Depth Test
+            true,
             true,
         );
-
-        // 4. Create Target & Depth Attachment
         let (target_id, target_tex) = h.create_target("TC03 Color Target");
         let (depth_id, _depth_tex) = h.create_depth_target("TC03 Depth Target");
-
         let mut graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_id,
-            width: 800,
-            height: 600,
+            width,
+            height,
         })
-        .with_clear_color([0.1, 0.12, 0.15, 1.0])
+        .with_clear_color(clear_color)
         .with_depth_stencil(depth_id);
 
-        // Submit in deliberate order: Warrior (0.8) -> Tree (0.2) -> Golem (0.5)
-        graph.add_batch(
-            &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_id, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_heroes.bind_group, Vec::new())
-                    .with_bind_group(1, bg_warrior_uni, Vec::new()),
-                DrawCommand::new(pipe_id, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_forest.bind_group, Vec::new())
-                    .with_bind_group(1, bg_tree_uni, Vec::new()),
-                DrawCommand::new(pipe_id, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_monsters.bind_group, Vec::new())
-                    .with_bind_group(1, bg_golem_uni, Vec::new()),
-            ],
-        );
+        let mut commands = Vec::new();
+        for operation in graph_spec["operations"].as_array().unwrap() {
+            let texture = h.load_texture(operation["asset"].as_str().unwrap());
+            let crop = operation["crop_uv"].as_array().unwrap();
+            let uniform = h.build_sprite_uniform(
+                &texture,
+                array2(&operation["position"]),
+                operation["target_height_scale"].as_f64().unwrap() as f32,
+                [crop[0].as_f64().unwrap() as f32, crop[1].as_f64().unwrap() as f32],
+                [crop[2].as_f64().unwrap() as f32, crop[3].as_f64().unwrap() as f32],
+                operation["tolerance"].as_f64().unwrap() as f32,
+                operation["smoothness"].as_f64().unwrap() as f32,
+                operation["z_depth"].as_f64().unwrap() as f32,
+                operation["opacity"].as_f64().unwrap() as f32,
+            );
+            let uniform_bind_group = h.create_sprite_uniform_bind_group(uniform);
+            commands.push(
+                DrawCommand::new(
+                    pipe_id,
+                    DrawAction::Procedural {
+                        vertex_count: operation["vertex_count"].as_u64().unwrap() as u32,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, texture.bind_group, Vec::new())
+                .with_bind_group(1, uniform_bind_group, Vec::new()),
+            );
+        }
+        graph.add_batch(&mut h.pool, commands);
 
-        // 5. Serialize Graph JSON
-        let graph_json = serde_json::json!({
-            "test_case": "TC03 - Z-Buffer Culling & Depth Testing",
-            "clear_color": [0.1, 0.12, 0.15, 1.0],
-            "depth_stencil": "Depth32Float",
-            "layers": [
-                { "name": "Tree", "z_depth": 0.2, "status": "In Front" },
-                { "name": "Golem", "z_depth": 0.5, "status": "Middle" },
-                { "name": "Warrior", "z_depth": 0.8, "status": "Behind" }
-            ]
-        });
         fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc03_zbuffer.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        // 6. Execute & Record
+        fs::write("tests/graphs/tc03_zbuffer.json", manifest_text).unwrap();
         h.execute_and_record(
             &graph,
             &target_tex,
             "tc03_zbuffer",
-            "Z-Buffer Culling & Depth Testing",
-            "Cây (Z=0.2) che khuất một phần Golem (Z=0.5) và Nữ chiến binh (Z=0.8). Thứ tự lớp hoàn toàn chính xác theo Z-Buffer.",
-            "Các vật thể lồng lên nhau chính xác theo chiều sâu Z: Cây sồi (Z=0.2) nằm trên cùng che Golem (Z=0.5) và Nữ chiến binh (Z=0.8). Không có hiện tượng Z-fighting hay sai lệch thứ tự vẽ.",
+            manifest["title"].as_str().unwrap(),
+            manifest["description"].as_str().unwrap(),
+            manifest["evaluation"]["visual_check"].as_str().unwrap(),
         );
+
+        let metadata_path = "tests/outputs/desktop/tc03_zbuffer_desktop.json";
+        let mut metadata: Value =
+            serde_json::from_str(&fs::read_to_string(metadata_path).unwrap()).unwrap();
+        metadata["manifest_fingerprint"] = Value::String(fnv1a64(manifest_text.as_bytes()));
+        fs::write(metadata_path, serde_json::to_vec_pretty(&metadata).unwrap()).unwrap();
     });
 }
