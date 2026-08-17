@@ -1,7 +1,9 @@
 {
   "test_case": "TC01",
   "title": "Empty Render",
+  "title_vi": "Render rỗng",
   "description": "Clear an 800x600 offscreen target to a uniform light gray without garbage pixels.",
+  "description_vi": "Xóa (clear) target offscreen 800x600 thành một màu xám nhạt đồng nhất, không có điểm ảnh rác.",
   "graph": {
     "target": {
       "kind": "offscreen",

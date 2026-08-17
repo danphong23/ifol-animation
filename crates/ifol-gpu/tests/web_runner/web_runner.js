@@ -73,6 +73,36 @@ async function readTextureBytes(device, texture, width, height) {
     return bytes;
 }
 
+async function loadImageTexture(device, filename) {
+    const response = await fetch(`/textures/${filename}`);
+    if (!response.ok) throw new Error(`Failed to load texture: ${filename}`);
+    const bitmap = await createImageBitmap(await response.blob());
+    const probeCanvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const probeContext = probeCanvas.getContext('2d', { willReadFrequently: true });
+    probeContext.drawImage(bitmap, 0, 0);
+    const imageData = probeContext.getImageData(0, 0, bitmap.width, bitmap.height);
+    const pixelOffset = (Math.min(2, bitmap.width - 1) + Math.min(2, bitmap.height - 1) * bitmap.width) * 4;
+    const pixel = imageData.data.subarray(pixelOffset, pixelOffset + 4);
+    const texture = device.createTexture({
+        size: [bitmap.width, bitmap.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    });
+    device.queue.writeTexture(
+        { texture },
+        imageData.data,
+        { bytesPerRow: bitmap.width * 4, rowsPerImage: bitmap.height },
+        [bitmap.width, bitmap.height, 1]
+    );
+    bitmap.close();
+    return {
+        texture,
+        width: probeCanvas.width,
+        height: probeCanvas.height,
+        keyColor: [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255]
+    };
+}
+
 async function saveRawTexture(bytes, metadata) {
     const res = await fetch('/save_raw', {
         method: 'POST',
@@ -87,7 +117,10 @@ async function saveRawTexture(bytes, metadata) {
             cold_render_time_ms: metadata.cold_render_time_ms,
             warm_render_time_ms: metadata.warm_render_time_ms,
             manifest: metadata.manifest,
-            manifest_fingerprint: metadata.manifest_fingerprint
+            manifest_fingerprint: metadata.manifest_fingerprint,
+            adapter_name: metadata.adapter_name,
+            timing_scope: metadata.timing_scope,
+            image_name: metadata.image_name
         })
     });
     if (!res.ok) throw new Error(`Raw output save failed: ${res.status}`);
@@ -194,7 +227,10 @@ async function runTC01(gpu) {
         cold_render_time_ms: coldRenderTimeMs,
         warm_render_time_ms: warmRenderTimeMs,
         manifest: 'tests/shared_assets/manifests/tc01_empty.json',
-        manifest_fingerprint: manifestFingerprint
+        manifest_fingerprint: manifestFingerprint,
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'execute offscreen + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        image_name: 'tc01_empty_web.png'
     });
 
     const canvas = document.getElementById('canvas-tc01');
@@ -213,10 +249,135 @@ async function runTC01(gpu) {
     canvasPass.end();
     device.queue.submit([canvasEncoder.finish()]);
     await device.queue.onSubmittedWorkDone();
-    await saveCanvasImage(canvas, 'tc01_empty_web.png');
     document.getElementById('tag-tc01').textContent = 'PASS';
     document.getElementById('tag-tc01').className = 'tag tag-passed';
     texture.destroy();
+}
+
+async function runTC02(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc02_single_quad.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC02 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const drawSpec = manifest.graph.operations[0];
+    const clear = manifest.graph.clear_color;
+    const image = await loadImageTexture(device, drawSpec.asset);
+    const shaderCode = await fetchShader(drawSpec.shader);
+    const shaderModule = device.createShaderModule({ code: shaderCode });
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    function createSpritePipeline(format) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+            vertex: { module: shaderModule, entryPoint: 'vs_main' },
+            fragment: {
+                module: shaderModule,
+                entryPoint: 'fs_main',
+                targets: [{ format, blend: {
+                    color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                    alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                }}]
+            },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    const offscreenPipeline = createSpritePipeline('rgba8unorm-srgb');
+    const crop = drawSpec.crop_uv;
+    const cropAspect = ((crop[2] - crop[0]) * image.width) / Math.max((crop[3] - crop[1]) * image.height, 1);
+    const screenAspect = target.width / target.height;
+    const scaleY = drawSpec.target_height_scale;
+    const scaleX = scaleY * (cropAspect / screenAspect);
+    const uniformData = new Float32Array([
+        drawSpec.position[0], drawSpec.position[1], scaleX, scaleY,
+        crop[0], crop[1], crop[2], crop[3],
+        image.keyColor[0], image.keyColor[1], image.keyColor[2], drawSpec.tolerance,
+        drawSpec.smoothness, drawSpec.z_depth, drawSpec.opacity, 0
+    ]);
+    const uniformBuffer = device.createBuffer({
+        size: uniformData.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+    const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
+    const textureBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const uniformBindGroup = device.createBindGroup({
+        layout: uniformLayout,
+        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+    });
+    const targetTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+
+    async function executeDraw(outputTexture) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        pass.setPipeline(offscreenPipeline);
+        pass.setBindGroup(0, textureBindGroup);
+        pass.setBindGroup(1, uniformBindGroup);
+        pass.draw(drawSpec.vertex_count, 1, 0, 0);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+
+    const coldRenderTimeMs = await executeDraw(targetTexture);
+    const warmRenderTimeMs = await executeDraw(targetTexture);
+    const bytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    await saveRawTexture(bytes, {
+        name: 'tc02_single_quad_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        manifest: 'tests/shared_assets/manifests/tc02_single_quad.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'execute offscreen + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        image_name: 'tc02_single_quad_web.png'
+    });
+
+    const canvas = document.getElementById('canvas-tc02');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const canvasPipeline = createSpritePipeline(canvasFormat);
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] },
+        loadOp: 'clear', storeOp: 'store'
+    }]});
+    pass.setPipeline(canvasPipeline);
+    pass.setBindGroup(0, textureBindGroup);
+    pass.setBindGroup(1, uniformBindGroup);
+    pass.draw(drawSpec.vertex_count, 1, 0, 0);
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    document.getElementById('tag-tc02').textContent = 'PASS';
+    document.getElementById('tag-tc02').className = 'tag tag-passed';
+    targetTexture.destroy();
+    image.texture.destroy();
+    uniformBuffer.destroy();
 }
 
 async function fetchShader(name) {
@@ -930,6 +1091,7 @@ async function runAllTests() {
 
     const testCatalog = [
         { name: "TC01: Empty Render", fn: runTC01 },
+        { name: "TC02: Single Quad Chroma Key", fn: runTC02 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

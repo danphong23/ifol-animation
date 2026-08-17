@@ -18,6 +18,15 @@ use wgpu::util::DeviceExt;
 #[path = "output.rs"]
 mod output;
 
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SpriteUniform {
@@ -992,6 +1001,31 @@ impl<'a> DesktopTestHarness<'a> {
         };
         self.save_texture_to_file_checked(actual_rendered_tex, output_format, &output_img_path)
             .expect("Failed to save output texture to file");
+
+        let raw = self
+            .engine
+            .read_texture_to_raw_with_format_checked(actual_rendered_tex, output_format)
+            .expect("Failed to read desktop raw output");
+        let raw_path = Path::new("tests/outputs/desktop").join(format!("{}_desktop.bin", tc_id));
+        fs::write(&raw_path, &raw.bytes).unwrap();
+        let metadata = serde_json::json!({
+            "test_case": tc_id.to_uppercase(),
+            "width": raw.width,
+            "height": raw.height,
+            "format": format!("{output_format:?}"),
+            "adapter_name": self.engine.adapter_info().name,
+            "backend": format!("{:?}", self.engine.adapter_info().backend),
+            "device_type": format!("{:?}", self.engine.adapter_info().device_type),
+            "timing_scope": "execute_checked + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "cold_render_time_ms": elapsed_cold.as_secs_f64() * 1000.0,
+            "warm_render_time_ms": elapsed_warm.as_secs_f64() * 1000.0
+        });
+        fs::write(
+            Path::new("tests/outputs/desktop").join(format!("{}_desktop.json", tc_id)),
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
 
         // Save report MD
         fs::create_dir_all("tests/reports").unwrap();
