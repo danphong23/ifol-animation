@@ -94,10 +94,11 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Hậu cảnh rừng được blur mềm theo hai hướng, ba đối tượng tiền cảnh vẫn sắc nét; không có banding, ping-pong state leak hoặc artifact rõ ràng.
 - **Hợp đồng parity:** Desktop/Web dùng manifest `shared_assets/manifests/tc13_blur.json`, cùng target `800x600 Rgba8UnormSrgb`, 4 pass và 11 draw command.
 
-### TC14 - Glow / Bloom
-- **Mục tiêu:** Filter & Additive Blending.
-- **Kịch bản:** Tách điểm sáng > 0.8 -> Blur -> Additive.
-- **Kỳ vọng hình ảnh xuất ra:** Các vùng sáng (như mắt, kiếm sáng) tỏa hào quang mờ ra xung quanh.
+### TC14 - Cinematic Color Grading & ACES Filmic Tone Mapping
+- **Mục tiêu:** Kiểm thử post-process color grading xác định với exposure, contrast, saturation, temperature, split-toning, ACES Filmic và vignette.
+- **Manifest dùng chung:** `shared_assets/manifests/tc14_grading.json`.
+- **Kịch bản:** Render scene hoàng hôn canonical trong `scene`, sau đó pass `color_grade` đọc scene và ghi `final` bằng shader `color_grading_filmic.wgsl`.
+- **Kỳ vọng hình ảnh xuất ra:** Cảnh có tông vàng ấm, vùng tối pha tím chàm, highlight vàng hổ phách, vignette mềm; foreground còn chi tiết, không bị đen toàn ảnh hay artifact.
 
 ### TC15 - Instancing Particle System (Snow)
 - **Mục tiêu:** Instancing Render.

@@ -2018,6 +2018,206 @@ async function runTC13(gpu) {
     for (const id of Object.keys(uniformBuffers)) uniformBuffers[id].destroy();
 }
 
+async function runTC14(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc14_grading.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC14 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const operationById = Object.fromEntries(operations.map(operation => [operation.id, operation]));
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const shaders = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaders[spec.shader]) shaders[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+    }
+    shaders['texture_blit.wgsl'] = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const alphaBlend = {
+        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+    };
+    const additiveBlend = {
+        color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
+        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+    };
+    function createPipeline(shaderName, format, blend) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+            vertex: { module: shaders[shaderName], entryPoint: 'vs_main' },
+            fragment: { module: shaders[shaderName], entryPoint: 'fs_main', targets: [blend ? { format, blend } : { format }] },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    function createNoUniformPipeline(shaderName, format, blend) {
+        return device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }),
+            vertex: { module: shaders[shaderName], entryPoint: 'vs_main' },
+            fragment: { module: shaders[shaderName], entryPoint: 'fs_main', targets: [blend ? { format, blend } : { format }] },
+            primitive: { topology: 'triangle-list' }
+        });
+    }
+    const pipelines = {
+        sky: createPipeline('sky_composite.wgsl', 'rgba8unorm-srgb', null),
+        chroma: createPipeline('chroma_key_cropped.wgsl', 'rgba8unorm-srgb', alphaBlend),
+        sparks: createNoUniformPipeline('star_particles_sprite.wgsl', 'rgba8unorm-srgb', additiveBlend),
+        grading: createPipeline('color_grading_filmic.wgsl', 'rgba8unorm-srgb', null)
+    };
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const assetNames = [...new Set(operations.filter(operation => operation.asset).map(operation => operation.asset))];
+    const images = {};
+    for (const asset of assetNames) images[asset] = await loadImageTexture(device, asset);
+    const textureBindGroups = {};
+    const uniformBuffers = {};
+    const uniformBindGroups = {};
+    function textureBindGroup(texture, key) {
+        if (!textureBindGroups[key]) {
+            textureBindGroups[key] = device.createBindGroup({
+                layout: textureLayout,
+                entries: [{ binding: 0, resource: texture.createView() }, { binding: 1, resource: sampler }]
+            });
+        }
+        return textureBindGroups[key];
+    }
+    for (const asset of assetNames) textureBindGroup(images[asset].texture, asset);
+    function createUniform(id, values, minimumSize = 0) {
+        const data = new Float32Array(values);
+        const size = Math.max(data.byteLength, minimumSize);
+        const buffer = device.createBuffer({ size, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        device.queue.writeBuffer(buffer, 0, data);
+        uniformBuffers[id] = buffer;
+        uniformBindGroups[id] = device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer } }] });
+    }
+    for (const operation of operations) {
+        if (operation.kind === 'sky') {
+            createUniform(operation.id, [
+                ...operation.uniform.top_color, operation.uniform.noise_strength,
+                ...operation.uniform.bottom_color, operation.uniform.time
+            ], 64);
+        } else if (operation.kind === 'postprocess') {
+            createUniform(operation.id, [
+                ...operation.uniform.params,
+                ...operation.uniform.shadow_tint_vig,
+                ...operation.uniform.highlight_tint
+            ]);
+        } else if (operation.position) {
+            const image = images[operation.asset];
+            const crop = operation.crop_uv;
+            const cropWidth = (crop[2] - crop[0]) * image.width;
+            const cropHeight = (crop[3] - crop[1]) * image.height;
+            const cropAspect = cropWidth / Math.max(cropHeight, 1);
+            const scaleY = operation.target_height_scale;
+            const scaleX = scaleY * (cropAspect / (target.width / target.height));
+            createUniform(operation.id, [
+                operation.position[0], operation.position[1], scaleX, scaleY,
+                crop[0], crop[1], crop[2], crop[3],
+                operation.key_color[0], operation.key_color[1], operation.key_color[2], operation.tolerance,
+                operation.smoothness, operation.z_depth, operation.opacity, 0
+            ]);
+        }
+    }
+    const sceneTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    textureBindGroup(sceneTexture, 'scene_target');
+    function drawScene(pass) {
+        for (const operation of operations.filter(operation => !operation.source_target)) {
+            pass.setPipeline(pipelines[operation.pipeline]);
+            pass.setBindGroup(0, textureBindGroups[operation.asset]);
+            if (uniformBindGroups[operation.id]) pass.setBindGroup(1, uniformBindGroups[operation.id]);
+            pass.draw(operation.vertex_count, operation.instance_count, 0, 0);
+        }
+    }
+    function drawGrading(pass) {
+        const operation = operationById.color_grade;
+        pass.setPipeline(pipelines[operation.pipeline]);
+        pass.setBindGroup(0, textureBindGroups.scene_target);
+        pass.setBindGroup(1, uniformBindGroups[operation.id]);
+        pass.draw(operation.vertex_count, operation.instance_count, 0, 0);
+    }
+    async function submitPass(texture, clearColor, draw) {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: texture.createView(),
+            clearValue: { r: clearColor[0], g: clearColor[1], b: clearColor[2], a: clearColor[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        draw(pass);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC14 validation error: ${error.message}`);
+    }
+    async function executeAll() {
+        const started = performance.now();
+        await submitPass(sceneTexture, manifest.graph.passes[0].clear_color, drawScene);
+        await submitPass(finalTexture, manifest.graph.passes[1].clear_color, drawGrading);
+        return performance.now() - started;
+    }
+    const coldRenderTimeMs = await executeAll();
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const warmRenderTimeMs = await executeAll();
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC14 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc14_grading_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc14_grading.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '2 pass (scene → color grading) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count, pass_count: manifest.graph.passes.length,
+        image_name: 'tc14_grading_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc14');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const canvasBlit = createNoUniformPipeline('texture_blit.wgsl', canvasFormat, null);
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+    }]});
+    pass.setPipeline(canvasBlit);
+    pass.setBindGroup(0, textureBindGroups.final_target || textureBindGroup(finalTexture, 'final_target'));
+    pass.draw(6, 1, 0, 0);
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc14_grading_web_preview.png');
+    document.getElementById('tag-tc14').textContent = 'PASS';
+    document.getElementById('tag-tc14').className = 'tag tag-passed';
+    sceneTexture.destroy();
+    finalTexture.destroy();
+    for (const asset of assetNames) images[asset].texture.destroy();
+    for (const id of Object.keys(uniformBuffers)) uniformBuffers[id].destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -2906,6 +3106,7 @@ async function runAllTests() {
         { name: "TC11: Multi-Viewport Isolation", fn: runTC11 },
         { name: "TC12: Multi-Sprite Chroma Key", fn: runTC12 },
         { name: "TC13: Gaussian Blur Depth of Field", fn: runTC13 },
+        { name: "TC14: Cinematic Color Grading", fn: runTC14 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

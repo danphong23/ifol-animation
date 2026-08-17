@@ -623,7 +623,7 @@ fn run_tc13_to_tc19_effects(harness: &mut TestHarness) {
     let pipe_snow = harness.register_pipeline(&snow_wgsl, Some(wgpu::BlendState::ALPHA_BLENDING), false, false);
     let pipe_disp = harness.register_pipeline(&disp_wgsl, Some(wgpu::BlendState::REPLACE), false, true);
 
-    // TC13 & TC14 - Blur & Bloom (Using Blur Shader)
+    // TC13 standalone blur smoke preview; canonical TC13/TC14 parity lives in the dedicated tests.
     let (t13, tex13) = harness.create_target("tc13");
     let mut g13 = RenderGraph::new(RenderTarget::Offscreen { color: t13, width: harness.width, height: harness.height });
     g13.add_batch(&mut harness.pool, vec![DrawCommand::new(pipe_blur, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 }).with_bind_group(0, bg_bg, vec![])]);

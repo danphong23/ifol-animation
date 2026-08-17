@@ -87,6 +87,10 @@ Các report canonical hiện tại:
 - [TC13](../../tests/reports/tc13_blur_report.md): bốn pass Gaussian blur
   ping-pong và depth of field; vision/structural parity, raw parity và
   cold/warm cache parity đạt tuyệt đối.
+- [TC14](../../tests/reports/tc14_grading_report.md): hai pass color grading
+  điện ảnh/ACES Filmic; vision/structural parity và cold/warm cache parity đạt,
+  raw còn khác 18 byte ở 16 pixel với sai số tối đa `2/255`, nên là `ĐẠT CÓ
+  ĐIỀU KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

@@ -213,6 +213,10 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web dùng cùng manifest fingerprint `4f37a8fd4102496e`, cùng 11 draw
   command và output cold/warm không đổi. Xem report TC13 trong
   `tests/reports/tc13_blur_report.md`;
+- TC14 đã được chuẩn hóa thành graph 2 pass color grading/ACES Filmic với
+  manifest fingerprint `f3824201007dd4a7`, cùng 8 draw command trên Desktop/Web.
+  Vision/structural và cold/warm đạt; raw còn khác 18 byte ở 16 pixel, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc14_grading_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

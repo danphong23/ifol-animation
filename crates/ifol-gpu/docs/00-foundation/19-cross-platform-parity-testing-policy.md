@@ -149,6 +149,10 @@ thay đổi boundary của core.
 - TC13: bốn pass `background → blur H → blur V → final`, hai target ping-pong,
   11 draw command; vision/structural parity và raw parity đạt tuyệt đối, cold/
   warm output không đổi trên Desktop/WebGPU.
+- TC14: hai pass `scene → color grading`, 2 node và 8 draw command; vision/
+  structural parity đạt, cold/warm output không đổi và validation WebGPU đạt.
+  Raw còn khác 18 byte ở 16 pixel, sai số tối đa `2/255`, nên kết luận là
+  `ĐẠT CÓ ĐIỀU KIỆN`.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

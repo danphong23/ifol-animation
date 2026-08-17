@@ -94,10 +94,11 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kịch bản:** `background_scene` → `blur_horizontal_pass` → `blur_vertical_pass` → `final_composite`; hậu cảnh rừng/wisps được blur qua `background_a` và `blur_b`, sau đó ghép ba sprite tiền cảnh sắc nét.
 - **Kỳ vọng:** Cùng manifest, 4 pass, 11 draw command; hậu cảnh blur hai hướng, foreground sắc nét, không có banding hoặc ping-pong state leak.
 
-### TC14 - Glow / Bloom
-- **Mục tiêu:** Filter & Additive Blending.
-- **Kịch bản:** Tách lấy điểm ảnh có độ sáng > 0.8 (Luma Filter) -> Blur -> Vẽ đè lên ảnh gốc với BlendMode `ADDITIVE`.
-- **Kỳ vọng:** Vùng sáng của ảnh gốc tỏa hào quang rực rỡ.
+### TC14 - Cinematic Color Grading & ACES Filmic Tone Mapping
+- **Mục tiêu:** Kiểm thử post-process color grading xác định với exposure, contrast, saturation, temperature, split-toning, ACES Filmic và vignette.
+- **Manifest dùng chung:** `shared_assets/manifests/tc14_grading.json`.
+- **Kịch bản:** `scene_pass` render scene hoàng hôn, `grading_pass` đọc scene và ghi `final` bằng `color_grading_filmic.wgsl`.
+- **Kỳ vọng:** Cùng manifest và 2 pass; tông vàng ấm, shadow tím chàm, highlight vàng hổ phách, vignette mềm và không có artifact.
 
 ### TC15 - Instancing Particle System (Snow)
 - **Mục tiêu:** Sức mạnh của phần cứng GPU.
