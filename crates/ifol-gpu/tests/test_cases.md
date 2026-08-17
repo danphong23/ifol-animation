@@ -174,3 +174,8 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Mục tiêu:** Kiểm thử biến dạng gợn sóng tỏa tâm với dịch chuyển UV bằng sin/cos.
 - **Kịch bản:** Dùng `ripple.wgsl` lấy khoảng cách tới tâm `[0.5, 0.5]`, tạo wave theo `frequency/time/speed`, giảm biên độ theo khoảng cách và sample nền city canonical.
 - **Kỳ vọng hình ảnh xuất ra:** Nền thành phố vẫn đầy đủ, có biến dạng gợn sóng nhận diện được; không có ảnh đen hoặc lỗi validation.
+
+### TC29 - CRT & VHS Filter
+- **Mục tiêu:** Kiểm thử barrel distortion, scanlines, vignette và RGB split trên nền sci-fi canonical.
+- **Kịch bản:** Dùng `crt_vhs.wgsl` cong UV, tách RGB, tạo scanline/vignette và nhiễu integer-hash xác định.
+- **Kỳ vọng hình ảnh xuất ra:** Nền sci-fi có cong CRT, scanline/vignette/RGB split và nhiễu ổn định; không có ảnh đen hoặc lỗi validation.

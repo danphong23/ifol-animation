@@ -287,6 +287,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   input bytes; vision/structural, validation, cache và raw parity đạt với 15
   byte khác ở 15 pixel, sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`. Xem
   `tests/reports/tc28_ripple_report.md`;
+- TC29 đã được chuẩn hóa thành graph 1 pass CRT/VHS với manifest fingerprint
+  `a54801bc417a3b00`, một draw command và một instance. Desktop/Web dùng
+  cùng PNG canonical và cùng graph; vision/structural, validation và cold/warm
+  parity đạt. Raw còn khác 591 byte ở 588 pixel, sai số tối đa `1/255`, nên là
+  `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc29_crt_vhs_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

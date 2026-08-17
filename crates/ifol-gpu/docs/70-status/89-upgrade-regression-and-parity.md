@@ -145,6 +145,10 @@ Các report canonical hiện tại:
   trên city PNG canonical; vision/structural, validation và cache parity đạt,
   raw còn khác 15 byte ở 15 pixel với sai số tối đa `1/255`, nên là `ĐẠT CÓ
   ĐIỀU KIỆN`.
+- [TC29](../../tests/reports/tc29_crt_vhs_report.md): một pass CRT/VHS với
+  barrel distortion, scanlines, vignette, RGB split và integer-hash noise;
+  vision/structural, validation và cache parity đạt, raw còn khác 591 byte ở
+  588 pixel với sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
