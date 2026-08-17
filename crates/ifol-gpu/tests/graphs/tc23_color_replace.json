@@ -1,7 +1,0 @@
-{
-  "features": [
-    "Dynamic HSV based color replacement",
-    "Preservation of value (shading/highlights)"
-  ],
-  "test_case": "TC23 - Palette Swap (HSV Shift)"
-}

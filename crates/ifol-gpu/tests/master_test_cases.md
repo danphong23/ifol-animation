@@ -144,3 +144,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử 100 instance phần cứng bằng một draw command.
 - **Kịch bản:** Dùng chung một crop sprite canonical, shader tạo vị trí, scale và rotation xác định theo `instance_index`, có sửa aspect ratio và loại phông xanh.
 - **Kỳ vọng:** 100 prop nhỏ phân bố xác định trên nền xanh đậm, không có black output hoặc validation error.
+
+### TC23 - Palette Swap (HSV Shift)
+- **Mục tiêu:** Kiểm thử thay bảng màu HSV từ hồng sang cyan nhưng giữ shading/highlight.
+- **Kịch bản:** Crop sprite canonical, dùng `color_replace.wgsl` để tính khoảng cách HSV, dịch hue/saturation, giữ value và loại phông xanh.
+- **Kỳ vọng:** Giáp và chi tiết chuyển sang cyan, shading/highlight giữ nguyên, không có output đen hoặc validation error.

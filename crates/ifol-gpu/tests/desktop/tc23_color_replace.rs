@@ -1,7 +1,10 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
+use serde_json::Value;
 use std::fs;
+use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -16,25 +19,58 @@ struct ReplaceUniform {
     _pad: [f32; 2],
 }
 
-// Convert RGB to HSV for uniform setup
-fn rgb2hsv(r: f32, g: f32, b: f32) -> [f32; 4] {
-    let max = r.max(g).max(b);
-    let min = r.min(g).min(b);
-    let d = max - min;
-    let mut h = 0.0;
-    if d > 0.0 {
-        if max == r {
-            h = (g - b) / d + (if g < b { 6.0 } else { 0.0 });
-        } else if max == g {
-            h = (b - r) / d + 2.0;
-        } else {
-            h = (r - g) / d + 4.0;
-        }
-        h /= 6.0;
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
     }
-    let s = if max == 0.0 { 0.0 } else { d / max };
-    let v = max;
-    [h, s, v, 0.0]
+    format!("{hash:016x}")
+}
+
+fn values(value: &Value) -> Vec<f32> {
+    value
+        .as_array()
+        .expect("TC23 value must be an array")
+        .iter()
+        .map(|item| item.as_f64().expect("TC23 value must be numeric") as f32)
+        .collect()
+}
+
+fn value2(value: &Value) -> [f32; 2] {
+    values(value)
+        .try_into()
+        .expect("TC23 value must have two elements")
+}
+
+fn value4(value: &Value) -> [f32; 4] {
+    values(value)
+        .try_into()
+        .expect("TC23 value must have four elements")
+}
+
+fn matrix4(value: &Value) -> [[f32; 4]; 4] {
+    value
+        .as_array()
+        .expect("TC23 matrix must be an array")
+        .iter()
+        .map(|column| value4(column))
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("TC23 matrix must have four columns")
+}
+
+fn execute(h: &mut DesktopTestHarness, graph: &RenderGraph) -> f64 {
+    let started = Instant::now();
+    let submission = h
+        .executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, graph)
+        .expect("TC23 graph pass failed");
+    let _ = h.engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission),
+        timeout: None,
+    });
+    started.elapsed().as_secs_f64() * 1000.0
 }
 
 #[test]
@@ -42,81 +78,114 @@ fn run_tc23_color_replace() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
-        
-        // Use the heroes sprite sheet
-        let tex_heroes = h.load_texture("sprites_heroes.jpeg");
-
-        let pipe_replace = h.register_pipeline(
+        let manifest_text = include_str!("../shared_assets/manifests/tc23_color_replace.json");
+        let manifest: Value = serde_json::from_str(manifest_text).expect("Invalid TC23 manifest");
+        let graph_spec = &manifest["graph"];
+        let target_spec = &graph_spec["target"];
+        let width = target_spec["width"].as_u64().unwrap() as u32;
+        let height = target_spec["height"].as_u64().unwrap() as u32;
+        let operation = &graph_spec["operations"][0];
+        let pass = &graph_spec["passes"][0];
+        let u = &operation["uniform"];
+        let mut h = DesktopTestHarness::new(width, height).await;
+        let sprite = h.load_texture_exact("canonical_sprites_heroes.png");
+        let pipeline = h.register_pipeline(
             "color_replace.wgsl",
             Some(wgpu::BlendState::ALPHA_BLENDING),
             false,
-            true, // use sprite layout
+            true,
         );
-
-        // Scale y = 1.5. Scale x = 1.5 * (600/800) * (0.275 / 0.97) = 1.5 * 0.75 * 0.283 = 0.318
-        let s_y = 1.5f32;
-        let s_x = s_y * (600.0 / 800.0) * (0.275 / 0.97);
-
-        // We want to replace the pink armor (around rgb 255, 180, 200) with a cool cyan armor (rgb 0, 200, 255)
-        let target_hsv = rgb2hsv(255.0/255.0, 180.0/255.0, 200.0/255.0);
-        let replace_hsv = rgb2hsv(0.0/255.0, 200.0/255.0, 255.0/255.0);
-
-        let uniform = ReplaceUniform {
-            transform: [
-                [s_x, 0.0, 0.0, 0.0],
-                [0.0, s_y, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
-            ],
-            uv_min: [0.005, 0.01],
-            uv_max: [0.28, 0.98],
-            target_hsv,
-            replace_hsv,
-            tolerance: 0.35, // Wider tolerance
-            smoothness: 0.2,
-            _pad: [0.0; 2],
-        };
-
-        let bg_replace = h.create_custom_uniform_bind_group(uniform, "Replace Uniform");
-
-        let (target_id, target_tex) = h.create_target("TC23 Target");
-
+        let uniform = h.create_custom_uniform_bind_group(
+            ReplaceUniform {
+                transform: matrix4(&u["transform"]),
+                uv_min: value2(&u["uv_min"]),
+                uv_max: value2(&u["uv_max"]),
+                target_hsv: value4(&u["target_hsv"]),
+                replace_hsv: value4(&u["replace_hsv"]),
+                tolerance: u["tolerance"].as_f64().unwrap() as f32,
+                smoothness: u["smoothness"].as_f64().unwrap() as f32,
+                _pad: [0.0; 2],
+            },
+            "TC23 Replace Uniform",
+        );
+        let (target_id, target_texture) = h.create_target("TC23 Palette Swap");
         let mut graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_id,
-            width: 800,
-            height: 600,
+            width,
+            height,
         })
-        .with_clear_color([0.2, 0.2, 0.2, 1.0]);
-
+        .with_clear_color(value4(&pass["clear_color"]));
         graph.add_batch(
             &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_replace, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_heroes.bind_group, Vec::new())
-                    .with_bind_group(1, bg_replace, Vec::new()),
-            ],
+            vec![DrawCommand::new(
+                pipeline,
+                DrawAction::Procedural {
+                    vertex_count: operation["vertex_count"].as_u64().unwrap() as u32,
+                    instance_range: 0..operation["instance_count"].as_u64().unwrap() as u32,
+                },
+            )
+            .with_bind_group(0, sprite.bind_group, Vec::new())
+            .with_bind_group(1, uniform, Vec::new())],
         );
 
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph).expect("Execution failed");
-
-        let graph_json = serde_json::json!({
-            "test_case": "TC23 - Palette Swap (HSV Shift)",
-            "features": [
-                "Dynamic HSV based color replacement",
-                "Preservation of value (shading/highlights)",
-            ]
+        fs::create_dir_all("tests/outputs/desktop").unwrap();
+        let cold_render_time_ms = execute(&mut h, &graph);
+        let cold_raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC23 cold readback failed");
+        let warm_render_time_ms = execute(&mut h, &graph);
+        let raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &target_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC23 warm readback failed");
+        assert_eq!(
+            cold_raw.bytes, raw.bytes,
+            "TC23 output changed between runs"
+        );
+        h.save_texture_to_file_checked(
+            &target_texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            "tests/outputs/desktop/tc23_color_replace.png",
+        )
+        .expect("TC23 PNG save failed");
+        fs::write(
+            "tests/outputs/desktop/tc23_color_replace_desktop.bin",
+            &raw.bytes,
+        )
+        .unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC23",
+            "manifest": "tests/shared_assets/manifests/tc23_color_replace.json",
+            "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "width": raw.width,
+            "height": raw.height,
+            "format": "Rgba8UnormSrgb",
+            "adapter_name": h.engine.adapter_info().name,
+            "backend": format!("{:?}", h.engine.adapter_info().backend),
+            "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "1 pass (HSV palette replacement + chroma key) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "node_count": graph_spec["node_count"],
+            "draw_commands": graph_spec["command_count"],
+            "pass_count": graph_spec["passes"].as_array().unwrap().len(),
+            "instance_count": operation["instance_count"],
+            "cache_output_equal": cold_raw.bytes == raw.bytes,
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "cold_render_time_ms": cold_render_time_ms,
+            "warm_render_time_ms": warm_render_time_ms,
+            "warm_iteration_count": 1,
+            "speedup_percentage": (1.0 - warm_render_time_ms / cold_render_time_ms) * 100.0
         });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc23_color_replace.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        h.execute_and_record(
-            &graph,
-            &target_tex,
-            "tc23_color_replace",
-            "Palette Swap (HSV Shift)",
-            "Đổi màu giáp của nhân vật từ màu Hồng (Pink) sang màu Lục Lam (Cyan) dựa trên thuật toán HSV Shift.",
-            "Test khả năng thay đổi màu sắc (Palette Swap) thời gian thực nhưng vẫn giữ nguyên khối (shading và highlight).",
-        );
+        fs::write(
+            "tests/outputs/desktop/tc23_color_replace_desktop.json",
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
     });
 }

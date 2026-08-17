@@ -257,6 +257,10 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   integer hash cho placement/scale/rotation xác định giữa backend; Desktop/Web
   đạt vision/structural, validation, cold/warm và raw parity tuyệt đối (`0` byte
   khác). Xem `tests/reports/tc22_particles_instanced_report.md`;
+- TC23 đã được chuẩn hóa thành graph 1 pass HSV palette replacement với manifest
+  fingerprint `5e6dcfeb32712bc9`, một draw command và một instance. Desktop/Web
+  dùng chung graph, đạt vision/structural, validation, cold/warm và raw parity
+  tuyệt đối (`0` byte khác). Xem `tests/reports/tc23_color_replace_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

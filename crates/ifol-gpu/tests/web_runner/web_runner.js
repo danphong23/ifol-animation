@@ -1,6 +1,9 @@
 // WebGPU Comprehensive Test Suite for iFol GPU Engine
 // Exact mathematical duplicate of Desktop Rust Test Cases
 
+const runnerQuery = new URLSearchParams(window.location.search);
+const skipPreview = runnerQuery.get('skip_preview') === '1';
+
 function log(msg, type = 'info') {
     const el = document.getElementById('console-log');
     const div = document.createElement('div');
@@ -11,6 +14,10 @@ function log(msg, type = 'info') {
 }
 
 async function saveCanvasImage(canvas, filename) {
+    if (skipPreview) {
+        log(`Skipped presentation preview ${filename} for focused run`);
+        return { skipped: true };
+    }
     const dataUrl = canvas.toDataURL('image/png');
     try {
         const res = await fetch('/save_output', {
@@ -3519,6 +3526,145 @@ async function runTC22(gpu) {
     uniformBuffer.destroy();
 }
 
+async function runTC23(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc23_color_replace.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC23 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operation = manifest.graph.operations[0];
+    const passSpec = manifest.graph.passes[0];
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const shaderModule = device.createShaderModule({ code: await fetchShader('color_replace.wgsl') });
+    const compilationInfo = await shaderModule.getCompilationInfo();
+    const shaderErrors = compilationInfo.messages.filter(message => message.type === 'error');
+    if (shaderErrors.length) throw new Error(`TC23 shader color_replace.wgsl: ${shaderErrors.map(message => message.message).join('; ')}`);
+    const pipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+        vertex: { module: shaderModule, entryPoint: 'vs_main' },
+        fragment: { module: shaderModule, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        } }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const image = await loadImageTexture(device, 'canonical_sprites_heroes.png');
+    const sourceBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const u = operation.uniform;
+    const uniformData = new Float32Array([
+        ...u.transform.flat(),
+        ...u.uv_min, ...u.uv_max,
+        ...u.target_hsv, ...u.replace_hsv,
+        u.tolerance, u.smoothness, 0, 0
+    ]);
+    const uniformBuffer = device.createBuffer({
+        size: uniformData.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+    const uniformBindGroup = device.createBindGroup({
+        layout: uniformLayout,
+        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+    });
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    async function render() {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: finalTexture.createView(),
+            clearValue: { r: passSpec.clear_color[0], g: passSpec.clear_color[1], b: passSpec.clear_color[2], a: passSpec.clear_color[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        pass.setPipeline(pipeline);
+        pass.setBindGroup(0, sourceBindGroup);
+        pass.setBindGroup(1, uniformBindGroup);
+        pass.draw(operation.vertex_count, operation.instance_count, 0, 0);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC23 validation error: ${error.message}`);
+    }
+    const startedCold = performance.now();
+    await render();
+    const coldRenderTimeMs = performance.now() - startedCold;
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const startedWarm = performance.now();
+    await render();
+    const warmRenderTimeMs = performance.now() - startedWarm;
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC23 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc23_color_replace_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc23_color_replace.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '1 pass (HSV palette replacement + chroma key) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count,
+        instance_count: operation.instance_count, pass_count: manifest.graph.passes.length,
+        image_name: 'tc23_color_replace_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc23');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const canvasBlit = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }),
+        vertex: { module: blitShader, entryPoint: 'vs_main' },
+        fragment: { module: blitShader, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const finalBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: finalTexture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const encoder = device.createCommandEncoder();
+    const previewPass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+    }]});
+    previewPass.setPipeline(canvasBlit);
+    previewPass.setBindGroup(0, finalBindGroup);
+    previewPass.draw(6, 1, 0, 0);
+    previewPass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc23_color_replace_web_preview.png');
+    document.getElementById('tag-tc23').textContent = 'PASS';
+    document.getElementById('tag-tc23').className = 'tag tag-passed';
+    finalTexture.destroy();
+    image.texture.destroy();
+    uniformBuffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -4384,8 +4530,11 @@ async function runAllTests() {
     const gpu = await initWebGPU();
     if (!gpu) return;
 
-    const query = new URLSearchParams(window.location.search);
+    const query = runnerQuery;
     const skipProbe = query.get('skip_probe') === '1';
+    if (skipPreview) {
+        log('Skipping presentation PNG previews for this focused run');
+    }
     if (skipProbe) {
         log('Skipping canonical parity probe for this focused run');
     } else {
@@ -4422,6 +4571,7 @@ async function runAllTests() {
         { name: "TC20: 3D Perspective Card", fn: runTC20 },
         { name: "TC21: SDF Masking", fn: runTC21 },
         { name: "TC22: Hardware Instanced Props", fn: runTC22 },
+        { name: "TC23: Palette Swap", fn: runTC23 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },
