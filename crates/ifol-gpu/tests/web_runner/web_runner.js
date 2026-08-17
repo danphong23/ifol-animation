@@ -4493,6 +4493,189 @@ async function runTC29(gpu) {
     uniformBuffer.destroy();
 }
 
+async function runTC30(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc30_dissolve.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC30 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const chromaOp = manifest.graph.operations[0];
+    const dissolveOp = manifest.graph.operations[1];
+    const chromaPass = manifest.graph.passes[0];
+    const dissolvePass = manifest.graph.passes[1];
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const dualTextureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    const uniformLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+    ]});
+    const chromaShader = device.createShaderModule({ code: await fetchShader('chroma_key_cropped.wgsl') });
+    const dissolveShader = device.createShaderModule({ code: await fetchShader('dissolve.wgsl') });
+    const chromaInfo = await chromaShader.getCompilationInfo();
+    const dissolveInfo = await dissolveShader.getCompilationInfo();
+    const shaderErrors = [...chromaInfo.messages, ...dissolveInfo.messages].filter(message => message.type === 'error');
+    if (shaderErrors.length) throw new Error(`TC30 shader validation: ${shaderErrors.map(message => message.message).join('; ')}`);
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({
+        addressModeU: samplerSpec.address_mode_u,
+        addressModeV: samplerSpec.address_mode_v,
+        addressModeW: samplerSpec.address_mode_w,
+        magFilter: samplerSpec.mag_filter,
+        minFilter: samplerSpec.min_filter,
+        mipmapFilter: samplerSpec.mipmap_filter
+    });
+    const chromaPipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+        vertex: { module: chromaShader, entryPoint: 'vs_main' },
+        fragment: { module: chromaShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        } }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const dissolvePipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [dualTextureLayout, uniformLayout] }),
+        vertex: { module: dissolveShader, entryPoint: 'vs_main' },
+        fragment: { module: dissolveShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        } }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const heroes = await loadImageTexture(device, 'canonical_sprites_heroes.png');
+    const noise = await loadImageTexture(device, 'canonical_tc085_noise.png');
+    const screenAspect = target.width / target.height;
+    const crop = chromaOp.uniform;
+    const cropWidth = (crop.uv_max[0] - crop.uv_min[0]) * heroes.width;
+    const cropHeight = (crop.uv_max[1] - crop.uv_min[1]) * heroes.height;
+    const scaleY = crop.scale_y;
+    const scaleX = scaleY * (cropWidth / cropHeight) / screenAspect;
+    const chromaUniformData = new Float32Array([
+        0, 0, scaleX, scaleY,
+        crop.uv_min[0], crop.uv_min[1], crop.uv_max[0], crop.uv_max[1],
+        crop.key_color[0], crop.key_color[1], crop.key_color[2], crop.tolerance,
+        crop.smoothness, 0.5, 1.0, 0
+    ]);
+    const chromaUniformBuffer = device.createBuffer({ size: chromaUniformData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(chromaUniformBuffer, 0, chromaUniformData);
+    const chromaUniformBindGroup = device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer: chromaUniformBuffer } }] });
+    const dissolve = dissolveOp.uniform;
+    const dissolveUniformData = new Float32Array([
+        dissolve.threshold, dissolve.edge_width, 0, 0,
+        dissolve.edge_color[0], dissolve.edge_color[1], dissolve.edge_color[2], 0
+    ]);
+    const dissolveUniformBuffer = device.createBuffer({ size: dissolveUniformData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(dissolveUniformBuffer, 0, dissolveUniformData);
+    const dissolveUniformBindGroup = device.createBindGroup({ layout: uniformLayout, entries: [{ binding: 0, resource: { buffer: dissolveUniformBuffer } }] });
+    const heroesBindGroup = device.createBindGroup({ layout: textureLayout, entries: [
+        { binding: 0, resource: heroes.texture.createView() }, { binding: 1, resource: sampler }
+    ]});
+    const chromaTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+    });
+    const finalTexture = device.createTexture({
+        size: [target.width, target.height], format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    const dissolveBindGroup = device.createBindGroup({ layout: dualTextureLayout, entries: [
+        { binding: 0, resource: chromaTexture.createView() }, { binding: 1, resource: sampler },
+        { binding: 2, resource: noise.texture.createView() }, { binding: 3, resource: sampler }
+    ]});
+    async function render() {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const chromaRenderPass = encoder.beginRenderPass({ colorAttachments: [{
+            view: chromaTexture.createView(),
+            clearValue: { r: chromaPass.clear_color[0], g: chromaPass.clear_color[1], b: chromaPass.clear_color[2], a: chromaPass.clear_color[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        chromaRenderPass.setPipeline(chromaPipeline);
+        chromaRenderPass.setBindGroup(0, heroesBindGroup);
+        chromaRenderPass.setBindGroup(1, chromaUniformBindGroup);
+        chromaRenderPass.draw(chromaOp.vertex_count, chromaOp.instance_count, 0, 0);
+        chromaRenderPass.end();
+        const dissolveRenderPass = encoder.beginRenderPass({ colorAttachments: [{
+            view: finalTexture.createView(),
+            clearValue: { r: dissolvePass.clear_color[0], g: dissolvePass.clear_color[1], b: dissolvePass.clear_color[2], a: dissolvePass.clear_color[3] },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        dissolveRenderPass.setPipeline(dissolvePipeline);
+        dissolveRenderPass.setBindGroup(0, dissolveBindGroup);
+        dissolveRenderPass.setBindGroup(1, dissolveUniformBindGroup);
+        dissolveRenderPass.draw(dissolveOp.vertex_count, dissolveOp.instance_count, 0, 0);
+        dissolveRenderPass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`TC30 validation error: ${error.message}`);
+    }
+    const startedCold = performance.now();
+    await render();
+    const coldRenderTimeMs = performance.now() - startedCold;
+    const coldBytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const startedWarm = performance.now();
+    await render();
+    const warmRenderTimeMs = performance.now() - startedWarm;
+    const bytes = await readTextureBytes(device, finalTexture, target.width, target.height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error('TC30 output changed between cold and warm runs');
+    await saveRawTexture(bytes, {
+        name: 'tc30_dissolve_web', width: target.width, height: target.height, format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs, warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1, speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual, validation_passed: true, validation_error: null,
+        manifest: 'tests/shared_assets/manifests/tc30_dissolve.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: '2 pass (chroma key → dissolve/burn) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count, draw_commands: manifest.graph.command_count,
+        instance_count: 2, pass_count: manifest.graph.passes.length,
+        image_name: 'tc30_dissolve_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc30');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const canvasBlit = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }),
+        vertex: { module: blitShader, entryPoint: 'vs_main' },
+        fragment: { module: blitShader, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const finalBindGroup = device.createBindGroup({ layout: textureLayout, entries: [
+        { binding: 0, resource: finalTexture.createView() }, { binding: 1, resource: sampler }
+    ]});
+    const encoder = device.createCommandEncoder();
+    const previewPass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store'
+    }]});
+    previewPass.setPipeline(canvasBlit);
+    previewPass.setBindGroup(0, finalBindGroup);
+    previewPass.draw(6, 1, 0, 0);
+    previewPass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, 'tc30_dissolve_web_preview.png');
+    document.getElementById('tag-tc30').textContent = 'PASS';
+    document.getElementById('tag-tc30').className = 'tag tag-passed';
+    finalTexture.destroy();
+    chromaTexture.destroy();
+    heroes.texture.destroy();
+    noise.texture.destroy();
+    chromaUniformBuffer.destroy();
+    dissolveUniformBuffer.destroy();
+}
+
 async function runTC085(gpu) {
     const { device } = gpu;
     const manifestResponse = await fetch('/manifests/tc08_5_nightsky.json');
@@ -5406,6 +5589,7 @@ async function runAllTests() {
         { name: "TC27: Godrays", fn: runTC27 },
         { name: "TC28: Ripple", fn: runTC28 },
         { name: "TC29: CRT/VHS", fn: runTC29 },
+        { name: "TC30: Dissolve/Burn", fn: runTC30 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

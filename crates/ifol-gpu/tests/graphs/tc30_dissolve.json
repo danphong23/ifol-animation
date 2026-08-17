@@ -1,8 +1,0 @@
-{
-  "features": [
-    "2-Pass Rendering: Chroma Key -> Dissolve",
-    "Noise-based threshold discard",
-    "Glowing Edge computation"
-  ],
-  "test_case": "TC30 - Dissolve/Burn Transition"
-}

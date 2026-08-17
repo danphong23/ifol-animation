@@ -1,7 +1,9 @@
 mod harness;
+
 use harness::DesktopTestHarness;
 use ifol_gpu::graph::{DrawAction, DrawCommand, RenderGraph, RenderTarget};
 use std::fs;
+use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -13,109 +15,217 @@ struct DissolveUniform {
     _pad1: f32,
 }
 
+fn fnv1a64(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn execute_graph_pair(
+    h: &mut DesktopTestHarness,
+    chroma_graph: &RenderGraph,
+    dissolve_graph: &RenderGraph,
+) -> f64 {
+    let started = Instant::now();
+    h.executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, chroma_graph)
+        .expect("TC30 chroma pass failed");
+    let submission = h
+        .executor
+        .execute_checked(&h.engine, &h.registry, &mut h.pool, dissolve_graph)
+        .expect("TC30 dissolve pass failed");
+    let _ = h.engine.device().poll(wgpu::PollType::Wait {
+        submission_index: Some(submission),
+        timeout: None,
+    });
+    started.elapsed().as_secs_f64() * 1000.0
+}
+
 #[test]
 fn run_tc30_dissolve() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
-        let mut h = DesktopTestHarness::new(800, 600).await;
-        
-        let screen_aspect = 800.0f32 / 600.0f32;
-        let tex_heroes = h.load_texture("sprites_heroes.jpeg");
-        let tex_noise = h.load_texture("noise_perlin.jpeg");
+        let manifest_text = include_str!("../shared_assets/manifests/tc30_dissolve.json");
+        let manifest: serde_json::Value = serde_json::from_str(manifest_text).unwrap();
+        let graph_spec = &manifest["graph"];
+        let operation_chroma = &graph_spec["operations"][0];
+        let operation_dissolve = &graph_spec["operations"][1];
+        let width = graph_spec["target"]["width"].as_u64().unwrap() as u32;
+        let height = graph_spec["target"]["height"].as_u64().unwrap() as u32;
 
-        let pipe_chroma = h.register_pipeline("chroma_key_cropped.wgsl", Some(wgpu::BlendState::ALPHA_BLENDING), false, true);
+        let mut h = DesktopTestHarness::new(width, height).await;
+        let heroes = h.load_texture_exact("canonical_sprites_heroes.png");
+        let noise = h.load_texture_exact("canonical_tc085_noise.png");
+        let pipe_chroma = h.register_pipeline(
+            operation_chroma["shader"].as_str().unwrap(),
+            Some(wgpu::BlendState::ALPHA_BLENDING),
+            false,
+            true,
+        );
         let pipe_dissolve = h.register_dual_texture_pipeline(
-            "dissolve.wgsl",
+            operation_dissolve["shader"].as_str().unwrap(),
             Some(wgpu::BlendState::ALPHA_BLENDING),
             false,
         );
 
-        let p_scale_y = 0.80f32;
-        let p_crop_w = (0.28 - 0.005) * tex_heroes.width as f32;
-        let p_crop_h = (0.98 - 0.01) * tex_heroes.height as f32;
-        let p_scale_x = p_scale_y * (p_crop_w / p_crop_h) * (1.0 / screen_aspect);
-        let paladin_uni = harness::SpriteUniform {
+        let screen_aspect = width as f64 / height as f64;
+        let crop = &operation_chroma["uniform"];
+        let p_scale_y = crop["scale_y"].as_f64().unwrap();
+        let p_crop_w = (crop["uv_max"][0].as_f64().unwrap() - crop["uv_min"][0].as_f64().unwrap())
+            * heroes.width as f64;
+        let p_crop_h = (crop["uv_max"][1].as_f64().unwrap() - crop["uv_min"][1].as_f64().unwrap())
+            * heroes.height as f64;
+        let p_scale_x = (p_scale_y * (p_crop_w / p_crop_h) * (1.0 / screen_aspect)) as f32;
+        let sprite_uniform = harness::SpriteUniform {
             pos: [0.0, 0.0],
-            scale: [p_scale_x, p_scale_y],
-            uv_min: [0.005, 0.01],
-            uv_max: [0.28, 0.98],
-            key_color: [0.0, 1.0, 0.0],
-            tolerance: 0.48,
-            smoothness: 0.10,
+            scale: [p_scale_x, p_scale_y as f32],
+            uv_min: [
+                crop["uv_min"][0].as_f64().unwrap() as f32,
+                crop["uv_min"][1].as_f64().unwrap() as f32,
+            ],
+            uv_max: [
+                crop["uv_max"][0].as_f64().unwrap() as f32,
+                crop["uv_max"][1].as_f64().unwrap() as f32,
+            ],
+            key_color: [
+                crop["key_color"][0].as_f64().unwrap() as f32,
+                crop["key_color"][1].as_f64().unwrap() as f32,
+                crop["key_color"][2].as_f64().unwrap() as f32,
+            ],
+            tolerance: crop["tolerance"].as_f64().unwrap() as f32,
+            smoothness: crop["smoothness"].as_f64().unwrap() as f32,
             z_depth: 0.5,
             opacity: 1.0,
             _pad: 0.0,
         };
-        let bg_paladin = h.create_custom_uniform_bind_group(paladin_uni, "Paladin");
-
-        let uniform = DissolveUniform {
-            threshold: 0.5, // 50% dissolved
-            edge_width: 0.05,
+        let sprite_bind_group = h.create_custom_uniform_bind_group(sprite_uniform, "TC30 Chroma");
+        let dissolve = &operation_dissolve["uniform"];
+        let dissolve_uniform = DissolveUniform {
+            threshold: dissolve["threshold"].as_f64().unwrap() as f32,
+            edge_width: dissolve["edge_width"].as_f64().unwrap() as f32,
             _pad0: [0.0, 0.0],
-            edge_color: [1.0, 0.4, 0.1], // Orange/Red burning edge
+            edge_color: [
+                dissolve["edge_color"][0].as_f64().unwrap() as f32,
+                dissolve["edge_color"][1].as_f64().unwrap() as f32,
+                dissolve["edge_color"][2].as_f64().unwrap() as f32,
+            ],
             _pad1: 0.0,
         };
-        let bg_uniform = h.create_custom_uniform_bind_group(uniform, "Dissolve Uniform");
-        
-        let (target_a_id, _target_a_tex) = h.create_target("Target A");
-        let (final_target_id, final_target_tex) = h.create_target("Final Target");
+        let dissolve_bind_group =
+            h.create_custom_uniform_bind_group(dissolve_uniform, "TC30 Dissolve");
 
-        let bg_dual_tex = h.create_dual_texture_bind_group(target_a_id, tex_noise.handle, "Dissolve Dual Texture");
+        let (target_a_id, _target_a_texture) = h.create_target("TC30 Chroma Target");
+        let (final_id, final_texture) = h.create_target("TC30 Final Target");
+        let dissolve_textures =
+            h.create_dual_texture_bind_group(target_a_id, noise.handle, "TC30 Dual Textures");
 
-        // Pass 1: Extract Paladin via Chroma Key to transparent offscreen target
-        let mut graph_chroma = RenderGraph::new(RenderTarget::Offscreen {
+        let mut chroma_graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_a_id,
-            width: 800,
-            height: 600,
-        }).with_clear_color([0.0, 0.0, 0.0, 0.0]);
-
-        graph_chroma.add_batch(
+            width,
+            height,
+        })
+        .with_clear_color([0.0, 0.0, 0.0, 0.0]);
+        chroma_graph.add_batch(
             &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_chroma, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, tex_heroes.bind_group.clone(), Vec::new())
-                    .with_bind_group(1, bg_paladin, Vec::new()),
-            ],
+            vec![DrawCommand::new(
+                pipe_chroma,
+                DrawAction::Procedural {
+                    vertex_count: operation_chroma["vertex_count"].as_u64().unwrap() as u32,
+                    instance_range: 0..1,
+                },
+            )
+            .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+            .with_bind_group(1, sprite_bind_group, Vec::new())],
         );
 
-        // Pass 2: Dissolve the Paladin over dark gray background
-        let mut graph_final = RenderGraph::new(RenderTarget::Offscreen {
-            color: final_target_id,
-            width: 800,
-            height: 600,
-        }).with_clear_color([0.2, 0.2, 0.2, 1.0]);
-
-        graph_final.add_batch(
+        let clear = &graph_spec["passes"][1]["clear_color"];
+        let mut dissolve_graph = RenderGraph::new(RenderTarget::Offscreen {
+            color: final_id,
+            width,
+            height,
+        })
+        .with_clear_color([
+            clear[0].as_f64().unwrap() as f32,
+            clear[1].as_f64().unwrap() as f32,
+            clear[2].as_f64().unwrap() as f32,
+            clear[3].as_f64().unwrap() as f32,
+        ]);
+        dissolve_graph.add_batch(
             &mut h.pool,
-            vec![
-                DrawCommand::new(pipe_dissolve, DrawAction::Procedural { vertex_count: 6, instance_range: 0..1 })
-                    .with_bind_group(0, bg_dual_tex, Vec::new())
-                    .with_bind_group(1, bg_uniform, Vec::new()),
-            ],
+            vec![DrawCommand::new(
+                pipe_dissolve,
+                DrawAction::Procedural {
+                    vertex_count: operation_dissolve["vertex_count"].as_u64().unwrap() as u32,
+                    instance_range: 0..1,
+                },
+            )
+            .with_bind_group(0, dissolve_textures, Vec::new())
+            .with_bind_group(1, dissolve_bind_group, Vec::new())],
         );
 
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_chroma).expect("Execution failed");
-        h.executor.execute_checked(&h.engine, &mut h.registry, &mut h.pool, &mut graph_final).expect("Execution failed");
+        let cold_ms = execute_graph_pair(&mut h, &chroma_graph, &dissolve_graph);
+        let cold_raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &final_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC30 cold readback failed");
+        let warm_ms = execute_graph_pair(&mut h, &chroma_graph, &dissolve_graph);
+        let raw = h
+            .engine
+            .read_texture_to_raw_with_format_checked(
+                &final_texture,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+            )
+            .expect("TC30 warm readback failed");
+        assert_eq!(
+            cold_raw.bytes, raw.bytes,
+            "TC30 output changed between runs"
+        );
 
-        let graph_json = serde_json::json!({
-            "test_case": "TC30 - Dissolve/Burn Transition",
-            "features": [
-                "2-Pass Rendering: Chroma Key -> Dissolve",
-                "Noise-based threshold discard",
-                "Glowing Edge computation",
-            ]
+        let output_path = std::path::Path::new("tests/outputs/desktop/tc30_dissolve.png");
+        h.save_texture_to_file_checked(
+            &final_texture,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            output_path,
+        )
+        .expect("TC30 PNG export failed");
+        fs::write(
+            "tests/outputs/desktop/tc30_dissolve_desktop.bin",
+            &raw.bytes,
+        )
+        .unwrap();
+        let metadata = serde_json::json!({
+            "test_case": "TC30",
+            "width": raw.width,
+            "height": raw.height,
+            "format": "Rgba8UnormSrgb",
+            "adapter_name": h.engine.adapter_info().name,
+            "backend": format!("{:?}", h.engine.adapter_info().backend),
+            "device_type": format!("{:?}", h.engine.adapter_info().device_type),
+            "timing_scope": "2 pass (chroma key → dissolve/burn) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback",
+            "raw_fingerprint": fnv1a64(&raw.bytes),
+            "manifest": "tests/shared_assets/manifests/tc30_dissolve.json",
+            "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()),
+            "cold_render_time_ms": cold_ms,
+            "warm_render_time_ms": warm_ms,
+            "warm_iteration_count": 1,
+            "speedup_percentage": (1.0 - warm_ms / cold_ms) * 100.0,
+            "cache_output_equal": true,
+            "node_count": graph_spec["node_count"],
+            "draw_commands": graph_spec["command_count"],
+            "instance_count": 2,
+            "pass_count": graph_spec["passes"].as_array().unwrap().len()
         });
-        fs::create_dir_all("tests/graphs").unwrap();
-        fs::write("tests/graphs/tc30_dissolve.json", serde_json::to_string_pretty(&graph_json).unwrap()).unwrap();
-
-        h.execute_and_record(
-            &graph_final,
-            &final_target_tex,
-            "tc30_dissolve",
-            "Dissolve / Burn Transition",
-            "Hiệu ứng tan biến hoặc cháy giấy. Sử dụng lệnh discard với Noise Map làm bản đồ độ cao (Height Map).",
-            "Test lệnh discard và kỹ thuật viền sáng (Edge Glow) khi cắt alpha mask.",
-        );
+        fs::write(
+            "tests/outputs/desktop/tc30_dissolve_desktop.json",
+            serde_json::to_vec_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
     });
 }

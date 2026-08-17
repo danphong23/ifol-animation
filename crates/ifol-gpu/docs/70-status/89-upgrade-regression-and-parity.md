@@ -149,6 +149,9 @@ Các report canonical hiện tại:
   barrel distortion, scanlines, vignette, RGB split và integer-hash noise;
   vision/structural, validation và cache parity đạt, raw còn khác 591 byte ở
   588 pixel với sai số tối đa `1/255`, nên là `ĐẠT CÓ ĐIỀU KIỆN`.
+- [TC30](../../tests/reports/tc30_dissolve_report.md): hai pass chroma key →
+  dissolve/burn trên sprite sheet và noise map PNG canonical; vision/structural,
+  validation, cache và raw parity đạt tuyệt đối (`0` byte khác).
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

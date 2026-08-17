@@ -292,6 +292,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   cùng PNG canonical và cùng graph; vision/structural, validation và cold/warm
   parity đạt. Raw còn khác 591 byte ở 588 pixel, sai số tối đa `1/255`, nên là
   `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc29_crt_vhs_report.md`;
+- TC30 đã được chuẩn hóa thành graph 2 pass chroma key → dissolve/burn với
+  manifest fingerprint `1c996b323cba7910`, hai draw command và hai instance.
+  Desktop/Web dùng cùng hai PNG canonical; vision/structural, validation,
+  cache và raw parity đạt tuyệt đối (`0` byte khác). Xem
+  `tests/reports/tc30_dissolve_report.md`;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

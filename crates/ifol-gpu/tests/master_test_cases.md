@@ -179,3 +179,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Mục tiêu:** Kiểm thử barrel distortion, scanlines, vignette và RGB split trên nền sci-fi canonical.
 - **Kịch bản:** Dùng `crt_vhs.wgsl` cong UV, tách RGB, tạo scanline/vignette và nhiễu integer-hash xác định.
 - **Kỳ vọng:** Nền sci-fi có cong CRT, scanline/vignette/RGB split và nhiễu ổn định; không có ảnh đen hoặc validation error.
+
+### TC30 - Dissolve & Burn Transition
+- **Mục tiêu:** Kiểm thử graph hai pass gồm chroma key và dissolve/burn với noise map.
+- **Kịch bản:** Tách nhân vật từ sprite sheet PNG canonical ở pass đầu, sau đó dùng noise map và viền màu cam để làm tan biến ở pass cuối.
+- **Kỳ vọng:** Nền xám có các mảnh nhân vật còn lại sau dissolve và viền cháy phát sáng; không có ảnh đen, texture mất hoặc validation error.
