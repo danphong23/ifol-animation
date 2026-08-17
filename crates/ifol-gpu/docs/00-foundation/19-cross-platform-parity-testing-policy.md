@@ -104,6 +104,9 @@ raw frame và file cuối cùng để phân biệt lỗi decode, render và enco
   parity tuyệt đối với fixture canonical.
 - TC07: graph đệ quy 5 cấp, thứ tự flatten E → D → C → B → A, vision/structural
   và raw parity tuyệt đối với canonical crop và sampler `nearest`.
+- TC08: một node với 2 draw command và 10.000 procedural instances, vision/
+  structural và raw parity tuyệt đối với background canonical và sampler
+  `nearest`.
 
 Các kết quả trên là bằng chứng kiểm thử hiện tại, chưa phải chứng nhận rằng
 canonical export đã bit-exact trên mọi GPU/backend.

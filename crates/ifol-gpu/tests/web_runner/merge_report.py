@@ -173,6 +173,14 @@ def main() -> None:
     sampler_text = json.dumps(graph_spec.get("sampler"), ensure_ascii=False) if graph_spec.get("sampler") else "Không khai báo"
     expected_layer_order = evaluation.get("expected_layer_order", [])
     expected_layer_order_text = " → ".join(expected_layer_order) if expected_layer_order else "Không khai báo"
+    node_count_text = graph_spec.get("node_count", "Không khai báo")
+    draw_commands_text = graph_spec.get("command_count", "Không khai báo")
+    instance_count_text = sum(
+        operation.get("instance_count", 0)
+        for operation in all_operations
+        if isinstance(operation, dict)
+    )
+    particle_instance_text = evaluation.get("expected_particle_instances", "Không khai báo")
     pass_text = (
         " → ".join(
             f"{pass_spec.get('id', '?')} ({pass_spec.get('name', 'không tên')}, target {pass_spec.get('target', '?')})"
@@ -212,6 +220,7 @@ def main() -> None:
 - **Thứ tự operation sau flatten:** `{operation_order_text}`
 - **Sampler contract:** `{sampler_text}`
 - **Thứ tự layer kỳ vọng:** `{expected_layer_order_text}`
+- **Graph resources:** nodes=`{node_count_text}`, draw commands=`{draw_commands_text}`, tổng instances=`{instance_count_text}`, procedural particles=`{particle_instance_text}`
 - **Node pool contract:** `{node_pool_text}`
 - **Desktop/Web dùng cùng manifest fingerprint:** `{"ĐẠT" if graph_match else "KHÔNG ĐẠT"}`
 
@@ -227,6 +236,7 @@ def main() -> None:
 - **Ảnh:** ![Desktop output]({desktop_image_link})
 - **Đánh giá nội dung:** `{desktop_content}`
 - **Đánh giá bằng vision:** {args.vision_desktop}
+{f"- **Graph thực tế:** nodes={desktop.get('node_count')}, draw commands={desktop.get('draw_commands')}, instances={desktop.get('instance_count')}" if graph_spec.get("node_count") is not None else ""}
 {f"- **Node pool thực tế:** allocated={desktop.get('allocated_nodes')}, freed={desktop.get('freed_nodes')}, surviving={desktop.get('surviving_nodes')}" if node_pool_spec else ""}
 
 ## 3. Môi trường WebGPU
@@ -241,6 +251,7 @@ def main() -> None:
 - **Ảnh:** ![WebGPU output]({web_image_link})
 - **Đánh giá nội dung:** `{web_content}`
 - **Đánh giá bằng vision:** {args.vision_web}
+{f"- **Graph thực tế:** nodes={web.get('node_count')}, draw commands={web.get('draw_commands')}, instances={web.get('instance_count')}" if graph_spec.get("node_count") is not None else ""}
 {f"- **Node pool thực tế:** allocated={web.get('allocated_nodes')}, freed={web.get('freed_nodes')}, surviving={web.get('surviving_nodes')}, check={web.get('pool_check')}" if node_pool_spec else ""}
 
 ## 4. So sánh và kết luận

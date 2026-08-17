@@ -1,0 +1,59 @@
+{
+  "test_case": "TC08",
+  "title": "Massive Draw Commands and Procedural Instances",
+  "title_vi": "Một draw command với 10.000 hạt procedural",
+  "description": "Render a canonical night-sky background and 10,000 procedural particle instances in one graph node.",
+  "description_vi": "Render nền trời đêm canonical và 10.000 hạt procedural bằng một draw command trong cùng graph.",
+  "graph": {
+    "target": {
+      "kind": "offscreen",
+      "width": 800,
+      "height": 600,
+      "format": "Rgba8UnormSrgb"
+    },
+    "sampler": {
+      "mag_filter": "nearest",
+      "min_filter": "nearest",
+      "mipmap_filter": "nearest"
+    },
+    "pipelines": {
+      "background": {
+        "shader": "texture_blit.wgsl",
+        "blend": "Replace",
+        "depth": false,
+        "has_uniform": false
+      },
+      "particles": {
+        "shader": "particles_10k.wgsl",
+        "blend": "AlphaBlend",
+        "depth": false,
+        "has_uniform": false
+      }
+    },
+    "operations": [
+      {
+        "id": "background",
+        "kind": "texture",
+        "pipeline": "background",
+        "source": { "kind": "asset", "asset": "canonical_bg_nightsky.png" },
+        "vertex_count": 6,
+        "instance_count": 1
+      },
+      {
+        "id": "particles",
+        "kind": "procedural_particles",
+        "pipeline": "particles",
+        "vertex_count": 6,
+        "instance_count": 10000
+      }
+    ],
+    "command_count": 2,
+    "node_count": 1,
+    "clear_color": [0.02, 0.02, 0.05, 1.0]
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_particle_instances": 10000,
+    "visual_check": "Nền trời đêm phủ toàn target và có rất nhiều hạt bụi sao procedural màu vàng, cyan và trắng phân bố trên khung hình; không crash, không thiếu draw command hoặc nghẽn bất thường."
+  }
+}

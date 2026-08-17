@@ -46,9 +46,10 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Manifest dùng chung:** `shared_assets/manifests/tc07_recursion.json`.
 - **Kỳ vọng hình ảnh xuất ra:** Output phải bao gồm kết quả của cấp E (sâu nhất) được render lên nền của D, C, B, A. 
 
-### TC08 - Massive Draw Commands VS Massive Nodes
+### TC08 - Massive Procedural Instances (10,000)
 - **Mục tiêu:** Đánh giá độ trễ của cấu trúc Arena (Node) so với Buffer (DrawCommand).
-- **Kịch bản:** Graph vẽ 10,000 hạt bụi màu trắng li ti bằng Procedural Hash. 
+- **Manifest dùng chung:** `shared_assets/manifests/tc08_massive.json`.
+- **Kịch bản:** Một node chứa background blit và một draw command procedural với 10.000 instance hạt bụi màu vàng, cyan và trắng bằng hash trong shader.
 - **Kỳ vọng hình ảnh xuất ra:** Màn hình lấm tấm 10,000 điểm trắng/vuông nhỏ phân bố giả ngẫu nhiên.
 
 ### TC09 - Pipeline Caching & Bundle Reuse

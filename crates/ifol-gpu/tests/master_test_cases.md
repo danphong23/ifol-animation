@@ -48,8 +48,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Manifest dùng chung:** `shared_assets/manifests/tc07_recursion.json`.
 - **Kỳ vọng:** Output phải bao gồm cả hiệu ứng của 5 cấp gộp lại.
 
-### TC08 - Massive Draw Commands VS Massive Nodes
+### TC08 - Massive Procedural Instances (10,000)
 - **Mục tiêu:** Đánh giá độ trễ của cấu trúc Arena (Node) so với Buffer (DrawCommand).
+- **Manifest dùng chung:** `shared_assets/manifests/tc08_massive.json`.
 - **Kịch bản:** 
   - SubGraph 1: `1 Node` chứa mảng `10,000 DrawCommand`.
   - SubGraph 2: `10,000 Nodes` trong Arena, mỗi Node chứa `1 DrawCommand`.

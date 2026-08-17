@@ -127,6 +127,9 @@ class WebGpuTestHandler(http.server.SimpleHTTPRequestHandler):
                         'pool_check': payload.get('pool_check'),
                         'recursion_depth': payload.get('recursion_depth'),
                         'flattened_operations': payload.get('flattened_operations'),
+                        'node_count': payload.get('node_count'),
+                        'draw_commands': payload.get('draw_commands'),
+                        'instance_count': payload.get('instance_count'),
                         'byte_length': len(raw_bytes),
                         'sha256': hashlib.sha256(raw_bytes).hexdigest(),
                     }, f, indent=2)

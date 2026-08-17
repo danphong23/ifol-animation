@@ -126,6 +126,9 @@ async function saveRawTexture(bytes, metadata) {
             pool_check: metadata.pool_check,
             recursion_depth: metadata.recursion_depth,
             flattened_operations: metadata.flattened_operations,
+            node_count: metadata.node_count,
+            draw_commands: metadata.draw_commands,
+            instance_count: metadata.instance_count,
             image_name: metadata.image_name
         })
     });
@@ -1166,6 +1169,116 @@ async function runTC07(gpu) {
     for (const operation of operationResources) if (operation.uniformBuffer) operation.uniformBuffer.destroy();
 }
 
+async function runTC08(gpu) {
+    const { device } = gpu;
+    const manifestResponse = await fetch('/manifests/tc08_massive.json');
+    if (!manifestResponse.ok) throw new Error('Failed to load TC08 shared manifest');
+    const manifestText = await manifestResponse.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const operations = manifest.graph.operations;
+    const shaderModules = {};
+    for (const spec of Object.values(manifest.graph.pipelines)) {
+        if (!shaderModules[spec.shader]) {
+            shaderModules[spec.shader] = device.createShaderModule({ code: await fetchShader(spec.shader) });
+        }
+    }
+    const textureLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ]});
+    function blendState(name) {
+        if (name === 'Replace') return undefined;
+        if (name === 'AlphaBlend') return {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+        };
+        throw new Error(`Unsupported TC08 blend mode: ${name}`);
+    }
+    function createPipelines(format) {
+        const result = {};
+        for (const [name, spec] of Object.entries(manifest.graph.pipelines)) {
+            result[name] = device.createRenderPipeline({
+                layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }),
+                vertex: { module: shaderModules[spec.shader], entryPoint: 'vs_main' },
+                fragment: {
+                    module: shaderModules[spec.shader],
+                    entryPoint: 'fs_main',
+                    targets: [{ format, blend: blendState(spec.blend) }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+        return result;
+    }
+    const sampler = device.createSampler({
+        addressModeU: 'repeat', addressModeV: 'repeat', addressModeW: 'repeat',
+        magFilter: manifest.graph.sampler.mag_filter,
+        minFilter: manifest.graph.sampler.min_filter,
+        mipmapFilter: manifest.graph.sampler.mipmap_filter
+    });
+    const image = await loadImageTexture(device, operations[0].source.asset);
+    const backgroundBindGroup = device.createBindGroup({
+        layout: textureLayout,
+        entries: [{ binding: 0, resource: image.texture.createView() }, { binding: 1, resource: sampler }]
+    });
+    const targetTexture = device.createTexture({
+        size: [target.width, target.height],
+        format: 'rgba8unorm-srgb',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    const offscreenPipelines = createPipelines('rgba8unorm-srgb');
+    async function executeGraph(outputTexture, pipelines) {
+        const started = performance.now();
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: outputTexture.createView(),
+            clearValue: {
+                r: manifest.graph.clear_color[0], g: manifest.graph.clear_color[1],
+                b: manifest.graph.clear_color[2], a: manifest.graph.clear_color[3]
+            },
+            loadOp: 'clear', storeOp: 'store'
+        }]});
+        pass.setPipeline(pipelines.background);
+        pass.setBindGroup(0, backgroundBindGroup);
+        pass.draw(operations[0].vertex_count, operations[0].instance_count, 0, 0);
+        pass.setPipeline(pipelines.particles);
+        pass.draw(operations[1].vertex_count, operations[1].instance_count, 0, 0);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        return performance.now() - started;
+    }
+    const coldRenderTimeMs = await executeGraph(targetTexture, offscreenPipelines);
+    const warmRenderTimeMs = await executeGraph(targetTexture, offscreenPipelines);
+    const bytes = await readTextureBytes(device, targetTexture, target.width, target.height);
+    await saveRawTexture(bytes, {
+        name: 'tc08_massive_web',
+        width: target.width,
+        height: target.height,
+        format: 'Rgba8UnormSrgb',
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        manifest: 'tests/shared_assets/manifests/tc08_massive.json',
+        manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: 'execute offscreen của graph 1 node/2 draw command với 10.000 instance + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback',
+        node_count: manifest.graph.node_count,
+        draw_commands: manifest.graph.command_count,
+        instance_count: operations[1].instance_count,
+        image_name: 'tc08_massive_web.png'
+    });
+    const canvas = document.getElementById('canvas-tc08');
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    await executeGraph(context.getCurrentTexture(), createPipelines(canvasFormat));
+    document.getElementById('tag-tc08').textContent = 'PASS';
+    document.getElementById('tag-tc08').className = 'tag tag-passed';
+    targetTexture.destroy();
+    image.texture.destroy();
+}
+
 async function fetchShader(name) {
     const res = await fetch(`/shaders/${name}`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
@@ -1883,6 +1996,7 @@ async function runAllTests() {
         { name: "TC05: Interleaved Multi-Pass", fn: runTC05 },
         { name: "TC06: RenderNodePool GC", fn: runTC06 },
         { name: "TC07: Deep Recursion SubGraphs", fn: runTC07 },
+        { name: "TC08: Massive Procedural Particles", fn: runTC08 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

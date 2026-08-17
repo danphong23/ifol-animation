@@ -194,7 +194,7 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   [`18-canonical-render-and-media-output-contract.md`](../00-foundation/18-canonical-render-and-media-output-contract.md):
   tầng ngoài chuẩn hóa input và encode output; core chỉ execute và raw
   readback;
-- TC01, TC04, TC05, TC06 và TC07 đã đạt raw parity tuyệt đối; TC02 và TC03 đạt
+- TC01, TC04, TC05, TC06, TC07 và TC08 đã đạt raw parity tuyệt đối; TC02 và TC03 đạt
   vision/structural/depth parity nhưng raw pixel parity còn có sai khác màu/alpha
   có điều kiện. Xem
   [chính sách parity](../00-foundation/19-cross-platform-parity-testing-policy.md)

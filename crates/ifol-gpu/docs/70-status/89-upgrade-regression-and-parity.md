@@ -65,6 +65,8 @@ Các report canonical hiện tại:
   structural và raw parity đạt tuyệt đối với fixture canonical.
 - [TC07](../../tests/reports/tc07_recursion_report.md): graph đệ quy 5 cấp,
   flatten order và raw parity đạt tuyệt đối với canonical crop/sampler contract.
+- [TC08](../../tests/reports/tc08_massive_report.md): 2 draw command, 10.000
+  procedural instances và raw parity đạt tuyệt đối với background canonical.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
