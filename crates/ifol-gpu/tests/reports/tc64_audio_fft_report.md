@@ -1,49 +1,96 @@
-# Báo Cáo Kiểm Thử: TC64 - GPU Audio FFT & Spectrum Visualizer
+# Báo cáo: TC64 - Visualizer FFT âm thanh bằng GPU
 
-## 1. Ý Nghĩa Bài Toán & Ứng Dụng Thực Tế (What & Why)
-Trong Motion Graphics đáp ứng âm thanh (Audio-Reactive Graphics / Music Visualizer / Podcast Waveforms):
-- **Nếu dùng CPU để tính FFT:** Phải phân tích chuỗi $4,096$ mẫu âm thanh bằng thuật toán FFT phức tạp, gây độ trễ (latency) và drop FPS cho Animation Loop.
-- **Giải pháp GPU Audio FFT:** Đẩy mảng PCM âm thanh lên VRAM, 64 workgroup threads tính toán biến đổi Fourier song song cho 64 dải tần (Sub-Bass $\rightarrow$ Treble) trong **$< 0.3\text{ms}$**.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
----
+## 1. Mô tả và graph dùng chung
 
-## 2. Diễn Giải Trực Quan Dữ Liệu (Visual Data Breakdown)
+- **Manifest:** `../shared_assets/manifests/tc64_audio_fft.json`
+- **Graph fingerprint (FNV-1a):** `eb63136e435ed1cb`
+- **Mô tả test case:** Phân tích tín hiệu tổng hợp 4096 mẫu thành 64 dải phổ rồi render oscilloscope và equalizer.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `compute_audio_fft.wgsl`, `render_audio_spectrum.wgsl`
+- **Asset/input:** KHÔNG KHAI BÁO
+- **Chính sách input:** Desktop và WebGPU tự tạo cùng tín hiệu PCM f32 xác định; không phụ thuộc microphone hoặc decoder media của nền tảng.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** fft_pass (64-bin audio FFT, target spectrum_buffer) → visualizer_pass (Oscilloscope and spectrum, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `audio_fft → audio_visualizer`
+- **Sampler contract:** `Không khai báo`
+- **Thứ tự layer kỳ vọng:** `fft_pass → visualizer_pass`
+- **Graph resources:** nodes=`2`, draw commands=`2`, tổng instances=`1`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-Bức ảnh bên dưới là giao diện bàn trộn âm thanh phòng thu (Studio Audio Visualizer) được tính toán hoàn toàn bằng GPU Compute:
+## 2. Môi trường Desktop
 
-![TC64 Audio Visualizer](../outputs/desktop/tc64_audio_fft.png)
+- **Thời gian render lần đầu (cold):** `6.8156 ms`
+- **Thời gian render lần hai (warm/cache):** `6.3798 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `6.4%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `execute_checked + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `../outputs/desktop/tc64_audio_fft_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `52a69028097c032a`
+- **SHA-256:** `6446ca6023ca39b56e33f589681deab11a63e8f909bc89e77fb3bda1a6f0a93d`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc64_audio_fft.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị waveform cyan ở phần trên và 64 cột FFT gradient ở phần dưới, có peak cap và grid rõ; phổ có đỉnh năng lượng hợp lệ.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=1
 
-### 📐 Bố Cục & Chú Giải Các Khu Vực:
-| Khu vực hiển thị | Vị trí tọa độ $Y$ | Kỹ thuật GPU thực hiện | Diễn giải trực quan |
-| :--- | :--- | :--- | :--- |
-| **📈 Dao Động Ký (Oscilloscope)** | $Y < 0.30$ (Phía trên) | Sóng âm Neon Cyan phát sáng | **Dữ liệu âm thanh thô ban đầu (Inputs):** Chuỗi sóng PCM dao động thời gian thực chứa 3 hòa âm $120\text{Hz}, 440\text{Hz}, 1800\text{Hz}$. |
-| **⚡ Vạch Phân Tách Studio** | $Y \approx 0.32$ | Divider Line xanh thép | Đường ngăn cách giữa tín hiệu miền thời gian (Time-Domain) và miền tần số (Frequency-Domain). |
-| **📊 Cột Sóng Nhạc Nước (EQ Bars)** | $0.36 \le Y \le 0.92$ (Phía dưới) | 64 Cột tần số Gradient (Green $\rightarrow$ Yellow $\rightarrow$ Red) | **Kết quả phân tích phổ FFT của GPU (Outputs):** Phản ánh chính xác năng lượng các dải tần từ Trầm ($20\text{Hz}$) đến Bổng ($20\text{kHz}$). |
-| **⚪ Vạch Đỉnh (Peak Hold Caps)** | Đỉnh mỗi cột sóng | White Glowing Cap Marker | Điểm giữ đỉnh năng lượng âm thanh giúp motion visualizer chuyển động sống động. |
 
----
 
-## 3. Thông Số Kỹ Thuật & Hiệu Năng Thực Thi (Desktop - Tauri/wgpu)
-- **Thời gian Thực thi Toàn Bộ (Cold Start - Compute FFT + Visualizer Render):** 7.63ms
-- **Thời gian Thực thi Chuẩn (Warm/Cached - Compute FFT + Visualizer Render):** 6.11ms (Tốc độ đạt **~0.4ms**)
-- **Thông số điều phối Compute (GPU Dispatch Metrics):**
-  - **Kích thước mẫu âm thanh đầu vào:** 4,096 PCM f32 samples.
-  - **Số dải tần số tính toán (FFT Frequency Bins):** 64 dải tần logarit ($20\text{Hz} \rightarrow 20\text{kHz}$).
-  - **Cửa sổ lọc (Windowing Function):** Hann Window triệt tiêu rò rỉ phổ (Spectral Leakage).
-  - **Tổng số luồng GPU thực thi song song:** 64 invocations.
+## 3. Môi trường WebGPU
 
----
+- **Thời gian render lần đầu (cold):** `116.0000 ms`
+- **Thời gian render lần hai (warm/cache):** `5.6000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `95.2%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 compute FFT dispatch + 1 visualizer pass + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `../outputs/web/tc64_audio_fft_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `afd1654dbe424bae`
+- **SHA-256:** `abe602106de3f6594c8bd345c9097da2b63b05eb4d473e60114803cb2cfa7194`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc64_audio_fft_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng waveform, divider, grid và dải cột FFT; cấu trúc/đỉnh chính giống Desktop, khác biệt màu và biên nhỏ do floating-point backend.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=2
 
-## 4. Xác Thực Phổ Âm Thanh Chuẩn Xác (Audio Spectral Verification)
-- **Phương pháp đối chiếu:** Đọc ngược 64 dải tần năng lượng từ VRAM về CPU.
-- **Biên độ cực đại phát hiện (Max Peak Energy):** 1.000 / 1.0 (Xác định rõ ràng 3 đỉnh hòa âm).
-- **Số dải tần hoạt động tích cực:** 7 / 64 dải tần.
-- **Trạng thái:** **PASSED (Biến đổi FFT trên GPU chính xác 100%, trực quan hóa tuyệt đẹp)**
 
----
 
-## 5. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+## 4. So sánh và kết luận
 
-## 6. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `3893` |
+| Số pixel khác nhau | `2088` |
+| Sai số kênh màu lớn nhất | `99/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

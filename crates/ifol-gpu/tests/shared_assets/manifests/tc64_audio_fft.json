@@ -1,0 +1,26 @@
+{
+  "test_case": "TC64",
+  "title": "GPU Audio FFT Visualizer",
+  "title_vi": "Visualizer FFT âm thanh bằng GPU",
+  "description": "Analyze a deterministic 4096-sample synthetic signal into 64 spectrum bins and render an oscilloscope plus equalizer.",
+  "description_vi": "Phân tích tín hiệu tổng hợp 4096 mẫu thành 64 dải phổ rồi render oscilloscope và equalizer.",
+  "input_policy_vi": "Desktop và WebGPU tự tạo cùng tín hiệu PCM f32 xác định; không phụ thuộc microphone hoặc decoder media của nền tảng.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "audio_compute": { "shader": "compute_audio_fft.wgsl", "stage": "compute", "layout": "samples_to_spectrum" },
+      "audio_render": { "shader": "render_audio_spectrum.wgsl", "stage": "render", "layout": "samples_and_spectrum" }
+    },
+    "operations": [
+      { "id": "audio_fft", "kind": "compute_dispatch", "pass": "fft_pass", "pipeline": "audio_compute", "shader": "compute_audio_fft.wgsl", "dispatch": [1, 1, 1], "sample_count": 4096, "spectrum_bins": 64 },
+      { "id": "audio_visualizer", "kind": "spectrum_render", "pass": "visualizer_pass", "pipeline": "audio_render", "shader": "render_audio_spectrum.wgsl", "vertex_count": 3, "instance_count": 1 }
+    ],
+    "passes": [
+      { "id": "fft_pass", "name": "64-bin audio FFT", "target": "spectrum_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "visualizer_pass", "name": "Oscilloscope and spectrum", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "command_count": 2,
+    "node_count": 2
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["fft_pass", "visualizer_pass"], "expected_instance_count": 1, "visual_check": "Phần trên có waveform cyan; phần dưới có 64 cột phổ gradient và peak cap, không phải ảnh đen." }
+}

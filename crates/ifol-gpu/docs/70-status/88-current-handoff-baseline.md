@@ -395,6 +395,14 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   `tests/graphs/tc59_sampler_modes.json` và `tc60_ping_pong.json` đã được loại
   bỏ. TC61 trước đây không có graph JSON canonical và hiện lấy manifest làm
   graph contract duy nhất;
+- TC62–TC64 đã được chuyển sang manifest canonical và runner Desktop/Web chung.
+  Fingerprint lần lượt là `29f38bc13430eb96`, `49c5ea09d42ea7cb` và
+  `eb63136e435ed1cb`; cả 3 pass validation, vision và cold/warm. Raw parity
+  lần lượt khác 59987 byte/31132 pixel, 204777 byte/74419 pixel và 3893
+  byte/2088 pixel; các report phân loại cả 3 là `ĐẠT CÓ ĐIỀU KIỆN`. TC63 đã
+  reset toàn bộ particle buffer trước warm để hai lượt đo không nối tiếp state.
+- Không có graph JSON legacy cho TC62–TC64; manifest là graph contract duy nhất
+  của batch này. Các output Web được lưu riêng để đối chiếu raw bytes và vision.
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

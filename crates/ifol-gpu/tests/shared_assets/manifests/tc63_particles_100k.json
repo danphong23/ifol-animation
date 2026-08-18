@@ -1,0 +1,26 @@
+{
+  "test_case": "TC63",
+  "title": "100k GPU Particles",
+  "title_vi": "Mô phỏng 100.000 hạt GPU",
+  "description": "Simulate 100,000 deterministic particles through 30 compute steps and render them as additive galaxy points.",
+  "description_vi": "Mô phỏng 100.000 hạt xác định qua 30 bước compute rồi render thành thiên hà điểm sáng additive.",
+  "input_policy_vi": "Desktop và WebGPU tự tạo cùng dữ liệu particle f32 từ index; không dùng decoder texture cho dữ liệu mô phỏng.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "particle_compute": { "shader": "compute_particles_100k.wgsl", "stage": "compute", "layout": "particles_plus_params" },
+      "particle_render": { "shader": "render_particles_instanced.wgsl", "stage": "render", "layout": "particles_readonly" }
+    },
+    "operations": [
+      { "id": "particle_simulation", "kind": "compute_dispatch", "pass": "simulation_pass", "pipeline": "particle_compute", "shader": "compute_particles_100k.wgsl", "dispatch": [1563, 1, 1], "instance_count": 30 },
+      { "id": "particle_draw", "kind": "instanced_particles", "pass": "render_pass", "pipeline": "particle_render", "shader": "render_particles_instanced.wgsl", "vertex_count": 6, "instance_count": 100000 }
+    ],
+    "passes": [
+      { "id": "simulation_pass", "name": "30 particle compute steps", "target": "particle_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "render_pass", "name": "100k additive particle draw", "target": "final", "clear_color": [0.015, 0.018, 0.035, 1.0] }
+    ],
+    "command_count": 31,
+    "node_count": 2
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["simulation_pass", "render_pass"], "expected_instance_count": 100000, "visual_check": "Thiên hà spiral xanh/cyan/magenta có lõi sáng, không rỗng, không NaN và không nổ vận tốc." }
+}

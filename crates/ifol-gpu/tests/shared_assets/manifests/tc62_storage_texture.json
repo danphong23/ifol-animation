@@ -1,0 +1,19 @@
+{
+  "test_case": "TC62",
+  "title": "Storage Texture Processing",
+  "title_vi": "Compute đọc/ghi storage texture",
+  "description": "Read a source image in a compute shader and write a split raw-versus-Sobel edge result to an rgba8unorm storage texture.",
+  "description_vi": "Compute shader đọc texture nguồn và ghi kết quả chia đôi ảnh gốc/Sobel edge vào storage texture rgba8unorm.",
+  "input_policy_vi": "Desktop và WebGPU dùng cùng asset sprites_heroes.jpeg; decoder JPEG của nền tảng có thể tạo sai số nhỏ, còn graph/dispatch/storage format là contract chung.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8Unorm" },
+    "pipelines": { "storage_compute": { "shader": "compute_storage_texture.wgsl", "stage": "compute", "layout": "sampled_texture_to_storage_texture" } },
+    "operations": [
+      { "id": "storage_texture_sobel", "kind": "compute_storage_texture", "pass": "storage_compute_pass", "pipeline": "storage_compute", "shader": "compute_storage_texture.wgsl", "source": [{ "kind": "asset", "asset": "sprites_heroes.jpeg" }], "dispatch": [50, 38, 1], "workgroup_size": [16, 16, 1] }
+    ],
+    "passes": [{ "id": "storage_compute_pass", "name": "Storage texture read/write", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }],
+    "command_count": 1,
+    "node_count": 1
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["storage_compute_pass"], "expected_instance_count": 1, "visual_check": "Nửa trái là ảnh nguồn, vạch chia cyan ở giữa, nửa phải là edge neon; output không đồng nhất và không đen." }
+}

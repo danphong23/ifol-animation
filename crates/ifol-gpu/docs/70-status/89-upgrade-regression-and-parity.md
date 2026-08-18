@@ -240,6 +240,17 @@ trong các report không được diễn giải thành cold start tuyệt đối
   pass compute dispatch và validation không lỗi. TC60 đã bổ sung clear đầu
   chu kỳ đầu để warm run không phụ thuộc dữ liệu còn trong target pong.
 
+- [TC62](../../tests/reports/tc62_storage_texture_report.md) đến
+  [TC64](../../tests/reports/tc64_audio_fft_report.md): 3 TC compute đã
+  chuyển sang runner Desktop/Web chung và manifest canonical. Cả 3 pass
+  validation, vision và cold/warm; fingerprint lần lượt là
+  `29f38bc13430eb96`, `49c5ea09d42ea7cb` và `eb63136e435ed1cb`.
+  TC62 khác 59987 byte/31132 pixel, max delta `128/255`; TC63 khác 204777
+  byte/74419 pixel, max delta `222/255`; TC64 khác 3893 byte/2088 pixel,
+  max delta `99/255`. Đây là `ĐẠT CÓ ĐIỀU KIỆN` về raw parity; vision xác
+  nhận cấu trúc đúng mô tả. TC63 đã reset toàn bộ particle buffer trước warm,
+  tránh đo state nối tiếp giữa hai lần chạy.
+
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo

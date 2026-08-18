@@ -265,3 +265,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Phạm vi:** Ba sampler address mode, vòng feedback ping-pong 8 chu kỳ và compute storage buffer 10.240 vec4 kèm plot.
 - **Kết quả:** 3/3 pass Desktop/Web validation, cold/warm output ổn định, fingerprint trùng và vision đạt. TC59 khác 24752 byte/16675 pixel max `3/255`; TC60 khác 6165 byte/4032 pixel max `5/255`; TC61 khác 52 byte/49 pixel max `1/255`. Cả ba `ĐẠT CÓ ĐIỀU KIỆN`; TC61 numeric Desktop khớp 10.240/10.240, max diff `0.00005054`.
 - **Báo cáo:** [`tc59_sampler_modes_report.md`](reports/tc59_sampler_modes_report.md), [`tc60_ping_pong_report.md`](reports/tc60_ping_pong_report.md), [`tc61_compute_buffer_math_report.md`](reports/tc61_compute_buffer_math_report.md)
+
+### TC62–TC64 - Advanced compute parity
+- **Phạm vi:** Storage texture Sobel, cập nhật/instanced render 100.000 particle và audio FFT visualizer từ PCM xác định.
+- **Hợp đồng:** Mỗi TC dùng manifest canonical, fingerprint chung giữa Desktop/Web, runner chạy tuần tự và report tiếng Việt riêng. TC63 reset particle buffer trước lượt warm; TC64 không phụ thuộc microphone hoặc decoder nền tảng.
+- **Kết quả:** 3/3 pass validation, vision và cold/warm output ổn định. TC62 khác 59987 byte/31132 pixel max `128/255`; TC63 khác 204777 byte/74419 pixel max `222/255`; TC64 khác 3893 byte/2088 pixel max `99/255`. Cả ba là `ĐẠT CÓ ĐIỀU KIỆN` về raw parity.
+- **Báo cáo:** [`tc62_storage_texture_report.md`](reports/tc62_storage_texture_report.md), [`tc63_particles_100k_report.md`](reports/tc63_particles_100k_report.md), [`tc64_audio_fft_report.md`](reports/tc64_audio_fft_report.md)

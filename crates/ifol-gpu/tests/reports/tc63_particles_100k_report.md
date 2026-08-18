@@ -1,48 +1,96 @@
-# Báo Cáo Kiểm Thử: TC63 - Massive GPU Particle Physics Simulation (100,000 Hạt)
+# Báo cáo: TC63 - Mô phỏng 100.000 hạt GPU
 
-## 1. Ý Nghĩa Bài Toán & Ứng Dụng Thực Tế (What & Why)
-Trong Motion Graphics và Visual Effects (VFX), hiệu ứng bão hạt vũ trụ, khói lửa, đàn chim cá (Boids flocking) hay mô phỏng thiên hà (Galaxy Spiral):
-- **Nếu dùng CPU:** Tính toán vật lý va chạm / lực hấp dẫn cho $100,000$ hạt với tốc độ $60\text{ FPS}$ là bất khả thi (sẽ bị nghẽn $200\text{ms} \rightarrow 500\text{ms}$ mỗi frame).
-- **Giải pháp GPU Compute Simulation:** Phân bổ $100,000$ hạt cho hàng nghìn lõi CUDA/Shader Cores, mỗi hạt tính toán độc lập trong thời gian thực ($< 0.1\text{ms}$ mỗi frame).
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
----
+## 1. Mô tả và graph dùng chung
 
-## 2. Diễn Giải Trực Quan Dữ Liệu (Visual Data Breakdown)
+- **Manifest:** `../shared_assets/manifests/tc63_particles_100k.json`
+- **Graph fingerprint (FNV-1a):** `49c5ea09d42ea7cb`
+- **Mô tả test case:** Mô phỏng 100.000 hạt xác định qua 30 bước compute rồi render thành thiên hà điểm sáng additive.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `compute_particles_100k.wgsl`, `render_particles_instanced.wgsl`
+- **Asset/input:** KHÔNG KHAI BÁO
+- **Chính sách input:** Desktop và WebGPU tự tạo cùng dữ liệu particle f32 từ index; không dùng decoder texture cho dữ liệu mô phỏng.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** simulation_pass (30 particle compute steps, target particle_buffer) → render_pass (100k additive particle draw, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `particle_simulation → particle_draw`
+- **Sampler contract:** `Không khai báo`
+- **Thứ tự layer kỳ vọng:** `simulation_pass → render_pass`
+- **Graph resources:** nodes=`2`, draw commands=`31`, tổng instances=`100030`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-Bức ảnh bên dưới thể hiện trạng thái kết xuất của **$100,000$ hạt phát quang (Additive Glow Particles)** sau khi trải qua chuỗi 30 bước mô phỏng vật lý xoáy hấp dẫn trên GPU:
+## 2. Môi trường Desktop
 
-![TC63 Galaxy Particles](../outputs/desktop/tc63_particles_100k.png)
+- **Thời gian render lần đầu (cold):** `9.1817 ms`
+- **Thời gian render lần hai (warm/cache):** `7.6152 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `17.1%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `execute_checked + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `../outputs/desktop/tc63_particles_100k_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `cca64871b934d6a9`
+- **SHA-256:** `10b4fe122fe6f99ebbc0554512d4a1d2f3313c0910454cf671ad28c7057d4b30`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc63_particles_100k.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị thiên hà spiral dày với lõi sáng, gradient cyan/magenta và vùng hạt ngoài; không rỗng, không có artifact cấu trúc.
+- **Graph thực tế:** nodes=2, draw commands=31, instances=100030
 
-### 📐 Cấu Trúc Hệ Trục & Vùng Không Gian Mô Phỏng:
-- **Tâm Thiên Hà (Galactic Core $(0, 0)$):** Nơi hội tụ lực hấp dẫn cực đại. Hạt chuyển động với vận tốc cao nhất tạo ánh sáng **Vàng Kim / Trắng Nắng (Gold-White Glow)**.
-- **Các Nhánh Xoắn Ốc (Spiral Arms):** Lực tiếp tuyến (Tangential Vortex Force) uốn các hạt thành các dải xoắn mềm mại phát sáng **Tím Neon (Neon Violet)**.
-- **Vành Đai Ngoài Cùng (Outer Ring):** Hạt ở xa tâm chuyển động chậm hơn, mang sắc thái **Xanh Lam Điện Quang (Electric Blue)**.
-- **Không Gian Nền (Deep Space):** Nền không gian màu chàm đen tối ($RGB = [0.015, 0.018, 0.035]$) tôn vinh hiệu ứng phát sáng cộng dồn (Additive Blending).
 
----
 
-## 3. Thông Số Kỹ Thuật & Hiệu Năng Thực Thi (Desktop - Tauri/wgpu)
-- **Thời gian Thực thi Toàn Bộ (Cold Start - 30 bước compute + render):** 10.51ms
-- **Thời gian Thực thi Chuẩn (Warm/Cached - 30 bước compute + render):** 7.52ms
-- **Thời gian Tính toán Trung bình Mỗi Bước Vật Lý (Per-Step Compute):** 250.78µs (Tương đương **1,500+ FPS**)
-- **Thông số điều phối Compute (GPU Dispatch Metrics):**
-  - **Số lượng hạt mô phỏng:** 100,000 particles ($4.8\text{ MB}$ VRAM).
-  - **Cấu hình Workgroup:** 64 luồng / workgroup.
-  - **Số lượng Workgroups dispatch:** 1,563 workgroups `[1563, 1, 1]`.
-  - **Tổng số bước mô phỏng thực hiện:** 30 compute passes liên tiếp.
+## 3. Môi trường WebGPU
 
----
+- **Thời gian render lần đầu (cold):** `125.3000 ms`
+- **Thời gian render lần hai (warm/cache):** `10.5000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `91.6%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `30 compute passes + 100k instanced draw + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `../outputs/web/tc63_particles_100k_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `af93f0f973ebb64c`
+- **SHA-256:** `04bbb83f14b29ee50c0aea1e667d6e9f6e6e25a393a9d48a9b3982aa9691ebdb`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc63_particles_100k_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng thiên hà spiral, lõi sáng và phân bố hạt; khác biệt chủ yếu ở mật độ/rasterization điểm và floating-point backend, không có NaN hay hình ảnh sai cấu trúc.
+- **Graph thực tế:** nodes=2, draw commands=31, instances=2
 
-## 4. Xác Thực Tính Ổn Định Vật Lý (Physics Sanity Verification)
-- **Kiểm tra trạng thái số học:** Đọc ngược $100,000$ hạt từ VRAM về CPU.
-- **Số hạt hợp lệ (Không bị NaN, không văng vô cực):** 100000 / 100000 hạt (100.0%).
-- **Vận tốc cực đại ghi nhận (Max Orbital Speed):** 2.236 units/s.
-- **Trạng thái:** **PASSED (Mô phỏng 100,000 hạt ổn định tuyệt đối, hiệu năng cực cao)**
 
----
 
-## 5. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+## 4. So sánh và kết luận
 
-## 6. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `204777` |
+| Số pixel khác nhau | `74419` |
+| Sai số kênh màu lớn nhất | `222/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

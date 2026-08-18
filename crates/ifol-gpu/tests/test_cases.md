@@ -371,3 +371,21 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Grid có đường A vàng, B cam và C cyan; numeric readback khớp dưới `1e-4`.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `91a37c1c43c4f64c`; vision/validation đạt; raw khác 52 byte ở 49 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`. Desktop khớp CPU 10.240/10.240, max diff `0.00005054`.
 - **Báo cáo:** [`tc61_compute_buffer_math_report.md`](reports/tc61_compute_buffer_math_report.md)
+
+### TC62 - Storage Texture Sobel
+- **Mục tiêu:** Kiểm thử compute ghi storage texture và Sobel edge trên ảnh sprite.
+- **Kỳ vọng hình ảnh xuất ra:** Nửa trái là ảnh nhân vật gốc, divider cyan ở giữa, nửa phải là edge neon trên nền tối.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `29f38bc13430eb96`; validation và vision đạt; raw khác 59987 byte ở 31132 pixel, sai số tối đa `128/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc62_storage_texture_report.md`](reports/tc62_storage_texture_report.md)
+
+### TC63 - 100k Particles
+- **Mục tiêu:** Kiểm thử compute update 100.000 particle và instanced rendering deterministic.
+- **Kỳ vọng hình ảnh xuất ra:** Thiên hà spiral có lõi sáng, gradient cyan/magenta và phân bố hạt dày, không rỗng hoặc có artifact cấu trúc.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `49c5ea09d42ea7cb`; validation và vision đạt; raw khác 204777 byte ở 74419 pixel, sai số tối đa `222/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`. Particle buffer được reset trước warm.
+- **Báo cáo:** [`tc63_particles_100k_report.md`](reports/tc63_particles_100k_report.md)
+
+### TC64 - Audio FFT Visualizer
+- **Mục tiêu:** Kiểm thử compute FFT/energy bins từ PCM xác định và render visualizer.
+- **Kỳ vọng hình ảnh xuất ra:** Waveform cyan ở phần trên, divider, grid và 64 cột FFT gradient ở phần dưới với peak hợp lệ.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `eb63136e435ed1cb`; validation và vision đạt; raw khác 3893 byte ở 2088 pixel, sai số tối đa `99/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc64_audio_fft_report.md`](reports/tc64_audio_fft_report.md)
