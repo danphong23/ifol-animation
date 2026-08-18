@@ -299,3 +299,21 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Khung cyan quanh mage chỉ hiển thị đoạn stroke được trim.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `49cdb72f893223c4`; vision đạt; raw parity tuyệt đối `0 byte` khác.
 - **Báo cáo:** [`tc49_trim_paths_report.md`](reports/tc49_trim_paths_report.md)
+
+### TC50 - Exposure Inspector
+- **Mục tiêu:** Kiểm thử overlay zebra và false-color IRE trên scene canonical.
+- **Kỳ vọng hình ảnh xuất ra:** Nửa trái hiển thị zebra vùng cháy sáng, nửa phải hiển thị false-color IRE và vạch chia trắng.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `6eb21c3021072252`; vision đạt; raw khác 96 byte ở 32 pixel, sai số tối đa `166/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc50_exposure_inspector_report.md`](reports/tc50_exposure_inspector_report.md)
+
+### TC51 - Texture Atlas Bleed Prevention
+- **Mục tiêu:** Kiểm thử kẹp biên nửa texel cho hai sprite liền kề trong atlas.
+- **Kỳ vọng hình ảnh xuất ra:** Paladin và mage không bị lem màu từ ô atlas bên cạnh.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `d8d597349c97b340`; vision đạt sau khi sửa ABI `key_color` của Web; raw khác 163 byte ở 128 pixel, sai số tối đa `3/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc51_atlas_clamp_report.md`](reports/tc51_atlas_clamp_report.md)
+
+### TC52 - Soft Particle Depth Fading
+- **Mục tiêu:** Kiểm thử depth test và additive volumetric energy sphere.
+- **Kỳ vọng hình ảnh xuất ra:** Quả cầu plasma cyan giao thoa mềm với paladin, không có hard intersection.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `3f930de62616d52f`; vision đạt; raw khác 4495 byte ở 1554 pixel, sai số tối đa `101/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc52_soft_particles_report.md`](reports/tc52_soft_particles_report.md)

@@ -198,6 +198,14 @@ của TC sau khi chạy. Hai cách này cô lập resource logic, còn pipeline 
 driver/browser vẫn nằm ngoài quyền kiểm soát của `ifol-gpu`; do đó timing cold
 trong các report không được diễn giải thành cold start tuyệt đối.
 
+- [TC50](../../tests/reports/tc50_exposure_inspector_report.md) đến
+  [TC52](../../tests/reports/tc52_soft_particles_report.md): 3 TC advanced
+  dùng manifest/fingerprint chung giữa Desktop/Web, input PNG canonical và
+  output/report riêng. Cả 3 pass validation, cold/warm và vision. TC50 khác
+  96 byte, TC51 khác 163 byte, TC52 khác 4495 byte; đều được phân loại
+  `ĐẠT CÓ ĐIỀU KIỆN` vì khác biệt raw còn lại thuộc pixel/backend sau khi đã
+  loại lỗi graph/ABI.
+
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo

@@ -1,0 +1,33 @@
+{
+  "test_case": "TC50",
+  "title": "Exposure Inspector Overlay",
+  "title_vi": "Overlay kiểm tra phơi sáng",
+  "description": "Render a canonical scene and split it into zebra and false-color exposure inspection views.",
+  "description_vi": "Render scene canonical rồi chia thành vùng zebra và false-color để kiểm tra phơi sáng.",
+  "input_policy_vi": "Desktop và WebGPU dùng các texture PNG canonical; không dùng decoder JPEG trong phép đo parity.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "scene", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": { "address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear" },
+    "pipelines": {
+      "background": { "shader": "texture_blit.wgsl", "blend": "AlphaBlending", "layout": "texture" },
+      "chroma": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" },
+      "inspector": { "shader": "exposure_inspector.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" }
+    },
+    "operations": [
+      { "id": "scene_background", "kind": "background", "pass": "scene_pass", "pipeline": "background", "shader": "texture_blit.wgsl", "source": [{ "kind": "asset", "asset": "canonical_bg_scifi.png" }], "vertex_count": 6, "instance_count": 1 },
+      { "id": "scene_paladin", "kind": "chroma_key", "pass": "scene_pass", "pipeline": "chroma", "shader": "chroma_key_cropped.wgsl", "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }], "uniform": { "scale_y": 0.8, "uv_min": [0.005, 0.01], "uv_max": [0.28, 0.98], "key_color": [0.0, 1.0, 0.0], "tolerance": 0.48, "smoothness": 0.1 }, "vertex_count": 6, "instance_count": 1 },
+      { "id": "exposure_overlay", "kind": "exposure_inspector", "pass": "inspector_pass", "pipeline": "inspector", "shader": "exposure_inspector.wgsl", "source": [{ "kind": "target", "target": "scene" }], "uniform": { "zebra_threshold": 0.8, "zebra_speed": 2.0, "time": 1.0, "mode": 0.0 }, "vertex_count": 6, "instance_count": 1 }
+    ],
+    "passes": [
+      { "id": "scene_pass", "name": "Canonical scene", "target": "scene", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "inspector_pass", "name": "Zebra and false color", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "command_count": 3,
+    "node_count": 2
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["scene_pass", "inspector_pass"], "expected_instance_count": 3, "visual_check": "Nửa trái có zebra trên vùng sáng, nửa phải có false-color IRE và vạch chia trắng; không có ảnh đen hoặc validation error." }
+}

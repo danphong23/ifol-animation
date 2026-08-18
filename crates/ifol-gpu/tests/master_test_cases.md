@@ -245,3 +245,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Hợp đồng:** Mỗi TC có manifest riêng, graph fingerprint chung, output raw/ảnh riêng và report tiếng Việt riêng; Desktop/Web chạy tuần tự với cùng input canonical và shader WGSL dùng chung.
 - **Kết quả:** 10/10 TC pass validation và vision. TC43, TC46, TC47, TC49 đạt raw byte parity tuyệt đối. TC40, TC41, TC42, TC44, TC45, TC48 đạt có điều kiện do khác biệt pixel backend được ghi chi tiết trong report.
 - **Báo cáo:** Xem các report [`tc40_vignette_grain_report.md`](reports/tc40_vignette_grain_report.md) đến [`tc49_trim_paths_report.md`](reports/tc49_trim_paths_report.md).
+
+### TC50–TC52 - Advanced render parity
+- **Phạm vi:** Exposure inspector, texture-atlas clamp và soft particles có depth.
+- **Kết quả:** 3/3 pass validation, cold/warm output ổn định và vision đạt. TC50–TC52 đều `ĐẠT CÓ ĐIỀU KIỆN` về raw parity; TC51 đã sửa lỗi Web uniform `key_color` khiến nền xanh bị lộ trước đó.
+- **Báo cáo:** [`tc50_exposure_inspector_report.md`](reports/tc50_exposure_inspector_report.md), [`tc51_atlas_clamp_report.md`](reports/tc51_atlas_clamp_report.md), [`tc52_soft_particles_report.md`](reports/tc52_soft_particles_report.md)

@@ -355,6 +355,11 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   lần execute sau khi device/pipeline đã tạo, không phải cold start tuyệt đối;
 - Web runner có fallback metadata cô lập/cache thống nhất; report phải ghi rõ
   phạm vi này, không được gọi việc `destroy()` resource là xóa cache nền tảng;
+- TC50–TC52 đã được chuyển sang manifest canonical và runner Desktop/Web riêng.
+  Cả 3/3 pass validation, cold/warm output ổn định và vision đạt. Fingerprint
+  lần lượt là `6eb21c3021072252`, `d8d597349c97b340` và
+  `3f930de62616d52f`. Raw parity đều là `ĐẠT CÓ ĐIỀU KIỆN`; TC51 đã sửa
+  lỗi Web uniform `key_color` làm lộ nền xanh, không còn sai lệch cấu trúc;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
