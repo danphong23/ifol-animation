@@ -61,3 +61,7 @@ path = "tests/slice12_mutable_query.rs"
 [[test]]
 name = "slice13_commands"
 path = "tests/slice13_commands.rs"
+
+[[test]]
+name = "slice14_external_query"
+path = "tests/slice14_external_query.rs"

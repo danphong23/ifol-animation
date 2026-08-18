@@ -13,20 +13,41 @@ pub struct QueryAccess {
 }
 
 impl QueryAccess {
-    fn read<T: Component>() -> Self {
+    /// Creates a read-only access requirement for `T`.
+    pub fn read<T: Component>() -> Self {
         Self {
             reads: vec![TypeId::of::<T>()],
             writes: Vec::new(),
         }
     }
 
-    pub(crate) fn merge(mut self, other: Self) -> Self {
+    /// Creates a write access requirement for `T`.
+    pub fn write<T: Component>() -> Self {
+        Self {
+            reads: Vec::new(),
+            writes: vec![TypeId::of::<T>()],
+        }
+    }
+
+    /// Adds a read requirement to this access descriptor.
+    pub fn add_read<T: Component>(&mut self) {
+        self.reads.push(TypeId::of::<T>());
+    }
+
+    /// Adds a write requirement to this access descriptor.
+    pub fn add_write<T: Component>(&mut self) {
+        self.writes.push(TypeId::of::<T>());
+    }
+
+    /// Merges two access requirements for a composite query.
+    pub fn merge(mut self, other: Self) -> Self {
         self.reads.extend(other.reads);
         self.writes.extend(other.writes);
         self
     }
 
-    pub(crate) fn validate_mutable(&self) -> Result<(), &'static str> {
+    /// Rejects mutable aliases in a query signature.
+    pub fn validate_mutable(&self) -> Result<(), &'static str> {
         let mut writes = HashSet::new();
         for type_id in &self.writes {
             if !writes.insert(*type_id) || self.reads.contains(type_id) {
