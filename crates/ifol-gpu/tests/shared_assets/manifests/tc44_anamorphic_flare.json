@@ -1,0 +1,10 @@
+{
+  "test_case": "TC44",
+  "title": "Anamorphic Lens Flare",
+  "title_vi": "Tia flare anamorphic",
+  "description": "Apply a 33-tap horizontal anamorphic flare to a canonical sci-fi frame.",
+  "description_vi": "Lấy mẫu 33 tap theo trục ngang, lọc điểm sáng và tạo streak xanh anamorphic.",
+  "input_policy_vi": "Desktop và WebGPU dùng canonical_bg_scifi.png; không dùng decoder JPEG trong phép đo parity.",
+  "graph": { "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }, "sampler": { "address_mode_u": "repeat", "address_mode_v": "repeat", "address_mode_w": "repeat", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear" }, "pipelines": { "flare": { "shader": "anamorphic_flare.wgsl", "blend": "AlphaBlending" } }, "operations": [{ "id": "anamorphic_flare", "kind": "anamorphic_flare", "pass": "flare_pass", "pipeline": "flare", "shader": "anamorphic_flare.wgsl", "source": [{ "kind": "asset", "asset": "canonical_bg_scifi.png" }], "uniform": { "threshold": 0.35, "streak_length": 3.5, "intensity": 2.2, "tint_color": [0.15, 0.65, 1.0, 1.0] }, "vertex_count": 6, "instance_count": 1 }], "passes": [{ "id": "flare_pass", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }], "command_count": 1, "node_count": 1 },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["flare_pass"], "expected_instance_count": 1, "visual_check": "Nền Sci-Fi có streak ngang xanh quanh vùng sáng, không có viền đen bất thường hoặc validation error." }
+}

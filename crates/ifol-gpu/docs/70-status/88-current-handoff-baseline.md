@@ -342,6 +342,19 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   Desktop/Web dùng cùng PNG canonical; vision/structural, validation và cache
   parity đạt; raw còn khác 5 byte ở 5 pixel, sai số tối đa `1/255`, nên là
   `ĐẠT CÓ ĐIỀU KIỆN`. Xem `tests/reports/tc39_scanlines_report.md`;
+- TC40–TC49 đã được chuẩn hóa thành 10 manifest độc lập, mỗi TC có graph
+  fingerprint riêng, runner Desktop/Web riêng và report tiếng Việt riêng.
+  Cả 10/10 TC pass validation và vision; Desktop/Web dùng cùng manifest,
+  input PNG canonical và shader WGSL tương ứng. Raw byte parity tuyệt đối đạt
+  ở TC43, TC46, TC47 và TC49; các TC còn lại là `ĐẠT CÓ ĐIỀU KIỆN` với sai
+  khác pixel được ghi cụ thể trong từng report `tests/reports/tc40_...` đến
+  `tests/reports/tc49_...`;
+- Batch TC40–TC49 được chạy lại tuần tự sau khi sửa portability WGSL và ABI
+  uniform của TC49. Mỗi TC hủy resource logical sau khi hoàn tất. Không có API
+  xóa cache driver/browser/GPU; vì vậy cold/warm trong report là cold/warm của
+  lần execute sau khi device/pipeline đã tạo, không phải cold start tuyệt đối;
+- Web runner có fallback metadata cô lập/cache thống nhất; report phải ghi rõ
+  phạm vi này, không được gọi việc `destroy()` resource là xóa cache nền tảng;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

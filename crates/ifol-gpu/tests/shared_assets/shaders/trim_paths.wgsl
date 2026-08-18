@@ -61,7 +61,7 @@ fn get_perimeter_t(p: vec2<f32>) -> f32 {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let base_color = textureSample(t_diffuse, s_diffuse, in.uv);
+    let base_color = textureSampleLevel(t_diffuse, s_diffuse, in.uv, 0.0);
     
     let p = in.uv - u_params.center;
     let dist = sdf_rounded_box(p, u_params.half_size, u_params.corner_radius);

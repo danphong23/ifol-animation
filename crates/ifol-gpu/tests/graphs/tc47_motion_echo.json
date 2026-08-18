@@ -1,8 +1,0 @@
-{
-  "features": [
-    "Multi-Step Temporal Offset Sampling",
-    "Exponential Alpha Attenuation",
-    "Chromatic Trail Phase Shifting"
-  ],
-  "test_case": "TC47 - Motion Echo & Afterimage Ghosting"
-}

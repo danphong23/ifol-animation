@@ -1,8 +1,0 @@
-{
-  "features": [
-    "RGB to HSV Color Space Conversion",
-    "Circular Hue Distance Analysis",
-    "Selective Desaturation (Sin City Cinematic Effect)"
-  ],
-  "test_case": "TC46 - Selective Color Isolation & Hue Pass"
-}

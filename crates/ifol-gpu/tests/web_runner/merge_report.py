@@ -261,6 +261,7 @@ def main() -> None:
 - **Speedup cold → warm:** `{format_percent(desktop.get("speedup_percentage"))}`
 - **Adapter/backend:** `{desktop.get("adapter_name", "không ghi nhận")}` / `{desktop.get("backend", "không ghi nhận")}`
 - **Phạm vi timing:** `{desktop.get("timing_scope", "không ghi nhận")}`
+- **Phạm vi cô lập/cache:** `{desktop.get("isolation_scope", "không ghi nhận")}`
 - **Dữ liệu raw:** `{args.desktop_raw.as_posix()}`
 - **Dấu vân tay raw (FNV-1a):** `{desktop_raw_fingerprint}`
 - **SHA-256:** `{sha_desktop}`
@@ -280,6 +281,7 @@ def main() -> None:
 - **Speedup cold → warm:** `{format_percent(web.get("speedup_percentage"))}`
 - **Adapter:** `{web.get("adapter_name", "không ghi nhận")}`
 - **Phạm vi timing:** `{web.get("timing_scope", "không ghi nhận")}`
+- **Phạm vi cô lập/cache:** `{web.get("isolation_scope", "không ghi nhận")}`
 - **Dữ liệu raw:** `{args.web_raw.as_posix()}`
 - **Dấu vân tay raw (FNV-1a):** `{web_raw_fingerprint}`
 - **SHA-256:** `{sha_web}`

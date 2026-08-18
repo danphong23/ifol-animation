@@ -31,12 +31,22 @@ struct ScanlineUniform {
     color: [f32; 4],
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct VignetteUniform {
+    vignette_radius: f32,
+    vignette_softness: f32,
+    grain_strength: f32,
+    time: f32,
+}
+
 #[allow(dead_code)]
 #[derive(Copy, Clone)]
 pub enum Effect {
     ChromaticAberration,
     Kaleidoscope,
     Scanlines,
+    VignetteGrain,
 }
 
 impl Effect {
@@ -47,6 +57,9 @@ impl Effect {
             }
             Self::Kaleidoscope => include_str!("../shared_assets/manifests/tc38_kaleidoscope.json"),
             Self::Scanlines => include_str!("../shared_assets/manifests/tc39_scanlines.json"),
+            Self::VignetteGrain => {
+                include_str!("../shared_assets/manifests/tc40_vignette_grain.json")
+            }
         }
     }
 
@@ -55,6 +68,7 @@ impl Effect {
             Self::ChromaticAberration => "chromatic_aberration.wgsl",
             Self::Kaleidoscope => "kaleidoscope.wgsl",
             Self::Scanlines => "scanlines.wgsl",
+            Self::VignetteGrain => "vignette_grain.wgsl",
         }
     }
 
@@ -63,6 +77,7 @@ impl Effect {
             Self::ChromaticAberration => "tc37_chromatic_aberration",
             Self::Kaleidoscope => "tc38_kaleidoscope",
             Self::Scanlines => "tc39_scanlines",
+            Self::VignetteGrain => "tc40_vignette_grain",
         }
     }
 
@@ -71,6 +86,7 @@ impl Effect {
             Self::ChromaticAberration => "TC37 Chromatic Aberration",
             Self::Kaleidoscope => "TC38 Kaleidoscope",
             Self::Scanlines => "TC39 Hologram Scanlines",
+            Self::VignetteGrain => "TC40 Vignette Grain",
         }
     }
 }
@@ -196,6 +212,18 @@ pub fn run(effect: Effect) {
                     effect.label(),
                 )
             }
+            Effect::VignetteGrain => {
+                let u = &effect_operation["uniform"];
+                h.create_custom_uniform_bind_group(
+                    VignetteUniform {
+                        vignette_radius: u["vignette_radius"].as_f64().unwrap() as f32,
+                        vignette_softness: u["vignette_softness"].as_f64().unwrap() as f32,
+                        grain_strength: u["grain_strength"].as_f64().unwrap() as f32,
+                        time: u["time"].as_f64().unwrap() as f32,
+                    },
+                    effect.label(),
+                )
+            }
         };
         let (chroma_id, _) = h.create_target("Chroma Target");
         let (final_id, final_texture) = h.create_target("Final Target");
@@ -208,15 +236,17 @@ pub fn run(effect: Effect) {
         .with_clear_color([0.0, 0.0, 0.0, 0.0]);
         chroma_graph.add_batch(
             &mut h.pool,
-            vec![DrawCommand::new(
-                chroma_pipeline,
-                DrawAction::Procedural {
-                    vertex_count: 6,
-                    instance_range: 0..1,
-                },
-            )
-            .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
-            .with_bind_group(1, sprite_bg, Vec::new())],
+            vec![
+                DrawCommand::new(
+                    chroma_pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: 6,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(1, sprite_bg, Vec::new()),
+            ],
         );
         let clear = &graph["passes"][1]["clear_color"];
         let mut effect_graph = RenderGraph::new(RenderTarget::Offscreen {
@@ -232,15 +262,17 @@ pub fn run(effect: Effect) {
         ]);
         effect_graph.add_batch(
             &mut h.pool,
-            vec![DrawCommand::new(
-                effect_pipeline,
-                DrawAction::Procedural {
-                    vertex_count: 6,
-                    instance_range: 0..1,
-                },
-            )
-            .with_bind_group(0, effect_texture_bg, Vec::new())
-            .with_bind_group(1, effect_bg, Vec::new())],
+            vec![
+                DrawCommand::new(
+                    effect_pipeline,
+                    DrawAction::Procedural {
+                        vertex_count: 6,
+                        instance_range: 0..1,
+                    },
+                )
+                .with_bind_group(0, effect_texture_bg, Vec::new())
+                .with_bind_group(1, effect_bg, Vec::new()),
+            ],
         );
         let cold_ms = execute_pair(&mut h, &chroma_graph, &effect_graph);
         let cold_raw = h
@@ -274,7 +306,7 @@ pub fn run(effect: Effect) {
             &raw.bytes,
         )
         .unwrap();
-        let metadata = serde_json::json!({ "test_case": manifest["test_case"], "width": raw.width, "height": raw.height, "format": "Rgba8UnormSrgb", "adapter_name": h.engine.adapter_info().name, "backend": format!("{:?}", h.engine.adapter_info().backend), "device_type": format!("{:?}", h.engine.adapter_info().device_type), "timing_scope": "2 pass (chroma key → effect) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback", "raw_fingerprint": fnv1a64(&raw.bytes), "manifest": format!("tests/shared_assets/manifests/{output}.json"), "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()), "cold_render_time_ms": cold_ms, "warm_render_time_ms": warm_ms, "warm_iteration_count": 1, "speedup_percentage": (1.0 - warm_ms / cold_ms) * 100.0, "cache_output_equal": true, "node_count": graph["node_count"], "draw_commands": graph["command_count"], "instance_count": 2, "pass_count": graph["passes"].as_array().unwrap().len() });
+        let metadata = serde_json::json!({ "test_case": manifest["test_case"], "width": raw.width, "height": raw.height, "format": "Rgba8UnormSrgb", "adapter_name": h.engine.adapter_info().name, "backend": format!("{:?}", h.engine.adapter_info().backend), "device_type": format!("{:?}", h.engine.adapter_info().device_type), "timing_scope": "2 pass (chroma key → effect) + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback", "isolation_scope": "DesktopTestHarness mới cho từng TC; không xóa cache nội bộ của driver/GPU", "raw_fingerprint": fnv1a64(&raw.bytes), "manifest": format!("tests/shared_assets/manifests/{output}.json"), "manifest_fingerprint": fnv1a64(manifest_text.as_bytes()), "cold_render_time_ms": cold_ms, "warm_render_time_ms": warm_ms, "warm_iteration_count": 1, "speedup_percentage": (1.0 - warm_ms / cold_ms) * 100.0, "cache_output_equal": true, "node_count": graph["node_count"], "draw_commands": graph["command_count"], "instance_count": 2, "pass_count": graph["passes"].as_array().unwrap().len() });
         fs::write(
             format!("tests/outputs/desktop/{output}_desktop.json"),
             serde_json::to_vec_pretty(&metadata).unwrap(),

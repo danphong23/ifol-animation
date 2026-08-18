@@ -42,7 +42,7 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let base_color = textureSample(t_diffuse, s_diffuse, in.uv);
+    let base_color = textureSampleLevel(t_diffuse, s_diffuse, in.uv, 0.0);
     
     // 1D Horizontal wide streak accumulation
     var streak = vec3<f32>(0.0);
@@ -56,7 +56,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Edge boundary clamping & smooth falloff to avoid hard edge smearing
         if (sample_uv.x >= 0.0 && sample_uv.x <= 1.0) {
             let edge_fade = smoothstep(0.0, 0.05, sample_uv.x) * smoothstep(1.0, 0.95, sample_uv.x);
-            let s_color = textureSample(t_diffuse, s_diffuse, sample_uv);
+            let s_color = textureSampleLevel(t_diffuse, s_diffuse, sample_uv, 0.0);
             
             // Extract bright highlights
             let lum = dot(s_color.rgb, vec3<f32>(0.299, 0.587, 0.114));

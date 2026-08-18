@@ -54,7 +54,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let offset = u_params.velocity * t;
         let sample_uv = in.uv + offset;
         
-        let sprite = textureSample(t_diffuse, s_diffuse, sample_uv);
+        let sprite = textureSampleLevel(t_diffuse, s_diffuse, sample_uv, 0.0);
         
         if (sprite.a > 0.01) {
             let alpha_factor = pow(u_params.decay, t);

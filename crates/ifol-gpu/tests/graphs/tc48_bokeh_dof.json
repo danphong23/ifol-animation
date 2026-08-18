@@ -1,8 +1,0 @@
-{
-  "features": [
-    "Circle of Confusion (CoC) Focal Plane",
-    "Golden Angle Fermat Spiral Disk Sampling",
-    "Non-linear Optical Highlight Bokeh Blobs"
-  ],
-  "test_case": "TC48 - Cinematic Bokeh Depth of Field"
-}

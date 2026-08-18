@@ -50,7 +50,7 @@ fn sdf_rounded_box(p: vec2<f32>, b: vec2<f32>, r: f32) -> f32 {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let base_color = textureSample(t_diffuse, s_diffuse, in.uv);
+    let base_color = textureSampleLevel(t_diffuse, s_diffuse, in.uv, 0.0);
     
     // Calculate SDF distance to rounded rectangle panel
     let p = in.uv - u_params.panel_center;
@@ -79,7 +79,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         for (var y = -2; y <= 2; y++) {
             let offset = vec2<f32>(f32(x), f32(y)) * b_radius;
             let w = exp(-f32(x*x + y*y) / 4.0);
-            blurred += textureSample(t_diffuse, s_diffuse, sample_uv + offset) * w;
+            blurred += textureSampleLevel(t_diffuse, s_diffuse, sample_uv + offset, 0.0) * w;
             total_w += w;
         }
     }

@@ -48,7 +48,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let coc = clamp((dist_from_focus - u_params.focus_radius) / (1.0 - u_params.focus_radius), 0.0, 1.0);
     
     if (coc <= 0.01) {
-        return textureSample(t_diffuse, s_diffuse, in.uv);
+        return textureSampleLevel(t_diffuse, s_diffuse, in.uv, 0.0);
     }
 
     let disk_radius = coc * u_params.max_blur * 0.012;
@@ -63,7 +63,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let r = sqrt(f32(i) / 24.0) * disk_radius;
         let sample_uv = in.uv + vec2<f32>(cos(theta), sin(theta)) * r;
 
-        let sample_color = textureSample(t_diffuse, s_diffuse, sample_uv);
+        let sample_color = textureSampleLevel(t_diffuse, s_diffuse, sample_uv, 0.0);
         let lum = dot(sample_color.rgb, vec3<f32>(0.299, 0.587, 0.114));
 
         // Optical Bokeh weight: bright highlights expand with high weight

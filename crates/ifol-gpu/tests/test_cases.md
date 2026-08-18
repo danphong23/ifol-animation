@@ -239,3 +239,63 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Mage có sọc quét ngang cyan và hiệu ứng hologram; không có ảnh đen hoặc lỗi validation.
 - **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `5ea108ce90344f78`; vision đạt; raw khác 5 byte ở 5 pixel, tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
 - **Báo cáo:** [`tc39_scanlines_report.md`](reports/tc39_scanlines_report.md)
+
+### TC40 - Vignette và hạt phim
+- **Mục tiêu:** Kiểm thử graph chroma key → vignette/grain deterministic.
+- **Kỳ vọng hình ảnh xuất ra:** Mage giữ đúng bố cục, tối viền và có hạt phim ổn định.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `da19870721a1d0ee`; vision đạt; raw khác 36605 byte ở 12345 pixel, sai số tối đa `147/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc40_vignette_grain_report.md`](reports/tc40_vignette_grain_report.md)
+
+### TC41 - Aspect Fill
+- **Mục tiêu:** Kiểm thử fill ảnh theo tỷ lệ đích với nền blur bảo toàn bố cục.
+- **Kỳ vọng hình ảnh xuất ra:** Ảnh Sci-Fi fill khung 9:16, foreground không méo, nền được blur.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `039c82c31366c5f1`; vision đạt; raw khác 13 byte ở 13 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc41_aspect_fill_report.md`](reports/tc41_aspect_fill_report.md)
+
+### TC42 - HDR Bloom
+- **Mục tiêu:** Kiểm thử graph chroma key → bloom → composite với vùng sáng emissive.
+- **Kỳ vọng hình ảnh xuất ra:** Mage trên nền Sci-Fi có bloom lan rộng, không bị cắt vùng sáng.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `ded6885c267c0133`; vision đạt; raw khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc42_hdr_bloom_report.md`](reports/tc42_hdr_bloom_report.md)
+
+### TC43 - Track Matte
+- **Mục tiêu:** Kiểm thử alpha track matte giới hạn texture nền theo silhouette nhân vật.
+- **Kỳ vọng hình ảnh xuất ra:** Sci-Fi chỉ hiện bên trong silhouette paladin.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `3824afc9c439d9b6`; vision đạt; raw parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc43_track_matte_report.md`](reports/tc43_track_matte_report.md)
+
+### TC44 - Anamorphic Flare
+- **Mục tiêu:** Kiểm thử flare ngang từ vùng sáng bằng shader dùng chung.
+- **Kỳ vọng hình ảnh xuất ra:** Có streak xanh lam ngang trên cảnh Sci-Fi, không có black output.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `8acb587266daa9a5`; vision đạt; raw khác 113 byte ở 106 pixel, sai số tối đa `77/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc44_anamorphic_flare_report.md`](reports/tc44_anamorphic_flare_report.md)
+
+### TC45 - Glassmorphism
+- **Mục tiêu:** Kiểm thử panel kính mờ bo góc, blur/refraction và rim light.
+- **Kỳ vọng hình ảnh xuất ra:** Paladin và panel kính cùng xuất hiện đúng thứ tự layer.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `2d3810a87e84d9ac`; vision đạt; raw khác 1 byte ở 1 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc45_glassmorphism_report.md`](reports/tc45_glassmorphism_report.md)
+
+### TC46 - Selective Color
+- **Mục tiêu:** Kiểm thử chuyển grayscale có chọn lọc theo hue mục tiêu.
+- **Kỳ vọng hình ảnh xuất ra:** Toàn cảnh giảm bão hòa, vùng màu mục tiêu vẫn giữ màu.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `34ecb2f54ddfd44c`; vision đạt; raw parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc46_selective_color_report.md`](reports/tc46_selective_color_report.md)
+
+### TC47 - Motion Echo
+- **Mục tiêu:** Kiểm thử nhiều echo theo velocity với alpha và màu giảm dần.
+- **Kỳ vọng hình ảnh xuất ra:** Mage có các bóng chuyển động lệch nhau trên nền, không lỗi validation.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `170a3d531712c956`; vision đạt; raw parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc47_motion_echo_report.md`](reports/tc47_motion_echo_report.md)
+
+### TC48 - Bokeh Depth of Field
+- **Mục tiêu:** Kiểm thử blur theo vùng focus và bokeh highlight.
+- **Kỳ vọng hình ảnh xuất ra:** Foreground rõ, nền blur/bokeh và highlight được tăng cường.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `6fefabed9d0cf1d5`; vision đạt; raw khác 71 byte ở 71 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc48_bokeh_dof_report.md`](reports/tc48_bokeh_dof_report.md)
+
+### TC49 - Trim Paths
+- **Mục tiêu:** Kiểm thử stroke bo góc nét đứt bị trim theo khoảng start/end.
+- **Kỳ vọng hình ảnh xuất ra:** Khung cyan quanh mage chỉ hiển thị đoạn stroke được trim.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `49cdb72f893223c4`; vision đạt; raw parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc49_trim_paths_report.md`](reports/tc49_trim_paths_report.md)

@@ -1,8 +1,0 @@
-{
-  "features": [
-    "Dynamic Aspect Ratio Transformation",
-    "Non-Uniform Canvas Pillarbox Elimination",
-    "Background Gaussian Blur Fill with Drop Shadow"
-  ],
-  "test_case": "TC41 - Auto Aspect Ratio Adaptation & Background Blur Fill"
-}

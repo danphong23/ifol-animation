@@ -239,3 +239,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Kỳ vọng:** Mage có sọc quét ngang cyan và hiệu ứng hologram; không có ảnh đen hoặc validation error.
 - **Kết quả parity:** Desktop/Web dùng chung manifest fingerprint `5ea108ce90344f78`; vision đạt; raw khác 5 byte ở 5 pixel, tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
 - **Báo cáo:** [`tc39_scanlines_report.md`](reports/tc39_scanlines_report.md)
+
+### TC40–TC49 - Batch parity Desktop/Web
+- **Phạm vi:** Vignette/grain, aspect fill, HDR bloom, track matte, anamorphic flare, glassmorphism, selective color, motion echo, bokeh DoF và trim paths.
+- **Hợp đồng:** Mỗi TC có manifest riêng, graph fingerprint chung, output raw/ảnh riêng và report tiếng Việt riêng; Desktop/Web chạy tuần tự với cùng input canonical và shader WGSL dùng chung.
+- **Kết quả:** 10/10 TC pass validation và vision. TC43, TC46, TC47, TC49 đạt raw byte parity tuyệt đối. TC40, TC41, TC42, TC44, TC45, TC48 đạt có điều kiện do khác biệt pixel backend được ghi chi tiết trong report.
+- **Báo cáo:** Xem các report [`tc40_vignette_grain_report.md`](reports/tc40_vignette_grain_report.md) đến [`tc49_trim_paths_report.md`](reports/tc49_trim_paths_report.md).

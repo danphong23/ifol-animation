@@ -183,6 +183,20 @@ Các report canonical hiện tại:
   hologram scanlines 200 dòng trên mage PNG canonical; vision/structural,
   validation và cache đạt, raw khác 5 byte ở 5 pixel, tối đa `1/255`, nên là
   `ĐẠT CÓ ĐIỀU KIỆN`.
+- [TC40](../../tests/reports/tc40_vignette_grain_report.md) đến
+  [TC49](../../tests/reports/tc49_trim_paths_report.md): batch 10 TC độc lập
+  dùng manifest/graph fingerprint riêng, input PNG canonical và shader WGSL
+  dùng chung giữa Desktop/Web; 10/10 pass validation và vision. TC43, TC46,
+  TC47, TC49 đạt raw byte parity tuyệt đối. TC40, TC41, TC42, TC44, TC45 và
+  TC48 đạt có điều kiện; số byte/pixel khác và max delta được ghi trong từng
+  report. TC49 đã sửa padding uniform để loại sai lệch ABI WebGPU.
+
+Phạm vi cache cần hiểu thống nhất: `ifol-gpu` có transient resource pools và
+render-bundle reuse theo graph/resource, nhưng hiện không cung cấp API xóa
+cache driver/GPU. Test Desktop tạo harness mới theo TC; Web hủy texture/buffer
+của TC sau khi chạy. Hai cách này cô lập resource logic, còn pipeline cache của
+driver/browser vẫn nằm ngoài quyền kiểm soát của `ifol-gpu`; do đó timing cold
+trong các report không được diễn giải thành cold start tuyệt đối.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

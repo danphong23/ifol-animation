@@ -1,7 +1,0 @@
-{
-  "features": [
-    "Smoothstep Vignette radius",
-    "Pseudo-random time-based noise"
-  ],
-  "test_case": "TC40 - Vignette & Film Grain"
-}

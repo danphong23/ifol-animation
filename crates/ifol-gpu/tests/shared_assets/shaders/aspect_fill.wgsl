@@ -61,7 +61,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         for (var y = -3; y <= 3; y++) {
             let offset = vec2<f32>(f32(x), f32(y)) * b_radius * 0.005;
             let w = exp(-f32(x*x + y*y) / 8.0);
-            bg_color += textureSample(t_diffuse, s_diffuse, clamp(bg_uv + offset, vec2<f32>(0.0), vec2<f32>(1.0))) * w;
+            bg_color += textureSampleLevel(t_diffuse, s_diffuse, clamp(bg_uv + offset, vec2<f32>(0.0), vec2<f32>(1.0)), 0.0) * w;
             total_weight += w;
         }
     }
@@ -97,7 +97,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // 4. Foreground content
     if (fg_uv.x >= 0.0 && fg_uv.x <= 1.0 && fg_uv.y >= 0.0 && fg_uv.y <= 1.0) {
-        let fg_color = textureSample(t_diffuse, s_diffuse, fg_uv);
+        let fg_color = textureSampleLevel(t_diffuse, s_diffuse, fg_uv, 0.0);
         // Thin white border around foreground
         let dist_x = min(fg_uv.x, 1.0 - fg_uv.x);
         let dist_y = min(fg_uv.y, 1.0 - fg_uv.y);
