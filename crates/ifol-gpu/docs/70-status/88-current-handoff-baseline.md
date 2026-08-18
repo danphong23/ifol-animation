@@ -413,6 +413,15 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - Không có graph JSON legacy cho TC65–TC67; manifest là graph contract duy nhất
   của batch này. Các runner Desktop cũ đã được thay bằng wrapper gọi shared
   runner, Web catalog/card và output/report song song đã được bổ sung.
+- TC68–TC70 đã được chuyển sang manifest canonical và runner Desktop/Web chung.
+  Fingerprint lần lượt là `57c2a130c0067d22`, `940d2398c4b39343` và
+  `208bace8904bea29`; cả 3 pass validation, vision và cold/warm. TC68 khác
+  48 byte/17 pixel, TC69 khác 1501 byte/1297 pixel và TC70 đạt raw parity
+  tuyệt đối. TC68–TC69 là `ĐẠT CÓ ĐIỀU KIỆN`, TC70 là `ĐẠT`; state mutable
+  của node/vertex/indirect counter đều được reset trước warm.
+- Không có graph JSON legacy cho TC68–TC70; manifest là graph contract duy
+  nhất. Các wrapper Desktop cũ đã được thay bằng wrapper mỏng gọi shared
+  runner; Web catalog/card và output/report song song đã được bổ sung.
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

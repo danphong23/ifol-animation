@@ -6085,6 +6085,91 @@ async function runTC67(gpu) {
     await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc67', finalTexture, 'Rgba8UnormSrgb', sampler, render, reset, [finalTexture, textureA, textureB], '2480 compute ping-pong passes + 1 color mapping pass + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { step_count: 2480, pair_count: 1240, seed_reset_before_warm: true }, null);
 }
 
+function makeTc68InitialNodes() {
+    const nodes = new Float32Array(256 * 16 * 4);
+    for (let chain = 0; chain < 256; chain++) {
+        const anchorX = (chain % 16) * 50 + 25;
+        const anchorY = Math.floor(chain / 16) * 10 + 50;
+        for (let node = 0; node < 16; node++) {
+            const base = (chain * 16 + node) * 4;
+            const y = anchorY + node * 20;
+            nodes[base] = anchorX; nodes[base + 1] = y;
+            nodes[base + 2] = anchorX; nodes[base + 3] = y;
+        }
+    }
+    return nodes;
+}
+
+async function runTC68(gpu) {
+    const { device } = gpu; const caseId = 'TC68'; const manifestName = 'tc68_verlet.json'; const outputName = 'tc68_verlet';
+    const response = await fetch('/manifests/' + manifestName); const manifestText = await response.text(); const manifest = JSON.parse(manifestText);
+    const initial = makeTc68InitialNodes();
+    const nodesBuffer = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); device.queue.writeBuffer(nodesBuffer, 0, initial);
+    const uniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(uniform, 0, new Float32Array([5, 0, 0, 0]));
+    const computeLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }
+    ]});
+    const computeBG = device.createBindGroup({ layout: computeLayout, entries: [{ binding: 0, resource: { buffer: nodesBuffer } }, { binding: 1, resource: { buffer: uniform } }] });
+    const shader = device.createShaderModule({ code: await fetchShader('compute_verlet.wgsl') }); const layout = device.createPipelineLayout({ bindGroupLayouts: [computeLayout] });
+    const integrate = device.createComputePipeline({ layout, compute: { module: shader, entryPoint: 'integrate_main' } }); const constrain = device.createComputePipeline({ layout, compute: { module: shader, entryPoint: 'constrain_main' } });
+    const renderLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }] });
+    const renderBG = device.createBindGroup({ layout: renderLayout, entries: [{ binding: 0, resource: { buffer: nodesBuffer } }] }); const renderShader = device.createShaderModule({ code: await fetchShader('render_chains.wgsl') });
+    const renderPipeline = device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [renderLayout] }), vertex: { module: renderShader, entryPoint: 'vs_main' }, fragment: { module: renderShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }] }, primitive: { topology: 'triangle-list' } });
+    const finalTexture = device.createTexture({ size: [800, 600], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING }); const sampler = device.createSampler();
+    const render = async () => { device.pushErrorScope('validation'); const encoder = device.createCommandEncoder(); for (let i = 0; i < 100; i++) { const a = encoder.beginComputePass(); a.setPipeline(integrate); a.setBindGroup(0, computeBG); a.dispatchWorkgroups(64, 1, 1); a.end(); const b = encoder.beginComputePass(); b.setPipeline(constrain); b.setBindGroup(0, computeBG); b.dispatchWorkgroups(4, 1, 1); b.end(); } const pass = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1 }, loadOp: 'clear', storeOp: 'store' }] }); pass.setPipeline(renderPipeline); pass.setBindGroup(0, renderBG); pass.draw(6, 4096, 0, 0); pass.end(); device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone(); const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message); };
+    const reset = async () => { device.queue.writeBuffer(nodesBuffer, 0, initial); await device.queue.onSubmittedWorkDone(); };
+    await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc68', finalTexture, 'Rgba8UnormSrgb', sampler, render, reset, [finalTexture, nodesBuffer, uniform], '200 compute dispatches + 4096 instanced node quads + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { node_count: 4096, chain_count: 256, step_count: 100, seed_reset_before_warm: true }, null);
+}
+
+function makeTc69InitialVertices() {
+    const vertices = new Float32Array(65 * 65 * 8); let offset = 0;
+    for (let y = 0; y <= 64; y++) for (let x = 0; x <= 64; x++) { const tx = x / 64; const ty = y / 64; vertices[offset++] = tx * 2 - 1; vertices[offset++] = ty * 2 - 1; vertices[offset++] = tx; vertices[offset++] = ty; vertices[offset++] = 0.5; vertices[offset++] = 0.5; vertices[offset++] = 0.5; vertices[offset++] = 1; }
+    return vertices;
+}
+
+function makeTc69Indices() {
+    const indices = new Uint16Array(64 * 64 * 6); let offset = 0;
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) { const tl = y * 65 + x; const tr = tl + 1; const bl = (y + 1) * 65 + x; const br = bl + 1; indices.set([tl, bl, tr, tr, bl, br], offset); offset += 6; }
+    return indices;
+}
+
+async function runTC69(gpu) {
+    const { device } = gpu; const caseId = 'TC69'; const manifestName = 'tc69_deformation.json'; const outputName = 'tc69_deformation';
+    const response = await fetch('/manifests/' + manifestName); const manifestText = await response.text(); const manifest = JSON.parse(manifestText); const initial = makeTc69InitialVertices(); const indices = makeTc69Indices();
+    const source = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }); const dest = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST }); const index = device.createBuffer({ size: indices.byteLength, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(source, 0, initial); device.queue.writeBuffer(dest, 0, initial); device.queue.writeBuffer(index, 0, indices);
+    const uniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(uniform, 0, new Float32Array([5, 0, 0, 0]));
+    const computeLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }] }); const computeBG = device.createBindGroup({ layout: computeLayout, entries: [{ binding: 0, resource: { buffer: source } }, { binding: 1, resource: { buffer: dest } }, { binding: 2, resource: { buffer: uniform } }] });
+    const computeShader = device.createShaderModule({ code: await fetchShader('compute_deformation.wgsl') }); const computePipeline = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [computeLayout] }), compute: { module: computeShader, entryPoint: 'cs_main' } });
+    const renderShader = device.createShaderModule({ code: await fetchShader('render_deformation.wgsl') }); const renderPipeline = device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [] }), vertex: { module: renderShader, entryPoint: 'vs_main', buffers: [{ arrayStride: 32, stepMode: 'vertex', attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }, { shaderLocation: 1, offset: 8, format: 'float32x2' }, { shaderLocation: 2, offset: 16, format: 'float32x4' }] }] }, fragment: { module: renderShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }] }, primitive: { topology: 'triangle-list' } });
+    const finalTexture = device.createTexture({ size: [800, 600], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING }); const sampler = device.createSampler();
+    const render = async () => { device.pushErrorScope('validation'); const encoder = device.createCommandEncoder(); const compute = encoder.beginComputePass(); compute.setPipeline(computePipeline); compute.setBindGroup(0, computeBG); compute.dispatchWorkgroups(67, 1, 1); compute.end(); const pass = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1 }, loadOp: 'clear', storeOp: 'store' }] }); pass.setPipeline(renderPipeline); pass.setVertexBuffer(0, dest); pass.setIndexBuffer(index, 'uint16'); pass.drawIndexed(24576, 1, 0, 0, 0); pass.end(); device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone(); const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message); };
+    const reset = async () => { device.queue.writeBuffer(dest, 0, initial); await device.queue.onSubmittedWorkDone(); };
+    await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc69', finalTexture, 'Rgba8UnormSrgb', sampler, render, reset, [finalTexture, source, dest, index, uniform], '1 compute dispatch 67x1 + indexed draw 24576 indices + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { vertex_count: 4225, index_count: 24576, zero_copy_dest_vertex_buffer: true, seed_reset_before_warm: true }, null);
+}
+
+function makeTc70Particles() {
+    const particles = new Float32Array(100000 * 4); for (let i = 0; i < 100000; i++) { const base = i * 4; particles[base] = ((i * 13) % 1000) / 1000 * 2 - 1; particles[base + 1] = ((i * 17) % 1000) / 1000 * 2 - 1; particles[base + 2] = 0.005; }
+    return particles;
+}
+
+async function runTC70(gpu) {
+    const { device } = gpu; const caseId = 'TC70'; const manifestName = 'tc70_culling.json'; const outputName = 'tc70_culling';
+    const response = await fetch('/manifests/' + manifestName); const manifestText = await response.text(); const manifest = JSON.parse(manifestText); const initial = makeTc70Particles();
+    const source = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }); const dest = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(source, 0, initial); device.queue.writeBuffer(dest, 0, initial);
+    const indirect = device.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); const indirectInitial = new Uint32Array([6, 0, 0, 0]); device.queue.writeBuffer(indirect, 0, indirectInitial);
+    const uniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(uniform, 0, new Float32Array([0, 0, 0.5, 0]));
+    const computeLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }] }); const computeBG = device.createBindGroup({ layout: computeLayout, entries: [{ binding: 0, resource: { buffer: source } }, { binding: 1, resource: { buffer: dest } }, { binding: 2, resource: { buffer: indirect } }, { binding: 3, resource: { buffer: uniform } }] });
+    const computeShader = device.createShaderModule({ code: await fetchShader('compute_cull.wgsl') }); const computePipeline = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [computeLayout] }), compute: { module: computeShader, entryPoint: 'cs_main' } });
+    const renderLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }] }); const renderBG = device.createBindGroup({ layout: renderLayout, entries: [{ binding: 0, resource: { buffer: dest } }] }); const renderShader = device.createShaderModule({ code: await fetchShader('render_culled.wgsl') });
+    const renderPipeline = device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [renderLayout] }), vertex: { module: renderShader, entryPoint: 'vs_main' }, fragment: { module: renderShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }] }, primitive: { topology: 'triangle-list' } });
+    const finalTexture = device.createTexture({ size: [800, 600], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING }); const sampler = device.createSampler();
+    const render = async () => { device.pushErrorScope('validation'); const encoder = device.createCommandEncoder(); const compute = encoder.beginComputePass(); compute.setPipeline(computePipeline); compute.setBindGroup(0, computeBG); compute.dispatchWorkgroups(1563, 1, 1); compute.end(); const pass = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1 }, loadOp: 'clear', storeOp: 'store' }] }); pass.setPipeline(renderPipeline); pass.setBindGroup(0, renderBG); pass.drawIndirect(indirect, 0); pass.end(); device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone(); const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message); };
+    const reset = async () => { device.queue.writeBuffer(indirect, 0, indirectInitial); await device.queue.onSubmittedWorkDone(); };
+    const numeric = {}; const afterWarm = async () => { const args = new Uint32Array((await readStorageBuffer(device, indirect, 16)).buffer); const expected = initial.length / 4 && Array.from({ length: 100000 }, (_, i) => { const x = ((i * 13) % 1000) / 1000 * 2 - 1; const y = ((i * 17) % 1000) / 1000 * 2 - 1; const dx = x * (800 / 600); return Math.sqrt(dx * dx + y * y) <= 0.5 ? 1 : 0; }).reduce((sum, value) => sum + value, 0); if (args[1] !== expected) throw new Error(caseId + ' indirect instance count mismatch: ' + args[1] + ' != ' + expected); numeric.input_count = 100000; numeric.expected_instance_count = expected; numeric.actual_instance_count = args[1]; numeric.indirect_draw = true; numeric.counter_reset_before_warm = true; };
+    await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc70', finalTexture, 'Rgba8UnormSrgb', sampler, render, reset, [finalTexture, source, dest, indirect, uniform], '1 compute culling dispatch 1563x1 + indirect draw + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', numeric, afterWarm);
+}
+
 async function runTC37(gpu) {
     const manifest = await (await fetch('/manifests/tc37_chromatic_aberration.json')).json(); const u = manifest.graph.operations[1].uniform;
     await runSimpleEffect(gpu, 'TC37', 'tc37_chromatic_aberration.json', 'chromatic_aberration.wgsl', 'canvas-tc37', 'tc37_chromatic_aberration', new Float32Array([u.center[0], u.center[1], u.amount, 0]), 'radial RGB split');
@@ -7103,6 +7188,9 @@ async function runAllTests() {
         { name: "TC65: Workgroup Blur", fn: runTC65 },
         { name: "TC66: Histogram", fn: runTC66 },
         { name: "TC67: Reaction Diffusion", fn: runTC67 },
+        { name: "TC68: Verlet Chains", fn: runTC68 },
+        { name: "TC69: Vertex Deformation", fn: runTC69 },
+        { name: "TC70: Particle Culling", fn: runTC70 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

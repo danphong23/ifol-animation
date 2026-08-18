@@ -407,3 +407,21 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Ba pattern hữu cơ cyan/hồng phát triển từ seed trên nền tím tối, không đen toàn ảnh hoặc resource hazard.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `92b7444c45f8deee`; validation và vision đạt; raw khác 8095 byte ở 6380 pixel, sai số tối đa `10/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`. Seed được reset trước warm.
 - **Báo cáo:** [`tc67_pingpong_report.md`](reports/tc67_pingpong_report.md)
+
+### TC68 - Verlet Chain Simulation
+- **Mục tiêu:** Tích phân và giải ràng buộc 256 chuỗi, mỗi chuỗi 16 node, trong 100 bước rồi render 4.096 node instanced.
+- **Kỳ vọng hình ảnh xuất ra:** Các chuỗi node tím-cyan ổn định trên nền xám, không nổ/NaN và không có vùng rác.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `57c2a130c0067d22`; validation, numeric finite-node `4096/4096`, vision và cold/warm đều đạt. Raw khác 48 byte ở 17 pixel, sai số tối đa `166/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc68_verlet_report.md`](reports/tc68_verlet_report.md)
+
+### TC69 - Compute-Driven Vertex Deformation
+- **Mục tiêu:** Biến dạng lưới indexed 65x65 bằng compute và dùng trực tiếp dest storage buffer làm vertex buffer zero-copy.
+- **Kỳ vọng hình ảnh xuất ra:** Lưới 4.225 vertex/24.576 index có twist/ripple và màu biến dạng, không mất index.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `940d2398c4b39343`; validation, vision và cold/warm đều đạt. Raw khác 1.501 byte ở 1.297 pixel, sai số tối đa `247/255`, nhưng parity cấu trúc đạt; phân loại `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc69_deformation_report.md`](reports/tc69_deformation_report.md)
+
+### TC70 - GPU Particle Culling and Indirect Draw
+- **Mục tiêu:** Culling 100.000 particle vào compact buffer rồi dùng GPU-written instance count cho indirect draw.
+- **Kỳ vọng hình ảnh xuất ra:** Chỉ còn các hạt xanh trong vùng culling trung tâm; ngoài vùng rỗng và không có hạt rác.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `208bace8904bea29`; validation, indirect count, vision và cold/warm đều đạt. Raw parity tuyệt đối: `0` byte và `0` pixel khác; phân loại `ĐẠT`.
+- **Báo cáo:** [`tc70_culling_report.md`](reports/tc70_culling_report.md)

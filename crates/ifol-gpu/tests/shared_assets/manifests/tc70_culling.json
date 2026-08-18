@@ -1,0 +1,27 @@
+{
+  "test_case": "TC70",
+  "title": "GPU Particle Culling and Indirect Draw",
+  "title_vi": "Culling hạt và indirect draw trên GPU",
+  "description": "Cull 100,000 particles into a compact buffer and issue an indirect draw using the GPU-written instance count.",
+  "description_vi": "Lọc 100.000 hạt vào buffer compact và vẽ indirect bằng instance count do GPU ghi.",
+  "input_policy_vi": "Desktop và WebGPU tạo cùng positions deterministic, cull center [0,0] và radius 0.5; indirect counter được reset trước warm.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "cull": { "shader": "compute_cull.wgsl", "stage": "compute", "layout": "src_dest_indirect_uniform" },
+      "particles": { "shader": "render_culled.wgsl", "stage": "render", "layout": "dest_storage" }
+    },
+    "operations": [
+      { "id": "cull_particles", "kind": "compute_dispatch", "pass": "cull_pass", "pipeline": "cull", "dispatch": [1563, 1, 1], "input_count": 100000, "workgroup_size": 64 },
+      { "id": "draw_indirect", "kind": "indirect_draw", "pass": "render_pass", "pipeline": "particles", "vertex_count": 6, "indirect_args": [6, "gpu_instance_count", 0, 0] }
+    ],
+    "passes": [
+      { "id": "cull_pass", "name": "GPU stream compaction", "target": "compact_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "render_pass", "name": "Indirect compacted particles", "target": "final", "clear_color": [0.1, 0.1, 0.1, 1.0] }
+    ],
+    "command_count": 2,
+    "node_count": 2,
+    "culling": { "input_count": 100000, "center": [0.0, 0.0], "radius": 0.5, "dispatch": [1563, 1, 1] }
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["cull_pass", "render_pass"], "expected_instance_count": "gpu_generated", "visual_check": "Chỉ có hạt xanh trong vùng tròn culling ở trung tâm; vùng ngoài rỗng, instance count indirect hợp lệ và không có hạt rác." }
+}

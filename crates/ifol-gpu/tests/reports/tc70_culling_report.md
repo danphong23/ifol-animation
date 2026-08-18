@@ -1,71 +1,96 @@
-# Báo Cáo Kiểm Thử: TC70 - Stream Compaction & Indirect Draw (Zero-Copy GPU Particle Culling)
+# Báo cáo: TC70 - Culling hạt và indirect draw trên GPU
 
-## 1. Ý Nghĩa Bài Toán & Ứng Dụng Thực Tế (What & Why)
-Trong các hệ thống hạt số lượng khổng lồ (Massive Particle Systems) hoặc thế giới đồ họa rộng lớn (Frustum Culling / Occlusion Culling):
-- **Nếu xử lý trên CPU:** CPU phải lọc qua $100,000+$ vật thể để tìm xem vật thể nào nằm trong camera, đóng gói mảng mới rồi gửi lệnh vẽ (`draw`) với số lượng hạt còn lại. Điều này gây nghẽn CPU trầm trọng.
-- **Giải pháp GPU Stream Compaction & Indirect Draw:** 
-  1. Toàn bộ $100,000$ hạt ban đầu rải rác khắp không gian.
-  2. Compute Shader duyệt qua từng hạt, kiểm tra điều kiện hiển thị (Culling Criteria: chỉ giữ lại các hạt nằm trong vùng kiểm soát).
-  3. Khi phát hiện hạt hợp lệ, Compute Shader thực hiện `atomicAdd` trực tiếp vào trường `instance_count` của một **Indirect Draw Buffer** (`wgpu::util::DrawIndirectArgs`) và ghi hạt sang Compacted Buffer.
-  4. Render Pass gọi `DrawAction::Indirect`. WGPU tự động đọc số lượng hạt hợp lệ từ Indirect Buffer để vẽ mà **CPU hoàn toàn không cần biết có bao nhiêu hạt được vẽ ra** (Zero CPU Overhead).
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
----
+## 1. Mô tả và graph dùng chung
 
-## 2. Diễn Giải Trực Quan Dữ Liệu & Hướng Dẫn Kiểm Tra Mắt Thường (Visual Inspection)
+- **Manifest:** `crates/ifol-gpu/tests/shared_assets/manifests/tc70_culling.json`
+- **Graph fingerprint (FNV-1a):** `208bace8904bea29`
+- **Mô tả test case:** Lọc 100.000 hạt vào buffer compact và vẽ indirect bằng instance count do GPU ghi.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `compute_cull.wgsl`, `render_culled.wgsl`
+- **Asset/input:** KHÔNG KHAI BÁO
+- **Chính sách input:** Desktop và WebGPU tạo cùng positions deterministic, cull center [0,0] và radius 0.5; indirect counter được reset trước warm.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** cull_pass (GPU stream compaction, target compact_buffer) → render_pass (Indirect compacted particles, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `cull_particles → draw_indirect`
+- **Sampler contract:** `Không khai báo`
+- **Thứ tự layer kỳ vọng:** `cull_pass → render_pass`
+- **Graph resources:** nodes=`2`, draw commands=`2`, tổng instances=`0`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-Bức ảnh bên dưới là minh chứng trực quan cho kết quả sau khi **$100,000$ hạt rải rác toàn màn hình được GPU tự động thanh lọc và gom cụm lại**:
+## 2. Môi trường Desktop
 
-![TC70 GPU Culling](../outputs/desktop/tc70_culling.png)
+- **Thời gian render lần đầu (cold):** `45.0314 ms`
+- **Thời gian render lần hai (warm/cache):** `1.1129 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `97.5%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `execute_checked + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; state mutable được reset trước warm; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `crates/ifol-gpu/tests/outputs/desktop/tc70_culling_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `ee30dc98edf266dd`
+- **SHA-256:** `59453a2038663437d64626f5f47ba7c544b06996a7022fd918bb4ae6083aa944`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc70_culling.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop chỉ hiển thị các hạt xanh trong vùng culling tròn ở trung tâm theo bố cục deterministic; vùng ngoài nền xám rỗng.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=0
 
-### 📐 Bố Cục Không Gian & Bảng Chú Giải Màu Sắc:
-| Thành phần trực quan | Trạng thái hiển thị | Ý nghĩa kỹ thuật |
-| :--- | :--- | :--- |
-| **Hạt Xanh Lục Sáng (Bright Green Dots)** | Hạt được vẽ hợp lệ | Các hạt nằm trong bán kính $0.5$ được Stream Compaction nén vào mảng kết xuất. |
-| **Không Gian Nền Xám Tối** | Vùng không có hạt nào | Minh chứng cho thấy các hạt ngoài vùng đã bị GPU loại bỏ hoàn toàn, không vẽ rác. |
-| **Hình Dạng Đường Biên** | Đường tròn sắc nét bán kính $0.5$ | Khẳng định thuật toán kiểm tra khoảng cách $L_2 \le 0.5$ trong Compute Shader chính xác tuyệt đối. |
 
-### 👁️ Hướng Dẫn Người Dùng Tự Đánh Giá Đúng/Sai:
-- **Dấu hiệu ĐÚNG:** Chỉ có một đám mây hạt xanh lục tạo thành hình tròn hoàn hảo ở giữa khung hình, vùng ngoài hoàn toàn trống trơn; các hạt phân bổ đều đặn.
-- **Dấu hiệu NẾU LỖI:** Hạt xuất hiện tràn ra ngoài viền tròn, hạt bị vẽ đè lên nhau tại gốc $(0,0)$ do lỗi đếm nguyên tử `atomicAdd`, hoặc màn hình bị đen do Indirect Buffer không đọc được `instance_count`.
 
----
+## 3. Môi trường WebGPU
 
-## 3. Cấu Trúc Đồ Thị Thực Thi (RenderGraph Pipeline)
-- **Đầu vào (Inputs):** Storage Buffer A ($100,000$ hạt), Storage Buffer B (Compacted particles), Indirect Buffer (16 bytes), Uniform bán kính culling ($R=0.5$).
-- **Chuỗi Pass:**
-  1. `Pass 1 (Compute Culling)`: Duyệt $100,000$ hạt, lọc và `atomicAdd` tăng `instance_count`.
-  2. `Pass 2 (Render Indirect)`: Gọi `DrawAction::Indirect` đọc Indirect Buffer để vẽ các hạt hợp lệ.
-- **Đầu ra:** RenderTarget $800 \times 600$ format `Rgba8UnormSrgb`.
+- **Thời gian render lần đầu (cold):** `297.7000 ms`
+- **Thời gian render lần hai (warm/cache):** `3.0000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `99.0%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 compute culling dispatch 1563x1 + indirect draw + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; state mutable được reset trước warm; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `crates/ifol-gpu/tests/outputs/web/tc70_culling_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `ee30dc98edf266dd`
+- **SHA-256:** `59453a2038663437d64626f5f47ba7c544b06996a7022fd918bb4ae6083aa944`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc70_culling_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng đám hạt xanh trung tâm và vùng ngoài rỗng; indirect draw không tạo hạt rác.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=0
 
----
 
-## 4. Đo Lường Hiệu Năng & Thời Gian Thực Thi (Detailed Performance Timings)
 
-### ⏱️ Bảng Phân Rã Thời Gian (Execution Breakdown):
-| Hạng mục thực thi | Lần đầu (Cold Start) | Lần sau (Warm / Cached) | Đơn vị đo |
-| :--- | :--- | :--- | :--- |
-| **Thời gian Chuẩn bị (CPU Graph Build Overhead)** | 0.95 ms | 26.10 µs | ms / µs |
-| **Thời gian Compute Pass (Lọc 100,000 hạt)** | 18.50 ms | 4.80 ms | ms / µs |
-| **Thời gian Render Pass (Indirect Draw các hạt sống sót)**| 16.22 ms | 3.90 ms | ms / µs |
-| **Tổng Độ Trễ Khung Hình (Total GPU Latency)** | 35.67 ms | 8.73 ms | ms |
-| **Tốc Độ Khung Hình Tương Đương (Equivalent FPS)**| 28.0 FPS | **114.5 FPS** | FPS |
+## 4. So sánh và kết luận
 
-### ⚙️ Thông Số Phần Cứng & Điều Phối GPU (GPU Dispatch Metrics):
-- **Số lượng hạt đầu vào:** 100,000 particles.
-- **Cấu hình Workgroup Compute:** 64 luồng / workgroup.
-- **Số lượng Dispatch Workgroups:** 1,563 workgroups `[1563, 1, 1]`.
-- **Cấu trúc Indirect Draw Buffer:** 16 bytes gồm `[vertex_count: 6, instance_count: N, first_vertex: 0, first_instance: 0]`.
-- **Phương thức vẽ:** `wgpu::RenderPass::draw_indirect`.
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `ĐẠT` |
+| Số byte khác nhau | `0` |
+| Số pixel khác nhau | `0` |
+| Sai số kênh màu lớn nhất | `0/255` |
+| Khác biệt màu/presentation | `KHÔNG` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
 
----
+**Kết luận:** `ĐẠT - output giống tuyệt đối từng byte.`
 
-## 5. Xác Thực Tính Toàn Vẹn Số Học & Ràng Buộc An Toàn (Verification Check)
-- **Zero CPU Overhead:** CPU không hề can thiệp vào việc đếm số hạt hay tái phân bổ mảng.
-- **Trạng thái:** **PASSED (Kỹ thuật GPU Stream Compaction & Zero-Copy Indirect Draw hoạt động chính xác 100%)**.
+## 5. Phân tích hiệu suất
 
----
-
-## 6. Khả Năng Tương Thích & Đa Nền Tảng (Cross-Platform Status)
-- **Desktop (Tauri/wgpu - Vulkan/DX12/Metal):** Hoạt động ổn định (Passed).
-- **Web (WASM/WebGPU):** *(Sẵn sàng tích hợp khi chạy trên Web)*.
-- **Đánh giá tổng quan:** Đạt 100% chuẩn hợp đồng kiến trúc `ifol-gpu`.
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

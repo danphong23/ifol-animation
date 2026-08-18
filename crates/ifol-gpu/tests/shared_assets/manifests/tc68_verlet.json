@@ -1,0 +1,28 @@
+{
+  "test_case": "TC68",
+  "title": "GPU Verlet Chain Simulation",
+  "title_vi": "Mô phỏng chuỗi Verlet trên GPU",
+  "description": "Integrate and constrain 256 chains of 16 nodes for 100 steps, then render 4096 nodes.",
+  "description_vi": "Tích phân và giải ràng buộc 256 chuỗi, mỗi chuỗi 16 node trong 100 bước, sau đó render 4.096 node.",
+  "input_policy_vi": "Desktop và WebGPU tạo cùng node positions và time=5.0; node buffer được reset trước warm.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "integrate": { "shader": "compute_verlet.wgsl", "entry_point": "integrate_main", "stage": "compute", "layout": "nodes_uniform" },
+      "constrain": { "shader": "compute_verlet.wgsl", "entry_point": "constrain_main", "stage": "compute", "layout": "nodes_uniform" },
+      "chains": { "shader": "render_chains.wgsl", "entry_point": "vs_main/fs_main", "stage": "render", "layout": "nodes_storage" }
+    },
+    "operations": [
+      { "id": "verlet_simulation", "kind": "compute_sequence", "pass": "simulation_pass", "pipelines": ["integrate", "constrain"], "dispatch_integrate": [64, 1, 1], "dispatch_constrain": [4, 1, 1], "step_count": 100, "chain_count": 256, "nodes_per_chain": 16 },
+      { "id": "render_chains", "kind": "draw", "pass": "render_pass", "pipeline": "chains", "vertex_count": 6, "instance_count": 4096 }
+    ],
+    "passes": [
+      { "id": "simulation_pass", "name": "100-step Verlet integration and constraints", "target": "nodes_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "render_pass", "name": "Instanced chain nodes", "target": "final", "clear_color": [0.1, 0.1, 0.1, 1.0] }
+    ],
+    "command_count": 201,
+    "node_count": 2,
+    "compute": { "chain_count": 256, "nodes_per_chain": 16, "total_nodes": 4096, "step_count": 100 }
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["simulation_pass", "render_pass"], "expected_instance_count": 4096, "visual_check": "Các chuỗi node xuất hiện ổn định, không nổ/NaN và giữ khoảng cách ràng buộc; cold/warm cùng output sau reset." }
+}

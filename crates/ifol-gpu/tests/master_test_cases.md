@@ -277,3 +277,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Hợp đồng:** Mỗi TC có manifest canonical, fingerprint chung giữa Desktop/Web, cùng WGSL và report tiếng Việt riêng. TC66 reset histogram trước warm và xác nhận `480000/480000`; TC67 reset seed texture trước warm để hai lượt độc lập.
 - **Kết quả:** 3/3 pass validation, vision và cold/warm output ổn định. TC65 khác 56353 byte/43747 pixel max `7/255`; TC66 khác 74771 byte/54379 pixel max `242/255` do input JPEG decoder/format; TC67 khác 8095 byte/6380 pixel max `10/255`. Cả ba `ĐẠT CÓ ĐIỀU KIỆN` về raw parity.
 - **Báo cáo:** [`tc65_workgroup_blur_report.md`](reports/tc65_workgroup_blur_report.md), [`tc66_histogram_report.md`](reports/tc66_histogram_report.md), [`tc67_pingpong_report.md`](reports/tc67_pingpong_report.md)
+
+### TC68–TC70 - Physics, zero-copy mesh và indirect culling parity
+- **Phạm vi:** Verlet 4.096 node, deformation lưới indexed 65x65 và culling 100.000 particle với indirect draw.
+- **Hợp đồng:** Mỗi TC dùng manifest canonical, shader WGSL dùng chung, wrapper Desktop gọi shared runner, Web catalog gọi cùng graph contract; state mutable được reset trước warm và report tiếng Việt riêng.
+- **Kết quả:** 3/3 pass validation, vision và cold/warm. TC68 khác 48 byte/17 pixel max `166/255`; TC69 khác 1.501 byte/1.297 pixel max `247/255` nhưng cấu trúc giống; TC70 đạt raw parity tuyệt đối `0` byte. TC68–TC69 `ĐẠT CÓ ĐIỀU KIỆN`, TC70 `ĐẠT`.
+- **Báo cáo:** [`tc68_verlet_report.md`](reports/tc68_verlet_report.md), [`tc69_deformation_report.md`](reports/tc69_deformation_report.md), [`tc70_culling_report.md`](reports/tc70_culling_report.md)

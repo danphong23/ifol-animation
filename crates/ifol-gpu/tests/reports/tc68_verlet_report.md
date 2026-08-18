@@ -1,67 +1,96 @@
-# Báo Cáo Kiểm Thử: TC68 - GPU Spring-Bone / Verlet Physics Simulation (Secondary Animation)
+# Báo cáo: TC68 - Mô phỏng chuỗi Verlet trên GPU
 
-## 1. Ý Nghĩa Bài Toán & Ứng Dụng Thực Tế (What & Why)
-Trong làm phim hoạt hình 2D và thiết kế Motion Graphics (như After Effects Puppet Tool, Spine2D, Live2D), chuyển động thứ cấp **Secondary Animation / Jiggle Physics** (tóc bay, vạt áo đung đưa, dây thừng, xúc tu mềm dẻo) tạo ra sức sống tự nhiên cho nhân vật:
-- **Nếu xử lý trên CPU:** Giải thuật tích phân Verlet (Verlet Integration) và giải ràng buộc khoảng cách (Distance Constraint Relaxation) lặp đi lặp lại cho hàng nghìn khớp xương (Bones) khiến CPU bị quá tải nghiêm trọng.
-- **Giải pháp GPU Verlet Simulation:** Toàn bộ $4,096$ điểm nút (Nodes) được lưu trong **Storage Buffer** trên VRAM. Mỗi luồng GPU phụ trách cập nhật gia tốc trọng lực, quán tính vận tốc và kéo căng ràng buộc khoảng cách theo chuỗi. Quá trình mô phỏng 100 frames diễn ra trong chớp mắt (~17ms) và dữ liệu được Render Pass đọc trực tiếp để vẽ mà không qua CPU.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
----
+## 1. Mô tả và graph dùng chung
 
-## 2. Diễn Giải Trực Quan Dữ Liệu & Hướng Dẫn Kiểm Tra Mắt Thường (Visual Inspection)
+- **Manifest:** `crates/ifol-gpu/tests/shared_assets/manifests/tc68_verlet.json`
+- **Graph fingerprint (FNV-1a):** `57c2a130c0067d22`
+- **Mô tả test case:** Tích phân và giải ràng buộc 256 chuỗi, mỗi chuỗi 16 node trong 100 bước, sau đó render 4.096 node.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `render_chains.wgsl`
+- **Asset/input:** KHÔNG KHAI BÁO
+- **Chính sách input:** Desktop và WebGPU tạo cùng node positions và time=5.0; node buffer được reset trước warm.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** simulation_pass (100-step Verlet integration and constraints, target nodes_buffer) → render_pass (Instanced chain nodes, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `verlet_simulation → render_chains`
+- **Sampler contract:** `Không khai báo`
+- **Thứ tự layer kỳ vọng:** `simulation_pass → render_pass`
+- **Graph resources:** nodes=`2`, draw commands=`201`, tổng instances=`4096`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-Bức ảnh bên dưới ghi nhận trạng thái của **128 sợi dây thừng vật lý (mỗi sợi 32 khớp nối)** đang đung đưa theo quán tính sóng sau **100 chu kỳ mô phỏng trọng lực và dao động ngang**:
+## 2. Môi trường Desktop
 
-![TC68 Verlet Chains](../outputs/desktop/tc68_verlet.png)
+- **Thời gian render lần đầu (cold):** `19.0802 ms`
+- **Thời gian render lần hai (warm/cache):** `16.7543 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `12.2%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `execute_checked + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; state mutable được reset trước warm; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `crates/ifol-gpu/tests/outputs/desktop/tc68_verlet_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `7130031f19a8afeb`
+- **SHA-256:** `51e03e3b6cf23f852a25a47c7f0e1875e177da1f0352bb7278b2bafc38ac5aae`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc68_verlet.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị đầy đủ các chuỗi node dạng chấm, chuyển sắc tím-cyan từ trên xuống dưới trên nền xám; bố cục ổn định, không thấy nổ hoặc vùng rác.
+- **Graph thực tế:** nodes=2, draw commands=201, instances=4096
 
-### 📐 Bố Cục Không Gian & Bảng Chú Giải Màu Sắc:
-| Dải màu hạt | Vị trí trên sợi dây | Hành vi động lực học quan sát được |
-| :--- | :--- | :--- |
-| **🌸 Hồng Tím Neon (Magenta)** | Khớp đầu chuỗi (Gốc treo $0 \rightarrow 10$) | Chuyển động đồng pha với gốc kéo, biên độ dao động hẹp và ổn định. |
-| **🔮 Tím Xanh (Purple Transition)** | Khớp thân giữa ($11 \rightarrow 22$) | Chịu độ trễ quán tính (Lag/Inertia), bị uốn cong khi đổi hướng. |
-| **💎 Xanh Cyan Sáng (Electric Cyan)** | Đầu mút tự do ($23 \rightarrow 31$) | Quăng quật với vận tốc lớn nhất, tạo hiệu ứng vảy đuôi cá / ngọn tóc bay tự nhiên. |
 
-### 👁️ Hướng Dẫn Người Dùng Tự Đánh Giá Đúng/Sai:
-- **Dấu hiệu ĐÚNG:** 128 sợi dây xếp hàng ngang song song, gốc trên (hồng) dao động hẹp, đuôi dưới (cyan) quăng quật tự do uốn thành hình chữ S mềm mại; các đốt giữ nguyên cự ly không bị đứt gãy.
-- **Dấu hiệu NẾU LỖI:** Các hạt bị nổ văng tung tóe vô cực (Physics Explosion) do giải sai ràng buộc khoảng cách, hoặc dây bị đóng băng đơ cứng.
 
----
+## 3. Môi trường WebGPU
 
-## 3. Cấu Trúc Đồ Thị Thực Thi (RenderGraph Pipeline)
-- **Đầu vào (Inputs):** Storage Buffer chứa $4,096$ nodes (`pos: vec2, prev_pos: vec2, pinned: f32`), Uniform thời gian & trọng lực.
-- **Chuỗi Pass:**
-  1. `Pass 1 -> 100 (Compute Verlet)`: 100 bước tính toán tích phân Verlet và giải phóng ràng buộc 4 lượt / frame.
-  2. `Pass 101 (Render Instanced Chains)`: Đọc trực tiếp Storage Buffer để vẽ từng hạt thành vòng tròn phát sáng.
-- **Đầu ra:** RenderTarget $800 \times 600$ format `Rgba8UnormSrgb`.
+- **Thời gian render lần đầu (cold):** `420.9000 ms`
+- **Thời gian render lần hai (warm/cache):** `10.8000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `97.4%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `200 compute dispatches + 4096 instanced node quads + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; state mutable được reset trước warm; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `crates/ifol-gpu/tests/outputs/web/tc68_verlet_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `264aa4543eceeb4f`
+- **SHA-256:** `ee6a43b0fd0c0e3034a19c232d8b3f0e885bda698f1e2ecef36d4a7f1b1b6909`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc68_verlet_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng bố cục chuỗi node, cùng chuyển sắc tím-cyan và nền xám; không thấy nổ hoặc vùng rác.
+- **Graph thực tế:** nodes=2, draw commands=201, instances=4096
 
----
 
-## 4. Đo Lường Hiệu Năng & Thời Gian Thực Thi (Detailed Performance Timings)
 
-### ⏱️ Bảng Phân Rã Thời Gian (Execution Breakdown):
-| Hạng mục thực thi | Lần đầu (Cold Start) | Lần sau (Warm / Cached) | Đơn vị đo |
-| :--- | :--- | :--- | :--- |
-| **Thời gian Chuẩn bị (CPU Graph Build Overhead)** | 1.28 ms | 35.80 µs | ms / µs |
-| **Thời gian Compute Pass (100 chu kỳ Verlet)** | 16.90 ms | 14.50 ms | ms / µs |
-| **Thời gian Render Pass (Instanced Draw 4,096 nodes)**| 0.91 ms | 0.42 ms | ms / µs |
-| **Tổng Độ Trễ Khung Hình (Total GPU Latency)** | 19.09 ms | 14.95 ms | ms |
-| **Thời Gian Trung Bình Mỗi Bước Vật Lý** | 190.9 µs | **149.5 µs** | µs |
-| **Tốc Độ Khung Hình Tương Đương (Equivalent FPS)**| 5,238 FPS | **6,688 FPS** | FPS |
+## 4. So sánh và kết luận
 
-### ⚙️ Thông Số Phần Cứng & Điều Phối GPU (GPU Dispatch Metrics):
-- **Tổng số hạt vật lý:** $128 \text{ chains} \times 32 \text{ nodes} = 4,096$ nodes.
-- **Cấu hình Workgroup:** 64 luồng / workgroup.
-- **Số lượng Workgroups dispatch:** 64 workgroups `[64, 1, 1]`.
-- **Số vòng lặp giải ràng buộc:** 4 lần lặp giải phóng biến dạng / frame.
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `48` |
+| Số pixel khác nhau | `17` |
+| Sai số kênh màu lớn nhất | `166/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
 
----
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
 
-## 5. Xác Thực Tính Toàn Vẹn Số Học & Ràng Buộc An Toàn (Verification Check)
-- **Kiểm tra độ giãn chiều dài dây (Length Conservation):** Khoảng cách giữa các nút liền kề duy trì ổn định quanh $d \approx 0.03$.
-- **Trạng thái:** **PASSED (Mô phỏng vật lý chuỗi hạt trên GPU đạt độ ổn định và hiệu năng đỉnh cao)**.
+## 5. Phân tích hiệu suất
 
----
-
-## 6. Khả Năng Tương Thích & Đa Nền Tảng (Cross-Platform Status)
-- **Desktop (Tauri/wgpu - Vulkan/DX12/Metal):** Hoạt động ổn định (Passed).
-- **Web (WASM/WebGPU):** *(Sẵn sàng tích hợp khi chạy trên Web)*.
-- **Đánh giá tổng quan:** Đạt 100% chuẩn hợp đồng kiến trúc `ifol-gpu`.
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

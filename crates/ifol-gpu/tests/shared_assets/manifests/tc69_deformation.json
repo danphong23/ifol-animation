@@ -1,0 +1,27 @@
+{
+  "test_case": "TC69",
+  "title": "Compute-Driven Vertex Deformation",
+  "title_vi": "Biến dạng vertex bằng compute zero-copy",
+  "description": "Deform a 65x65 indexed grid in a storage buffer and consume the same buffer as a vertex buffer.",
+  "description_vi": "Biến dạng lưới indexed 65x65 trong storage buffer rồi dùng trực tiếp buffer đó làm vertex buffer.",
+  "input_policy_vi": "Desktop và WebGPU tạo cùng grid vertices, indices và time=5.0; không dùng texture decoder.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "deformation": { "shader": "compute_deformation.wgsl", "stage": "compute", "layout": "src_dest_uniform" },
+      "mesh": { "shader": "render_deformation.wgsl", "stage": "render", "layout": "vertex_buffer" }
+    },
+    "operations": [
+      { "id": "deform_vertices", "kind": "compute_dispatch", "pass": "deform_pass", "pipeline": "deformation", "dispatch": [67, 1, 1], "vertex_count": 4225 },
+      { "id": "draw_deformed_grid", "kind": "indexed_draw", "pass": "render_pass", "pipeline": "mesh", "index_count": 24576, "instance_count": 1, "index_format": "Uint16" }
+    ],
+    "passes": [
+      { "id": "deform_pass", "name": "Compute vertex deformation", "target": "dest_vertex_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "render_pass", "name": "Indexed deformed grid", "target": "final", "clear_color": [0.1, 0.1, 0.1, 1.0] }
+    ],
+    "command_count": 2,
+    "node_count": 2,
+    "mesh": { "grid_size": 64, "vertex_count": 4225, "index_count": 24576 }
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["deform_pass", "render_pass"], "expected_instance_count": 1, "visual_check": "Lưới indexed phủ khung hình, có twist/ripple và màu biến dạng; không mất index hoặc validation error." }
+}

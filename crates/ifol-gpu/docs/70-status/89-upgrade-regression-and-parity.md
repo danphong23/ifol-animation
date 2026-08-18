@@ -261,6 +261,16 @@ trong các report không được diễn giải thành cold start tuyệt đối
   pixel, max delta `10/255`. Cả 3 là `ĐẠT CÓ ĐIỀU KIỆN` về raw parity.
   TC67 giữ semantics runner cũ với 2480 bước và reset seed trước warm.
 
+- [TC68](../../tests/reports/tc68_verlet_report.md) đến
+  [TC70](../../tests/reports/tc70_culling_report.md): batch physics/advanced
+  compute dùng manifest canonical, WGSL dùng chung và runner Desktop/Web
+  riêng. Fingerprint lần lượt là `57c2a130c0067d22`, `940d2398c4b39343` và
+  `208bace8904bea29`; cả 3 pass validation, vision và cold/warm. TC68 khác
+  48 byte/17 pixel, max delta `166/255`; TC69 khác 1501 byte/1297 pixel,
+  max delta `247/255` nhưng parity cấu trúc đạt; TC70 đạt raw parity tuyệt đối.
+  TC68–TC69 là `ĐẠT CÓ ĐIỀU KIỆN`, TC70 là `ĐẠT`. TC68 reset node buffer,
+  TC69 reset dest vertex buffer và TC70 reset indirect counter trước warm.
+
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo
