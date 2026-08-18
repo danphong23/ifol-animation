@@ -6,7 +6,7 @@ pub mod context;
 pub mod runtime;
 
 pub use access::AccessDescriptor;
-pub use commands::Commands;
+pub use commands::{CommandEntity, Commands, SpawnTicket, SystemCommands};
 pub use condition::RunCondition;
 pub use context::SystemContext;
 pub use runtime::{FunctionSystem, System};

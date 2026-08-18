@@ -33,6 +33,11 @@ flowchart LR
 Host quyết định một pass là frame, export sample, simulation step hay test
 iteration. ECS không poll input, sleep, present surface hoặc encode file.
 
+Safe point áp dụng command theo declaration order. Spawn có thể trả ticket để
+insert/remove/despawn trong cùng buffer; command target lỗi được trả về dưới
+dạng `EcsError`, không bị nuốt. Command còn lại sau lỗi bị bỏ. Nếu system tự
+trả `SystemError`, các command nó đã xếp cũng bị bỏ và không làm thay đổi World.
+
 ## 3. Execute preconditions
 
 Trước run, ECS phải có compiled schedule hợp lệ. Nếu registration/graph thay đổi,

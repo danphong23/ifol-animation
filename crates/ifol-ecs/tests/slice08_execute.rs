@@ -31,13 +31,14 @@ fn slice08_execute_deferred_commands_and_safe_points() {
 
                 for e in entities {
                     // Queue deferred insert of Health component
-                    ctx.commands().insert(e, Health(200));
+                    ctx.commands().insert(e, Health(200))?;
                 }
                 Ok(())
             },
             {
                 let mut access = AccessDescriptor::new();
                 access.add_read(runtime.world().component_id::<Position>().unwrap());
+                access.add_write(runtime.world().component_id::<Health>().unwrap());
                 access
             },
             vec![],

@@ -100,4 +100,7 @@ pub enum EcsError {
 
     #[error("runtime has not been compiled or plan is stale (graph revision changed)")]
     ScheduleNotCompiled,
+
+    #[error("deferred command referenced unresolved spawn ticket {0}")]
+    UnresolvedCommandTarget(u64),
 }

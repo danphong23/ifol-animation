@@ -119,17 +119,18 @@ impl CompiledSchedule {
                         report.systems_executed.push(sys_name);
                     }
                     Err(err) => {
+                        commands.clear();
                         report.system_errors.push((sys_name, err));
                     }
                 }
 
                 // Flush commands at intra-phase safe point
-                let flushed = commands.apply(world);
+                let flushed = commands.apply(world)?;
                 report.commands_processed += flushed;
             }
 
             // Flush commands at phase boundary safe point
-            let flushed = commands.apply(world);
+            let flushed = commands.apply(world)?;
             report.commands_processed += flushed;
         }
 

@@ -22,7 +22,7 @@ trait System {
 }
 ~~~
 
-System chỉ biết access/query được context cấp, command buffer và execution metadata.
+System chỉ biết access/query được context cấp, `SystemCommands` và execution metadata.
 System không tự gọi phase khác hoặc giữ reference tới system khác.
 
 Mọi access dữ liệu đều được kiểm tra theo `AccessDescriptor` đã đăng ký. Các API
@@ -57,6 +57,11 @@ SystemContext
 
 Không expose raw &mut World cho system thông thường. Điều này cho phép ECS kiểm
 soát aliasing, change tracking, structural mutation và future parallelism.
+
+`SystemCommands::insert/remove<T>` kiểm tra `T` phải nằm trong `writes` của
+`AccessDescriptor`; spawn/despawn là structural operations. `Commands::spawn`
+trả `SpawnTicket`, cho phép command sau đó khởi tạo entity mới trong cùng buffer.
+Nếu system trả lỗi, buffer của system bị discard trước safe point.
 
 ## 5. Error
 

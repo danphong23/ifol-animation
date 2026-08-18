@@ -4,7 +4,7 @@ use crate::query::{Query, QueryAccess, QueryMut, WorldQuery, WorldQueryMut};
 use crate::registry::{ComponentId, SystemId};
 use crate::storage::Component;
 use crate::system::AccessDescriptor;
-use crate::system::Commands;
+use crate::system::{Commands, SystemCommands};
 use crate::world::World;
 use std::any::TypeId;
 
@@ -149,8 +149,8 @@ impl<'a> SystemContext<'a> {
 
     /// Returns a mutable reference to the deferred `Commands` buffer.
     #[inline(always)]
-    pub fn commands(&mut self) -> &mut Commands {
-        self.commands
+    pub fn commands(&mut self) -> SystemCommands<'_> {
+        SystemCommands::new(self.commands, self.world.component_registry(), &self.access)
     }
 
     /// Returns the system ID of the currently executing system.
