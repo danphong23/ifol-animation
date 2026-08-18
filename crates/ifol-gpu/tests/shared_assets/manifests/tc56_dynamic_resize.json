@@ -1,0 +1,36 @@
+{
+  "test_case": "TC56",
+  "title": "Dynamic Target Resizing",
+  "title_vi": "Thay đổi kích thước RenderTarget động",
+  "description": "Render two portrait targets at 400x600, then compose them into an 800x600 final target.",
+  "description_vi": "Render hai target dọc 400x600 rồi tổng hợp vào target cuối 800x600.",
+  "input_policy_vi": "Desktop và WebGPU dùng cùng PNG canonical anime city và heroes; các target và crop được lấy trực tiếp từ manifest.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "left", "width": 400, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "right", "width": 400, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "sampler": { "address_mode_u": "clamp-to-edge", "address_mode_v": "clamp-to-edge", "address_mode_w": "clamp-to-edge", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear" },
+    "pipelines": {
+      "sprite": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" },
+      "blit": { "shader": "sprite_blit.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" }
+    },
+    "operations": [
+      { "id": "resize_left_wizard", "kind": "portrait_target", "pass": "left_pass", "pipeline": "sprite", "shader": "chroma_key_cropped.wgsl", "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }], "target": "left", "uniform": { "pos": [0.0, -0.1], "scale_y": 0.85, "uv_min": [0.30, 0.0], "uv_max": [0.52, 1.0] }, "vertex_count": 6, "instance_count": 1 },
+      { "id": "resize_right_paladin", "kind": "portrait_target", "pass": "right_pass", "pipeline": "sprite", "shader": "chroma_key_cropped.wgsl", "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }], "target": "right", "uniform": { "pos": [0.0, -0.1], "scale_y": 0.85, "uv_min": [0.0, 0.0], "uv_max": [0.28, 1.0] }, "vertex_count": 6, "instance_count": 1 },
+      { "id": "resize_background", "kind": "background", "pass": "final_pass", "pipeline": "sprite", "shader": "chroma_key_cropped.wgsl", "source": [{ "kind": "asset", "asset": "canonical_bg_anime_city.png" }], "target": "final", "vertex_count": 6, "instance_count": 1 },
+      { "id": "resize_left_panel", "kind": "viewport_composite", "pass": "final_pass", "pipeline": "blit", "shader": "sprite_blit.wgsl", "source": [{ "kind": "target", "target": "left" }], "target": "final", "uniform": { "pos": [-0.5, 0.0], "scale": [0.46, 0.92] }, "vertex_count": 6, "instance_count": 1 },
+      { "id": "resize_right_panel", "kind": "viewport_composite", "pass": "final_pass", "pipeline": "blit", "shader": "sprite_blit.wgsl", "source": [{ "kind": "target", "target": "right" }], "target": "final", "uniform": { "pos": [0.5, 0.0], "scale": [0.46, 0.92] }, "vertex_count": 6, "instance_count": 1 }
+    ],
+    "passes": [
+      { "id": "left_pass", "name": "400x600 left portrait", "target": "left", "clear_color": [0.1, 0.08, 0.15, 1.0] },
+      { "id": "right_pass", "name": "400x600 right portrait", "target": "right", "clear_color": [0.08, 0.12, 0.15, 1.0] },
+      { "id": "final_pass", "name": "800x600 viewport composition", "target": "final", "clear_color": [0.04, 0.04, 0.06, 1.0] }
+    ],
+    "command_count": 5,
+    "node_count": 3
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["left_pass", "right_pass", "final_pass"], "expected_instance_count": 5, "visual_check": "Hai panel dọc đúng tỷ lệ nằm trái/phải trên nền anime city; không méo, không mất target sau resize." }
+}

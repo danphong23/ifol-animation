@@ -1,0 +1,27 @@
+{
+  "test_case": "TC57",
+  "title": "Stencil Mask Portal",
+  "title_vi": "Portal mặt nạ stencil",
+  "description": "Use an incrementing stencil mask to constrain a night-sky scene and wizard to a circular portal.",
+  "description_vi": "Dùng stencil increment để giới hạn cảnh trời đêm và wizard bên trong portal tròn.",
+  "input_policy_vi": "Desktop và WebGPU dùng cùng PNG canonical night-sky và heroes; stencil state, clear và compare lấy từ graph contract.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [{ "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }],
+    "depth_stencil": { "format": "Depth24PlusStencil8", "depth_clear": 1.0, "stencil_clear": 0, "mask_compare": "Always", "content_compare": "NotEqual", "mask_pass": "IncrementClamp" },
+    "sampler": { "address_mode_u": "clamp-to-edge", "address_mode_v": "clamp-to-edge", "address_mode_w": "clamp-to-edge", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear" },
+    "pipelines": {
+      "mask": { "shader": "stencil_mask.wgsl", "blend": "ColorWriteNone", "layout": "texture_uniform" },
+      "content": { "shader": "chroma_key_cropped.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" }
+    },
+    "operations": [
+      { "id": "stencil_mask_circle", "kind": "stencil_write", "pass": "portal_pass", "pipeline": "mask", "shader": "stencil_mask.wgsl", "source": [{ "kind": "asset", "asset": "canonical_bg_nightsky.png" }], "uniform": { "radius": 0.38, "aspect": 1.3333333 }, "vertex_count": 6, "instance_count": 1 },
+      { "id": "stencil_nightsky", "kind": "masked_background", "pass": "portal_pass", "pipeline": "content", "shader": "chroma_key_cropped.wgsl", "source": [{ "kind": "asset", "asset": "canonical_bg_nightsky.png" }], "uniform": { "opacity": 1.0 }, "vertex_count": 6, "instance_count": 1 },
+      { "id": "stencil_wizard", "kind": "masked_sprite", "pass": "portal_pass", "pipeline": "content", "shader": "chroma_key_cropped.wgsl", "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }], "uniform": { "scale_y": 0.65, "uv_min": [0.30, 0.0], "uv_max": [0.52, 1.0] }, "vertex_count": 6, "instance_count": 1 }
+    ],
+    "passes": [{ "id": "portal_pass", "name": "Stencil portal", "target": "final", "clear_color": [0.05, 0.05, 0.08, 1.0] }],
+    "command_count": 3,
+    "node_count": 2
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["portal_pass"], "expected_instance_count": 3, "visual_check": "Portal tròn sắc nét ở tâm; cảnh và wizard chỉ xuất hiện trong mask, ngoài mask giữ màu nền." }
+}

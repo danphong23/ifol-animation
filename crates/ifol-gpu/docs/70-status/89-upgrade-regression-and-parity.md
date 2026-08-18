@@ -214,8 +214,19 @@ trong các report không được diễn giải thành cold start tuyệt đối
   byte/350 pixel, max delta `71/255`; TC55 đạt raw byte parity tuyệt đối.
   TC53–TC54 là `ĐẠT CÓ ĐIỀU KIỆN`, TC55 là `ĐẠT`. TC53 phải đổi
   `textureSample` sang `textureSampleLevel` vì WebGPU yêu cầu sample trong
-  uniform control flow; đây là sửa portability shader, không phải chấp nhận
-  output sai.
+   uniform control flow; đây là sửa portability shader, không phải chấp nhận
+   output sai.
+
+- [TC56](../../tests/reports/tc56_dynamic_resize_report.md) đến
+  [TC58](../../tests/reports/tc58_mrt_gbuffer_report.md): 3 TC kiểm thử
+  lifecycle target, depth-stencil và MRT bằng manifest/fingerprint chung,
+  input PNG canonical và runner Desktop/Web riêng. Cả 3 pass validation,
+  cold/warm output ổn định và vision. TC56 khác 5200 byte/1979 pixel, max
+  delta `37/255`; TC57 khác 836 byte/296 pixel, max delta `139/255`; TC58
+  đạt raw byte parity tuyệt đối. TC56–TC57 là `ĐẠT CÓ ĐIỀU KIỆN`, TC58 là
+  `ĐẠT`. TC56 ban đầu có lỗi scale do runner Desktop dùng UV ratio thay vì
+  kích thước pixel thật; đã sửa và chạy lại cả hai môi trường trước khi
+  phân loại kết quả.
 
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép

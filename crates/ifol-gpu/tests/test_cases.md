@@ -335,3 +335,21 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Mage sắc nét trên nền Sci-Fi, bloom mềm không làm mất foreground hoặc sai tỷ lệ.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `2a88441e6a8ac270`; vision đạt và raw byte parity tuyệt đối `0 byte` khác.
 - **Báo cáo:** [`tc55_dual_kawase_report.md`](reports/tc55_dual_kawase_report.md)
+
+### TC56 - Dynamic Target Resizing
+- **Mục tiêu:** Kiểm thử hai RenderTarget 400x600 và composition cuối 800x600.
+- **Kỳ vọng hình ảnh xuất ra:** Wizard và paladin nằm ở hai panel dọc đúng tỷ lệ trên nền anime city.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `712b3ac12833ff81`; vision và cấu trúc đạt; raw khác 5200 byte ở 1979 pixel, sai số tối đa `37/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc56_dynamic_resize_report.md`](reports/tc56_dynamic_resize_report.md)
+
+### TC57 - Stencil Mask Portal
+- **Mục tiêu:** Kiểm thử stencil IncrementClamp/NotEqual cho portal tròn.
+- **Kỳ vọng hình ảnh xuất ra:** Night-sky và wizard chỉ xuất hiện trong portal, ngoài mask giữ màu nền.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `33c65cd0ace1f7da`; vision và cấu trúc đạt; raw khác 836 byte ở 296 pixel, sai số tối đa `139/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc57_stencil_mask_report.md`](reports/tc57_stencil_mask_report.md)
+
+### TC58 - MRT G-Buffer
+- **Mục tiêu:** Kiểm thử ghi đồng thời albedo/emissive vào hai color attachment trong một MRT pass.
+- **Kỳ vọng hình ảnh xuất ra:** Albedo bên trái và emissive mask bên phải đều có dữ liệu, sau đó composite side-by-side.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `99bc2711d6947215`; vision đạt và raw byte parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc58_mrt_gbuffer_report.md`](reports/tc58_mrt_gbuffer_report.md)

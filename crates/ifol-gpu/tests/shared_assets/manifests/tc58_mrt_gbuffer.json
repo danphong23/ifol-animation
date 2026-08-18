@@ -1,0 +1,34 @@
+{
+  "test_case": "TC58",
+  "title": "Multiple Render Targets G-Buffer",
+  "title_vi": "G-Buffer nhiều RenderTarget",
+  "description": "Write albedo and emissive attachments in one MRT pass, then compare them side by side.",
+  "description_vi": "Ghi albedo và emissive trong một pass MRT rồi đặt hai attachment cạnh nhau để so sánh.",
+  "input_policy_vi": "Desktop và WebGPU dùng cùng PNG canonical heroes; MRT attachment format, shader và composite contract dùng chung.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [
+      { "id": "albedo", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "emissive", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+      { "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }
+    ],
+    "mrt": { "attachment_count": 2, "formats": ["Rgba8UnormSrgb", "Rgba8UnormSrgb"], "single_pass": true },
+    "sampler": { "address_mode_u": "clamp-to-edge", "address_mode_v": "clamp-to-edge", "address_mode_w": "clamp-to-edge", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear" },
+    "pipelines": {
+      "gbuffer": { "shader": "mrt_gbuffer.wgsl", "blend": "Replace", "layout": "texture" },
+      "composite": { "shader": "sprite_blit.wgsl", "blend": "AlphaBlending", "layout": "texture_uniform" }
+    },
+    "operations": [
+      { "id": "mrt_capture", "kind": "mrt_write", "pass": "gbuffer_pass", "pipeline": "gbuffer", "shader": "mrt_gbuffer.wgsl", "source": [{ "kind": "asset", "asset": "canonical_sprites_heroes.png" }], "attachments": ["albedo", "emissive"], "vertex_count": 6, "instance_count": 1 },
+      { "id": "mrt_albedo_view", "kind": "attachment_composite", "pass": "composite_pass", "pipeline": "composite", "shader": "sprite_blit.wgsl", "source": [{ "kind": "target", "target": "albedo" }], "vertex_count": 6, "instance_count": 1 },
+      { "id": "mrt_emissive_view", "kind": "attachment_composite", "pass": "composite_pass", "pipeline": "composite", "shader": "sprite_blit.wgsl", "source": [{ "kind": "target", "target": "emissive" }], "vertex_count": 6, "instance_count": 1 }
+    ],
+    "passes": [
+      { "id": "gbuffer_pass", "name": "Albedo + emissive MRT", "target": "albedo/emissive", "clear_color": [0.0, 0.0, 0.0, 1.0] },
+      { "id": "composite_pass", "name": "Side-by-side attachments", "target": "final", "clear_color": [0.05, 0.05, 0.08, 1.0] }
+    ],
+    "command_count": 3,
+    "node_count": 2
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["gbuffer_pass", "composite_pass"], "expected_instance_count": 3, "visual_check": "Bên trái là albedo, bên phải là emissive mask; cả hai attachment được ghi trong một MRT pass và composite không bị trống." }
+}

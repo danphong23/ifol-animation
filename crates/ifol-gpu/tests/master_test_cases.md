@@ -255,3 +255,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Phạm vi:** Ma trận tám blend modes, mesh indexed 32x32 có wave/Phong và chuỗi Dual Kawase bloom qua target 400x300.
 - **Kết quả:** 3/3 pass Desktop/Web validation, cold/warm output ổn định, graph fingerprint trùng và vision đạt. TC53 khác 69 byte/51 pixel với max delta `1/255`; TC54 khác 976 byte/350 pixel với max delta `71/255`; TC55 đạt raw byte parity tuyệt đối. TC53–TC54 là `ĐẠT CÓ ĐIỀU KIỆN`, TC55 là `ĐẠT`.
 - **Báo cáo:** [`tc53_blend_modes_report.md`](reports/tc53_blend_modes_report.md), [`tc54_flag_mesh_report.md`](reports/tc54_flag_mesh_report.md), [`tc55_dual_kawase_report.md`](reports/tc55_dual_kawase_report.md)
+
+### TC56–TC58 - Target lifecycle, stencil và MRT parity
+- **Phạm vi:** Dynamic target resizing 400x600→800x600, stencil portal với depth-stencil attachment và hai color attachment MRT albedo/emissive.
+- **Kết quả:** 3/3 pass Desktop/Web validation, cold/warm output ổn định, fingerprint trùng và vision đạt. TC56 khác 5200 byte/1979 pixel với max delta `37/255`; TC57 khác 836 byte/296 pixel với max delta `139/255`; TC58 đạt raw byte parity tuyệt đối. TC56–TC57 là `ĐẠT CÓ ĐIỀU KIỆN`, TC58 là `ĐẠT`.
+- **Báo cáo:** [`tc56_dynamic_resize_report.md`](reports/tc56_dynamic_resize_report.md), [`tc57_stencil_mask_report.md`](reports/tc57_stencil_mask_report.md), [`tc58_mrt_gbuffer_report.md`](reports/tc58_mrt_gbuffer_report.md)

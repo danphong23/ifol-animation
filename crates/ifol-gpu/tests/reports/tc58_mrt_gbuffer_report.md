@@ -1,21 +1,96 @@
-# Báo cáo: TC58_MRT_GBUFFER - Multiple Render Targets (MRT G-Buffer)
+# Báo cáo: TC58 - G-Buffer nhiều RenderTarget
 
-Đây là báo cáo tổng hợp chất lượng render của TC58_MRT_GBUFFER trên các nền tảng.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
-## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 3.7467ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 1.455ms
-- **Kết quả ảnh (Thực tế):**
+## 1. Mô tả và graph dùng chung
 
-![TC58_MRT_GBUFFER Desktop Render](../outputs/desktop/tc58_mrt_gbuffer.png)
+- **Manifest:** `../shared_assets/manifests/tc58_mrt_gbuffer.json`
+- **Graph fingerprint (FNV-1a):** `99bc2711d6947215`
+- **Mô tả test case:** Ghi albedo và emissive trong một pass MRT rồi đặt hai attachment cạnh nhau để so sánh.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `mrt_gbuffer.wgsl`, `sprite_blit.wgsl`
+- **Asset/input:** `canonical_sprites_heroes.png`
+- **Chính sách input:** Desktop và WebGPU dùng cùng PNG canonical heroes; MRT attachment format, shader và composite contract dùng chung.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** gbuffer_pass (Albedo + emissive MRT, target albedo/emissive) → composite_pass (Side-by-side attachments, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `mrt_capture → mrt_albedo_view → mrt_emissive_view`
+- **Sampler contract:** `{"address_mode_u": "clamp-to-edge", "address_mode_v": "clamp-to-edge", "address_mode_w": "clamp-to-edge", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear"}`
+- **Thứ tự layer kỳ vọng:** `gbuffer_pass → composite_pass`
+- **Graph resources:** nodes=`2`, draw commands=`3`, tổng instances=`3`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-- **Kỳ vọng:** Fragment shader xuất đồng thời 2 Attachments (Albedo và Emissive Mask) trong duy nhất 1 Render Pass (GBuffer). Bố cục xuất ảnh so sánh trực tiếp Albedo bên trái và Emissive Mask tách quang bên phải.
-- **Mô tả (Vision AI / Đánh giá):** Hai mục tiêu đệm màu (Color Targets) được điền đầy đủ và đồng bộ hoàn hảo trong 1 pass duy nhất; bên trái là hình ảnh gốc, bên phải là lớp mặt nạ phát sáng (emissive) trích xuất chính xác dải sáng rực.
-- **Core Engine Errors:** Không có lỗi.
+## 2. Môi trường Desktop
 
-## 2. Môi trường Web (WASM/WebGPU)
-Chưa chạy riêng test case này trên WebGPU. Canonical offscreen probe Desktop/Web đã
-pass exact từng byte, nhưng không thay thế cho pixel parity của TC58.
+- **Thời gian render lần đầu (cold):** `4.7184 ms`
+- **Thời gian render lần hai (warm/cache):** `2.2061 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `53.2%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `1 pass 2-attachment MRT + 1 pass side-by-side composite + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `../outputs/desktop/tc58_mrt_gbuffer_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `3f2b32257be796ea`
+- **SHA-256:** `293f1e5b4f6a7cf8319229fdf4dd5eeb5ef8b7f3a894a7e1c9b78a9349b90064`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc58_mrt_gbuffer.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị albedo ở bên trái và emissive mask tương ứng ở bên phải; cả hai attachment đều có dữ liệu.
+- **Graph thực tế:** nodes=2, draw commands=3, instances=3
 
-## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Desktop: PASS. Pixel parity riêng của TC58 trên Web chưa được kết luận.
+
+
+## 3. Môi trường WebGPU
+
+- **Thời gian render lần đầu (cold):** `75.7000 ms`
+- **Thời gian render lần hai (warm/cache):** `2.9000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `96.2%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 pass 2-attachment MRT + 1 pass side-by-side composite + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `../outputs/web/tc58_mrt_gbuffer_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `3f2b32257be796ea`
+- **SHA-256:** `293f1e5b4f6a7cf8319229fdf4dd5eeb5ef8b7f3a894a7e1c9b78a9349b90064`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc58_mrt_gbuffer_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng bố cục albedo/emissive cạnh nhau, khớp Desktop và không có attachment trống.
+- **Graph thực tế:** nodes=2, draw commands=3, instances=3
+
+
+
+## 4. So sánh và kết luận
+
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `ĐẠT` |
+| Số byte khác nhau | `0` |
+| Số pixel khác nhau | `0` |
+| Sai số kênh màu lớn nhất | `0/255` |
+| Khác biệt màu/presentation | `KHÔNG` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT - output giống tuyệt đối từng byte.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

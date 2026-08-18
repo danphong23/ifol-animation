@@ -44,7 +44,7 @@ struct SoftParticleUniform {
     particle_color: [f32; 4],
 }
 
-fn fnv1a64(bytes: &[u8]) -> String {
+pub(crate) fn fnv1a64(bytes: &[u8]) -> String {
     let mut hash = 0xcbf29ce484222325u64;
     for byte in bytes {
         hash ^= u64::from(*byte);

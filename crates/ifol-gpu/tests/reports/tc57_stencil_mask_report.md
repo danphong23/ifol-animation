@@ -1,20 +1,96 @@
-# Báo cáo: TC57_STENCIL_MASK - Hardware Stencil Buffer Masking & Portal Clipping
+# Báo cáo: TC57 - Portal mặt nạ stencil
 
-Đây là báo cáo tổng hợp chất lượng render của TC57_STENCIL_MASK trên các nền tảng.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
-## 1. Môi trường Desktop (Tauri/wgpu)
-- **Thời gian Render (Cold Start - Lần đầu):** 8.0125ms
-- **Thời gian Render (Warm/Cached - Các lần sau):** 2.2238ms
-- **Kết quả ảnh (Thực tế):**
+## 1. Mô tả và graph dùng chung
 
-![TC57_STENCIL_MASK Desktop Render](../outputs/desktop/tc57_stencil_mask.png)
+- **Manifest:** `../shared_assets/manifests/tc57_stencil_mask.json`
+- **Graph fingerprint (FNV-1a):** `33c65cd0ace1f7da`
+- **Mô tả test case:** Dùng stencil increment để giới hạn cảnh trời đêm và wizard bên trong portal tròn.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `chroma_key_cropped.wgsl`, `stencil_mask.wgsl`
+- **Asset/input:** `canonical_bg_nightsky.png`, `canonical_sprites_heroes.png`
+- **Chính sách input:** Desktop và WebGPU dùng cùng PNG canonical night-sky và heroes; stencil state, clear và compare lấy từ graph contract.
+- **Depth/stencil:** `{"format": "Depth24PlusStencil8", "depth_clear": 1.0, "stencil_clear": 0, "mask_compare": "Always", "content_compare": "NotEqual", "mask_pass": "IncrementClamp"}`
+- **Chuỗi pass:** portal_pass (Stencil portal, target final)
+- **Số pass:** `1`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `stencil_mask_circle → stencil_nightsky → stencil_wizard`
+- **Sampler contract:** `{"address_mode_u": "clamp-to-edge", "address_mode_v": "clamp-to-edge", "address_mode_w": "clamp-to-edge", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear"}`
+- **Thứ tự layer kỳ vọng:** `portal_pass`
+- **Graph resources:** nodes=`2`, draw commands=`3`, tổng instances=`3`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-- **Kỳ vọng:** Sử dụng Stencil State (IncrementClamp và NotEqual) để tạo mặt nạ hình tròn hoàn hảo ở tâm màn hình. Toàn bộ cảnh bầu trời đêm và Wizard chỉ hiển thị bên trong hình tròn Stencil, bên ngoài giữ nguyên màu nền đen vũ trụ.
-- **Mô tả (Vision AI / Đánh giá):** Mặt nạ tròn sắc nét 100% chuẩn tỷ lệ hình học, không bị méo ellipse, nhân vật Wizard đứng nổi bật giữa portal đêm mà không bị tràn ra ngoài.
-- **Core Engine Errors:** Không có lỗi.
+## 2. Môi trường Desktop
 
-## 2. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+- **Thời gian render lần đầu (cold):** `5.6737 ms`
+- **Thời gian render lần hai (warm/cache):** `1.0273 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `81.9%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `1 pass stencil mask + masked background/wizard + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `../outputs/desktop/tc57_stencil_mask_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `a7e63b358c4d282e`
+- **SHA-256:** `a7f6afdfcb00c919613e71cfb8d7aad3768b9205464e5a55a43c47c3ce225149`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc57_stencil_mask.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị portal tròn sắc nét; cảnh night-sky và wizard chỉ nằm trong stencil mask, vùng ngoài giữ nền xám.
+- **Graph thực tế:** nodes=2, draw commands=3, instances=3
 
-## 3. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+
+
+## 3. Môi trường WebGPU
+
+- **Thời gian render lần đầu (cold):** `23.9000 ms`
+- **Thời gian render lần hai (warm/cache):** `3.1000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `87.0%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 pass stencil mask + masked background/wizard + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `../outputs/web/tc57_stencil_mask_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `64bdfe6ab5f9c9fb`
+- **SHA-256:** `f0ddacc19c5780fc79129cec7cfdf0e3864e6bc9c9dd705f351695f7b6f1701d`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc57_stencil_mask_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng portal tròn, night-sky và wizard bị giới hạn trong mask; khác biệt chỉ ở biên rasterization, không tràn ra ngoài.
+- **Graph thực tế:** nodes=2, draw commands=3, instances=3
+
+
+
+## 4. So sánh và kết luận
+
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `836` |
+| Số pixel khác nhau | `296` |
+| Sai số kênh màu lớn nhất | `139/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
+
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

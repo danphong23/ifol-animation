@@ -370,6 +370,20 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - TC53 yêu cầu `textureSampleLevel` trong shader dùng sample bên trong nhánh
   điều kiện để tương thích validation WebGPU; Desktop và Web dùng cùng WGSL
   sau khi sửa portability này;
+- TC56–TC58 đã được chuyển sang manifest canonical và runner Desktop/Web riêng.
+  Cả 3/3 pass validation, cold/warm output ổn định, fingerprint trùng và vision
+  đạt. Fingerprint lần lượt là `712b3ac12833ff81`, `33c65cd0ace1f7da` và
+  `99bc2711d6947215`. TC56 khác 5200 byte/1979 pixel với max delta `37/255`;
+  TC57 khác 836 byte/296 pixel với max delta `139/255`; TC58 đạt raw byte parity
+  tuyệt đối. TC56–TC57 là `ĐẠT CÓ ĐIỀU KIỆN`, TC58 là `ĐẠT`;
+- TC56 ban đầu có lỗi scale crop ở runner Desktop do dùng trực tiếp tỉ lệ UV
+  thay vì quy đổi theo aspect ratio của texture/target. Lỗi đã được sửa trong
+  shared runner, sau đó Desktop và Web đều chạy lại trước khi phân loại kết quả;
+- Không còn runner hợp lệ nào tham chiếu graph legacy của TC56–TC58; các file
+  `tests/graphs/tc56...tc58.json` đã được loại bỏ. Mỗi TC vẫn tạo harness/device
+  mới để cô lập test; `ifol-gpu` không tuyên bố có thể xóa cache driver/browser/GPU
+  portable. Vì vậy cold/warm chỉ là timing của execute sau khi device/pipeline
+  đã tạo, không phải cold start tuyệt đối;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
