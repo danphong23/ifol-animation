@@ -54,4 +54,21 @@ fn slice04_query_tuples_filters_and_world_entity() {
     let empty_query = world.query::<&'static Name>();
     assert_eq!(empty_query.count(), 0);
     assert!(empty_query.is_empty());
+
+    // 9. Modifier-only queries must scan alive entities rather than return an empty set.
+    assert_eq!(world.query::<Option<&'static OptionalTag>>().count(), 11);
+    assert_eq!(world.query::<Without<Name>>().count(), 11);
+
+    // 10. Query composition supports more than four terms and an empty driver.
+    type WideQuery = (
+        &'static Position,
+        &'static Velocity,
+        &'static Health,
+        Option<&'static OptionalTag>,
+        With<Health>,
+        Without<Name>,
+        Option<&'static Name>,
+        (),
+    );
+    assert_eq!(world.query::<WideQuery>().count(), 10);
 }

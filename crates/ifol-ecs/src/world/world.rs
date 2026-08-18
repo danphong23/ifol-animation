@@ -57,6 +57,11 @@ impl World {
         self.entities.alive_count()
     }
 
+    /// Returns all currently alive entity IDs, including `WORLD_ENTITY`.
+    pub fn alive_entities(&self) -> Vec<EntityId> {
+        self.entities.iter_alive().collect()
+    }
+
     /// Returns the current monotonic structural version.
     #[inline(always)]
     pub fn structural_version(&self) -> u64 {

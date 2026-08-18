@@ -29,6 +29,13 @@ WorldRef<T>
 Option<WorldRef<T>>
 ~~~
 
+Modifier-only queries such as `Option<&T>`, `Without<T>` and `()` iterate the
+alive entity set because they do not have a required storage driver. A tuple
+chooses the smallest available required storage; an empty required storage
+therefore produces an empty result without falling back to an optional term.
+The stable tuple convenience implementations cover eight terms; query
+composition remains generic through `WorldQuery`.
+
 ## 2. WORLD_ENTITY
 
 WORLD_ENTITY được xét như entity bình thường. Query &A trả root nếu root có A.

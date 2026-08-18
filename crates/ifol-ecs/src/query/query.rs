@@ -20,7 +20,11 @@ impl<'w, Q: WorldQuery> Query<'w, Q> {
 
     /// Returns an iterator yielding items for all matching entities.
     pub fn iter(&self) -> impl Iterator<Item = Q::Item<'w>> + 'w {
-        let entities = Q::driver_entities(self.world);
+        let entities = if Q::has_driver() {
+            Q::driver_entities(self.world)
+        } else {
+            self.world.alive_entities()
+        };
         let world = self.world;
         entities.into_iter().filter_map(move |e| {
             if world.is_alive(e) && Q::matches(world, e) {
@@ -33,7 +37,11 @@ impl<'w, Q: WorldQuery> Query<'w, Q> {
 
     /// Returns an iterator yielding `(EntityId, Item)` pairs for all matching entities.
     pub fn iter_with_entity(&self) -> impl Iterator<Item = (EntityId, Q::Item<'w>)> + 'w {
-        let entities = Q::driver_entities(self.world);
+        let entities = if Q::has_driver() {
+            Q::driver_entities(self.world)
+        } else {
+            self.world.alive_entities()
+        };
         let world = self.world;
         entities.into_iter().filter_map(move |e| {
             if world.is_alive(e) && Q::matches(world, e) {
