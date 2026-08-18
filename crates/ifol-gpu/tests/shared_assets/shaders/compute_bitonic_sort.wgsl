@@ -10,8 +10,9 @@ struct SortParams {
     k: u32,
 }
 
-@group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
-@group(0) @binding(1) var<uniform> params: SortParams;
+@group(0) @binding(0) var<storage, read> source_particles: array<Particle>;
+@group(0) @binding(1) var<storage, read_write> destination_particles: array<Particle>;
+@group(0) @binding(2) var<uniform> params: SortParams;
 
 @compute @workgroup_size(256)
 fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -19,31 +20,26 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let j = params.j;
     let k = params.k;
     
-    let n = arrayLength(&particles);
+    let n = arrayLength(&source_particles);
     if i >= n { return; }
 
     let ixj = i ^ j;
-    
-    if ixj > i {
-        let pi = particles[i];
-        let pixj = particles[ixj];
-        
-        let dir = (i & k) == 0u;
-        
-        // Depth from large to small (1.0 is far, 0.0 is near).
-        let p_i_depth = pi.depth;
-        let p_ixj_depth = pixj.depth;
-        
-        var swap = false;
-        if dir {
-            swap = p_i_depth > p_ixj_depth;
-        } else {
-            swap = p_i_depth < p_ixj_depth;
-        }
-        
-        if swap {
-            particles[i] = pixj;
-            particles[ixj] = pi;
-        }
+    if ixj >= n { return; }
+
+    let pi = source_particles[i];
+    let pixj = source_particles[ixj];
+    var lower = pi;
+    var higher = pixj;
+    if (pi.depth > pixj.depth) {
+        lower = pixj;
+        higher = pi;
+    }
+
+    let ascending = (i & k) == 0u;
+    let lower_index = i < ixj;
+    if (ascending == lower_index) {
+        destination_particles[i] = lower;
+    } else {
+        destination_particles[i] = higher;
     }
 }

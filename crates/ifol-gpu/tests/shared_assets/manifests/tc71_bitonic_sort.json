@@ -1,0 +1,35 @@
+{
+  "test_case": "TC71",
+  "title": "GPU Bitonic Sort",
+  "title_vi": "Sắp xếp Bitonic particle trên GPU",
+  "description": "Sort 65,536 particles by depth with 136 bitonic stages, then render the sorted instances.",
+  "description_vi": "Sắp xếp 65.536 particle theo depth qua 136 stage Bitonic rồi render các instance đã sắp xếp.",
+  "input_policy_vi": "Desktop và WebGPU tạo cùng vị trí, depth và màu deterministic; uniform sort parameters dùng slot canonical 256 byte.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "sort": { "shader": "compute_bitonic_sort.wgsl", "entry_point": "cs_main", "stage": "compute", "layout": "particles_dynamic_sort_params" },
+      "particles": { "shader": "render_bitonic_sort.wgsl", "entry_point": "vs_main/fs_main", "stage": "render", "layout": "particles_storage" }
+    },
+    "operations": [
+      { "id": "bitonic_sort", "kind": "compute_sequence", "pass": "sort_pass", "pipeline": "sort", "dispatch": [256, 1, 1], "particle_count": 65536, "stage_count": 136, "uniform_slot_bytes": 256 },
+      { "id": "render_sorted_particles", "kind": "draw", "pass": "render_pass", "pipeline": "particles", "vertex_count": 6, "instance_count": 65536 }
+    ],
+    "passes": [
+      { "id": "sort_pass", "name": "136-stage bitonic depth sort", "target": "particle_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "render_pass", "name": "Sorted particle instances", "target": "final", "clear_color": [0.1, 0.1, 0.1, 1.0] }
+    ],
+    "command_count": 137,
+    "node_count": 2,
+    "sort": { "particle_count": 65536, "stage_count": 136, "workgroup_size": 256, "depth_order": "ascending" }
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_background_rgba8": [89, 89, 89, 255],
+    "warm_pixel_diff_tolerance": 0,
+    "non_background_mask_diff_tolerance": 120000,
+    "expected_layer_order": ["sort_pass", "render_pass"],
+    "expected_instance_count": 65536,
+    "visual_check": "Particle field remains populated with a depth color gradient; readback depths are finite and non-decreasing after sorting."
+  }
+}

@@ -225,6 +225,10 @@ def main() -> None:
     )
     desktop_image_link = os.path.relpath(args.desktop_image, args.report.parent).replace(os.sep, "/")
     web_image_link = os.path.relpath(args.web_image, args.report.parent).replace(os.sep, "/")
+    desktop_numeric_text = json.dumps(desktop.get("numeric_validation"), ensure_ascii=False) if desktop.get("numeric_validation") is not None else "CHƯA GHI NHẬN"
+    web_numeric_text = json.dumps(web.get("numeric_validation"), ensure_ascii=False) if web.get("numeric_validation") is not None else "CHƯA GHI NHẬN"
+    desktop_warm_text = f"bytes={display_value(desktop.get('warm_diff_bytes'))}, pixels={display_value(desktop.get('warm_diff_pixels'))}, max_delta={display_value(desktop.get('warm_max_channel_delta'))}/255, tolerance={display_value(desktop.get('warm_pixel_diff_tolerance'))}"
+    web_warm_text = f"bytes={display_value(web.get('warm_diff_bytes'))}, pixels={display_value(web.get('warm_diff_pixels'))}, max_delta={display_value(web.get('warm_max_channel_delta'))}/255, tolerance={display_value(web.get('warm_pixel_diff_tolerance'))}"
 
     report = f"""# Báo cáo: {case_id} - {title}
 
@@ -258,6 +262,7 @@ def main() -> None:
 - **Thời gian render lần hai (warm/cache):** `{format_ms(desktop.get("warm_render_time_ms"))}`
 - **Số lần warm được đo:** `{display_value(desktop.get("warm_iteration_count"))}`
 - **Output cold và warm giống nhau:** `{display_value(desktop.get("cache_output_equal"))}`
+- **Warm diff chi tiết:** `{desktop_warm_text}`
 - **Speedup cold → warm:** `{format_percent(desktop.get("speedup_percentage"))}`
 - **Adapter/backend:** `{desktop.get("adapter_name", "không ghi nhận")}` / `{desktop.get("backend", "không ghi nhận")}`
 - **Phạm vi timing:** `{desktop.get("timing_scope", "không ghi nhận")}`
@@ -268,6 +273,7 @@ def main() -> None:
 - **Ảnh:** ![Desktop output]({desktop_image_link})
 - **Đánh giá nội dung:** `{desktop_content}`
 - **Đánh giá bằng vision:** {args.vision_desktop}
+ - **Numeric validation:** `{desktop_numeric_text}`
 {f"- **Graph thực tế:** nodes={desktop.get('node_count')}, draw commands={desktop.get('draw_commands')}, instances={desktop.get('instance_count')}" if graph_spec.get("node_count") is not None else ""}
 {f"- **Validation thực tế:** error={desktop.get('validation_error')}, handle={desktop.get('missing_bind_group')}, passed={desktop.get('validation_passed')}, panic={desktop.get('panic_occurred')}" if error_contract else ""}
 {f"- **Node pool thực tế:** allocated={desktop.get('allocated_nodes')}, freed={desktop.get('freed_nodes')}, surviving={desktop.get('surviving_nodes')}" if node_pool_spec else ""}
@@ -278,6 +284,7 @@ def main() -> None:
 - **Thời gian render lần hai (warm/cache):** `{format_ms(web.get("warm_render_time_ms"))}`
 - **Số lần warm được đo:** `{display_value(web.get("warm_iteration_count"))}`
 - **Output cold và warm giống nhau:** `{display_value(web.get("cache_output_equal"))}`
+- **Warm diff chi tiết:** `{web_warm_text}`
 - **Speedup cold → warm:** `{format_percent(web.get("speedup_percentage"))}`
 - **Adapter:** `{web.get("adapter_name", "không ghi nhận")}`
 - **Phạm vi timing:** `{web.get("timing_scope", "không ghi nhận")}`
@@ -288,6 +295,7 @@ def main() -> None:
 - **Ảnh:** ![WebGPU output]({web_image_link})
 - **Đánh giá nội dung:** `{web_content}`
 - **Đánh giá bằng vision:** {args.vision_web}
+ - **Numeric validation:** `{web_numeric_text}`
 {f"- **Graph thực tế:** nodes={web.get('node_count')}, draw commands={web.get('draw_commands')}, instances={web.get('instance_count')}" if graph_spec.get("node_count") is not None else ""}
 {f"- **Validation contract mirror:** error={web.get('validation_error')}, handle={web.get('missing_bind_group')}, passed={web.get('validation_passed')}, panic={web.get('panic_occurred')}" if error_contract else ""}
 {f"- **Node pool thực tế:** allocated={web.get('allocated_nodes')}, freed={web.get('freed_nodes')}, surviving={web.get('surviving_nodes')}, check={web.get('pool_check')}" if node_pool_spec else ""}
@@ -310,6 +318,7 @@ def main() -> None:
 | Số pixel mask khác nhau | `{mask_diff}` (ngưỡng `{mask_tolerance}`) |
 | Parity cấu trúc không phụ thuộc màu | `{"ĐẠT" if structure_match else "KHÔNG ĐẠT"}` |
 | Cache giữ nguyên output cold/warm ở cả hai môi trường | `{cache_output_text}` |
+| Warm diff chi tiết đã được ghi nhận | `Desktop: {desktop_warm_text}; WebGPU: {web_warm_text}` |
 | Validation/fallback contract không panic | `{"ĐẠT" if (not error_contract) or (desktop.get("validation_passed") is True and web.get("validation_passed") is True and desktop.get("panic_occurred") is False and web.get("panic_occurred") is False) else "KHÔNG ĐẠT"}` |
 | Đúng mô tả test case | `{"ĐẠT" if desktop_content == "ĐẠT" and web_content == "ĐẠT" else "CẦN XEM LẠI"}` |
 

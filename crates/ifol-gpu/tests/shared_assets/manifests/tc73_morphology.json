@@ -1,0 +1,34 @@
+{
+  "test_case": "TC73",
+  "title": "GPU Morphological Dilation",
+  "title_vi": "Dilation mask bằng compute trên GPU",
+  "description": "Generate a ring-and-dot mask and dilate it with a radius-10 morphology pass on an 800x800 storage texture.",
+  "description_vi": "Tạo mask gồm vòng tròn và các chấm rồi dilation radius 10 trên storage texture 800x800.",
+  "input_policy_vi": "Desktop và WebGPU tạo cùng mask procedural trong WGSL; không dùng texture decoder hoặc asset bên ngoài.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 800, "format": "Rgba8Unorm" },
+    "pipelines": {
+      "generate_mask": { "shader": "compute_morphology.wgsl", "entry_point": "cs_gen_mask", "stage": "compute", "layout": "storage_mask" },
+      "dilate": { "shader": "compute_morphology.wgsl", "entry_point": "cs_main", "stage": "compute", "layout": "sample_storage_params" }
+    },
+    "operations": [
+      { "id": "generate_mask", "kind": "compute_dispatch", "pass": "mask_pass", "pipeline": "generate_mask", "dispatch": [50, 50, 1] },
+      { "id": "dilate_mask", "kind": "compute_dispatch", "pass": "morphology_pass", "pipeline": "dilate", "dispatch": [50, 50, 1], "radius": 10, "mode": "dilation" }
+    ],
+    "passes": [
+      { "id": "mask_pass", "name": "Procedural ring and dot mask", "target": "mask_texture", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "morphology_pass", "name": "Radius-10 dilation", "target": "final", "clear_color": [0.0, 0.0, 0.0, 0.0] }
+    ],
+    "command_count": 2,
+    "node_count": 1,
+    "morphology": { "width": 800, "height": 800, "radius": 10, "mode": 0, "workgroup_size": [16, 16] }
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_background_rgba8": [0, 0, 0, 255],
+    "warm_pixel_diff_tolerance": 0,
+    "non_background_mask_diff_tolerance": 5000,
+    "expected_layer_order": ["mask_pass", "morphology_pass"],
+    "visual_check": "The ring and three dots become visibly thicker after dilation; output is non-empty and contains no validation error."
+  }
+}

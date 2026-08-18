@@ -1,0 +1,38 @@
+{
+  "test_case": "TC72",
+  "title": "GPU Spatial Hash Simulation",
+  "title_vi": "Mô phỏng spatial hash particle trên GPU",
+  "description": "Hash 4,096 particles into a 32x32 grid and simulate ten collision steps before rendering.",
+  "description_vi": "Băm 4.096 particle vào lưới 32x32 và mô phỏng 10 vòng va chạm trước khi render.",
+  "input_policy_vi": "Desktop và WebGPU tạo cùng particle positions/velocities/colors, grid 32x32, cell size 25 và dt 0,16.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 800, "format": "Rgba8UnormSrgb" },
+    "clear_color": [0.02, 0.02, 0.04, 1.0],
+    "pipelines": {
+      "reset_grid": { "shader": "compute_spatial_hash.wgsl", "entry_point": "cs_reset_grid", "stage": "compute", "layout": "particles_ping_pong_grid_params" },
+      "hash_particles": { "shader": "compute_spatial_hash.wgsl", "entry_point": "cs_hash_particles", "stage": "compute", "layout": "particles_ping_pong_grid_params" },
+      "simulate": { "shader": "compute_spatial_hash.wgsl", "entry_point": "cs_simulate", "stage": "compute", "layout": "particles_ping_pong_grid_params" },
+      "particles": { "shader": "render_spatial_hash.wgsl", "entry_point": "vs_main/fs_main", "stage": "render", "layout": "particles_storage" }
+    },
+    "operations": [
+      { "id": "spatial_hash_simulation", "kind": "compute_sequence", "pass": "simulation_pass", "pipelines": ["reset_grid", "hash_particles", "simulate"], "iteration_count": 10, "particle_count": 4096, "particle_buffers": 2, "state_update": "source_to_destination_ping_pong", "grid_size": 32, "dispatch_reset": [16, 1, 1], "dispatch_particles": [64, 1, 1] },
+      { "id": "render_particles", "kind": "draw", "pass": "render_pass", "pipeline": "particles", "vertex_count": 6, "instance_count": 4096 }
+    ],
+    "passes": [
+      { "id": "simulation_pass", "name": "10-step spatial hash simulation", "target": "particle_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "render_pass", "name": "Particle collision field", "target": "final", "clear_color": [0.02, 0.02, 0.04, 1.0] }
+    ],
+    "command_count": 31,
+    "node_count": 2,
+    "simulation": { "particle_count": 4096, "grid_size": 32, "cell_size": 25.0, "radius": 4.0, "dt": 0.16, "iteration_count": 10 }
+  },
+  "evaluation": {
+    "expected_non_empty": true,
+    "expected_background_rgba8": [39, 39, 56, 255],
+    "warm_pixel_diff_tolerance": 0,
+    "non_background_mask_diff_tolerance": 50000,
+    "expected_layer_order": ["simulation_pass", "render_pass"],
+    "expected_instance_count": 4096,
+    "visual_check": "Particles remain inside the 800x800 bounds and form a coherent collision field without NaN or runaway coordinates."
+  }
+}

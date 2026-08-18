@@ -125,6 +125,10 @@ async function saveRawTexture(bytes, metadata) {
             warm_render_time_ms: metadata.warm_render_time_ms,
             warm_iteration_count: metadata.warm_iteration_count,
             speedup_percentage: metadata.speedup_percentage,
+            warm_diff_bytes: metadata.warm_diff_bytes,
+            warm_diff_pixels: metadata.warm_diff_pixels,
+            warm_max_channel_delta: metadata.warm_max_channel_delta,
+            warm_pixel_diff_tolerance: metadata.warm_pixel_diff_tolerance,
             cache_output_equal: metadata.cache_output_equal,
             validation_error: metadata.validation_error,
             missing_bind_group: metadata.missing_bind_group,
@@ -5968,10 +5972,22 @@ async function finishComputeResult(gpu, caseId, manifestText, manifest, outputNa
     if (afterWarm) await afterWarm();
     const equal = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
     if (!equal) throw new Error(caseId + ' output changed between reset cold and warm runs');
+    let warmDiffBytes = Math.abs(coldBytes.length - bytes.length);
+    let warmDiffPixels = Math.floor(Math.abs(coldBytes.length - bytes.length) / 4);
+    let warmMaxChannelDelta = 0;
+    for (let index = 0; index < Math.min(coldBytes.length, bytes.length); index++) {
+        if (coldBytes[index] !== bytes[index]) warmDiffBytes++;
+        warmMaxChannelDelta = Math.max(warmMaxChannelDelta, Math.abs(coldBytes[index] - bytes[index]));
+    }
+    for (let index = 0; index + 4 <= Math.min(coldBytes.length, bytes.length); index += 4) {
+        if (coldBytes[index] !== bytes[index] || coldBytes[index + 1] !== bytes[index + 1] || coldBytes[index + 2] !== bytes[index + 2] || coldBytes[index + 3] !== bytes[index + 3]) warmDiffPixels++;
+    }
     await saveRawTexture(bytes, {
         name: outputName + '_web', width: target.width, height: target.height, format,
         cold_render_time_ms: coldMs, warm_render_time_ms: warmMs, warm_iteration_count: 1,
         speedup_percentage: (1 - warmMs / coldMs) * 100, cache_output_equal: equal,
+        warm_diff_bytes: warmDiffBytes, warm_diff_pixels: warmDiffPixels, warm_max_channel_delta: warmMaxChannelDelta,
+        warm_pixel_diff_tolerance: manifest.evaluation?.warm_pixel_diff_tolerance ?? 0,
         validation_passed: true, validation_error: null,
         manifest: 'tests/shared_assets/manifests/' + outputName + '.json',
         manifest_fingerprint: fnv1a64(new TextEncoder().encode(manifestText)),
@@ -6107,7 +6123,7 @@ async function runTC68(gpu) {
     const nodesBuffer = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); device.queue.writeBuffer(nodesBuffer, 0, initial);
     const uniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(uniform, 0, new Float32Array([5, 0, 0, 0]));
     const computeLayout = device.createBindGroupLayout({ entries: [
-        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }
     ]});
     const computeBG = device.createBindGroup({ layout: computeLayout, entries: [{ binding: 0, resource: { buffer: nodesBuffer } }, { binding: 1, resource: { buffer: uniform } }] });
@@ -6168,6 +6184,109 @@ async function runTC70(gpu) {
     const reset = async () => { device.queue.writeBuffer(indirect, 0, indirectInitial); await device.queue.onSubmittedWorkDone(); };
     const numeric = {}; const afterWarm = async () => { const args = new Uint32Array((await readStorageBuffer(device, indirect, 16)).buffer); const expected = initial.length / 4 && Array.from({ length: 100000 }, (_, i) => { const x = ((i * 13) % 1000) / 1000 * 2 - 1; const y = ((i * 17) % 1000) / 1000 * 2 - 1; const dx = x * (800 / 600); return Math.sqrt(dx * dx + y * y) <= 0.5 ? 1 : 0; }).reduce((sum, value) => sum + value, 0); if (args[1] !== expected) throw new Error(caseId + ' indirect instance count mismatch: ' + args[1] + ' != ' + expected); numeric.input_count = 100000; numeric.expected_instance_count = expected; numeric.actual_instance_count = args[1]; numeric.indirect_draw = true; numeric.counter_reset_before_warm = true; };
     await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc70', finalTexture, 'Rgba8UnormSrgb', sampler, render, reset, [finalTexture, source, dest, indirect, uniform], '1 compute culling dispatch 1563x1 + indirect draw + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', numeric, afterWarm);
+}
+
+function makeTc71Particles() {
+    const particles = new Float32Array(65536 * 8);
+    for (let i = 0; i < 65536; i++) {
+        const base = i * 8;
+        const r1 = (i * 13 % 1000) / 1000;
+        const r2 = (i * 17 % 1000) / 1000;
+        const depth = (i * 23 % 1000) / 1000;
+        particles[base] = r1 * 2 - 1;
+        particles[base + 1] = r2 * 2 - 1;
+        particles[base + 2] = depth;
+        particles[base + 4] = depth;
+        particles[base + 6] = 1 - depth;
+        particles[base + 7] = 1;
+    }
+    return particles;
+}
+
+async function runTC71(gpu) {
+    const { device } = gpu;
+    const caseId = 'TC71'; const manifestName = 'tc71_bitonic_sort.json'; const outputName = 'tc71_bitonic_sort';
+    const response = await fetch('/manifests/' + manifestName); const manifestText = await response.text(); const manifest = JSON.parse(manifestText);
+    const initial = makeTc71Particles(); const stageParams = [];
+    for (let k = 2; k <= 65536; k <<= 1) for (let j = k >> 1; j > 0; j >>= 1) stageParams.push([j, k]);
+    const sourceBuffer = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); const destinationBuffer = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); device.queue.writeBuffer(sourceBuffer, 0, initial); device.queue.writeBuffer(destinationBuffer, 0, initial);
+    const computeLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform', minBindingSize: 8 } }
+    ] });
+    const stageResources = stageParams.map(([j, k], stageIndex) => {
+        const stageBuffer = device.createBuffer({ size: 8, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        device.queue.writeBuffer(stageBuffer, 0, new Uint32Array([j, k]));
+        const source = stageIndex % 2 === 0 ? sourceBuffer : destinationBuffer;
+        const destination = stageIndex % 2 === 0 ? destinationBuffer : sourceBuffer;
+        const stageBindGroup = device.createBindGroup({ layout: computeLayout, entries: [{ binding: 0, resource: { buffer: source } }, { binding: 1, resource: { buffer: destination } }, { binding: 2, resource: { buffer: stageBuffer, size: 8 } }] });
+        return { buffer: stageBuffer, bindGroup: stageBindGroup };
+    });
+    const shader = device.createShaderModule({ code: await fetchShader('compute_bitonic_sort.wgsl') });
+    const shaderInfo = await shader.getCompilationInfo();
+    const shaderErrors = shaderInfo.messages.filter(message => message.type === 'error');
+    if (shaderErrors.length) throw new Error(caseId + ' shader compilation error: ' + shaderErrors.map(message => message.message).join('; '));
+    device.pushErrorScope('validation');
+    const computePipeline = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [computeLayout] }), compute: { module: shader, entryPoint: 'cs_main' } });
+    const pipelineError = await device.popErrorScope();
+    if (pipelineError) throw new Error(caseId + ' pipeline creation error: ' + pipelineError.message);
+    const renderLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }] });
+    const renderBG = device.createBindGroup({ layout: renderLayout, entries: [{ binding: 0, resource: { buffer: sourceBuffer } }] });
+    const renderShader = device.createShaderModule({ code: await fetchShader('render_bitonic_sort.wgsl') });
+    const renderPipeline = device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [renderLayout] }), vertex: { module: renderShader, entryPoint: 'vs_main' }, fragment: { module: renderShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }] }, primitive: { topology: 'triangle-list' } });
+    const finalTexture = device.createTexture({ size: [800, 600], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING }); const sampler = device.createSampler();
+    const render = async () => {
+        device.pushErrorScope('validation'); const encoder = device.createCommandEncoder();
+        for (const stage of stageResources) { const pass = encoder.beginComputePass(); pass.setPipeline(computePipeline); pass.setBindGroup(0, stage.bindGroup); pass.dispatchWorkgroups(256, 1, 1); pass.end(); }
+        const pass = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1 }, loadOp: 'clear', storeOp: 'store' }] }); pass.setPipeline(renderPipeline); pass.setBindGroup(0, renderBG); pass.draw(6, 65536, 0, 0); pass.end();
+        device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone(); const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message);
+    };
+    const reset = async () => { device.queue.writeBuffer(sourceBuffer, 0, initial); device.queue.writeBuffer(destinationBuffer, 0, initial); await device.queue.onSubmittedWorkDone(); };
+    const numeric = {}; const afterWarm = async () => { const values = new Float32Array((await readStorageBuffer(device, sourceBuffer, initial.byteLength)).buffer); let ordered = true; let violations = 0; let firstViolation = -1; let maxDrop = 0; for (let i = 1; i < 65536; i++) { const drop = values[(i - 1) * 8 + 2] - values[i * 8 + 2]; if (drop > 1e-6) { ordered = false; violations++; if (firstViolation < 0) firstViolation = i; maxDrop = Math.max(maxDrop, drop); } } const firstDepth = values[2]; const lastDepth = values[65535 * 8 + 2]; if (!ordered) throw new Error(caseId + ' depth order mismatch: violations=' + violations + ', first_violation=' + firstViolation + ', max_drop=' + maxDrop + ', first=' + firstDepth + ', last=' + lastDepth); numeric.particle_count = 65536; numeric.stage_count = stageParams.length; numeric.sorted_non_decreasing = ordered; numeric.first_depth = firstDepth; numeric.last_depth = lastDepth; numeric.seed_reset_before_warm = true; };
+    await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc71', finalTexture, 'Rgba8UnormSrgb', sampler, render, reset, [finalTexture, sourceBuffer, destinationBuffer, ...stageResources.map(stage => stage.buffer)], '136 canonical bitonic stages + 65536 instanced draw + source-to-destination ping-pong + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', numeric, afterWarm);
+}
+
+function makeTc72Particles() {
+    const particles = new Float32Array(4096 * 8);
+    for (let i = 0; i < 4096; i++) { const base = i * 8; particles[base] = (i % 64) * 12 + 10; particles[base + 1] = Math.floor(i / 64) * 12 + 10; particles[base + 2] = ((i % 3) - 1) * 10; particles[base + 3] = ((i % 5) - 2) * 10; particles[base + 4] = 1; particles[base + 5] = 1; particles[base + 6] = 1; particles[base + 7] = 1; }
+    return particles;
+}
+
+async function runTC72(gpu) {
+    const { device } = gpu;
+    const caseId = 'TC72'; const manifestName = 'tc72_spatial_hash.json'; const outputName = 'tc72_spatial_hash';
+    const response = await fetch('/manifests/' + manifestName); const manifestText = await response.text(); const manifest = JSON.parse(manifestText); const initial = makeTc72Particles();
+    const source = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); const destination = device.createBuffer({ size: initial.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }); device.queue.writeBuffer(source, 0, initial); device.queue.writeBuffer(destination, 0, initial);
+    const gridBytes = new Uint8Array(32 * 32 * 144); const grid = device.createBuffer({ size: gridBytes.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    const paramsBytes = new ArrayBuffer(32); const paramsView = new DataView(paramsBytes); paramsView.setUint32(0, 4096, true); paramsView.setUint32(4, 32, true); paramsView.setFloat32(8, 25, true); paramsView.setFloat32(12, 4, true); paramsView.setFloat32(16, 0.16, true); const params = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(params, 0, paramsBytes);
+    const computeLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }] });
+    const bindAtoB = device.createBindGroup({ layout: computeLayout, entries: [{ binding: 0, resource: { buffer: source } }, { binding: 1, resource: { buffer: destination } }, { binding: 2, resource: { buffer: grid } }, { binding: 3, resource: { buffer: params } }] }); const bindBtoA = device.createBindGroup({ layout: computeLayout, entries: [{ binding: 0, resource: { buffer: destination } }, { binding: 1, resource: { buffer: source } }, { binding: 2, resource: { buffer: grid } }, { binding: 3, resource: { buffer: params } }] });
+    const shader = device.createShaderModule({ code: await fetchShader('compute_spatial_hash.wgsl') }); const layout = device.createPipelineLayout({ bindGroupLayouts: [computeLayout] }); const resetPipeline = device.createComputePipeline({ layout, compute: { module: shader, entryPoint: 'cs_reset_grid' } }); const hashPipeline = device.createComputePipeline({ layout, compute: { module: shader, entryPoint: 'cs_hash_particles' } }); const simulatePipeline = device.createComputePipeline({ layout, compute: { module: shader, entryPoint: 'cs_simulate' } });
+    const renderLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }] }); const renderBG = device.createBindGroup({ layout: renderLayout, entries: [{ binding: 0, resource: { buffer: source } }] }); const renderShader = device.createShaderModule({ code: await fetchShader('render_spatial_hash.wgsl') }); const renderPipeline = device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [renderLayout] }), vertex: { module: renderShader, entryPoint: 'vs_main' }, fragment: { module: renderShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }] }, primitive: { topology: 'triangle-list' } });
+    const finalTexture = device.createTexture({ size: [800, 800], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING }); const sampler = device.createSampler();
+    const render = async () => {
+        device.pushErrorScope('validation'); const encoder = device.createCommandEncoder();
+        for (let iteration = 0; iteration < 10; iteration++) { const bind = iteration % 2 === 0 ? bindAtoB : bindBtoA; for (const [pipeline, dispatch] of [[resetPipeline, 16], [hashPipeline, 64], [simulatePipeline, 64]]) { const pass = encoder.beginComputePass(); pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.dispatchWorkgroups(dispatch, 1, 1); pass.end(); } }
+        const draw = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0.02, g: 0.02, b: 0.04, a: 1 }, loadOp: 'clear', storeOp: 'store' }] }); draw.setPipeline(renderPipeline); draw.setBindGroup(0, renderBG); draw.draw(6, 4096, 0, 0); draw.end();
+        device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone(); const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message);
+    };
+    const reset = async () => { device.queue.writeBuffer(source, 0, initial); device.queue.writeBuffer(destination, 0, initial); device.queue.writeBuffer(grid, 0, gridBytes); await device.queue.onSubmittedWorkDone(); };
+    const numeric = {}; const afterWarm = async () => { const values = new Float32Array((await readStorageBuffer(device, source, initial.byteLength)).buffer); let finite = 0; let bounded = 0; for (let i = 0; i < 4096; i++) { const base = i * 8; const ok = Number.isFinite(values[base]) && Number.isFinite(values[base + 1]) && Number.isFinite(values[base + 2]) && Number.isFinite(values[base + 3]); if (ok) finite++; if (ok && values[base] >= 4 && values[base] <= 796 && values[base + 1] >= 4 && values[base + 1] <= 796) bounded++; } if (finite !== 4096 || bounded !== 4096) throw new Error(caseId + ' particle bounds/finite validation failed'); numeric.particle_count = 4096; numeric.grid_size = 32; numeric.iteration_count = 10; numeric.particle_buffers = 2; numeric.state_update = 'source_to_destination_ping_pong'; numeric.finite_particle_count = finite; numeric.bounded_particle_count = bounded; numeric.seed_reset_before_warm = true; };
+    await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc72', finalTexture, 'Rgba8UnormSrgb', sampler, render, reset, [finalTexture, source, destination, grid, params], '30 compute passes (10 reset/hash/simulate ping-pong iterations) + 4096 instanced draw + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', numeric, afterWarm);
+}
+
+async function runTC73(gpu) {
+    const { device } = gpu;
+    const caseId = 'TC73'; const manifestName = 'tc73_morphology.json'; const outputName = 'tc73_morphology';
+    const response = await fetch('/manifests/' + manifestName); const manifestText = await response.text(); const manifest = JSON.parse(manifestText);
+    const mask = device.createTexture({ size: [800, 800], format: 'rgba8unorm', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING }); const output = device.createTexture({ size: [800, 800], format: 'rgba8unorm', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC });
+    const paramsBytes = new Int32Array([10, 0, 0, 0]); const params = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); device.queue.writeBuffer(params, 0, paramsBytes);
+    const shader = device.createShaderModule({ code: await fetchShader('compute_morphology.wgsl') }); const genLayout = device.createBindGroupLayout({ entries: [{ binding: 1, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba8unorm', viewDimension: '2d' } }] }); const morphLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba8unorm', viewDimension: '2d' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }] });
+    const genBG = device.createBindGroup({ layout: genLayout, entries: [{ binding: 1, resource: mask.createView() }] }); const morphBG = device.createBindGroup({ layout: morphLayout, entries: [{ binding: 0, resource: mask.createView() }, { binding: 1, resource: output.createView() }, { binding: 2, resource: { buffer: params } }] }); const genPipeline = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [genLayout] }), compute: { module: shader, entryPoint: 'cs_gen_mask' } }); const morphPipeline = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [morphLayout] }), compute: { module: shader, entryPoint: 'cs_main' } });
+    const sampler = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' }); const render = async () => { device.pushErrorScope('validation'); const encoder = device.createCommandEncoder(); const gen = encoder.beginComputePass(); gen.setPipeline(genPipeline); gen.setBindGroup(0, genBG); gen.dispatchWorkgroups(50, 50, 1); gen.end(); const morph = encoder.beginComputePass(); morph.setPipeline(morphPipeline); morph.setBindGroup(0, morphBG); morph.dispatchWorkgroups(50, 50, 1); morph.end(); device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone(); const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message); };
+    const numeric = {}; const afterWarm = async () => { const bytes = await readTextureBytes(device, output, 800, 800); let nonzero = 0; for (let i = 0; i < bytes.length; i += 4) if (bytes[i] || bytes[i + 1] || bytes[i + 2]) nonzero++; if (!nonzero) throw new Error(caseId + ' morphology output is empty'); numeric.width = 800; numeric.height = 800; numeric.radius = 10; numeric.mode = 'dilation'; numeric.nonzero_pixel_count = nonzero; numeric.mask_rewritten_before_warm = true; };
+    await finishComputeResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc73', output, 'Rgba8Unorm', sampler, render, null, [output, mask, params], '2 compute passes (mask generation + radius-10 dilation) + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', numeric, afterWarm);
 }
 
 async function runTC37(gpu) {
@@ -6402,7 +6521,7 @@ async function runTC085(gpu) {
 }
 
 async function fetchShader(name) {
-    const res = await fetch(`/shaders/${name}?runner_shader_revision=8`);
+    const res = await fetch(`/shaders/${name}?runner_shader_revision=9`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
     return await res.text();
 }
@@ -7191,6 +7310,9 @@ async function runAllTests() {
         { name: "TC68: Verlet Chains", fn: runTC68 },
         { name: "TC69: Vertex Deformation", fn: runTC69 },
         { name: "TC70: Particle Culling", fn: runTC70 },
+        { name: "TC71: Bitonic Sort", fn: runTC71 },
+        { name: "TC72: Spatial Hash Simulation", fn: runTC72 },
+        { name: "TC73: Morphology Dilation", fn: runTC73 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },
