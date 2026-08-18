@@ -1,10 +1,8 @@
 mod support;
 
+use ifol_ecs::EcsRuntime;
 use ifol_ecs::schedule::PhaseId;
 use ifol_ecs::system::AccessDescriptor;
-use ifol_ecs::EcsRuntime;
-use std::fs;
-use std::path::Path;
 use support::{Health, Position};
 
 #[test]
@@ -47,11 +45,8 @@ fn slice08_execute_deferred_commands_and_safe_points() {
         .register_function_system(
             "HealthReaderSystem",
             |ctx| {
-                let healths: Vec<i32> = ctx
-                    .query::<&'static Health>()
-                    .iter()
-                    .map(|h| h.0)
-                    .collect();
+                let healths: Vec<i32> =
+                    ctx.query::<&'static Health>().iter().map(|h| h.0).collect();
 
                 assert_eq!(healths, vec![200]); // Health is present because commands were flushed at safe point!
                 Ok(())
@@ -76,23 +71,4 @@ fn slice08_execute_deferred_commands_and_safe_points() {
     assert_eq!(report.systems_executed.len(), 2);
     assert!(report.commands_processed >= 1);
     assert_eq!(runtime.get::<Health>(e), Some(&Health(200)));
-
-    let reports_dir = Path::new("tests/reports");
-    fs::create_dir_all(reports_dir).unwrap();
-    let report_content = r#"# Báo Cáo Chấp Nhận: Slice 08 - Execute Pass, Deferred Commands & Safe Points
-
-> **Tài liệu đối chiếu:** `docs/05_system_model.md`, `docs/06_execution_and_loop.md`
-
----
-
-## 1. Kết Quả Kiểm Thử
-
-| Tiêu Chí Kiểm Tra | Kết Quả Thực Tế | Đánh Giá |
-| :--- | :---: | :---: |
-| **Đưa lệnh vào hàng đợi `Commands`** | Không làm gián đoạn/corrupt iterator | **PASS** |
-| **Flush lệnh tại Safe Point giữa các Phase** | Phase sau đọc được dữ liệu của Phase trước | **PASS** |
-| **Báo cáo `commands_processed`** | Ghi nhận chính xác số lệnh đã thực thi | **PASS** |
-| **Độ an toàn bộ nhớ** | Zero Invalidation Panic | **PASS** |
-"#;
-    fs::write(reports_dir.join("slice08_execute_report.md"), report_content).unwrap();
 }

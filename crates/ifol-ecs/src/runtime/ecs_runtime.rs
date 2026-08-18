@@ -5,7 +5,9 @@ use crate::registry::{ComponentId, PhaseId, PhaseRegistry, SystemId, SystemRegis
 use crate::report::RunReport;
 use crate::schedule::CompiledSchedule;
 use crate::storage::Component;
-use crate::system::{AccessDescriptor, Commands, FunctionSystem, RunCondition, System, SystemContext};
+use crate::system::{
+    AccessDescriptor, Commands, FunctionSystem, RunCondition, System, SystemContext,
+};
 use crate::world::World;
 
 /// Central composition root owning World, Registries, Compiled Schedule, and Query Plan Cache.
@@ -40,7 +42,9 @@ impl EcsRuntime {
 
     /// Registers a component type `T` designated as a world singleton on `WORLD_ENTITY`.
     pub fn register_world_singleton<T: Component>(&mut self) -> Result<ComponentId, EcsError> {
-        self.world.component_registry_mut().register_world_singleton::<T>()
+        self.world
+            .component_registry_mut()
+            .register_world_singleton::<T>()
     }
 
     /// Registers an execution phase into the runtime's phase registry.
@@ -136,7 +140,11 @@ impl EcsRuntime {
     }
 
     #[inline(always)]
-    pub fn insert<T: Component>(&mut self, entity: EntityId, component: T) -> Result<Option<T>, EcsError> {
+    pub fn insert<T: Component>(
+        &mut self,
+        entity: EntityId,
+        component: T,
+    ) -> Result<Option<T>, EcsError> {
         self.world.insert(entity, component)
     }
 

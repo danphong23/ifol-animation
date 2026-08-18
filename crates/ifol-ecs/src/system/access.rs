@@ -28,7 +28,9 @@ impl AccessDescriptor {
     pub fn validate(&self) -> Result<(), &'static str> {
         for write_id in &self.writes {
             if self.reads.contains(write_id) {
-                return Err("Component cannot be declared as both read and write in the same access descriptor");
+                return Err(
+                    "Component cannot be declared as both read and write in the same access descriptor",
+                );
             }
         }
         Ok(())

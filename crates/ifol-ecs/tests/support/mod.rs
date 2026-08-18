@@ -2,8 +2,8 @@
 
 use ifol_ecs::error::SystemError;
 use ifol_ecs::system::{AccessDescriptor, RunCondition, System, SystemContext};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Test entity components
 #[derive(Debug, PartialEq, Clone, Copy, Default)]
@@ -108,5 +108,10 @@ pub fn movement_system_reg() -> (
     AccessDescriptor,
     Vec<RunCondition>,
 ) {
-    ("MovementSystem", MovementSystem, AccessDescriptor::new(), vec![])
+    (
+        "MovementSystem",
+        MovementSystem,
+        AccessDescriptor::new(),
+        vec![],
+    )
 }

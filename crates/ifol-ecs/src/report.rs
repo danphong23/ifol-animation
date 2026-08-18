@@ -5,7 +5,7 @@ use crate::error::SystemError;
 pub struct SkippedSystem {
     /// Diagnostic name of the skipped system.
     pub system: String,
-    /// Reason why the system was skipped (e.g. "Missing required WorldRef<TestConfig>").
+    /// Reason why the system was skipped (e.g. "Missing required `WorldRef<TestConfig>`").
     pub reason: String,
 }
 

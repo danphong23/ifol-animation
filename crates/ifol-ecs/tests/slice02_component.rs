@@ -1,10 +1,8 @@
 mod support;
 
 use ifol_ecs::World;
-use std::fs;
-use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use support::{DropTracker, Position, Velocity};
 
 #[test]
@@ -54,7 +52,15 @@ fn slice02_component_storage_drop_and_revisions() {
     let mut bulk_entities = Vec::new();
     for i in 0..100 {
         let e = world.spawn();
-        world.insert(e, Position { x: i as f32, y: i as f32 }).unwrap();
+        world
+            .insert(
+                e,
+                Position {
+                    x: i as f32,
+                    y: i as f32,
+                },
+            )
+            .unwrap();
         bulk_entities.push(e);
     }
 
@@ -70,27 +76,11 @@ fn slice02_component_storage_drop_and_revisions() {
         } else {
             assert_eq!(
                 world.get::<Position>(e),
-                Some(&Position { x: i as f32, y: i as f32 })
+                Some(&Position {
+                    x: i as f32,
+                    y: i as f32
+                })
             );
         }
     }
-
-    let reports_dir = Path::new("tests/reports");
-    fs::create_dir_all(reports_dir).unwrap();
-    let report_content = r#"# Báo Cáo Chấp Nhận: Slice 02 - Component Storage, Drop & Revisions
-
-> **Tài liệu đối chiếu:** `docs/01_world_storage_and_query.md`, `docs/07_cache_and_revision.md`
-
----
-
-## 1. Kết Quả Kiểm Thử
-
-| Tiêu Chí Kiểm Tra | Kết Quả Thực Tế | Đánh Giá |
-| :--- | :---: | :---: |
-| **Phân tách `structural_version` vs Data Mutation** | Sửa giá trị không làm tăng structural version | **PASS** |
-| **Bảo đảm Drop Lifecycle (`DropTracker`)** | Drop được gọi chính xác 1 lần khi despawn | **PASS (Zero Leaks)** |
-| **Bảo toàn tính liên tục khi `swap_remove`** | 99 entity còn lại nguyên vẹn 100% | **PASS** |
-| **Change Tick trên từng thực thể** | Đánh dấu chính xác tick sửa đổi | **PASS** |
-"#;
-    fs::write(reports_dir.join("slice02_component_report.md"), report_content).unwrap();
 }

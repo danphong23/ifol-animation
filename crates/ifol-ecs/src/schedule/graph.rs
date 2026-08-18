@@ -21,7 +21,7 @@ impl PhaseGraph {
 
         for (id, node) in phases {
             in_degrees.entry(id.clone()).or_insert(0);
-            adj_list.entry(id.clone()).or_insert_with(Vec::new);
+            adj_list.entry(id.clone()).or_default();
 
             for after in &node.after {
                 if !phases.contains_key(after) {

@@ -91,7 +91,11 @@ impl World {
     ///
     /// Automatically registers the component type if not already present.
     /// Increments `structural_version` if the component was not already attached.
-    pub fn insert<T: Component>(&mut self, entity: EntityId, component: T) -> Result<Option<T>, EcsError> {
+    pub fn insert<T: Component>(
+        &mut self,
+        entity: EntityId,
+        component: T,
+    ) -> Result<Option<T>, EcsError> {
         self.entities.validate(entity)?;
 
         // Ensure component is registered in registry
@@ -155,20 +159,20 @@ impl World {
         if !self.entities.is_alive(entity) {
             return false;
         }
-        if let Some(storage) = self.storages.get(&TypeId::of::<T>()) {
-            if let Some(sparse_set) = storage.as_any().downcast_ref::<SparseSet<T>>() {
-                return sparse_set.contains(entity);
-            }
+        if let Some(storage) = self.storages.get(&TypeId::of::<T>())
+            && let Some(sparse_set) = storage.as_any().downcast_ref::<SparseSet<T>>()
+        {
+            return sparse_set.contains(entity);
         }
         false
     }
 
     /// Returns `true` if the root `WORLD_ENTITY` has a component matching the `ComponentId`.
     pub fn has_world_component_by_id(&self, id: ComponentId) -> bool {
-        if let Some(desc) = self.component_registry.descriptor(id) {
-            if let Some(storage) = self.storages.get(&desc.type_id) {
-                return storage.contains_entity(EntityId::WORLD);
-            }
+        if let Some(desc) = self.component_registry.descriptor(id)
+            && let Some(storage) = self.storages.get(&desc.type_id)
+        {
+            return storage.contains_entity(EntityId::WORLD);
         }
         false
     }

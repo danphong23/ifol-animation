@@ -1,10 +1,8 @@
 mod support;
 
+use ifol_ecs::EcsRuntime;
 use ifol_ecs::schedule::PhaseId;
 use ifol_ecs::system::AccessDescriptor;
-use ifol_ecs::EcsRuntime;
-use std::fs;
-use std::path::Path;
 
 // Mock Feature 1: Animation Package
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -116,24 +114,8 @@ fn slice10_feature_package_registration_and_extension() {
     assert_eq!(runtime.get::<Transform>(e), Some(&Transform { x: 50.0 }));
 
     // Verify Feature 2 marked render cache dirty
-    assert_eq!(runtime.get::<RenderCache>(e), Some(&RenderCache { is_dirty: true }));
-
-    let reports_dir = Path::new("tests/reports");
-    fs::create_dir_all(reports_dir).unwrap();
-    let report_content = r#"# Báo Cáo Chấp Nhận: Slice 10 - Feature Extension & Zero Core Mutation
-
-> **Tài liệu đối chiếu:** `docs/09_feature_registration_and_extension.md`
-
----
-
-## 1. Kết Quả Kiểm Thử
-
-| Tiêu Chí Kiểm Tra | Kết Quả Thực Tế | Đánh Giá |
-| :--- | :---: | :---: |
-| **Đăng ký Feature độc lập (`feature-animation`)** | Nạp Component & System qua Public API | **PASS** |
-| **Đăng ký Feature độc lập (`feature-render-core`)** | Nạp Component & Phase qua Public API | **PASS** |
-| **Phối hợp dữ liệu đa Feature trên 1 Entity** | System chạy tuần tự theo đúng Phase DAG | **PASS** |
-| **Không sửa đổi lõi ECS** | Core giữ nguyên tính Generic 100% | **PASS** |
-"#;
-    fs::write(reports_dir.join("slice10_extension_report.md"), report_content).unwrap();
+    assert_eq!(
+        runtime.get::<RenderCache>(e),
+        Some(&RenderCache { is_dirty: true })
+    );
 }

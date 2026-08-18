@@ -48,7 +48,10 @@ impl ComponentRegistry {
         self.register_internal::<T>(true)
     }
 
-    fn register_internal<T: Component>(&mut self, is_world_singleton: bool) -> Result<ComponentId, EcsError> {
+    fn register_internal<T: Component>(
+        &mut self,
+        is_world_singleton: bool,
+    ) -> Result<ComponentId, EcsError> {
         let type_id = TypeId::of::<T>();
         let type_name = std::any::type_name::<T>();
 

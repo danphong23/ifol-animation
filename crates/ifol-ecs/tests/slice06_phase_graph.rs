@@ -3,8 +3,6 @@ mod support;
 use ifol_ecs::error::EcsError;
 use ifol_ecs::registry::{PhaseId, PhaseRegistry};
 use ifol_ecs::schedule::PhaseGraph;
-use std::fs;
-use std::path::Path;
 
 #[test]
 fn slice06_phase_graph_topological_sort_and_cycle_detection() {
@@ -64,23 +62,4 @@ fn slice06_phase_graph_topological_sort_and_cycle_detection() {
         missing_edge,
         Err(EcsError::PhaseNotFound("PhaseB".to_string()))
     );
-
-    let reports_dir = Path::new("tests/reports");
-    fs::create_dir_all(reports_dir).unwrap();
-    let report_content = r#"# Báo Cáo Chấp Nhận: Slice 06 - Phase Graph DAG & Cycle Detection
-
-> **Tài liệu đối chiếu:** `docs/03_phase_scheduler_and_dag.md`, `docs/10_contracts_and_diagnostics.md`
-
----
-
-## 1. Kết Quả Kiểm Thử
-
-| Tiêu Chí Kiểm Tra | Kết Quả Thực Tế | Đánh Giá |
-| :--- | :---: | :---: |
-| **Sắp xếp Tô-pô 5 Phase (Kahn)** | Phân giải chuẩn xác thứ tự thực thi | **PASS** |
-| **Tính tiền định (Deterministic Tie-Break)** | Luôn cho cùng 1 thứ tự duy nhất | **PASS** |
-| **Phát hiện chu trình lặp (Cycle Detection)** | Báo lỗi `PhaseCycleDetected` | **PASS (Fail-Closed)** |
-| **Bắt lỗi thiếu Phase phụ thuộc** | Báo lỗi `PhaseNotFound` | **PASS** |
-"#;
-    fs::write(reports_dir.join("slice06_phase_graph_report.md"), report_content).unwrap();
 }

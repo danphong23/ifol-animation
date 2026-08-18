@@ -1,4 +1,5 @@
+#[path = "world.rs"]
+mod container;
 mod singleton;
-mod world;
 
-pub use world::World;
+pub use container::World;

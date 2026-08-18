@@ -67,10 +67,7 @@ pub enum EcsError {
     PhaseCycleDetected(String),
 
     #[error("phase '{phase}' depends on unknown phase '{dependency}'")]
-    MissingPhaseDependency {
-        phase: String,
-        dependency: String,
-    },
+    MissingPhaseDependency { phase: String, dependency: String },
 
     #[error("invalid access descriptor for system '{0}': {1}")]
     InvalidAccessDescriptor(String, &'static str),
@@ -79,10 +76,7 @@ pub enum EcsError {
     BorrowConflict(&'static str),
 
     #[error("system '{system}' failed during execution: {error}")]
-    SystemExecutionFailed {
-        system: String,
-        error: SystemError,
-    },
+    SystemExecutionFailed { system: String, error: SystemError },
 
     #[error("runtime has not been compiled or plan is stale (graph revision changed)")]
     ScheduleNotCompiled,
