@@ -353,3 +353,21 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Albedo bên trái và emissive mask bên phải đều có dữ liệu, sau đó composite side-by-side.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `99bc2711d6947215`; vision đạt và raw byte parity tuyệt đối `0 byte` khác.
 - **Báo cáo:** [`tc58_mrt_gbuffer_report.md`](reports/tc58_mrt_gbuffer_report.md)
+
+### TC59 - Sampler Address Modes
+- **Mục tiêu:** Kiểm thử Repeat, MirrorRepeat và ClampToEdge với UV vượt ngoài [0,1].
+- **Kỳ vọng hình ảnh xuất ra:** Ba panel cùng texture lần lượt lặp, phản chiếu và kéo dài mép.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `41c657787fe74841`; vision và cấu trúc đạt; raw khác 24752 byte ở 16675 pixel, sai số tối đa `3/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc59_sampler_modes_report.md`](reports/tc59_sampler_modes_report.md)
+
+### TC60 - Ping-Pong Feedback
+- **Mục tiêu:** Kiểm thử 8 chu kỳ ping-pong tạo echo trail từ wizard canonical.
+- **Kỳ vọng hình ảnh xuất ra:** Wizard có các bóng mờ đồng tâm, opacity giảm dần và không phụ thuộc trạng thái target cũ.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `861e27bfb471246e`; vision và cấu trúc đạt; raw khác 6165 byte ở 4032 pixel, sai số tối đa `5/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc60_ping_pong_report.md`](reports/tc60_ping_pong_report.md)
+
+### TC61 - Compute Storage Buffer Arithmetic
+- **Mục tiêu:** Tính 10.240 vec4 bằng compute, đối chiếu CPU rồi render plot A/B/C.
+- **Kỳ vọng hình ảnh xuất ra:** Grid có đường A vàng, B cam và C cyan; numeric readback khớp dưới `1e-4`.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `91a37c1c43c4f64c`; vision/validation đạt; raw khác 52 byte ở 49 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`. Desktop khớp CPU 10.240/10.240, max diff `0.00005054`.
+- **Báo cáo:** [`tc61_compute_buffer_math_report.md`](reports/tc61_compute_buffer_math_report.md)

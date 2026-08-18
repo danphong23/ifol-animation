@@ -384,6 +384,17 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   mới để cô lập test; `ifol-gpu` không tuyên bố có thể xóa cache driver/browser/GPU
   portable. Vì vậy cold/warm chỉ là timing của execute sau khi device/pipeline
   đã tạo, không phải cold start tuyệt đối;
+- TC59–TC61 đã được chuyển sang manifest canonical và runner Desktop/Web chung.
+  Fingerprint lần lượt là `41c657787fe74841`, `861e27bfb471246e` và
+  `91a37c1c43c4f64c`; cả 3 pass validation/vision/cold-warm. Raw parity lần
+  lượt khác 24752 byte, 6165 byte và 52 byte; các report ghi rõ pixel diff và
+  phân loại `ĐẠT CÓ ĐIỀU KIỆN`. TC61 còn kiểm chứng 10240/10240 vec4 trên
+  Desktop với max diff `0.00005054`; TC60 đã reset target pong ở đầu chu kỳ
+  để hai lần chạy không phụ thuộc resource state cũ;
+- Không còn runner hợp lệ nào tham chiếu graph legacy của TC59–TC60; các file
+  `tests/graphs/tc59_sampler_modes.json` và `tc60_ping_pong.json` đã được loại
+  bỏ. TC61 trước đây không có graph JSON canonical và hiện lấy manifest làm
+  graph contract duy nhất;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

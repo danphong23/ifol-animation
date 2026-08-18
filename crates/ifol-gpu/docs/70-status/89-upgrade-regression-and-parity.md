@@ -228,6 +228,18 @@ trong các report không được diễn giải thành cold start tuyệt đối
   kích thước pixel thật; đã sửa và chạy lại cả hai môi trường trước khi
   phân loại kết quả.
 
+- [TC59](../../tests/reports/tc59_sampler_modes_report.md) đến
+  [TC61](../../tests/reports/tc61_compute_buffer_math_report.md): 3 TC đã
+  chuyển khỏi graph JSON tự ghi sang manifest canonical và runner Desktop/Web
+  chung. Cả 3 pass validation, vision và cold/warm; fingerprint manifest lần
+  lượt là `41c657787fe74841`, `861e27bfb471246e` và `91a37c1c43c4f64c`.
+  TC59 khác 24752 byte/16675 pixel, max delta `3/255`; TC60 khác 6165
+  byte/4032 pixel, max delta `5/255`; TC61 khác 52 byte/49 pixel, max delta
+  `1/255`. TC59–TC61 là `ĐẠT CÓ ĐIỀU KIỆN` ở raw parity; TC61 vẫn đạt kiểm
+  chứng số học Desktop `10240/10240`, max diff `0.00005054 < 1e-4`, còn Web
+  pass compute dispatch và validation không lỗi. TC60 đã bổ sung clear đầu
+  chu kỳ đầu để warm run không phụ thuộc dữ liệu còn trong target pong.
+
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo

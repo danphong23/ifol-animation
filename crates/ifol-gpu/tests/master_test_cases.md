@@ -260,3 +260,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Phạm vi:** Dynamic target resizing 400x600→800x600, stencil portal với depth-stencil attachment và hai color attachment MRT albedo/emissive.
 - **Kết quả:** 3/3 pass Desktop/Web validation, cold/warm output ổn định, fingerprint trùng và vision đạt. TC56 khác 5200 byte/1979 pixel với max delta `37/255`; TC57 khác 836 byte/296 pixel với max delta `139/255`; TC58 đạt raw byte parity tuyệt đối. TC56–TC57 là `ĐẠT CÓ ĐIỀU KIỆN`, TC58 là `ĐẠT`.
 - **Báo cáo:** [`tc56_dynamic_resize_report.md`](reports/tc56_dynamic_resize_report.md), [`tc57_stencil_mask_report.md`](reports/tc57_stencil_mask_report.md), [`tc58_mrt_gbuffer_report.md`](reports/tc58_mrt_gbuffer_report.md)
+
+### TC59–TC61 - Sampler, feedback và compute parity
+- **Phạm vi:** Ba sampler address mode, vòng feedback ping-pong 8 chu kỳ và compute storage buffer 10.240 vec4 kèm plot.
+- **Kết quả:** 3/3 pass Desktop/Web validation, cold/warm output ổn định, fingerprint trùng và vision đạt. TC59 khác 24752 byte/16675 pixel max `3/255`; TC60 khác 6165 byte/4032 pixel max `5/255`; TC61 khác 52 byte/49 pixel max `1/255`. Cả ba `ĐẠT CÓ ĐIỀU KIỆN`; TC61 numeric Desktop khớp 10.240/10.240, max diff `0.00005054`.
+- **Báo cáo:** [`tc59_sampler_modes_report.md`](reports/tc59_sampler_modes_report.md), [`tc60_ping_pong_report.md`](reports/tc60_ping_pong_report.md), [`tc61_compute_buffer_math_report.md`](reports/tc61_compute_buffer_math_report.md)

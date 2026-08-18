@@ -1,55 +1,96 @@
-# Báo Cáo Kiểm Thử: TC61 - Compute Storage Buffer Arithmetic & Parallel Execution
+# Báo cáo: TC61 - Tính toán storage buffer bằng compute
 
-## 1. Ý Nghĩa Bài Toán & Ứng Dụng Thực Tế (What & Why)
-Trong xử lý đồ họa chuyển động (Motion Graphics), khi điều khiển **10,000+ hạt (particles), vector vertices hoặc 10,000 layers** chuyển động theo sóng gió uốn lượn:
-- **Nếu dùng CPU:** Phải chạy vòng lặp tuần tự `for i in 0..10240` tính toán các hàm lượng giác $\sin, \cos$ gây nghẽn CPU và tụt khung hình (Drop FPS).
-- **Giải pháp GPU Compute:** Đẩy mảng dữ liệu vị trí thô lên VRAM, phân phối cho **10,240 luồng GPU** tính toán song song đồng thời trong tích tắc ($\approx 0.5\text{ms}$).
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
----
+## 1. Mô tả và graph dùng chung
 
-## 2. Diễn Giải Trực Quan Đồ Thị Dữ Liệu (Visual Data Breakdown)
+- **Manifest:** `../shared_assets/manifests/tc61_compute_buffer_math.json`
+- **Graph fingerprint (FNV-1a):** `91a37c1c43c4f64c`
+- **Mô tả test case:** Tính song song 10.240 vec4 bằng compute, đối chiếu công thức CPU rồi render đồ thị A, B và C.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `compute_buffer_math.wgsl`, `compute_plot.wgsl`
+- **Asset/input:** KHÔNG KHAI BÁO
+- **Chính sách input:** Desktop và WebGPU tự tạo cùng mảng f32 xác định trong test; không dùng decoder texture cho phần số học.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** compute_pass (Storage buffer arithmetic, target buffer_c) → plot_pass (A/B/C plot, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `compute_math → compute_plot`
+- **Sampler contract:** `Không khai báo`
+- **Thứ tự layer kỳ vọng:** `compute_pass → plot_pass`
+- **Graph resources:** nodes=`2`, draw commands=`2`, tổng instances=`1`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-Bức ảnh bên dưới trực quan hóa quá trình chuyển đổi từ **Dữ Liệu Thô Ban Đầu (Inputs)** thành **Dữ Liệu Đã Tính Toán (Output)** trên cùng một không gian tọa độ:
+## 2. Môi trường Desktop
 
-![TC61 Compute Plot](../outputs/desktop/tc61_compute_buffer_math.png)
+- **Thời gian render lần đầu (cold):** `2.7937 ms`
+- **Thời gian render lần hai (warm/cache):** `0.6827 ms (682.7 µs)`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `75.6%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `compute dispatch + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `../outputs/desktop/tc61_compute_buffer_math_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `35eb963c444f2721`
+- **SHA-256:** `cfef64d43e15e1893b09f492dfbfbb7f30ea381aac2c28af1e16ab1b2124d80b`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc61_compute_buffer_math.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị đúng đồ thị grid với Input A màu vàng, Input B màu cam và Output C màu cyan; numeric readback khớp CPU 10.240/10.240 phần tử, sai số cực đại 0,00005054.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=1
 
-### 📐 Cấu Trúc Hệ Trục Tọa Độ:
-- **Trục Hoành ($X$ - Chiều Ngang):** Đại diện cho **Chỉ số phần tử mảng (Element Index $i$ từ $0 \rightarrow 10,240$)** tương ứng với tiến trình thời gian / phân bổ không gian của từng hạt.
-- **Trục Tung ($Y$ - Chiều Dọc):** Đại diện cho **Biên độ giá trị (Amplitude / Tọa độ vị trí hạt)**.
-- **Đường Trục Trung Tâm (Center Axis $Y=0$):** Vạch ngang màu xanh nhạt phân tách giữa giá trị âm và dương.
-- **Dải Nhãn Tiêu Đề (Top Header Legend):** 3 hộp màu ở góc trên tương ứng với 3 tín hiệu bên dưới.
 
-### 🎨 Bảng Chú Giải Tín Hiệu & Màu Sắc:
-| Ký hiệu / Màu sắc | Tên luồng dữ liệu | Công thức toán học | Vai trò trong Motion Graphics |
-| :--- | :--- | :--- | :--- |
-| **🟡 Nét Đứt Vàng** (Hộp 1) | `Input Buffer A` | $A[i] = i \times 0.0005$ | **Quỹ đạo tịnh tiến gốc:** Vị trí cơ sở ban đầu của hạt di chuyển tịnh tiến theo thời gian. |
-| **🟠 Nét Liền Cam-Đỏ** (Hộp 2) | `Input Buffer B` | $B[i] = \sin(i \times 0.01) \times 1.5$ | **Lực gió nhiễu loạn:** Sóng dao động tuần hoàn tần số cao mô phỏng rung lắc môi trường. |
-| **🔵 Neon Cyan Phát Sáng** (Hộp 3) | `Output Buffer C` | $C[i] = A[i] \times 2.0 + \sin(B[i]) \times 1.5 + \cos(\text{phase})$ | **Quỹ đạo tổng hợp GPU:** Kết quả sau khi GPU hòa trộn 2 lực trên thành đường bay lượn mượt mà. |
 
----
+## 3. Môi trường WebGPU
 
-## 3. Thông Số Kỹ Thuật & Hiệu Năng Thực Thi (Desktop - Tauri/wgpu)
-- **Thời gian Thực thi Compute (Cold Start - Lần đầu):** 3.90ms
-- **Thời gian Thực thi Compute (Warm/Cached - Các lần sau):** 951.20µs (Tốc độ đạt **~0.5ms cho 10,240 luồng**)
-- **Thông số điều phối Compute (GPU Dispatch Metrics):**
-  - **Kích thước mảng:** 10,240 vector 4 chiều (40,960 số thực f32).
-  - **Cấu hình Thread Group:** 64 luồng / workgroup.
-  - **Số lượng Workgroups dispatch:** 160 workgroups `[160, 1, 1]`.
-  - **Tổng số luồng GPU thực thi song song:** 10,240 invocations.
+- **Thời gian render lần đầu (cold):** `162.6000 ms`
+- **Thời gian render lần hai (warm/cache):** `3.5000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `97.8%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 compute dispatch + 1 plot pass + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `../outputs/web/tc61_compute_buffer_math_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `8b5eb0599fd03b9b`
+- **SHA-256:** `fc8db5f6fbadc7dffcb26775e497ccfc42bdb6c153dded0426465e3a20917713`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc61_compute_buffer_math_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng đồ thị và ba đường dữ liệu; compute dispatch hoàn tất không validation error, hình học/đường cong trùng về cấu trúc, sai khác chỉ 1 mức kênh ở 49 pixel.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=1
 
----
 
-## 4. Xác Thực Số Học Chuẩn Xác (Numeric Verification)
-- **Phương pháp đối chiếu:** Đọc ngược (Async Readback) toàn bộ mảng Storage Buffer C từ VRAM về CPU để so sánh từng con số thực.
-- **Số phần tử so khớp với CPU:** 10240 / 10240 phần tử.
-- **Tỷ lệ chính xác:** 100.0%
-- **Sai số tuyệt đối cực đại (Max Error):** 0.00005054 (Đạt chuẩn dung sai số thực GPU $\epsilon < 10^{-4}$).
-- **Trạng thái:** **PASSED (Xác thực số học & trực quan thành công 100%)**
 
----
+## 4. So sánh và kết luận
 
-## 5. Môi trường Web (WASM/WebGPU)
-*(Sẽ cập nhật khi chạy trên môi trường Web)*
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `52` |
+| Số pixel khác nhau | `49` |
+| Sai số kênh màu lớn nhất | `1/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
 
-## 6. Đánh giá Tổng quan (Cross-Platform Consistency)
-- Độ hoàn thiện: Đạt chuẩn 100% so với thiết kế.
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
+
+## 5. Phân tích hiệu suất
+
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

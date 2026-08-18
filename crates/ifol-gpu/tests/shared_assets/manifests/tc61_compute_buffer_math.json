@@ -1,0 +1,27 @@
+{
+  "test_case": "TC61",
+  "title": "Compute Storage Buffer Arithmetic",
+  "title_vi": "Tính toán storage buffer bằng compute",
+  "description": "Compute 10,240 vec4 values in parallel, validate against the CPU formula, then render a plot of A, B and C.",
+  "description_vi": "Tính song song 10.240 vec4 bằng compute, đối chiếu công thức CPU rồi render đồ thị A, B và C.",
+  "input_policy_vi": "Desktop và WebGPU tự tạo cùng mảng f32 xác định trong test; không dùng decoder texture cho phần số học.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "compute": { "shader": "compute_buffer_math.wgsl", "stage": "compute", "layout": "storage_a_b_c" },
+      "plot": { "shader": "compute_plot.wgsl", "stage": "render", "layout": "storage_a_b_c" }
+    },
+    "operations": [
+      { "id": "compute_math", "kind": "compute_dispatch", "pass": "compute_pass", "pipeline": "compute", "shader": "compute_buffer_math.wgsl", "dispatch": [160, 1, 1], "element_count": 10240 },
+      { "id": "compute_plot", "kind": "plot", "pass": "plot_pass", "pipeline": "plot", "shader": "compute_plot.wgsl", "vertex_count": 6, "instance_count": 1 }
+    ],
+    "passes": [
+      { "id": "compute_pass", "name": "Storage buffer arithmetic", "target": "buffer_c", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "plot_pass", "name": "A/B/C plot", "target": "final", "clear_color": [0.02, 0.03, 0.05, 1.0] }
+    ],
+    "command_count": 2,
+    "node_count": 2,
+    "compute": { "element_count": 10240, "workgroup_size": 64, "workgroups": 160 }
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["compute_pass", "plot_pass"], "expected_instance_count": 1, "visual_check": "Đồ thị có grid, đường Input A vàng, Input B cam và Output C cyan; numeric readback khớp CPU dưới 1e-4." }
+}
