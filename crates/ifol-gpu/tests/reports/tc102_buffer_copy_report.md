@@ -43,6 +43,10 @@ flowchart LR
 
 ![TC102 Buffer Copy Output](../outputs/desktop/tc102_buffer_copy.png)
 
+### WebGPU canonical
+
+![TC102 Buffer Copy WebGPU Output](../outputs/web/tc102_buffer_copy.png)
+
 ---
 
 ## 4. ⚠️ ĐÁNH GIÁ ẢNH RENDER (AI's Self-Analysis)

@@ -44,6 +44,10 @@ flowchart TD
 
 ![TC101 Texture Copy Output](../outputs/desktop/tc101_texture_copy.png)
 
+### WebGPU canonical
+
+![TC101 Texture Copy WebGPU Output](../outputs/web/tc101_texture_copy.png)
+
 ---
 
 ## 4. ⚠️ ĐÁNH GIÁ ẢNH RENDER (AI's Self-Analysis)

@@ -40,6 +40,10 @@ flowchart LR
 
 ![TC104 Extension Dispatch Output](../outputs/desktop/tc104_extension_dispatch.png)
 
+### WebGPU canonical
+
+![TC104 Extension Dispatch WebGPU Output](../outputs/web/tc104_extension_dispatch.png)
+
 ---
 
 ## 4. ⚠️ ĐÁNH GIÁ ẢNH RENDER (AI's Self-Analysis)

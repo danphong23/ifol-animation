@@ -45,6 +45,10 @@ flowchart TD
 
 ![TC105 Motion Echo Output](../outputs/desktop/tc105_pingpong_echo.png)
 
+### WebGPU canonical
+
+![TC105 Motion Echo WebGPU Output](../outputs/web/tc105_pingpong_echo.png)
+
 ---
 
 ## 4. ⚠️ ĐÁNH GIÁ ẢNH RENDER (AI's Self-Analysis)

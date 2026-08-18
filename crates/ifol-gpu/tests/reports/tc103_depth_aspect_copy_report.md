@@ -47,6 +47,10 @@ flowchart LR
 
 ![TC103 Depth Aspect Copy Output](../outputs/desktop/tc103_depth_aspect_copy.png)
 
+### WebGPU canonical
+
+![TC103 Depth Aspect Copy WebGPU Output](../outputs/web/tc103_depth_aspect_copy.png)
+
 ---
 
 ## 4. ⚠️ ĐÁNH GIÁ ẢNH RENDER (AI's Self-Analysis)
