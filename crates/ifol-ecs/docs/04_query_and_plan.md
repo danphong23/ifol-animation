@@ -22,12 +22,17 @@ Ví dụ contract:
 ~~~text
 Query<&A>
 Query<(&A, &B)>
-Query<(&mut A, &B)>
+QueryMut<(&mut A, &B)>
 Query<(&A, Option<&B>)>
 Query<(&A, With<B>, Without<C>)>
 WorldRef<T>
 Option<WorldRef<T>>
 ~~~
+
+`Query<Q>` chỉ đọc. `QueryMut<Q>` nhận `&mut World`, kiểm tra aliasing của toàn
+bộ signature trước khi tạo iterator và phát ra mutable reference có change tick.
+Trong `SystemContext`, cả access contract của system và aliasing của query đều
+phải hợp lệ; nếu không, API trả `SystemError`.
 
 Modifier-only queries such as `Option<&T>`, `Without<T>` and `()` iterate the
 alive entity set because they do not have a required storage driver. A tuple

@@ -1,6 +1,6 @@
 use crate::entity::EntityId;
 use crate::error::SystemError;
-use crate::query::{Query, QueryAccess, WorldQuery};
+use crate::query::{Query, QueryAccess, QueryMut, WorldQuery, WorldQueryMut};
 use crate::registry::{ComponentId, SystemId};
 use crate::storage::Component;
 use crate::system::AccessDescriptor;
@@ -81,6 +81,15 @@ impl<'a> SystemContext<'a> {
     pub fn query<Q: WorldQuery>(&self) -> Result<Query<'_, Q>, SystemError> {
         self.check_query_access(Q::access())?;
         Ok(self.world.query::<Q>())
+    }
+
+    /// Creates a mutable query after validating both aliasing and system access.
+    #[inline]
+    pub fn query_mut<Q: WorldQueryMut>(&mut self) -> Result<QueryMut<'_, Q>, SystemError> {
+        let access = Q::access();
+        access.validate_mutable().map_err(SystemError::new)?;
+        self.check_query_access(access)?;
+        self.world.query_mut::<Q>()
     }
 
     /// Retrieves an immutable reference to a component on the given entity.

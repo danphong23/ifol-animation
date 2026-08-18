@@ -3,6 +3,7 @@ use crate::query::filter::{With, Without};
 use crate::storage::Component;
 use crate::world::World;
 use std::any::TypeId;
+use std::collections::HashSet;
 
 /// Type-level access requirements emitted by a query signature.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -19,10 +20,20 @@ impl QueryAccess {
         }
     }
 
-    fn merge(mut self, other: Self) -> Self {
+    pub(crate) fn merge(mut self, other: Self) -> Self {
         self.reads.extend(other.reads);
         self.writes.extend(other.writes);
         self
+    }
+
+    pub(crate) fn validate_mutable(&self) -> Result<(), &'static str> {
+        let mut writes = HashSet::new();
+        for type_id in &self.writes {
+            if !writes.insert(*type_id) || self.reads.contains(type_id) {
+                return Err("mutable query contains aliased component access");
+            }
+        }
+        Ok(())
     }
 }
 

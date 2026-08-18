@@ -27,7 +27,10 @@ pub mod world;
 // Public re-exports
 pub use entity::{EntityId, EntityManager};
 pub use error::{EcsError, SystemError};
-pub use query::{Query, QueryPlanCache, QueryPlanKey, With, Without, WorldQuery};
+pub use query::{
+    Query, QueryAccess, QueryMut, QueryMutEntityIter, QueryMutIter, QueryPlanCache, QueryPlanKey,
+    With, Without, WorldQuery, WorldQueryMut,
+};
 pub use registry::{
     ComponentDescriptor, ComponentId, ComponentRegistry, PhaseId, PhaseNode, PhaseRegistry,
     SystemId, SystemRegistration, SystemRegistry,

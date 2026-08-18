@@ -1,6 +1,6 @@
 use crate::entity::EntityId;
 use crate::error::{EcsError, SystemError};
-use crate::query::{Query, QueryPlanCache, WorldQuery};
+use crate::query::{Query, QueryMut, QueryPlanCache, WorldQuery, WorldQueryMut};
 use crate::registry::{ComponentId, PhaseId, PhaseRegistry, SystemId, SystemRegistry};
 use crate::report::RunReport;
 use crate::schedule::CompiledSchedule;
@@ -196,6 +196,12 @@ impl EcsRuntime {
     #[inline(always)]
     pub fn query<Q: WorldQuery>(&self) -> Query<'_, Q> {
         self.world.query::<Q>()
+    }
+
+    /// Creates a mutable query over the runtime world after validating aliasing.
+    #[inline]
+    pub fn query_mut<Q: WorldQueryMut>(&mut self) -> Result<QueryMut<'_, Q>, SystemError> {
+        self.world.query_mut::<Q>()
     }
 
     /// Reconfigures registrations and invalidates current compiled schedule.

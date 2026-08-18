@@ -1,6 +1,6 @@
 use crate::entity::{EntityId, EntityManager};
-use crate::error::EcsError;
-use crate::query::{Query, WorldQuery};
+use crate::error::{EcsError, SystemError};
+use crate::query::{Query, QueryMut, WorldQuery, WorldQueryMut};
 use crate::registry::{ComponentId, ComponentRegistry};
 use crate::storage::{AnyStorage, Component, SparseSet};
 use std::any::TypeId;
@@ -203,6 +203,12 @@ impl World {
     #[inline]
     pub fn query<Q: WorldQuery>(&self) -> Query<'_, Q> {
         Query::new(self)
+    }
+
+    /// Creates a mutable query after validating that its signature has no aliasing.
+    pub fn query_mut<Q: WorldQueryMut>(&mut self) -> Result<QueryMut<'_, Q>, SystemError> {
+        Q::access().validate_mutable().map_err(SystemError::new)?;
+        Ok(QueryMut::new(self))
     }
 
     /// Clears all entities and component storages while preserving `WORLD_ENTITY`.
