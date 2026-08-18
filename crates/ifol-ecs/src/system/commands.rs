@@ -5,13 +5,19 @@ use crate::storage::Component;
 use crate::system::AccessDescriptor;
 use crate::world::World;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_COMMANDS_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Opaque handle for an entity spawned by a deferred command buffer.
 ///
 /// The ticket resolves only when its command buffer is applied. It may be used
 /// by later commands in the same buffer, which preserves declaration order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SpawnTicket(u64);
+pub struct SpawnTicket {
+    owner: u64,
+    index: u64,
+}
 
 /// Entity target accepted by deferred structural commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,21 +48,28 @@ enum CommandAction {
 }
 
 /// Buffer for deferred structural mutations applied at safe points.
-#[derive(Default)]
 pub struct Commands {
     actions: Vec<CommandAction>,
+    owner: u64,
     next_ticket: u64,
 }
 
 impl Commands {
     /// Creates a new empty `Commands` buffer.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            actions: Vec::new(),
+            owner: NEXT_COMMANDS_ID.fetch_add(1, Ordering::Relaxed),
+            next_ticket: 0,
+        }
     }
 
     /// Queues a new entity spawn and returns a ticket for same-buffer commands.
     pub fn spawn(&mut self) -> SpawnTicket {
-        let ticket = SpawnTicket(self.next_ticket);
+        let ticket = SpawnTicket {
+            owner: self.owner,
+            index: self.next_ticket,
+        };
         self.next_ticket = self.next_ticket.wrapping_add(1);
         self.actions.push(CommandAction::Spawn(ticket));
         ticket
@@ -98,7 +111,7 @@ impl Commands {
             CommandEntity::Spawned(ticket) => spawned
                 .get(&ticket)
                 .copied()
-                .ok_or(EcsError::UnresolvedCommandTarget(ticket.0)),
+                .ok_or(EcsError::UnresolvedCommandTarget(ticket.index)),
         }
     }
 
@@ -150,6 +163,12 @@ impl Commands {
     }
 }
 
+impl Default for Commands {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Access-checked command facade exposed to a running system.
 pub struct SystemCommands<'a> {
     commands: &'a mut Commands,
@@ -176,10 +195,14 @@ impl<'a> SystemCommands<'a> {
         self.commands.spawn()
     }
 
-    /// Queues a despawn. Entity lifecycle operations are structural access.
+    /// Queues a despawn after checking the structural access contract.
     #[inline]
-    pub fn despawn(&mut self, target: impl Into<CommandEntity>) {
+    pub fn despawn(&mut self, target: impl Into<CommandEntity>) -> Result<(), SystemError> {
+        if !self.access.allows_structural() {
+            return Err(SystemError::structural_access_denied());
+        }
         self.commands.despawn(target);
+        Ok(())
     }
 
     fn check_write<T: Component>(&self) -> Result<(), SystemError> {

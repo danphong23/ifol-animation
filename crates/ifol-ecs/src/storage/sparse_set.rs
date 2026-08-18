@@ -30,16 +30,6 @@ impl<T: Component> SparseSet<T> {
         }
     }
 
-    /// Creates a new `SparseSet` with pre-allocated capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            sparse: Vec::with_capacity(capacity),
-            dense_entities: Vec::with_capacity(capacity),
-            dense_data: Vec::with_capacity(capacity),
-            dense_ticks: Vec::with_capacity(capacity),
-        }
-    }
-
     /// Inserts or replaces a component for the given entity at the specified tick.
     ///
     /// Returns the previous component value if one existed.
@@ -167,64 +157,10 @@ impl<T: Component> SparseSet<T> {
         false
     }
 
-    /// Returns the dense array index of the entity if it is present.
-    #[inline]
-    pub fn dense_index(&self, entity: EntityId) -> Option<usize> {
-        let entity_idx = entity.index() as usize;
-        if entity_idx < self.sparse.len() {
-            let dense_slot = self.sparse[entity_idx];
-            if dense_slot > 0 {
-                let dense_idx = dense_slot - 1;
-                if self.dense_entities[dense_idx] == entity {
-                    return Some(dense_idx);
-                }
-            }
-        }
-        None
-    }
-
-    /// Returns the total number of components stored in this set.
-    #[inline(always)]
-    pub fn len(&self) -> usize {
-        self.dense_entities.len()
-    }
-
-    /// Returns `true` if this set is empty.
-    #[inline(always)]
-    pub fn is_empty(&self) -> bool {
-        self.dense_entities.is_empty()
-    }
-
     /// Returns a slice of all entity IDs currently stored in dense contiguous order.
     #[inline(always)]
     pub fn dense_entities(&self) -> &[EntityId] {
         &self.dense_entities
-    }
-
-    /// Returns a slice of all component data currently stored in dense contiguous order.
-    #[inline(always)]
-    pub fn dense_data(&self) -> &[T] {
-        &self.dense_data
-    }
-
-    /// Returns a mutable slice of all component data.
-    #[inline(always)]
-    pub fn dense_data_mut(&mut self) -> &mut [T] {
-        &mut self.dense_data
-    }
-
-    /// Returns a slice of all last-modified tick timestamps.
-    #[inline(always)]
-    pub fn dense_ticks(&self) -> &[u64] {
-        &self.dense_ticks
-    }
-
-    /// Clears all entries from this set.
-    pub fn clear(&mut self) {
-        self.sparse.clear();
-        self.dense_entities.clear();
-        self.dense_data.clear();
-        self.dense_ticks.clear();
     }
 }
 
@@ -255,7 +191,7 @@ mod tests {
         assert_eq!(set.insert(e2, Pos { x: 50, y: 60 }, 1), None);
         assert_eq!(set.insert(e3, Pos { x: 100, y: 200 }, 1), None);
 
-        assert_eq!(set.len(), 3);
+        assert_eq!(set.dense_entities().len(), 3);
         assert_eq!(set.get(e1), Some(&Pos { x: 10, y: 20 }));
         assert_eq!(set.get(e2), Some(&Pos { x: 50, y: 60 }));
         assert_eq!(set.get(e3), Some(&Pos { x: 100, y: 200 }));
@@ -270,7 +206,7 @@ mod tests {
 
         // Remove middle element e2
         assert_eq!(set.remove(e2), Some(Pos { x: 51, y: 60 }));
-        assert_eq!(set.len(), 2);
+        assert_eq!(set.dense_entities().len(), 2);
         assert_eq!(set.get(e2), None);
         assert!(!set.contains(e2));
 

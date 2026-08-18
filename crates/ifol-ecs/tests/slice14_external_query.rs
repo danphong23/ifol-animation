@@ -19,8 +19,8 @@ impl WorldQuery for PositionPresence {
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
-            .storage::<Position>()
-            .map(|storage| storage.dense_entities().to_vec())
+            .component_entities::<Position>()
+            .map(|entities| entities.to_vec())
             .unwrap_or_default()
     }
 

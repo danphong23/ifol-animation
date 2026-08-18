@@ -50,7 +50,7 @@ impl RunCondition {
             }
             Self::Any(conditions) => {
                 if conditions.is_empty() {
-                    return Ok(());
+                    return Err("No conditions supplied".to_string());
                 }
                 let mut last_err = String::new();
                 for cond in conditions {

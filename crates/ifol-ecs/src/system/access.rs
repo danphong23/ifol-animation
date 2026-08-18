@@ -6,6 +6,7 @@ use std::collections::HashSet;
 pub struct AccessDescriptor {
     pub reads: HashSet<ComponentId>,
     pub writes: HashSet<ComponentId>,
+    structural: bool,
 }
 
 impl AccessDescriptor {
@@ -22,6 +23,17 @@ impl AccessDescriptor {
     /// Adds a write dependency on the given component.
     pub fn add_write(&mut self, id: ComponentId) {
         self.writes.insert(id);
+    }
+
+    /// Grants permission for entity lifecycle and other structural commands.
+    pub fn add_structural(&mut self) {
+        self.structural = true;
+    }
+
+    /// Returns whether the system may issue structural commands.
+    #[inline]
+    pub(crate) fn allows_structural(&self) -> bool {
+        self.structural
     }
 
     #[inline]

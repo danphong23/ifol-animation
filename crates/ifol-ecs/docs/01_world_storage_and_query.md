@@ -53,7 +53,7 @@ Mỗi component type có một storage riêng về implementation. SparseSet là
 hiện tại, nhưng không phải domain contract:
 
 ~~~text
-ComponentId<T>
+ComponentId
     ├── sparse index: EntityId.index → dense slot
     ├── dense entities
     ├── dense component data
@@ -88,7 +88,7 @@ thuộc Engine/Feature/Schema; ECS chỉ lưu runtime data.
 flowchart LR
     Structural["spawn/despawn/add/remove"] --> SV["structural_version"]
     Data["mutable component write"] --> CV["component change revision"]
-    SV --> QueryPlan["invalidate query/activation plan"]
+    SV --> QueryPlan["invalidate query plan"]
     CV --> Consumers["change-aware systems/cache"]
 ~~~
 

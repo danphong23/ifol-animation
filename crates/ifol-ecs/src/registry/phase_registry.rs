@@ -26,15 +26,22 @@ impl fmt::Display for PhaseId {
 
 /// Opaque sequential identifier assigned to a registered system.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct SystemId(u32);
+pub struct SystemId {
+    registry: u64,
+    index: u32,
+}
 
 impl SystemId {
-    pub(crate) const fn new(index: u32) -> Self {
-        Self(index)
+    pub(crate) const fn new(registry: u64, index: u32) -> Self {
+        Self { registry, index }
     }
 
     pub(crate) const fn index(self) -> usize {
-        self.0 as usize
+        self.index as usize
+    }
+
+    pub(crate) const fn registry(self) -> u64 {
+        self.registry
     }
 }
 

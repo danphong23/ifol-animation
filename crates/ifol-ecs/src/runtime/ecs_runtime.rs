@@ -93,6 +93,8 @@ impl EcsRuntime {
 
     /// Validates all registrations, detects cycles, and compiles the phase DAG into an owned schedule.
     pub fn compile(&mut self) -> Result<(), EcsError> {
+        // Never retain an old executable plan after a failed rebuild.
+        self.compiled_schedule = None;
         self.system_registry
             .validate_components(self.world.component_registry())?;
         let schedule = CompiledSchedule::compile(&self.phase_registry, &self.system_registry)?;

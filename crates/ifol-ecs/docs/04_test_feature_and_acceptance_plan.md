@@ -56,7 +56,6 @@ System mẫu:
 - `WORLD_ENTITY` xuất hiện trong query thường khi khớp;
 - optional term không lọc entity;
 - query 0 match không lỗi;
-- `WORLD_ENTITY` xuất hiện trong query thường khi khớp;
 - mutable query và alias rejection;
 - alias mutable bất hợp lệ bị từ chối;
 - structural mutation qua deferred commands chỉ có hiệu lực ở safe point.
@@ -78,7 +77,7 @@ System mẫu:
 - insert singleton làm system active, remove làm skip lại;
 - optional singleton vắng vẫn chạy;
 - query rỗng mặc định vẫn chạy; `WorldHas` thiếu thì skip;
-- system error và deferred command outcome xuất hiện trong `RunReport`.
+- system error và số lượng deferred command đã xử lý xuất hiện trong `RunReport`.
 
 ### Cache và lifecycle
 

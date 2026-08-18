@@ -47,7 +47,7 @@ và entity thường; query trả tất cả entity khớp.
 | `RunCondition::WorldHas(A)` | Skip system, ghi reason | Singleton bắt buộc |
 | `ctx.world_ref::<A>()?` | System tự xử lý `None` | Singleton tùy chọn |
 | Query<&A> | Chạy, iterator có thể rỗng | Query mọi entity có A |
-| RequireMatches<Q> | Skip khi query rỗng | Yêu cầu rõ ràng |
+| Không có điều kiện | System vẫn chạy, query có thể rỗng | Đây là mặc định của core |
 
 ## 4. Persistence boundary
 

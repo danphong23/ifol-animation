@@ -16,15 +16,6 @@ pub trait AnyStorage: 'static + Send + Sync {
 
     /// Checks if the entity is stored in this storage.
     fn contains_entity(&self, entity: EntityId) -> bool;
-
-    /// Returns the number of entities stored.
-    fn len(&self) -> usize;
-
-    /// Returns true if empty.
-    fn is_empty(&self) -> bool;
-
-    /// Clears all entries.
-    fn clear(&mut self);
 }
 
 impl<T: Component> AnyStorage for SparseSet<T> {
@@ -42,17 +33,5 @@ impl<T: Component> AnyStorage for SparseSet<T> {
 
     fn contains_entity(&self, entity: EntityId) -> bool {
         self.contains(entity)
-    }
-
-    fn len(&self) -> usize {
-        self.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.is_empty()
-    }
-
-    fn clear(&mut self) {
-        self.clear();
     }
 }

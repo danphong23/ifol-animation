@@ -6,8 +6,8 @@ ifol-ecs cung cấp một pass, không cung cấp realtime loop.
 
 ~~~mermaid
 flowchart TD
-    Start["run_once"] --> Activate["Evaluate activation cache/conditions"]
-    Activate --> Phase["Traverse compiled PhaseGraph"]
+    Start["run_once"] --> Conditions["Evaluate conditions"]
+    Conditions --> Phase["Traverse compiled PhaseGraph"]
     Phase --> System["Run bound systems"]
     System --> Commands["Flush deferred commands at safe point"]
     Commands --> Revision["Commit revisions/cache invalidation"]

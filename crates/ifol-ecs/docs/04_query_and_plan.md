@@ -70,3 +70,9 @@ version. Value change không làm rebuild plan nếu entity membership không đ
 - Mutable access cập nhật change metadata theo policy của ECS.
 - Query rỗng là hợp lệ.
 - Required world component thiếu được xử lý bởi RunCondition.
+
+`WorldQueryMut` là extension point `unsafe`: implementation bên ngoài phải chứng
+minh candidate không trùng, access khai báo không alias và `fetch` chỉ trả về
+reference thuộc các component đã khai báo. Query built-in của core cung cấp các
+implementation an toàn; feature mới không được giả định rằng `QueryAccess` tự
+động bảo vệ một implementation khai báo sai.

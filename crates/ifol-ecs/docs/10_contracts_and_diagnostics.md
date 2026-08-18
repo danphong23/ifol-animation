@@ -14,16 +14,11 @@ flowchart LR
 ECS không âm thầm bỏ qua system binding, phase dependency, stale entity hoặc
 required world component mà không ghi diagnostics.
 
-## 2. Validation levels
+## 2. Validation policy
 
-~~~text
-Strict  → đầy đủ ID/access/dependency/invariant diagnostics
-Basic   → handle/structural checks
-Off     → chỉ dành cho plan đã compile và input đã tin cậy
-~~~
-
-Public/default path nên là Strict hoặc Basic có contract rõ. Validation level không
-được thay đổi semantic execution.
+Core luôn kiểm tra các invariant cần thiết ở registration, compile và execution.
+Không có chế độ `Off` làm thay đổi semantics hoặc bỏ qua kiểm tra an toàn; host
+chỉ được chạy một schedule đã compile hợp lệ.
 
 ## 3. RunReport
 
@@ -34,7 +29,7 @@ RunReport
 ├── phases_visited
 ├── systems_executed
 ├── systems_skipped + reason
-├── command outcomes
+├── commands_processed
 ├── system errors
 ├── structural/data revision summary
 └── optional timing/diagnostics

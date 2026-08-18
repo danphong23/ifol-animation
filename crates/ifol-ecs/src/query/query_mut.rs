@@ -6,8 +6,17 @@ use crate::storage::Component;
 use crate::world::World;
 use std::marker::PhantomData;
 
-/// Trait implemented by query signatures that may fetch mutable component data.
-pub trait WorldQueryMut: 'static {
+/// Extension trait for query signatures that may fetch mutable component data.
+///
+/// # Safety
+///
+/// Implementors must ensure that `driver_entities` yields every entity at most
+/// once, `matches` agrees with `fetch`, and `fetch` returns references only to
+/// the component types declared by `access()`. The declared access must be
+/// internally non-aliasing. Violating these invariants can cause undefined
+/// behavior because the executor composes results through one mutable `World`
+/// pointer.
+pub unsafe trait WorldQueryMut: 'static {
     type Item<'w>;
 
     fn access() -> QueryAccess;
@@ -22,7 +31,7 @@ pub trait WorldQueryMut: 'static {
     unsafe fn fetch<'w>(world: &'w mut World, entity: EntityId) -> Option<Self::Item<'w>>;
 }
 
-impl<T: Component> WorldQueryMut for &'static mut T {
+unsafe impl<T: Component> WorldQueryMut for &'static mut T {
     type Item<'w> = &'w mut T;
 
     fn access() -> QueryAccess {
@@ -38,8 +47,8 @@ impl<T: Component> WorldQueryMut for &'static mut T {
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
-            .storage::<T>()
-            .map(|storage| storage.dense_entities().to_vec())
+            .component_entities::<T>()
+            .map(|entities| entities.to_vec())
             .unwrap_or_default()
     }
 
@@ -52,7 +61,7 @@ impl<T: Component> WorldQueryMut for &'static mut T {
     }
 }
 
-impl<T: Component> WorldQueryMut for &'static T {
+unsafe impl<T: Component> WorldQueryMut for &'static T {
     type Item<'w> = &'w T;
 
     fn access() -> QueryAccess {
@@ -68,8 +77,8 @@ impl<T: Component> WorldQueryMut for &'static T {
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
-            .storage::<T>()
-            .map(|storage| storage.dense_entities().to_vec())
+            .component_entities::<T>()
+            .map(|entities| entities.to_vec())
             .unwrap_or_default()
     }
 
@@ -82,7 +91,7 @@ impl<T: Component> WorldQueryMut for &'static T {
     }
 }
 
-impl<T: Component> WorldQueryMut for Option<&'static T> {
+unsafe impl<T: Component> WorldQueryMut for Option<&'static T> {
     type Item<'w> = Option<&'w T>;
 
     fn access() -> QueryAccess {
@@ -109,7 +118,7 @@ impl<T: Component> WorldQueryMut for Option<&'static T> {
     }
 }
 
-impl<T: Component> WorldQueryMut for Option<&'static mut T> {
+unsafe impl<T: Component> WorldQueryMut for Option<&'static mut T> {
     type Item<'w> = Option<&'w mut T>;
 
     fn access() -> QueryAccess {
@@ -136,7 +145,7 @@ impl<T: Component> WorldQueryMut for Option<&'static mut T> {
     }
 }
 
-impl<T: Component> WorldQueryMut for With<T> {
+unsafe impl<T: Component> WorldQueryMut for With<T> {
     type Item<'w> = ();
 
     fn access() -> QueryAccess {
@@ -152,8 +161,8 @@ impl<T: Component> WorldQueryMut for With<T> {
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
-            .storage::<T>()
-            .map(|storage| storage.dense_entities().to_vec())
+            .component_entities::<T>()
+            .map(|entities| entities.to_vec())
             .unwrap_or_default()
     }
 
@@ -166,7 +175,7 @@ impl<T: Component> WorldQueryMut for With<T> {
     }
 }
 
-impl<T: Component> WorldQueryMut for Without<T> {
+unsafe impl<T: Component> WorldQueryMut for Without<T> {
     type Item<'w> = ();
 
     fn access() -> QueryAccess {
@@ -193,7 +202,7 @@ impl<T: Component> WorldQueryMut for Without<T> {
     }
 }
 
-impl WorldQueryMut for () {
+unsafe impl WorldQueryMut for () {
     type Item<'w> = ();
 
     fn access() -> QueryAccess {
@@ -219,7 +228,7 @@ impl WorldQueryMut for () {
 
 macro_rules! impl_tuple_query_mut {
     ($($name:ident),+) => {
-        impl<$($name: WorldQueryMut),+> WorldQueryMut for ($($name,)+) {
+        unsafe impl<$($name: WorldQueryMut),+> WorldQueryMut for ($($name,)+) {
             type Item<'w> = ($($name::Item<'w>,)+);
 
             fn access() -> QueryAccess {
@@ -349,13 +358,15 @@ impl<'w, Q: WorldQueryMut> Iterator for QueryMutEntityIter<'w, Q> {
     type Item = (EntityId, Q::Item<'w>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let entity = self.inner.entities.next()?;
-        let world: &'w mut World = unsafe { &mut *self.inner.world };
-        if world.is_alive(entity) && Q::matches(world, entity) {
-            let item = unsafe { Q::fetch(world, entity) }?;
-            Some((entity, item))
-        } else {
-            self.next()
+        for world_entity in self.inner.entities.by_ref() {
+            let world: &'w mut World = unsafe { &mut *self.inner.world };
+            if world.is_alive(world_entity)
+                && Q::matches(world, world_entity)
+                && let Some(item) = unsafe { Q::fetch(world, world_entity) }
+            {
+                return Some((world_entity, item));
+            }
         }
+        None
     }
 }

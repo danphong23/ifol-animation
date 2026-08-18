@@ -33,6 +33,11 @@ impl SystemError {
             component.into()
         ))
     }
+
+    /// Creates an error for an undeclared structural mutation.
+    pub fn structural_access_denied() -> Self {
+        Self::new("system access denied: structural entity lifecycle access is not declared")
+    }
 }
 
 /// Typed, fail-closed errors returned by `ifol-ecs`.

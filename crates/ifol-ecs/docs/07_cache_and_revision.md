@@ -8,7 +8,7 @@ phase graph luôn có thể dùng để rebuild.
 ~~~mermaid
 flowchart LR
     Source["World + logical registrations"] --> Compile["Compile plan"]
-    Compile --> Cache["Compiled/query/activation cache"]
+    Compile --> Cache["Compiled schedule/query plan cache"]
     Cache --> Hit["Revision match: reuse"]
     Cache --> Miss["Revision mismatch: rebuild"]
     Source --> Fallback["Correctness fallback"]
@@ -23,9 +23,9 @@ flowchart LR
 component_registry_revision → component type registration thay đổi
 system_registry_revision    → system registration thay đổi
 graph_revision              → phase/edge/binding ordering thay đổi
-structural_version      → entity/component membership thay đổi
-component_change_tick   → từng component entry bị mutable write
-execution_revision      → mỗi run_once
+structural_version          → entity/component membership thay đổi
+component_change_tick       → từng component entry bị mutable write
+execution_revision          → mỗi run_once
 ~~~
 
 Không dùng địa chỉ pointer làm cache key.
@@ -49,19 +49,12 @@ QueryPlanKey:
     component registry revision
     structural version
 
-SchedulePlanKey:
-    registration revision
-    graph revision
-    access/condition policy
-
-ActivationKey:
-    system id
-    structural version
-    relevant world-component presence
 ~~~
 
-Nếu component value thay đổi nhưng membership không đổi, query plan không cần
-rebuild. Feature system tự dùng component revision để invalidate artifact domain.
+Schedule compilation is published directly as an owned plan and conditions are
+evaluated at execution time. If component value changes but membership does not,
+the query plan does not need to rebuild. Feature system tự dùng component
+revision để invalidate artifact domain.
 
 ## 5. Recompile và lifetime
 

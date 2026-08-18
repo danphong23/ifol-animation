@@ -59,7 +59,9 @@ Không expose raw &mut World cho system thông thường. Điều này cho phép
 soát aliasing, change tracking, structural mutation và future parallelism.
 
 `SystemCommands::insert/remove<T>` kiểm tra `T` phải nằm trong `writes` của
-`AccessDescriptor`; spawn/despawn là structural operations. `Commands::spawn`
+`AccessDescriptor`; spawn/despawn là structural operations và system phải gọi
+`AccessDescriptor::add_structural()` trước khi dùng `SystemCommands::despawn`.
+`Commands::spawn`
 trả `SpawnTicket`, cho phép command sau đó khởi tạo entity mới trong cùng buffer.
 Nếu system trả lỗi, buffer của system bị discard trước safe point.
 

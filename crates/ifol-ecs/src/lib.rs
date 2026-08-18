@@ -9,7 +9,7 @@
 //! - **EcsRuntime**: The central composition root owning World, Registries, Compiled Schedule, and Plan Caches.
 //! - **Generational EntityId**: 64-bit identifier (`index: u32, generation: u32`) with slot recycling and `EntityId::WORLD`.
 //! - **SparseSet Storage**: Cache-friendly contiguous storage with $O(1)$ operations and `swap_remove`.
-//! - **Change Tracking**: Separate `structural_version` (topology changes) and `component_revision` / ticks (data mutations).
+//! - **Change Tracking**: Separate `structural_version` (topology changes) and per-entry change ticks.
 //! - **SystemContext & Commands**: Safe, controlled system access with deferred structural mutations flushed at safe points.
 //! - **Phase DAG & Conditions**: Kahn's topological sort with cycle detection, `RunCondition` evaluation, and skip diagnostics.
 
@@ -38,7 +38,7 @@ pub use registry::{
 pub use report::{ExecutionPolicy, RunReport, SkippedSystem};
 pub use runtime::EcsRuntime;
 pub use schedule::{CompiledPhase, CompiledSchedule, PhaseGraph};
-pub use storage::{AnyStorage, Component, SparseSet};
+pub use storage::Component;
 pub use system::{
     AccessDescriptor, CommandEntity, Commands, FunctionSystem, RunCondition, SpawnTicket, System,
     SystemCommands, SystemContext,

@@ -5,10 +5,6 @@ edition = "2024"
 
 [dependencies]
 thiserror = "2.0.20"
-log = "0.4.33"
-
-[dev-dependencies]
-env_logger = "0.10.0"
 
 [[test]]
 name = "slice01_entity"
@@ -65,3 +61,7 @@ path = "tests/slice13_commands.rs"
 [[test]]
 name = "slice14_external_query"
 path = "tests/slice14_external_query.rs"
+
+[[test]]
+name = "slice15_adversarial"
+path = "tests/slice15_adversarial.rs"

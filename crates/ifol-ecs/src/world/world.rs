@@ -200,10 +200,14 @@ impl World {
         false
     }
 
-    /// Returns an immutable reference to the underlying `SparseSet<T>` storage.
-    pub fn storage<T: Component>(&self) -> Option<&SparseSet<T>> {
+    /// Returns the current dense entity list for component type `T`.
+    ///
+    /// This is the public query-driver contract; the concrete storage backend
+    /// remains an implementation detail of `World`.
+    pub fn component_entities<T: Component>(&self) -> Option<&[EntityId]> {
         let storage = self.storages.get(&TypeId::of::<T>())?;
-        storage.as_any().downcast_ref::<SparseSet<T>>()
+        let sparse_set = storage.as_any().downcast_ref::<SparseSet<T>>()?;
+        Some(sparse_set.dense_entities())
     }
 
     pub(crate) fn cached_query_candidates(

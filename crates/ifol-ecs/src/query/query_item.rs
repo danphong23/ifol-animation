@@ -101,8 +101,8 @@ impl<T: Component> WorldQuery for &'static T {
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
-            .storage::<T>()
-            .map(|s| s.dense_entities().to_vec())
+            .component_entities::<T>()
+            .map(|entities| entities.to_vec())
             .unwrap_or_default()
     }
 
@@ -154,8 +154,8 @@ impl<T: Component> WorldQuery for With<T> {
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
-            .storage::<T>()
-            .map(|s| s.dense_entities().to_vec())
+            .component_entities::<T>()
+            .map(|entities| entities.to_vec())
             .unwrap_or_default()
     }
 

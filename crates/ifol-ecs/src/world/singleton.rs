@@ -6,6 +6,9 @@ impl World {
     ///
     /// Returns the old component value if one was already present.
     pub fn insert_world_component<T: Component>(&mut self, component: T) -> Option<T> {
+        self.component_registry_mut()
+            .ensure_world_singleton::<T>()
+            .expect("world singleton registration invariant");
         self.insert(crate::entity::EntityId::WORLD, component)
             .expect("WORLD_ENTITY is always alive")
     }

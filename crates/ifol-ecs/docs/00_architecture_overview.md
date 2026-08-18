@@ -50,7 +50,7 @@ Component registrations       ─┐
 System registrations           ├──> Component IDs + system table
 Phase registrations            ┤
 Phase edges + bindings         ├──> deterministic phase execution plan
-World structural/data state   ─┘     query/access/activation caches
+World structural/data state   ─┘     query plan cache + revision metadata
 ~~~
 
 Logical registration là source of truth. Compiled plan có thể bị invalidate và
