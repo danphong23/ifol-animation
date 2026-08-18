@@ -14,6 +14,10 @@ EntityId gồm index và generation. Generation bảo vệ handle cũ khi slot �
 dụng. Entity manager phải giữ trạng thái alive riêng; chỉ so sánh generation là
 chưa đủ.
 
+`EntityId` là handle theo từng `World`, không có provenance toàn cục. Host không
+được truyền trực tiếp entity ID từ world này sang world khác; nếu cần chuyển dữ
+liệu giữa world phải dùng mapping explicit.
+
 ## 2. WORLD_ENTITY
 
 ~~~mermaid

@@ -5,6 +5,10 @@ use std::fmt;
 /// Combines a 32-bit slot `index` and a 32-bit `generation` counter.
 /// When an entity is despawned, its generation is incremented to prevent
 /// dangling references from accessing recycled slots.
+///
+/// `EntityId` is scoped to the `World` that created it. It is not a globally
+/// branded handle and must not be passed to another `World` without an
+/// explicit host-level mapping.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EntityId {
     index: u32,
