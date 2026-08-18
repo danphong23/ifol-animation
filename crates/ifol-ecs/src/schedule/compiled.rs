@@ -1,0 +1,136 @@
+use crate::error::EcsError;
+use crate::registry::{PhaseId, PhaseRegistry, SystemId, SystemRegistry};
+use crate::report::{RunReport, SkippedSystem};
+use crate::schedule::graph::PhaseGraph;
+use crate::system::{Commands, SystemContext};
+use crate::world::World;
+use std::time::Instant;
+
+/// A compiled phase containing ordered system IDs.
+#[derive(Debug, Clone)]
+pub struct CompiledPhase {
+    pub id: PhaseId,
+    pub systems: Vec<SystemId>,
+}
+
+/// An immutable, compiled execution schedule owned by `EcsRuntime`.
+pub struct CompiledSchedule {
+    phases: Vec<CompiledPhase>,
+    graph_revision: u64,
+}
+
+impl CompiledSchedule {
+    /// Compiles the phase graph from `PhaseRegistry` into an ordered `CompiledSchedule`.
+    pub fn compile(registry: &PhaseRegistry) -> Result<Self, EcsError> {
+        let order = PhaseGraph::compile_order(registry)?;
+        let mut phases = Vec::with_capacity(order.len());
+
+        for phase_id in order {
+            let node = registry.phases().get(&phase_id).unwrap();
+            phases.push(CompiledPhase {
+                id: phase_id,
+                systems: node.system_bindings.clone(),
+            });
+        }
+
+        Ok(Self {
+            phases,
+            graph_revision: registry.revision(),
+        })
+    }
+
+    /// Executes one execution pass over the world.
+    pub fn run_pass(
+        &mut self,
+        world: &mut World,
+        systems: &mut SystemRegistry,
+        commands: &mut Commands,
+        execution_revision: u64,
+    ) -> Result<RunReport, EcsError> {
+        let start_time = Instant::now();
+
+        let mut report = RunReport {
+            execution_revision,
+            compiled_graph_revision: self.graph_revision,
+            phases_visited: Vec::with_capacity(self.phases.len()),
+            systems_executed: Vec::new(),
+            systems_skipped: Vec::new(),
+            commands_processed: 0,
+            system_errors: Vec::new(),
+            structural_version: world.structural_version(),
+            entities_count: world.entity_count(),
+            duration_us: 0,
+        };
+
+        for phase in &self.phases {
+            report.phases_visited.push(phase.id.to_string());
+
+            for &sys_id in &phase.systems {
+                let Some(sys_reg) = systems.get_mut(sys_id) else {
+                    continue;
+                };
+
+                let sys_name = sys_reg.name.clone();
+
+                // Evaluate run conditions
+                let mut condition_failed = None;
+                for condition in &sys_reg.conditions {
+                    if let Err(reason) = condition.evaluate(world) {
+                        condition_failed = Some(reason);
+                        break;
+                    }
+                }
+
+                if let Some(reason) = condition_failed {
+                    report.systems_skipped.push(SkippedSystem {
+                        system: sys_name,
+                        reason,
+                    });
+                    continue;
+                }
+
+                // Execute system with SystemContext
+                let sys_name_leak: &'static str = Box::leak(sys_name.clone().into_boxed_str());
+                let mut ctx = SystemContext::new(world, commands, sys_id, sys_name_leak);
+
+                match sys_reg.system.run(&mut ctx) {
+                    Ok(()) => {
+                        report.systems_executed.push(sys_name);
+                    }
+                    Err(err) => {
+                        report.system_errors.push((sys_name, err));
+                    }
+                }
+
+                // Flush commands at intra-phase safe point
+                let flushed = commands.apply(world);
+                report.commands_processed += flushed;
+            }
+
+            // Flush commands at phase boundary safe point
+            let flushed = commands.apply(world);
+            report.commands_processed += flushed;
+        }
+
+        // Advance world tick counter after completing the execution pass
+        world.increment_tick();
+
+        report.structural_version = world.structural_version();
+        report.entities_count = world.entity_count();
+        report.duration_us = start_time.elapsed().as_micros() as u64;
+
+        Ok(report)
+    }
+
+    /// Returns the number of compiled phases in the schedule.
+    #[inline(always)]
+    pub fn phase_count(&self) -> usize {
+        self.phases.len()
+    }
+
+    /// Returns the graph revision used when compiling this schedule.
+    #[inline(always)]
+    pub fn graph_revision(&self) -> u64 {
+        self.graph_revision
+    }
+}

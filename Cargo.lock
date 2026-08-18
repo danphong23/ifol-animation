@@ -816,6 +816,11 @@ version = "0.1.0"
 [[package]]
 name = "ifol-ecs"
 version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "log",
+ "thiserror 2.0.20",
+]
 
 [[package]]
 name = "ifol-gpu"

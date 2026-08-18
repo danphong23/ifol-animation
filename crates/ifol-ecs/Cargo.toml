@@ -4,3 +4,52 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+thiserror = "2.0.20"
+log = "0.4.33"
+
+[dev-dependencies]
+env_logger = "0.10.0"
+
+[[test]]
+name = "slice01_entity"
+path = "tests/slice01_entity.rs"
+
+[[test]]
+name = "slice02_component"
+path = "tests/slice02_component.rs"
+
+[[test]]
+name = "slice03_singleton"
+path = "tests/slice03_singleton.rs"
+
+[[test]]
+name = "slice04_query"
+path = "tests/slice04_query.rs"
+
+[[test]]
+name = "slice05_registry"
+path = "tests/slice05_registry.rs"
+
+[[test]]
+name = "slice06_phase_graph"
+path = "tests/slice06_phase_graph.rs"
+
+[[test]]
+name = "slice07_system"
+path = "tests/slice07_system.rs"
+
+[[test]]
+name = "slice08_execute"
+path = "tests/slice08_execute.rs"
+
+[[test]]
+name = "slice09_cache"
+path = "tests/slice09_cache.rs"
+
+[[test]]
+name = "slice10_extension"
+path = "tests/slice10_extension.rs"
+
+[[test]]
+name = "slice11_lifecycle"
+path = "tests/slice11_lifecycle.rs"

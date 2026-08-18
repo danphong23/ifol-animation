@@ -1,0 +1,56 @@
+# Query engine và query plan
+
+## 1. Query là contract dữ liệu
+
+Query không biết phase hay domain. Nó mô tả tập component mà system muốn đọc/ghi.
+
+~~~mermaid
+flowchart LR
+    Signature["Query signature"] --> Resolve["Resolve ComponentIds"]
+    Resolve --> Driver["Chọn required storage làm driver"]
+    Driver --> Filter["Apply required/optional/filter terms"]
+    Filter --> Access["Tracked read/write access"]
+    Access --> System["SystemContext"]
+~~~
+
+Ví dụ contract:
+
+~~~text
+Query<&A>
+Query<(&A, &B)>
+Query<(&mut A, &B)>
+Query<(&A, Option<&B>)>
+Query<(&A, With<B>, Without<C>)>
+WorldRef<T>
+Option<WorldRef<T>>
+~~~
+
+## 2. WORLD_ENTITY
+
+WORLD_ENTITY được xét như entity bình thường. Query &A trả root nếu root có A.
+Nếu muốn loại root, đó là filter explicit của query, không phải hành vi mặc định
+của ECS.
+
+## 3. Query plan cache
+
+~~~mermaid
+flowchart TD
+    Query["Query signature"] --> Key["QueryPlanKey"]
+    Key --> Cache{"Cache hit?"}
+    Cache -->|"yes"| Plan["Reuse plan"]
+    Cache -->|"no"| Build["Build plan from registry/storage"]
+    Build --> Store["Store by revision"]
+    Store --> Plan
+    Plan --> Execute["Iterate/query"]
+~~~
+
+QueryPlanKey gồm query signature, component registry revision và structural
+version. Value change không làm rebuild plan nếu entity membership không đổi.
+
+## 4. Safety
+
+- Mutable access trùng component bị từ chối.
+- Structural mutation trong iterator sống bị hoãn qua Commands.
+- Mutable access cập nhật change metadata theo policy của ECS.
+- Query rỗng là hợp lệ.
+- Required world component thiếu được xử lý bởi RunCondition.
