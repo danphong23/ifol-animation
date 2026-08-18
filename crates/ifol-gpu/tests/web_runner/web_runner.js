@@ -787,14 +787,7 @@ async function runTC05(gpu) {
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
         });
     }
-    const sampler = device.createSampler({
-        addressModeU: 'repeat',
-        addressModeV: 'repeat',
-        addressModeW: 'repeat',
-        magFilter: 'linear',
-        minFilter: 'linear',
-        mipmapFilter: 'linear'
-    });
+    const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
     const targetBindGroups = {};
     for (const targetId of ['A', 'B']) {
         targetBindGroups[targetId] = device.createBindGroup({
@@ -5413,6 +5406,77 @@ async function finishAdvancedResult(gpu, caseId, manifestText, manifest, outputN
     for (const resource of resources) resource?.destroy?.();
 }
 
+async function finishStandaloneCanonicalResult(gpu, caseId, outputName, canvasId, finalTexture, format, sampler, render, resources, timingScope, metrics = {}) {
+    const { device } = gpu;
+    const width = finalTexture.width;
+    const height = finalTexture.height;
+    const coldStart = performance.now();
+    await render();
+    const coldRenderTimeMs = performance.now() - coldStart;
+    const coldBytes = await readTextureBytes(device, finalTexture, width, height);
+    const warmStart = performance.now();
+    await render();
+    const warmRenderTimeMs = performance.now() - warmStart;
+    const bytes = await readTextureBytes(device, finalTexture, width, height);
+    const cacheOutputEqual = coldBytes.length === bytes.length && coldBytes.every((value, index) => value === bytes[index]);
+    if (!cacheOutputEqual) throw new Error(`${caseId} output changed between cold and warm runs`);
+    await saveRawTexture(bytes, {
+        name: `${outputName}_web`,
+        width,
+        height,
+        format,
+        cold_render_time_ms: coldRenderTimeMs,
+        warm_render_time_ms: warmRenderTimeMs,
+        warm_iteration_count: 1,
+        speedup_percentage: (1 - warmRenderTimeMs / coldRenderTimeMs) * 100,
+        cache_output_equal: cacheOutputEqual,
+        validation_passed: true,
+        validation_error: null,
+        adapter_name: gpu.adapter.info?.description || gpu.adapter.info?.architecture || 'WebGPU adapter',
+        timing_scope: timingScope,
+        isolation_scope: 'Resource của TC được hủy sau khi hoàn tất; không xóa cache nội bộ của browser/driver/GPU',
+        ...metrics,
+        image_name: `${outputName}.png`
+    });
+
+    const canvas = document.getElementById(canvasId);
+    const context = canvas.getContext('webgpu');
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
+    const blitLayout = device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ] });
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const blit = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [blitLayout] }),
+        vertex: { module: blitShader, entryPoint: 'vs_main' },
+        fragment: { module: blitShader, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const previewBG = device.createBindGroup({ layout: blitLayout, entries: [
+        { binding: 0, resource: finalTexture.createView() },
+        { binding: 1, resource: sampler }
+    ] });
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({ colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 },
+        loadOp: 'clear',
+        storeOp: 'store'
+    }] });
+    pass.setPipeline(blit);
+    pass.setBindGroup(0, previewBG);
+    pass.draw(6, 1, 0, 0);
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await saveCanvasImage(canvas, `${outputName}_preview.png`);
+    document.getElementById(`tag-${caseId.toLowerCase()}`).textContent = 'PASS';
+    document.getElementById(`tag-${caseId.toLowerCase()}`).className = 'tag tag-passed';
+    for (const resource of resources) resource?.destroy?.();
+}
+
 function advancedTextureLayout(device) {
     return device.createBindGroupLayout({ entries: [
         { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
@@ -6697,7 +6761,14 @@ async function runTC99(gpu) {
     const paramsBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     device.queue.writeBuffer(paramsBuf, 0, new Float32Array([0.0, 1.0, 1.05, 1.0])); // Exact match desktop params
 
-    const sampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
+    const sampler = device.createSampler({
+        addressModeU: 'repeat',
+        addressModeV: 'repeat',
+        addressModeW: 'repeat',
+        minFilter: 'linear',
+        magFilter: 'linear',
+        mipmapFilter: 'linear'
+    });
     const bgl = device.createBindGroupLayout({
         entries: [
             { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
@@ -6750,22 +6821,18 @@ async function runTC99(gpu) {
 // -------------------------------------------------------------
 async function runTC101(gpu) {
     const { device } = gpu;
-    const canvas = document.getElementById('canvas-tc101');
-    const ctx = canvas.getContext('webgpu');
-    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-    ctx.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
-
     const srcW = 400, srcH = 600;
     const dstW = 800, dstH = 600;
+    const format = 'rgba8unorm-srgb';
 
     const texA = device.createTexture({
-        size: [srcW, srcH], format: 'rgba8unorm',
+        size: [srcW, srcH], format,
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
     });
 
     const texB = device.createTexture({
-        size: [dstW, dstH], format: 'rgba8unorm',
-        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+        size: [dstW, dstH], format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC
     });
 
     const patternShader = await fetchShader('render_test_pattern.wgsl');
@@ -6773,62 +6840,27 @@ async function runTC101(gpu) {
     const patternPipe = device.createRenderPipeline({
         layout: 'auto',
         vertex: { module: patternModule, entryPoint: 'vs_main' },
-        fragment: { module: patternModule, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm' }] },
+        fragment: { module: patternModule, entryPoint: 'fs_main', targets: [{ format }] },
         primitive: { topology: 'triangle-strip' }
     });
-
-    const encoder = device.createCommandEncoder();
-
-    // Render Pattern to Texture A (400x600)
-    const pA = encoder.beginRenderPass({
-        colorAttachments: [{ view: texA.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }]
-    });
-    pA.setPipeline(patternPipe);
-    pA.draw(4, 1, 0, 0);
-    pA.end();
-
-    // DMA Copy 1: A -> Left Half of B [0, 0]
-    encoder.copyTextureToTexture({ texture: texA }, { texture: texB, origin: [0, 0, 0] }, [srcW, srcH, 1]);
-
-    // DMA Copy 2: A -> Right Half of B [400, 0] (Twin Replication)
-    encoder.copyTextureToTexture({ texture: texA }, { texture: texB, origin: [400, 0, 0] }, [srcW, srcH, 1]);
-
-    // Blit B to Canvas
-    const blitShader = `
-        @vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
-            var pos = array<vec2f, 4>(vec2f(-1,1), vec2f(-1,-1), vec2f(1,1), vec2f(1,-1));
-            return vec4f(pos[i], 0, 1);
-        }
-        @group(0) @binding(0) var t: texture_2d<f32>;
-        @fragment fn fs(@builtin(position) p: vec4f) -> @location(0) vec4f {
-            return textureLoad(t, vec2u(p.xy), 0);
-        }
-    `;
-    const blitModule = device.createShaderModule({ code: blitShader });
-    const blitPipe = device.createRenderPipeline({
-        layout: 'auto',
-        vertex: { module: blitModule, entryPoint: 'vs' },
-        fragment: { module: blitModule, entryPoint: 'fs', targets: [{ format: canvasFormat }] },
-        primitive: { topology: 'triangle-strip' }
-    });
-    const blitBg = device.createBindGroup({
-        layout: blitPipe.getBindGroupLayout(0),
-        entries: [{ binding: 0, resource: texB.createView() }]
-    });
-
-    const pCanvas = encoder.beginRenderPass({
-        colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store' }]
-    });
-    pCanvas.setPipeline(blitPipe);
-    pCanvas.setBindGroup(0, blitBg);
-    pCanvas.draw(4, 1, 0, 0);
-    pCanvas.end();
-
-    device.queue.submit([encoder.finish()]);
-
-    await saveCanvasImage(canvas, 'tc101_texture_copy.png');
-    document.getElementById('tag-tc101').textContent = 'PASS';
-    document.getElementById('tag-tc101').className = 'tag tag-passed';
+    const sampler = device.createSampler({ minFilter: 'nearest', magFilter: 'nearest' });
+    const render = async () => {
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: texA.createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            loadOp: 'clear',
+            storeOp: 'store'
+        }] });
+        pass.setPipeline(patternPipe);
+        pass.draw(4, 1, 0, 0);
+        pass.end();
+        encoder.copyTextureToTexture({ texture: texA }, { texture: texB, origin: [0, 0, 0] }, [srcW, srcH, 1]);
+        encoder.copyTextureToTexture({ texture: texA }, { texture: texB, origin: [400, 0, 0] }, [srcW, srcH, 1]);
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+    };
+    await finishStandaloneCanonicalResult(gpu, 'TC101', 'tc101_texture_copy', 'canvas-tc101', texB, 'Rgba8UnormSrgb', sampler, render, [texA, texB, sampler], '1 offscreen render + 2 TextureToTexture copies + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { copy_commands: 2, draw_commands: 1 });
 }
 
 // -------------------------------------------------------------
@@ -6836,14 +6868,10 @@ async function runTC101(gpu) {
 // -------------------------------------------------------------
 async function runTC102(gpu) {
     const { device } = gpu;
-    const canvas = document.getElementById('canvas-tc102');
-    const ctx = canvas.getContext('webgpu');
-    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-    ctx.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
-
     const gridSize = 32;
     const totalVertices = gridSize * gridSize;
     const vboSize = totalVertices * 32;
+    const format = 'rgba8unorm-srgb';
 
     const bufSim = device.createBuffer({ size: vboSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
     const bufDest = device.createBuffer({ size: vboSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
@@ -6898,7 +6926,7 @@ async function runTC102(gpu) {
     const rsPipe = device.createRenderPipeline({
         layout: device.createPipelineLayout({ bindGroupLayouts: [rsBgl] }),
         vertex: { module: rsModule, entryPoint: 'vs_main' },
-        fragment: { module: rsModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+        fragment: { module: rsModule, entryPoint: 'fs_main', targets: [{ format }] },
         primitive: { topology: 'triangle-list' }
     });
     const rsBg = device.createBindGroup({
@@ -6906,33 +6934,34 @@ async function runTC102(gpu) {
         entries: [{ binding: 0, resource: { buffer: bufDest } }, { binding: 1, resource: { buffer: ibo } }]
     });
 
-    const encoder = device.createCommandEncoder();
-    const cpass = encoder.beginComputePass();
-    cpass.setPipeline(csPipe);
-    cpass.setBindGroup(0, csBg);
-    cpass.dispatchWorkgroups(Math.ceil(totalVertices / 64), 1, 1);
-    cpass.end();
-
-    encoder.copyBufferToBuffer(bufSim, 0, bufDest, 0, vboSize);
-
-    const rpass = encoder.beginRenderPass({
-        colorAttachments: [{
-            view: ctx.getCurrentTexture().createView(),
+    const finalTexture = device.createTexture({
+        size: [800, 600],
+        format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+    });
+    const sampler = device.createSampler({ minFilter: 'nearest', magFilter: 'nearest' });
+    const render = async () => {
+        const encoder = device.createCommandEncoder();
+        const cpass = encoder.beginComputePass();
+        cpass.setPipeline(csPipe);
+        cpass.setBindGroup(0, csBg);
+        cpass.dispatchWorkgroups(Math.ceil(totalVertices / 64), 1, 1);
+        cpass.end();
+        encoder.copyBufferToBuffer(bufSim, 0, bufDest, 0, vboSize);
+        const rpass = encoder.beginRenderPass({ colorAttachments: [{
+            view: finalTexture.createView(),
             clearValue: { r: 0.04, g: 0.05, b: 0.08, a: 1.0 },
             loadOp: 'clear',
             storeOp: 'store'
-        }]
-    });
-    rpass.setPipeline(rsPipe);
-    rpass.setBindGroup(0, rsBg);
-    rpass.draw(indices.length, 1, 0, 0);
-    rpass.end();
-
-    device.queue.submit([encoder.finish()]);
-
-    await saveCanvasImage(canvas, 'tc102_buffer_copy.png');
-    document.getElementById('tag-tc102').textContent = 'PASS';
-    document.getElementById('tag-tc102').className = 'tag tag-passed';
+        }] });
+        rpass.setPipeline(rsPipe);
+        rpass.setBindGroup(0, rsBg);
+        rpass.draw(indices.length, 1, 0, 0);
+        rpass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+    };
+    await finishStandaloneCanonicalResult(gpu, 'TC102', 'tc102_buffer_copy', 'canvas-tc102', finalTexture, 'Rgba8UnormSrgb', sampler, render, [finalTexture, bufSim, bufDest, ibo, simParamsBuf, sampler], '1 compute dispatch + 1 BufferToBuffer copy + 1 offscreen draw + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { copy_commands: 1, compute_commands: 1, draw_commands: 1 });
 }
 
 // -------------------------------------------------------------
@@ -6940,12 +6969,8 @@ async function runTC102(gpu) {
 // -------------------------------------------------------------
 async function runTC103(gpu) {
     const { device } = gpu;
-    const canvas = document.getElementById('canvas-tc103');
-    const ctx = canvas.getContext('webgpu');
-    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-    ctx.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
-
     const w = 800, h = 600;
+    const format = 'rgba8unorm-srgb';
     const depthSrc = device.createTexture({
         size: [w, h], format: 'depth32float',
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
@@ -6955,7 +6980,7 @@ async function runTC103(gpu) {
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
     });
     const colorScene = device.createTexture({
-        size: [w, h], format: 'rgba8unorm', usage: GPUTextureUsage.RENDER_ATTACHMENT
+        size: [w, h], format, usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
 
     const sceneShader = await fetchShader('render_depth_scene.wgsl');
@@ -6969,7 +6994,7 @@ async function runTC103(gpu) {
     const scenePipe = device.createRenderPipeline({
         layout: device.createPipelineLayout({ bindGroupLayouts: [sceneBgl] }),
         vertex: { module: sceneModule, entryPoint: 'vs_main' },
-        fragment: { module: sceneModule, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm' }] },
+        fragment: { module: sceneModule, entryPoint: 'fs_main', targets: [{ format }] },
         depthStencil: { format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less' },
         primitive: { topology: 'triangle-list' }
     });
@@ -6982,39 +7007,43 @@ async function runTC103(gpu) {
     const visPipe = device.createRenderPipeline({
         layout: device.createPipelineLayout({ bindGroupLayouts: [visBgl] }),
         vertex: { module: visModule, entryPoint: 'vs_main' },
-        fragment: { module: visModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+        fragment: { module: visModule, entryPoint: 'fs_main', targets: [{ format }] },
         primitive: { topology: 'triangle-strip' }
     });
-
-    const encoder = device.createCommandEncoder();
-    const spass = encoder.beginRenderPass({
-        colorAttachments: [{ view: colorScene.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }],
-        depthStencilAttachment: { view: depthSrc.createView(), depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' }
+    const finalTexture = device.createTexture({
+        size: [w, h],
+        format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
     });
-    spass.setPipeline(scenePipe);
-    spass.setBindGroup(0, device.createBindGroup({ layout: sceneBgl, entries: [{ binding: 0, resource: { buffer: sceneUni } }] }));
-    spass.draw(18, 1, 0, 0);
-    spass.end();
-
-    encoder.copyTextureToTexture(
-        { texture: depthSrc, aspect: 'depth-only' },
-        { texture: depthDst, aspect: 'depth-only' },
-        [w, h, 1]
-    );
-
-    const vpass = encoder.beginRenderPass({
-        colorAttachments: [{ view: ctx.getCurrentTexture().createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }]
-    });
-    vpass.setPipeline(visPipe);
-    vpass.setBindGroup(0, device.createBindGroup({ layout: visBgl, entries: [{ binding: 0, resource: depthDst.createView() }] }));
-    vpass.draw(4, 1, 0, 0);
-    vpass.end();
-
-    device.queue.submit([encoder.finish()]);
-
-    await saveCanvasImage(canvas, 'tc103_depth_aspect_copy.png');
-    document.getElementById('tag-tc103').textContent = 'PASS';
-    document.getElementById('tag-tc103').className = 'tag tag-passed';
+    const sceneBG = device.createBindGroup({ layout: sceneBgl, entries: [{ binding: 0, resource: { buffer: sceneUni } }] });
+    const visBG = device.createBindGroup({ layout: visBgl, entries: [{ binding: 0, resource: depthDst.createView() }] });
+    const sampler = device.createSampler({ minFilter: 'nearest', magFilter: 'nearest' });
+    const render = async () => {
+        const encoder = device.createCommandEncoder();
+        const spass = encoder.beginRenderPass({
+            colorAttachments: [{ view: colorScene.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }],
+            depthStencilAttachment: { view: depthSrc.createView(), depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' }
+        });
+        spass.setPipeline(scenePipe);
+        spass.setBindGroup(0, sceneBG);
+        spass.draw(18, 1, 0, 0);
+        spass.end();
+        encoder.copyTextureToTexture(
+            { texture: depthSrc, aspect: 'depth-only' },
+            { texture: depthDst, aspect: 'depth-only' },
+            [w, h, 1]
+        );
+        const vpass = encoder.beginRenderPass({
+            colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }]
+        });
+        vpass.setPipeline(visPipe);
+        vpass.setBindGroup(0, visBG);
+        vpass.draw(4, 1, 0, 0);
+        vpass.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+    };
+    await finishStandaloneCanonicalResult(gpu, 'TC103', 'tc103_depth_aspect_copy', 'canvas-tc103', finalTexture, 'Rgba8UnormSrgb', sampler, render, [finalTexture, depthSrc, depthDst, colorScene, sceneUni, sampler], '1 depth scene pass + 1 DepthOnly TextureToTexture copy + 1 offscreen visualization pass + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { copy_commands: 1, draw_commands: 2 });
 }
 
 // -------------------------------------------------------------
@@ -7022,39 +7051,39 @@ async function runTC103(gpu) {
 // -------------------------------------------------------------
 async function runTC104(gpu) {
     const { device } = gpu;
-    const canvas = document.getElementById('canvas-tc104');
-    const ctx = canvas.getContext('webgpu');
-    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-    ctx.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
-
+    const format = 'rgba8unorm-srgb';
     const patternShader = await fetchShader('render_test_pattern.wgsl');
     const patternModule = device.createShaderModule({ code: patternShader });
     const patternPipe = device.createRenderPipeline({
         layout: 'auto',
         vertex: { module: patternModule, entryPoint: 'vs_main' },
-        fragment: { module: patternModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+        fragment: { module: patternModule, entryPoint: 'fs_main', targets: [{ format }] },
         primitive: { topology: 'triangle-strip' }
     });
-
-    const encoder = device.createCommandEncoder();
-    const pass = encoder.beginRenderPass({
-        colorAttachments: [{
-            view: ctx.getCurrentTexture().createView(),
-            clearValue: { r: 0.05, g: 0.05, b: 0.08, a: 1 },
-            loadOp: 'clear',
-            storeOp: 'store'
-        }]
+    const finalTexture = device.createTexture({
+        size: [800, 600],
+        format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
     });
-    pass.setPipeline(patternPipe);
-    pass.draw(4, 1, 0, 0);
-    pass.end();
-
-    log("TC104: Extension Dispatch simulated on WebGPU CommandBuffer", 'info');
-    device.queue.submit([encoder.finish()]);
-
-    await saveCanvasImage(canvas, 'tc104_extension_dispatch.png');
-    document.getElementById('tag-tc104').textContent = 'PASS';
-    document.getElementById('tag-tc104').className = 'tag tag-passed';
+    const sampler = device.createSampler({ minFilter: 'nearest', magFilter: 'nearest' });
+    const render = async () => {
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+                view: finalTexture.createView(),
+                clearValue: { r: 0.05, g: 0.05, b: 0.08, a: 1 },
+                loadOp: 'clear',
+                storeOp: 'store'
+            }]
+        });
+        pass.setPipeline(patternPipe);
+        pass.draw(4, 1, 0, 0);
+        pass.end();
+        log("TC104: Extension Dispatch simulated on WebGPU CommandBuffer", 'info');
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+    };
+    await finishStandaloneCanonicalResult(gpu, 'TC104', 'tc104_extension_dispatch', 'canvas-tc104', finalTexture, 'Rgba8UnormSrgb', sampler, render, [finalTexture, sampler], '1 offscreen draw representing the Web extension-dispatch fallback + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { draw_commands: 1, extension_dispatch: 'simulated_command_buffer' });
 }
 
 // -------------------------------------------------------------
@@ -7062,22 +7091,18 @@ async function runTC104(gpu) {
 // -------------------------------------------------------------
 async function runTC105(gpu) {
     const { device } = gpu;
-    const canvas = document.getElementById('canvas-tc105');
-    const ctx = canvas.getContext('webgpu');
-    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-    ctx.configure({ device, format: canvasFormat, alphaMode: 'opaque' });
-
     const w = 800, h = 600;
+    const format = 'rgba8unorm';
     const targetTex = device.createTexture({
-        size: [w, h], format: 'rgba8unorm',
+        size: [w, h], format,
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
     });
     const pingTex = device.createTexture({
-        size: [w, h], format: 'rgba8unorm',
-        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+        size: [w, h], format,
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
     });
     const pongTex = device.createTexture({
-        size: [w, h], format: 'rgba8unorm',
+        size: [w, h], format,
         usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
     });
 
@@ -7086,13 +7111,13 @@ async function runTC105(gpu) {
     const orbPipe = device.createRenderPipeline({
         layout: 'auto',
         vertex: { module: orbModule, entryPoint: 'vs_main' },
-        fragment: { module: orbModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
-        primitive: { topology: 'triangle-strip' }
-    });
-    const orbPipeOffscreen = device.createRenderPipeline({
-        layout: 'auto',
-        vertex: { module: orbModule, entryPoint: 'vs_main' },
-        fragment: { module: orbModule, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm' }] },
+        fragment: { module: orbModule, entryPoint: 'fs_main', targets: [{
+            format,
+            blend: {
+                color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+            }
+        }] },
         primitive: { topology: 'triangle-strip' }
     });
 
@@ -7114,7 +7139,14 @@ async function runTC105(gpu) {
     const echoParamsBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     device.queue.writeBuffer(echoParamsBuf, 0, new Float32Array([0.92, 0.03, 0, 0]));
 
-    const sampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
+    const sampler = device.createSampler({
+        addressModeU: 'repeat',
+        addressModeV: 'repeat',
+        addressModeW: 'repeat',
+        minFilter: 'linear',
+        magFilter: 'linear',
+        mipmapFilter: 'linear'
+    });
     const csBg = device.createBindGroup({
         layout: csBgl,
         entries: [
@@ -7140,7 +7172,7 @@ async function runTC105(gpu) {
             module: compModule,
             entryPoint: 'fs_main',
             targets: [{
-                format: canvasFormat,
+                format,
                 blend: {
                     color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
                     alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
@@ -7154,63 +7186,36 @@ async function runTC105(gpu) {
         layout: compBgl,
         entries: [{ binding: 0, resource: pongTex.createView() }, { binding: 1, resource: sampler }]
     });
-
-    const encoder = device.createCommandEncoder();
-
-    // Step 1: Draw Glowing Orb on canvas
-    const p1 = encoder.beginRenderPass({
-        colorAttachments: [{
-            view: ctx.getCurrentTexture().createView(),
-            clearValue: { r: 0.03, g: 0.04, b: 0.07, a: 1 },
-            loadOp: 'clear',
-            storeOp: 'store'
-        }]
-    });
-    p1.setPipeline(orbPipe);
-    p1.draw(4, 1, 0, 0);
-    p1.end();
-
-    // Step 2: Draw to Target for copy
-    const pTarget = encoder.beginRenderPass({
-        colorAttachments: [{
-            view: targetTex.createView(),
-            clearValue: { r: 0.03, g: 0.04, b: 0.07, a: 1 },
-            loadOp: 'clear',
-            storeOp: 'store'
-        }]
-    });
-    pTarget.setPipeline(orbPipeOffscreen);
-    pTarget.draw(4, 1, 0, 0);
-    pTarget.end();
-
-    // Step 3: DMA Copy Target -> Ping
-    encoder.copyTextureToTexture({ texture: targetTex }, { texture: pingTex }, [w, h, 1]);
-
-    // Step 4: Compute Decay Ping -> Pong
-    const cp = encoder.beginComputePass();
-    cp.setPipeline(csPipe);
-    cp.setBindGroup(0, csBg);
-    cp.dispatchWorkgroups(Math.ceil(w / 16), Math.ceil(h / 16), 1);
-    cp.end();
-
-    // Step 5: Composite Pong onto Canvas
-    const pFinal = encoder.beginRenderPass({
-        colorAttachments: [{
-            view: ctx.getCurrentTexture().createView(),
-            loadOp: 'load',
-            storeOp: 'store'
-        }]
-    });
-    pFinal.setPipeline(compPipe);
-    pFinal.setBindGroup(0, compBg);
-    pFinal.draw(4, 1, 0, 0);
-    pFinal.end();
-
-    device.queue.submit([encoder.finish()]);
-
-    await saveCanvasImage(canvas, 'tc105_pingpong_echo.png');
-    document.getElementById('tag-tc105').textContent = 'PASS';
-    document.getElementById('tag-tc105').className = 'tag tag-passed';
+    const render = async () => {
+        const encoder = device.createCommandEncoder();
+        const pTarget = encoder.beginRenderPass({
+            colorAttachments: [{
+                view: targetTex.createView(),
+                clearValue: { r: 0.03, g: 0.04, b: 0.07, a: 1 },
+                loadOp: 'clear',
+                storeOp: 'store'
+            }]
+        });
+        pTarget.setPipeline(orbPipe);
+        pTarget.draw(4, 1, 0, 0);
+        pTarget.end();
+        encoder.copyTextureToTexture({ texture: targetTex }, { texture: pingTex }, [w, h, 1]);
+        const cp = encoder.beginComputePass();
+        cp.setPipeline(csPipe);
+        cp.setBindGroup(0, csBg);
+        cp.dispatchWorkgroups(Math.ceil(w / 16), Math.ceil(h / 16), 1);
+        cp.end();
+        const pFinal = encoder.beginRenderPass({
+            colorAttachments: [{ view: targetTex.createView(), loadOp: 'load', storeOp: 'store' }]
+        });
+        pFinal.setPipeline(compPipe);
+        pFinal.setBindGroup(0, compBg);
+        pFinal.draw(4, 1, 0, 0);
+        pFinal.end();
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+    };
+    await finishStandaloneCanonicalResult(gpu, 'TC105', 'tc105_pingpong_echo', 'canvas-tc105', targetTex, 'Rgba8Unorm', sampler, render, [targetTex, pingTex, pongTex, echoParamsBuf], '1 draw + 1 TextureToTexture copy + 1 compute dispatch + 1 additive composite draw + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback', { copy_commands: 1, compute_commands: 1, draw_commands: 2 });
 }
 
 // -------------------------------------------------------------

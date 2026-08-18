@@ -411,7 +411,7 @@ fn test_tc105_pingpong_echo() {
         let png_path = outputs_dir.join("tc105_pingpong_echo.png");
 
         let actual_rendered_tex = h.registry.owned_texture(&target_h).unwrap();
-        h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &png_path).unwrap();
+        h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8Unorm, &png_path).unwrap();
 
         let reports_dir = std::path::Path::new(manifest_dir).join("tests").join("reports");
         std::fs::create_dir_all(&reports_dir).unwrap();
@@ -420,7 +420,7 @@ fn test_tc105_pingpong_echo() {
         let report_content = format!(
 r#"# Báo cáo: TC105_PINGPONG_ECHO - Hybrid Motion Echo & Feedback Loop Pipeline
 
-Đây là báo cáo tổng hợp chi tiết kết quả kiểm thử sự kết hợp đồng bộ hoàn hảo của cả 4 loại Node trong `ifol-gpu` (`DrawBatch`, `ComputeBatch`, `CopyBatch`, `SubGraph`) trong một hiệu ứng Motion Graphics thực tế (Motion Echo / Temporal Decay).
+Đây là báo cáo tổng hợp chi tiết kết quả kiểm thử sự phối hợp của ba loại Node trong `ifol-gpu` (`DrawBatch`, `ComputeBatch`, `CopyBatch`) trong một hiệu ứng Motion Graphics thực tế (Motion Echo / Temporal Decay).
 
 ---
 

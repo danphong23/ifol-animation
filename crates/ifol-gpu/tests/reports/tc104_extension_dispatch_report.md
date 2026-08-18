@@ -10,7 +10,7 @@
 - **Cơ Chế Điều Phối:** `ExtensionDispatchRegistry` nạp vào `RenderGraphExecutor`
 - **Ràng Buộc Tài Nguyên Khai Báo:** `ResourceUsage { Target Texture, Access: Write }`
 - **Số Lần Kích Hoạt Extension:** 1 lần (Đồng bộ chuẩn xác trong đồ thị)
-- **Thời gian Thực thi:** 190.44ms
+- **Thời gian Thực thi:** 37.04ms
 
 ---
 
@@ -49,15 +49,12 @@ flowchart LR
 
 ---
 
-## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED** (Khả năng mở rộng plugin đạt chuẩn kiến trúc).
+## 5. Đối chiếu Desktop/Web theo canonical raw readback
 
-## 6. Đối chiếu WebGPU
+- Desktop dùng thật `ExtensionDispatchRegistry`; Web không có Rust extension registry nên dùng đường mô phỏng CommandBuffer, nhưng phần render pattern và target canonical vẫn dùng cùng shader/format `Rgba8UnormSrgb`.
+- Desktop: `37.04ms`. WebGPU: cold `4.40ms`, warm `2.90ms`; Web warm output ổn định (`cache_output_equal = true`).
+- Đối chiếu ảnh 800x600: chỉ `3/480.000` pixel khác nhau, delta kênh tối đa `1/255`, MAE `0,000002`.
+- Vision: pattern, nền và toàn bộ hình học trùng nhau. Parity hình ảnh đạt; parity implementation extension chỉ được chứng minh đầy đủ trên Desktop.
 
-- **WebGPU:** PASS, thời gian runner `258.00ms`; ảnh [WebGPU](../outputs/web/tc104_extension_dispatch.png).
-- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
-- **Vision:** Pattern và bố cục render tương ứng; không có fallback hoặc khung hình rỗng.
-- **Pixel PNG Desktop/Web:** `480000` pixel khác nhau, sai lệch kênh lớn nhất `74/255`.
-- **Giới hạn:** Desktop gọi `ExtensionDispatchRegistry` thật; Web runner mô phỏng extension bằng CommandBuffer, chưa phải cùng implementation Rust.
-- **Kết luận parity:** `ĐẠT` về đường đi chức năng được kiểm thử; `CHƯA ĐẠT` parity implementation/pixel tuyệt đối.
-- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.
+## 6. Kết luận
+- **Trạng thái:** ✅ **PASSED** cho output canonical và contract render; Web extension dispatch là fallback mô phỏng, không phải cùng implementation Rust.

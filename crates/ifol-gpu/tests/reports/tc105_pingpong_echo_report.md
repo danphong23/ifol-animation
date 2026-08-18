@@ -1,6 +1,6 @@
 # Báo cáo: TC105_PINGPONG_ECHO - Hybrid Motion Echo & Feedback Loop Pipeline
 
-Đây là báo cáo tổng hợp chi tiết kết quả kiểm thử sự kết hợp đồng bộ hoàn hảo của cả 4 loại Node trong `ifol-gpu` (`DrawBatch`, `ComputeBatch`, `CopyBatch`, `SubGraph`) trong một hiệu ứng Motion Graphics thực tế (Motion Echo / Temporal Decay).
+Đây là báo cáo tổng hợp chi tiết kết quả kiểm thử sự phối hợp của ba loại Node trong `ifol-gpu` (`DrawBatch`, `ComputeBatch`, `CopyBatch`) trong một hiệu ứng Motion Graphics thực tế (Motion Echo / Temporal Decay).
 
 ---
 
@@ -12,7 +12,7 @@
   - `ComputeBatch`: 1 Lệnh Compute Shader (Xử lý suy hao độ sáng và tán mờ hạt).
   - `DrawBatch` 2: Additive Composite Pass (Hòa trộn vệt bóng ma lên khung hình chính).
 - **Tổng Số Node Được Flattened:** 4
-- **Thời gian Thực thi:** 167.20ms
+- **Thời gian Thực thi:** 114.02ms
 
 ---
 
@@ -54,14 +54,13 @@ flowchart TD
 
 ---
 
-## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED** (Khẳng định khả năng phối hợp tối ưu 100% các loại Node trong GPU Engine).
+## 5. Đối chiếu Desktop/Web theo canonical raw readback
 
-## 6. Đối chiếu WebGPU
+- Hai môi trường dùng cùng chuỗi Draw → TextureToTexture copy → Compute decay → Additive composite, cùng shader và target `Rgba8Unorm`. Web đã sửa đúng alpha blending của orb và sampler repeat/linear như Desktop; canvas không dùng để đánh giá parity.
+- Desktop: `114.02ms`. WebGPU: cold `4.80ms`, warm `3.10ms`; Web warm output ổn định (`cache_output_equal = true`).
+- Đối chiếu ảnh 800x600: `19.663/480.000` pixel khác nhau (~4,10%), delta kênh tối đa `5/255`, MAE `0,026807`.
+- Vision: orb, vòng sáng, vệ tinh, nền và bố cục trùng nhau; không còn lệch gamma/độ sáng lớn như đường canvas cũ.
+- **Giới hạn:** TC105 chưa byte-identical; nếu yêu cầu bit-exact tuyệt đối cho feedback sampling, cần canonical hóa phép sampling/biên và precision ở shader trong task riêng.
 
-- **WebGPU:** PASS, thời gian runner `634.70ms`; ảnh [WebGPU](../outputs/web/tc105_pingpong_echo.png).
-- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
-- **Vision:** Orb, vòng echo, điểm sáng và bố cục feedback tương ứng giữa hai môi trường.
-- **Pixel PNG Desktop/Web:** `476656` pixel khác nhau, sai lệch kênh lớn nhất `116/255`.
-- **Kết luận parity:** `ĐẠT CÓ ĐIỀU KIỆN` về Draw → Copy → Compute → Composite; `CHƯA ĐẠT` pixel parity do màu nền, gamma và presentation khác.
-- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.
+## 6. Kết luận
+- **Trạng thái:** ✅ **PASSED có giới hạn** — graph/behavior và ảnh canonical đạt parity trực quan với delta bị chặn; chưa tuyên bố bit-exact cho feedback shader.

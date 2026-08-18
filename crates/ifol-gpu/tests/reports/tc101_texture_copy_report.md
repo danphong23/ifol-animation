@@ -12,7 +12,7 @@
   - **Lệnh 1 (Left Half Copy):** Sao chép toàn bộ Texture Nguồn $A$ $[400 \times 600]$ vào Nửa Trái của $B$ $[0, 0]$.
   - **Lệnh 2 (Right Half Clone):** Sao chép toàn bộ Texture Nguồn $A$ $[400 \times 600]$ vào Nửa Phải của $B$ $[400, 0]$.
 - **Chi phí Shader cho Thao Tác Copy:** 0% (DMA thuần phần cứng).
-- **Thời gian Thực thi:** 150.10ms
+- **Thời gian Thực thi:** 72.84ms
 
 ---
 
@@ -55,14 +55,12 @@ flowchart TD
 
 ---
 
-## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED** (Xác minh hoàn hảo khả năng DMA Texture Blit & Nhân bản Texture).
+## 5. Đối chiếu Desktop/Web theo canonical raw readback
 
-## 6. Đối chiếu WebGPU
+- Hai môi trường dùng cùng graph, cùng shader, cùng hai lệnh copy và cùng target `Rgba8UnormSrgb`. Ảnh canonical được tạo từ raw offscreen; ảnh canvas chỉ là preview.
+- Desktop: `72.84ms`. WebGPU: cold `5.40ms`, warm `4.00ms`; Web warm output ổn định (`cache_output_equal = true`).
+- Đối chiếu ảnh 800x600: chỉ `6/480.000` pixel khác nhau, delta kênh tối đa `1/255`, MAE `0,000003`.
+- Vision: hình học side-by-side, lưới, gradient và bản sao trái/phải trùng nhau.
 
-- **WebGPU:** PASS, thời gian runner `431.50ms`; ảnh [WebGPU](../outputs/web/tc101_texture_copy.png).
-- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
-- **Vision:** Hai nửa trái/phải đều là bản sao side-by-side; bố cục lưới và gradient tương ứng.
-- **Pixel PNG Desktop/Web:** `480000` pixel khác nhau, sai lệch kênh lớn nhất `74/255`.
-- **Kết luận parity:** `ĐẠT CÓ ĐIỀU KIỆN` về chức năng/cấu trúc; `CHƯA ĐẠT` pixel parity do format/presentation của runner Web khác Desktop.
-- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.
+## 6. Kết luận
+- **Trạng thái:** ✅ **PASSED** — parity canonical đạt; sai lệch còn lại là sai số lượng tử tối thiểu của backend.

@@ -10,7 +10,7 @@
 - **Số Tam Giác Kết Xuất (Index Buffer):** $31 \times 31 \times 2 = 1.922$ Tam giác ($5.766$ Indices)
 - **Chuỗi Node Phụ Thuộc:** Compute Wave Sim $\rightarrow$ DMA Buffer Copy $\rightarrow$ Mesh Render Pass
 - **Lệnh Sao Chép Buffer:** 1 lệnh DMA (32768 Bytes)
-- **Thời gian Thực thi:** 133.09ms
+- **Thời gian Thực thi:** 50.85ms
 
 ---
 
@@ -53,14 +53,12 @@ flowchart LR
 
 ---
 
-## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED** (Hoàn hảo cho các hệ thống mô phỏng vật lý / particle $\rightarrow$ mesh).
+## 5. Đối chiếu Desktop/Web theo canonical raw readback
 
-## 6. Đối chiếu WebGPU
+- Hai môi trường dùng cùng graph Compute → BufferToBuffer → Draw, cùng shader và target `Rgba8UnormSrgb`. Web đọc raw từ texture offscreen; canvas không dùng để đánh giá parity.
+- Desktop: `50.85ms`. WebGPU: cold `5.80ms`, warm `3.20ms`; Web warm output ổn định (`cache_output_equal = true`).
+- Đối chiếu ảnh 800x600: chỉ `1/480.000` pixel khác nhau, delta kênh tối đa `1/255`, MAE `0,000001`.
+- Vision: lưới sóng, hình chiếu, màu nền và biên mesh trùng nhau.
 
-- **WebGPU:** PASS, thời gian runner `575.70ms`; ảnh [WebGPU](../outputs/web/tc102_buffer_copy.png).
-- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
-- **Vision:** Hình dạng lưới sóng, đỉnh lõm/lồi và đường biên tương ứng giữa hai môi trường.
-- **Pixel PNG Desktop/Web:** `479555` pixel khác nhau, sai lệch kênh lớn nhất `74/255`.
-- **Kết luận parity:** `ĐẠT CÓ ĐIỀU KIỆN` về compute → copy → render; `CHƯA ĐẠT` pixel parity do màu nền/đường cong được trình bày khác.
-- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.
+## 6. Kết luận
+- **Trạng thái:** ✅ **PASSED** — parity canonical đạt; sai lệch còn lại là sai số lượng tử tối thiểu của backend.
