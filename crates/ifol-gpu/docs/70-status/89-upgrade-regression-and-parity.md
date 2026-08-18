@@ -1,6 +1,8 @@
 # Báo cáo nâng cấp ifol-gpu: regression và parity
 
-Ngày kiểm tra: 2026-08-17
+Ngày kiểm tra: 2026-08-18
+
+> Report chi tiết mới nhất của batch TC101–TC105: [tc101-tc105-cross-platform-summary.md](../../tests/reports/tc101-tc105-cross-platform-summary.md).
 
 ## Kết quả
 
@@ -276,14 +278,19 @@ canonical được dùng như input fixture để loại decoder JPG khác nhau 
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo
 [canonical render và media output contract](../00-foundation/18-canonical-render-and-media-output-contract.md).
 
-## Baseline sau TC70
+## Baseline sau TC105
 
-Commit `4d90857` là baseline chứng nhận gần nhất. Phạm vi đã kiểm tra đến TC70;
-raw parity của từng TC và các điều kiện ngoại lệ được ghi trong report riêng.
-TC71–TC73 hiện là thử nghiệm pending, không phải kết quả pass chính thức. TC71
-còn nondeterministic ở shader/graph contract; TC72–TC73 chưa hoàn tất bằng chứng
-preview/report. Vì vậy không dùng các output hoặc report pending này để kết luận
-lõi `ifol-gpu` lỗi, cũng không dùng chúng để tuyên bố parity media tuyệt đối.
+Commit `f41845e` là baseline chứng nhận mới nhất cho batch TC101–TC105.
+TC71–TC73 cũng đã được kiểm tra lại: TC71 lệch 15 pixel với max delta 2;
+TC72 và TC73 exact. Các report chi tiết nằm trong `tests/reports`.
+
+TC101–TC104 đạt canonical parity gần như tuyệt đối, tối đa 6 pixel khác trên
+480.000 pixel và max delta 1/255. TC105 đã loại bỏ sai lệch canvas/gamma lớn,
+nhưng còn 19.663 pixel khác với max delta 5/255 do feedback sampling giữa
+backend; đây là `ĐẠT CÓ GIỚI HẠN`, chưa phải bit-exact.
+
+Kết quả này chứng nhận test harness đang so sánh cùng đường canonical offscreen;
+nó không tuyên bố mọi shader feedback sẽ byte-identical trên mọi backend.
 
 Xem [90-validation-boundary-and-clean-baseline.md](90-validation-boundary-and-clean-baseline.md)
 để biết tiêu chí phân biệt lỗi core, lỗi test graph và giới hạn tầng ngoài.

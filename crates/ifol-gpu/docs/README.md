@@ -23,6 +23,8 @@ encoder thuộc tầng ngoài; `ifol-gpu` chỉ nhận contract, execute và raw
 [baseline và handoff](70-status/88-current-handoff-baseline.md).
 Kết quả regression và Desktop/Web canonical parity gần nhất nằm ở
 [báo cáo nâng cấp và parity](70-status/89-upgrade-regression-and-parity.md).
+Đối chiếu chi tiết mới nhất của batch TC101–TC105 nằm ở
+[báo cáo tổng hợp TC101–TC105](../tests/reports/tc101-tc105-cross-platform-summary.md).
 Ranh giới chứng nhận, baseline sạch và trạng thái TC đang chờ xử lý nằm ở
 [validation boundary và clean baseline](70-status/90-validation-boundary-and-clean-baseline.md).
 

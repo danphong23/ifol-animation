@@ -427,12 +427,16 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 
 ## Ranh giới chứng nhận hiện tại
 
-Baseline kiểm thử chính thức vẫn là commit `4d90857`, với bằng chứng đã commit
-đến TC70. TC71–TC73 chưa được cộng vào baseline: TC71 còn nondeterministic ở
-shader/graph test contract; TC72–TC73 có raw readback tốt nhưng preview/report
-chưa đủ sạch để chứng nhận. Không có lỗi production source của lõi
-`ifol-gpu` được chứng minh từ các sai khác này. Xem đầy đủ tiêu chí và quy tắc
-handoff tại [90-validation-boundary-and-clean-baseline.md](90-validation-boundary-and-clean-baseline.md).
+Baseline kiểm thử chính thức mới nhất là commit `f41845e`, với batch
+TC101–TC105 đã được kiểm tra Desktop/Web theo canonical offscreen raw readback.
+TC71–TC73 cũng đã được rà lại: TC71 lệch 15 pixel, max delta 2; TC72 và TC73
+exact. TC101–TC104 gần như exact; TC105 còn bounded sampling delta tối đa 5/255
+và được ghi rõ là chưa bit-exact. Không có lỗi production source của lõi
+`ifol-gpu` được suy ra từ sai khác presentation canvas. Xem đầy đủ tiêu chí và
+quy tắc handoff tại [90-validation-boundary-and-clean-baseline.md](90-validation-boundary-and-clean-baseline.md).
+
+Report tổng hợp mới nhất:
+[tc101-tc105-cross-platform-summary.md](../../tests/reports/tc101-tc105-cross-platform-summary.md).
 
 ## Trạng thái handoff
 

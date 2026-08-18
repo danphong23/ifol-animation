@@ -4,8 +4,9 @@ Ngày cập nhật: 2026-08-18
 
 ## Baseline chính thức
 
-Baseline kiểm thử đáng tin cậy gần nhất là commit `4d90857`, trong đó batch
-TC68–TC70 đã được kiểm tra Desktop/Web và ghi nhận report tiếng Việt riêng.
+Baseline kiểm thử đáng tin cậy gần nhất là commit `f41845e`. Batch TC101–TC105
+đã được kiểm tra Desktop/Web theo canonical offscreen raw readback và có report
+tổng hợp tiếng Việt tại [tc101-tc105-cross-platform-summary.md](../../tests/reports/tc101-tc105-cross-platform-summary.md).
 
 Không có thay đổi production source trong batch handoff này. Các thay đổi đang
 có trong working tree chủ yếu thuộc test runner, shader test, output và report;
@@ -29,17 +30,15 @@ nhận là lỗi của `ifol-gpu`.
 
 ## Trạng thái test hiện tại
 
-- TC01–TC70 là phạm vi bằng chứng hiện tại; TC68–TC70 là batch đã commit gần
-  nhất. Một số TC đạt raw parity tuyệt đối, một số TC đạt có điều kiện và report
-  đã ghi rõ byte/pixel diff.
-- TC71 chưa phải baseline: Web test từng cho kết quả nondeterministic ở invariant
-  thứ tự bitonic sort. Đây trước hết là vấn đề của shader/graph test contract,
-  chưa phải bằng chứng lỗi lõi `ifol-gpu`.
-- TC72–TC73 có raw readback và numeric validation đạt trong lần thử hiện tại,
-  nhưng preview/report chưa đủ sạch để chứng nhận batch; output preview Web có
-  thể stale khi chạy focused mode với `skip_preview=1`.
-- Không chạy mở rộng TC74+ cho đến khi baseline, report và ranh giới trách
-  nhiệm giữa core/test harness/tầng media được chốt lại.
+- TC01–TC105 đã có test/report trong repository; baseline gần nhất bổ sung
+  batch TC101–TC105. TC101–TC104 đạt canonical parity gần như tuyệt đối.
+- TC71–TC73 đã được rà lại: TC71 lệch 15 pixel với max delta 2; TC72 và TC73
+  exact trên ảnh canonical. Không còn lý do giữ trạng thái pending cũ.
+- TC105 đạt functional/vision parity với max delta 5/255 nhưng chưa byte-exact
+  vì feedback sampling giữa backend; đây là giới hạn được ghi rõ, không phải
+  lỗi canvas/gamma như kết quả cũ.
+- Khi đánh giá test mới, phải dùng raw offscreen canonical; preview canvas chỉ
+  để vision và không được dùng thay cho source of truth.
 
 ## Quy tắc commit và handoff
 
@@ -50,5 +49,5 @@ Mỗi commit chỉ chứa một batch coherent đã kiểm chứng. Không stage
 - thay đổi ngoài `ifol-gpu` như `ifol-ecs`, `.agents` và `Cargo.lock`;
 - diff lớn không rõ responsibility như thay đổi line ending của harness.
 
-Trước task tiếp theo phải kiểm tra `git status`, giữ commit `4d90857` làm mốc
+Trước task tiếp theo phải kiểm tra `git status`, dùng commit `f41845e` làm mốc
 đối chiếu và chỉ nâng baseline sau khi test/report của batch mới hoàn tất.
