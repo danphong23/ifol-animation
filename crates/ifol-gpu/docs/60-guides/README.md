@@ -3,6 +3,9 @@
 Đây là tài liệu dành cho người dùng bên ngoài `ifol-gpu`. Đọc theo thứ tự sau;
 không cần đọc design internals trước.
 
+Nếu tải crate độc lập, đọc thêm [crate README](../../README.md) trước để biết
+trạng thái version, boundary và cách tích hợp dependency.
+
 ## Learning path
 
 1. [Bắt đầu nhanh](87-guide-getting-started.md) — khởi tạo engine và hiểu ba
@@ -17,6 +20,8 @@ không cần đọc design internals trước.
    validation, submit, surface, readback và lifetime.
 6. [Extension custom](90-guide-public-api-and-extensions.md) — mở rộng graph
    mà không đưa semantic engine vào core.
+7. [API map và versioning](93-guide-api-map-and-versioning.md) — import path,
+   ownership, error contract và mức ổn định của public API.
 
 ## Quy tắc quan trọng
 

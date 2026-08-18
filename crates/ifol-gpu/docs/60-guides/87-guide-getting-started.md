@@ -6,9 +6,18 @@
 ## Khởi tạo engine
 
 ```rust
-let engine = GpuEngineBuilder::new().build().await?;
-let capabilities = engine.capabilities();
+use ifol_gpu::backend::GpuEngineBuilder;
+
+async fn create_engine() -> Result<(), ifol_gpu::backend::GpuError> {
+    let engine = GpuEngineBuilder::new().build().await?;
+    println!("adapter: {:?}", engine.adapter_info());
+    println!("capabilities: {:?}", engine.capabilities());
+    Ok(())
+}
 ```
+
+`build` là async; host chọn runtime của mình. `pollster` chỉ là tiện ích cho
+example/test, không phải dependency runtime của thư viện.
 
 Host chọn backend, required features, limits và fallback policy. Core không tự
 chọn policy domain-specific.

@@ -36,3 +36,9 @@ hoặc deferred destruction. Graph không sở hữu resource.
 Mỗi replacement làm tăng resource version để cache/bundle invalidation hoạt động.
 Dùng accessor (`texture`, `buffer`, `pipeline`, `mesh`, `bind_group`) để lookup
 và API `remove_*`/deferred lifecycle để giải phóng. Không truy cập raw map nội bộ.
+
+Các API registration nhận `max_dimension` cho texture; giá trị này phải lấy từ
+policy/capability của host và không được bỏ qua validation. `insert_*` thường
+trả resource cũ khi thay thế, còn descriptor API trả `Result` nếu metadata
+không hợp lệ. Không thay thế resource đang được GPU sử dụng trước khi
+submission completion.

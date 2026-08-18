@@ -11,8 +11,9 @@ RenderGraph
 ```
 
 `execute_checked` validate graph, flatten nested graph, kiểm tra resource/
-capability rồi mới encode và submit. Lỗi trả về typed; core không bỏ qua node
-hoặc resource thiếu.
+capability rồi mới encode và submit. API trả `wgpu::SubmissionIndex`; host phải
+chờ submission hoàn tất trước khi reuse hoặc giải phóng resource. Lỗi trả về
+typed; core không bỏ qua node hoặc resource thiếu.
 
 ## Surface
 

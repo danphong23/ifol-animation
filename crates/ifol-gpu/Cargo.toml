@@ -2,11 +2,12 @@
 name = "ifol-gpu"
 version = "0.1.0"
 edition = "2024"
+description = "Validation-first GPU execution core with render graphs, resource contracts, and raw readback"
+readme = "README.md"
 
 [dependencies]
 bytemuck = "1.25.2"
 log = "0.4.33"
-pollster = "1.0.1"
 thiserror = "2.0.20"
 wgpu = "30.0.0"
 

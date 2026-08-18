@@ -2,6 +2,9 @@
 
 ## Người dùng bên ngoài
 
+Bắt đầu tại [crate README](../README.md) để biết trạng thái package, public
+module map và boundary khi tích hợp như thư viện.
+
 Bắt đầu tại [public usage guide](60-guides/README.md). Đây là lộ trình chính
 cho engine, game, animation, video pipeline và các ứng dụng GPU bên ngoài.
 
