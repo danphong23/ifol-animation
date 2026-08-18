@@ -1,0 +1,24 @@
+{
+  "test_case": "TC65",
+  "title": "Workgroup Shared Memory Blur",
+  "title_vi": "Làm mờ bằng bộ nhớ chia sẻ workgroup",
+  "description": "Compute a 9x9 blur from a 24x24 shared-memory tile and preserve a sharp left half.",
+  "description_vi": "Compute kernel 9x9 lấy tile 24x24 vào workgroup memory, giữ nửa trái sắc nét và làm mờ nửa phải.",
+  "input_policy_vi": "Desktop và WebGPU dùng cùng asset sprites_heroes.jpeg; decoder nền tảng chỉ là input fixture, không thuộc graph contract.",
+  "graph": {
+    "target": { "kind": "storage_texture", "width": 800, "height": 600, "format": "Rgba8Unorm" },
+    "pipelines": {
+      "workgroup_blur": { "shader": "compute_workgroup_blur.wgsl", "stage": "compute", "layout": "sampled_texture_to_storage_texture" }
+    },
+    "operations": [
+      { "id": "workgroup_blur", "kind": "compute_dispatch", "pass": "blur_pass", "pipeline": "workgroup_blur", "shader": "compute_workgroup_blur.wgsl", "source": [{ "kind": "asset", "asset": "sprites_heroes.jpeg" }], "dispatch": [50, 38, 1], "workgroup_size": [16, 16, 1], "shared_tile": [24, 24] }
+    ],
+    "passes": [
+      { "id": "blur_pass", "name": "Workgroup shared-memory blur", "target": "output", "clear_color": [0.0, 0.0, 0.0, 0.0] }
+    ],
+    "command_count": 1,
+    "node_count": 1,
+    "compute": { "workgroups": [50, 38, 1], "invocations": 486400 }
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["blur_pass"], "expected_instance_count": 1, "visual_check": "Nửa trái giữ ảnh gốc, divider vàng ở giữa, nửa phải blur Gaussian; output không đen hoặc thiếu tile." }
+}

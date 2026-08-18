@@ -1,0 +1,27 @@
+{
+  "test_case": "TC67",
+  "title": "Reaction Diffusion Ping-Pong",
+  "title_vi": "Reaction-diffusion qua ping-pong texture",
+  "description": "Run the legacy-equivalent 2,480 Gray-Scott compute steps by alternating two storage textures, then map the result to color.",
+  "description_vi": "Chạy 2.480 bước Gray-Scott tương đương hành vi runner cũ bằng hai storage texture luân phiên, sau đó ánh xạ nồng độ sang màu.",
+  "input_policy_vi": "Desktop và WebGPU tạo cùng seed deterministic trong texture A; texture B được ghi ở bước đầu, không dùng input decoder.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "reaction_diffusion": { "shader": "compute_reaction_diffusion.wgsl", "stage": "compute", "layout": "sampled_texture_to_storage_texture" },
+      "color_mapping": { "shader": "render_reaction_diffusion.wgsl", "stage": "render", "layout": "texture_sampler" }
+    },
+    "operations": [
+      { "id": "reaction_diffusion", "kind": "compute_ping_pong", "pass": "reaction_pass", "pipeline": "reaction_diffusion", "shader": "compute_reaction_diffusion.wgsl", "dispatch": [50, 38, 1], "step_count": 2480, "pair_count": 1240, "bindings": ["A_to_B", "B_to_A"] },
+      { "id": "color_mapping", "kind": "draw", "pass": "color_pass", "pipeline": "color_mapping", "shader": "render_reaction_diffusion.wgsl", "vertex_count": 3, "instance_count": 1 }
+    ],
+    "passes": [
+      { "id": "reaction_pass", "name": "2,480-step Gray-Scott ping-pong", "target": "texture_a_or_b", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "color_pass", "name": "Reaction-diffusion color mapping", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "command_count": 2481,
+    "node_count": 2,
+    "compute": { "workgroups": [50, 38, 1], "step_count": 2480, "pair_count": 1240 }
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["reaction_pass", "color_pass"], "expected_instance_count": 1, "visual_check": "Xuất hiện pattern hữu cơ xanh/tím/hồng từ seed; không đen toàn ảnh, không validation error và không có resource hazard." }
+}

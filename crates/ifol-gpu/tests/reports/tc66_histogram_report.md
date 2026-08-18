@@ -1,69 +1,96 @@
-# Báo Cáo Kiểm Thử: TC66 - Parallel Histogram & Luminance Scopes (`atomicAdd`)
+# Báo cáo: TC66 - Histogram độ sáng song song
 
-## 1. Ý Nghĩa Bài Toán & Ứng Dụng Thực Tế (What & Why)
-Trong các phần mềm dựng phim và Motion Graphics chuyên nghiệp (After Effects, DaVinci Resolve, Premiere Pro), bảng công cụ **Color Scopes (Histogram / Waveform / Vectorscope)** là tính năng cốt lõi bắt buộc để chỉnh màu (Color Grading), cân bằng trắng (White Balance) và tự động cân chỉnh phơi sáng (Auto-Exposure):
-- **Nếu phân tích trên CPU:** Duyệt qua từng pixel của khung hình độ phân giải cao ($1920 \times 1080$ = $2,073,600$ pixels) qua vòng lặp tuần tự sẽ ngốn từ $15\text{ms} \rightarrow 30\text{ms}$, gây giật khung hình và không thể realtime 60 FPS khi play video.
-- **Giải pháp GPU Parallel Compute:** Phân phối $480,000$ pixel cho hàng trăm workgroups xử lý song song. Mỗi workgroup sử dụng **Local SRAM Shared Memory** (`var<workgroup>`) để đếm cục bộ bằng hàm nguyên tử `atomicAdd`, sau đó mới gộp vào VRAM toàn cục. Thuật toán này triệt tiêu hoàn toàn nghẽn bộ nhớ (Memory Contention) và Race Condition.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
----
+## 1. Mô tả và graph dùng chung
 
-## 2. Diễn Giải Trực Quan Dữ Liệu & Hướng Dẫn Kiểm Tra Mắt Thường (Visual Inspection)
+- **Manifest:** `../shared_assets/manifests/tc66_histogram.json`
+- **Graph fingerprint (FNV-1a):** `52de157767d72d36`
+- **Mô tả test case:** Tính histogram 256 bin bằng atomic trong workgroup, sau đó vẽ overlay lên ảnh nguồn.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `compute_histogram.wgsl`, `render_histogram.wgsl`
+- **Asset/input:** `sprites_heroes.jpeg`
+- **Chính sách input:** Desktop và WebGPU dùng cùng asset sprites_heroes.jpeg và cùng 256-bin atomic contract.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** histogram_compute_pass (Parallel luminance histogram, target histogram_buffer) → histogram_render_pass (Histogram overlay, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `histogram_compute → histogram_overlay`
+- **Sampler contract:** `Không khai báo`
+- **Thứ tự layer kỳ vọng:** `histogram_compute_pass → histogram_render_pass`
+- **Graph resources:** nodes=`2`, draw commands=`2`, tổng instances=`1`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-Bức ảnh kiểm thử bên dưới thể hiện một khung hình tổng hợp gồm **Ảnh Đầu Vào (Background Image)** và **Bảng Phân Tích Dải Sáng (Luminance Histogram Scope Overlay)** được vẽ đè ở góc phải:
+## 2. Môi trường Desktop
 
-![TC66 Histogram](../outputs/desktop/tc66_histogram.png)
+- **Thời gian render lần đầu (cold):** `3.8147 ms`
+- **Thời gian render lần hai (warm/cache):** `1.7400 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `54.4%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `execute_checked + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; state mutable được reset trước warm; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `../outputs/desktop/tc66_histogram_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `d6089f388d5c55a6`
+- **SHA-256:** `0f3298f4e5644b71f85cc56ccb6da6861e9049501659aad79e919c2ca4185a82`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc66_histogram.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị đúng ảnh nguồn và overlay histogram tối ở góc phải với các cột sáng; tổng readback 256 bin bằng 480000 pixel.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=1
 
-### 📐 Bố Cục Không Gian & Bảng Chú Giải Màu Sắc:
-| Thành phần / Vùng hiển thị | Tọa độ / Ký hiệu | Màu sắc | Kỹ thuật Shader | Ý nghĩa đồ họa thực tế |
-| :--- | :--- | :--- | :--- | :--- |
-| **Vùng Ảnh Gốc (Canvas)** | Toàn màn hình ($800 \times 600$) | Gradient sẫm | Fragment Shader | Cảnh phim đầu vào cần phân tích dải sáng. |
-| **Khung Scope Overlay** | Góc trên phải | Nền tối mờ ($70\%$ Opacity) | Alpha Blend Pass | Khung hiển thị giao diện Color Scope. |
-| **Các Cột Histogram** | 256 nấc độ sáng ($X: 0 \rightarrow 255$) | Trắng - Cyan | Procedural Draw | Cột càng cao thể hiện số lượng pixel tại mức sáng đó càng nhiều. |
 
-### 👁️ Hướng Dẫn Người Dùng Tự Đánh Giá Đúng/Sai:
-- **Dấu hiệu ĐÚNG:** Khung Scope góc trên phải có 256 cột tương ứng từ tối ($0$) đến sáng ($255$). Ảnh nền có dải màu gradient thì đỉnh biểu đồ nhô cao ở giữa; tổng diện tích tích phân các cột khớp chính xác $480,000 / 480,000$ pixels.
-- **Dấu hiệu NẾU LỖI:** Nếu khung biểu đồ trống rỗng, các cột bị giật cục/mất nét hoặc tổng tích phân bị thiếu do xung đột ghi đồng thời (Race Condition).
 
----
+## 3. Môi trường WebGPU
 
-## 3. Cấu Trúc Đồ Thị Thực Thi (RenderGraph Pipeline)
-- **Đầu vào (Inputs):** Texture ảnh gốc ($800 \times 600$), Storage Buffer 256 bins `atomic<u32>`.
-- **Chuỗi Pass:**
-  1. `Pass 1 (Compute)`: Dispatch $1,900$ workgroups phân loại $480,000$ pixels vào 256 bins.
-  2. `Pass 2 (Render)`: Vẽ ảnh gốc ra RenderTarget.
-  3. `Pass 3 (Render Overlay)`: Đọc Storage Buffer 256 bins để vẽ các cột Histogram đè lên góc phải.
-- **Đầu ra:** Texture đích $800 \times 600$ format `Rgba8UnormSrgb`.
+- **Thời gian render lần đầu (cold):** `22.2000 ms`
+- **Thời gian render lần hai (warm/cache):** `4.9000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `77.9%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `1 compute histogram dispatch + 1 overlay pass + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; state mutable được reset trước warm; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `../outputs/web/tc66_histogram_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `1e56d148ca2e8700`
+- **SHA-256:** `a7b1cad14e3cd8f7ec11edd1b5d0599294d0e21be3658a66480eb5e4ffbda0a7`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc66_histogram_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng ảnh nguồn và overlay histogram cùng vị trí; cấu trúc và phạm vi cột đúng, khác biệt raw lớn hơn do decoder/format input JPEG, không có lỗi graph.
+- **Graph thực tế:** nodes=2, draw commands=2, instances=1
 
----
 
-## 4. Đo Lường Hiệu Năng & Thời Gian Thực Thi (Detailed Performance Timings)
 
-### ⏱️ Bảng Phân Rã Thời Gian (Execution Breakdown):
-| Hạng mục thực thi | Lần đầu (Cold Start) | Lần sau (Warm / Cached) | Đơn vị đo |
-| :--- | :--- | :--- | :--- |
-| **Thời gian Chuẩn bị (CPU Graph Build Overhead)** | 0.92 ms | 28.50 µs | ms / µs |
-| **Thời gian Compute Pass (Parallel Reduction)** | 0.62 ms | 310.20 µs | ms / µs |
-| **Thời gian Render Pass (Vẽ Scope Overlay)** | 0.38 ms | 182.40 µs | ms / µs |
-| **Tổng Độ Trễ Khung Hình (Total GPU Latency)** | 1.92 ms | 0.52 ms | ms |
-| **Tốc Độ Khung Hình Tương Đương (Equivalent FPS)**| 520 FPS | **1,923 FPS** | FPS |
+## 4. So sánh và kết luận
 
-### ⚙️ Thông Số Phần Cứng & Điều Phối GPU (GPU Dispatch Metrics):
-- **Kích thước ảnh đầu vào:** $800 \times 600$ pixels ($480,000$ điểm ảnh).
-- **Số lượng bins phân loại:** 256 bins ($Y = 0.299R + 0.587G + 0.114B$).
-- **Cấu hình Workgroup:** $16 \times 16 = 256$ threads / workgroup.
-- **Số lượng Workgroups dispatch:** $[50, 38, 1] = 1,900$ workgroups.
-- **Bộ nhớ Workgroup Shared Memory:** $256 \times 4\text{ bytes} = 1\text{ KB}$ SRAM per workgroup.
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `74771` |
+| Số pixel khác nhau | `54379` |
+| Sai số kênh màu lớn nhất | `242/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
 
----
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
 
-## 5. Xác Thực Tính Toàn Vẹn Số Học & Ràng Buộc An Toàn (Verification Check)
-- **Phương pháp đối chiếu:** Async Readback 256 phần tử `atomic<u32>` từ VRAM về CPU và tính tổng $\sum \text{Histogram}[i]$.
-- **Số pixel kiểm đếm được:** $480,000 / 480,000$ pixels ($100.0\%$).
-- **Trạng thái:** **PASSED (Xác thực thuật toán song song và hiển thị trực quan thành công 100%)**.
+## 5. Phân tích hiệu suất
 
----
-
-## 6. Khả Năng Tương Thích & Đa Nền Tảng (Cross-Platform Status)
-- **Desktop (Tauri/wgpu - Vulkan/DX12/Metal):** Hoạt động ổn định (Passed).
-- **Web (WASM/WebGPU):** *(Sẵn sàng tích hợp khi chạy trên Web)*.
-- **Đánh giá tổng quan:** Đạt 100% chuẩn hợp đồng kiến trúc `ifol-gpu`.
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

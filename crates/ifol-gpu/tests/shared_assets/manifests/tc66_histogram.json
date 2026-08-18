@@ -1,0 +1,27 @@
+{
+  "test_case": "TC66",
+  "title": "Parallel Luminance Histogram",
+  "title_vi": "Histogram độ sáng song song",
+  "description": "Build a 256-bin luminance histogram with workgroup atomics and render it over the source image.",
+  "description_vi": "Tính histogram 256 bin bằng atomic trong workgroup, sau đó vẽ overlay lên ảnh nguồn.",
+  "input_policy_vi": "Desktop và WebGPU dùng cùng asset sprites_heroes.jpeg và cùng 256-bin atomic contract.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "pipelines": {
+      "histogram_compute": { "shader": "compute_histogram.wgsl", "stage": "compute", "layout": "sampled_texture_to_atomic_histogram" },
+      "histogram_render": { "shader": "render_histogram.wgsl", "stage": "render", "layout": "texture_sampler_storage_histogram" }
+    },
+    "operations": [
+      { "id": "histogram_compute", "kind": "compute_dispatch", "pass": "histogram_compute_pass", "pipeline": "histogram_compute", "shader": "compute_histogram.wgsl", "source": [{ "kind": "asset", "asset": "sprites_heroes.jpeg" }], "dispatch": [50, 38, 1], "bin_count": 256 },
+      { "id": "histogram_overlay", "kind": "draw", "pass": "histogram_render_pass", "pipeline": "histogram_render", "shader": "render_histogram.wgsl", "vertex_count": 3, "instance_count": 1 }
+    ],
+    "passes": [
+      { "id": "histogram_compute_pass", "name": "Parallel luminance histogram", "target": "histogram_buffer", "clear_color": [0.0, 0.0, 0.0, 0.0] },
+      { "id": "histogram_render_pass", "name": "Histogram overlay", "target": "final", "clear_color": [0.0, 0.0, 0.0, 1.0] }
+    ],
+    "command_count": 2,
+    "node_count": 2,
+    "compute": { "workgroups": [50, 38, 1], "pixel_count": 480000, "bin_count": 256 }
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["histogram_compute_pass", "histogram_render_pass"], "expected_instance_count": 1, "visual_check": "Ảnh nền vẫn nhìn thấy, overlay histogram ở góc phải có cột sáng; tổng histogram phải bằng 480000 pixel." }
+}

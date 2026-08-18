@@ -251,6 +251,16 @@ trong các report không được diễn giải thành cold start tuyệt đối
   nhận cấu trúc đúng mô tả. TC63 đã reset toàn bộ particle buffer trước warm,
   tránh đo state nối tiếp giữa hai lần chạy.
 
+- [TC65](../../tests/reports/tc65_workgroup_blur_report.md) đến
+  [TC67](../../tests/reports/tc67_pingpong_report.md): 3 TC compute đã
+  chuyển sang manifest canonical và runner Desktop/Web chung. Fingerprint lần
+  lượt là `9219b57bf1c71f6b`, `52de157767d72d36` và `92b7444c45f8deee`; cả 3
+  pass validation, vision và cold/warm. TC65 khác 56353 byte/43747 pixel,
+  max delta `7/255`; TC66 khác 74771 byte/54379 pixel, max delta `242/255`
+  nhưng numeric histogram đạt `480000/480000`; TC67 khác 8095 byte/6380
+  pixel, max delta `10/255`. Cả 3 là `ĐẠT CÓ ĐIỀU KIỆN` về raw parity.
+  TC67 giữ semantics runner cũ với 2480 bước và reset seed trước warm.
+
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo

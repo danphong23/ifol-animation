@@ -1,67 +1,96 @@
-# Báo Cáo Kiểm Thử: TC67 - Multi-Pass Compute Ping-Pong (Reaction-Diffusion Pattern Generator)
+# Báo cáo: TC67 - Reaction-diffusion qua ping-pong texture
 
-## 1. Ý Nghĩa Bài Toán & Ứng Dụng Thực Tế (What & Why)
-Trong đồ họa chuyển động và kỹ xảo vi sinh học (Generative Motion Design & Organic Textures), các hiệu ứng tự sinh mô hình tự nhiên (hoa văn da báo, vân đá cẩm thạch, bọt biển, vết rạn san hô theo phương trình hóa sinh **Turing Reaction-Diffusion / Gray-Scott model**):
-- **Nếu xử lý trên CPU:** Yêu cầu giải hệ phương trình vi phân đạo hàm riêng liên tục qua hàng trăm bước lặp trên lưới $800 \times 600$, CPU cần hàng chục giây cho một khung hình.
-- **Giải pháp GPU Compute Ping-Pong:** Sử dụng **2 Texture lưu trữ trung gian (Storage Textures A và B)**. Bước lẻ đọc từ Texture A ghi sang Texture B; bước chẵn đọc từ Texture B ghi sang Texture A. Chuỗi 50 bước lặp được thực thi hoàn toàn trong VRAM với rào cản tài nguyên (Resource Barrier) tự động của `RenderGraph`, **hoàn toàn Zero-Copy về CPU**.
+Đây là báo cáo kiểm thử hai môi trường dùng chung manifest và hợp đồng graph.
 
----
+## 1. Mô tả và graph dùng chung
 
-## 2. Diễn Giải Trực Quan Dữ Liệu & Hướng Dẫn Kiểm Tra Mắt Thường (Visual Inspection)
+- **Manifest:** `../shared_assets/manifests/tc67_pingpong.json`
+- **Graph fingerprint (FNV-1a):** `92b7444c45f8deee`
+- **Mô tả test case:** Chạy 2.480 bước Gray-Scott tương đương hành vi runner cũ bằng hai storage texture luân phiên, sau đó ánh xạ nồng độ sang màu.
+- **Target:** `800x600`, `Rgba8UnormSrgb`
+- **Shader/WGSL:** `compute_reaction_diffusion.wgsl`, `render_reaction_diffusion.wgsl`
+- **Asset/input:** KHÔNG KHAI BÁO
+- **Chính sách input:** Desktop và WebGPU tạo cùng seed deterministic trong texture A; texture B được ghi ở bước đầu, không dùng input decoder.
+- **Depth/stencil:** `Không áp dụng`
+- **Chuỗi pass:** reaction_pass (2,480-step Gray-Scott ping-pong, target texture_a_or_b) → color_pass (Reaction-diffusion color mapping, target final)
+- **Số pass:** `2`
+- **Độ sâu graph:** `KHÔNG ÁP DỤNG`
+- **Hierarchy:** `Không khai báo`
+- **Thứ tự operation sau flatten:** `reaction_diffusion → color_mapping`
+- **Sampler contract:** `Không khai báo`
+- **Thứ tự layer kỳ vọng:** `reaction_pass → color_pass`
+- **Graph resources:** nodes=`2`, draw commands=`2481`, tổng instances=`1`, procedural particles=`Không khai báo`
+- **Node pool contract:** `Không áp dụng`
+- **Error/fallback contract:** `Không áp dụng`
+- **Desktop/Web dùng cùng manifest fingerprint:** `ĐẠT`
 
-Bức ảnh bên dưới thể hiện kết quả hoa văn tự nhiên hữu cơ (Organic Turing Patterns) được sinh ra sau **2,500 chu kỳ khuếch tán và phản ứng hóa học liên tiếp trên GPU**:
+## 2. Môi trường Desktop
 
-![TC67 Reaction-Diffusion](../outputs/desktop/tc67_pingpong.png)
+- **Thời gian render lần đầu (cold):** `257.8356 ms`
+- **Thời gian render lần hai (warm/cache):** `230.1812 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `10.7%`
+- **Adapter/backend:** `Intel(R) Iris(R) Xe Graphics` / `Vulkan`
+- **Phạm vi timing:** `execute_checked + submit queue + device.poll(Wait); không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `DesktopTestHarness mới cho từng TC; state mutable được reset trước warm; không xóa cache nội bộ của driver/GPU`
+- **Dữ liệu raw:** `../outputs/desktop/tc67_pingpong_desktop.bin`
+- **Dấu vân tay raw (FNV-1a):** `12390712dcaa8acc`
+- **SHA-256:** `840608b933f43b57a2b68e60f6d9dbd5efacc0241deef350eda5a5deaef9f145`
+- **Ảnh:** ![Desktop output](../outputs/desktop/tc67_pingpong.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** Desktop hiển thị nền tím tối và ba pattern Gray-Scott cyan/hồng phát triển từ các seed; bố cục và pattern đúng mô tả sau 2480 bước.
+- **Graph thực tế:** nodes=2, draw commands=2481, instances=1
 
-### 📐 Bố Cục Không Gian & Bảng Chú Giải Màu Sắc:
-| Vùng hiển thị | Màu sắc | Kỹ thuật Shader | Ý nghĩa đồ họa thực tế |
-| :--- | :--- | :--- | :--- |
-| **Không Gian Nền Tĩnh** | 🔵 Xanh Lam Đậm (Deep Indigo) | Nồng độ $V \approx 0$ | Vùng chưa xảy ra phản ứng phân chia. |
-| **Vùng Sóng Lan Tỏa** | 🟣 Tím Hồng Neon (Magenta) | Nồng độ chuyển tiếp $U \leftrightarrow V$ | Ranh giới khuếch tán hóa học động. |
-| **Dải Vân Tế Bào Nổi** | 🟡 Vàng Chanh / Trắng Sáng | Nồng độ $V$ cực đại | Các điểm mầm và dải vân tế bào nổi bật. |
 
-### 👁️ Hướng Dẫn Người Dùng Tự Đánh Giá Đúng/Sai:
-- **Dấu hiệu ĐÚNG:** Xuất hiện các đường vân tế bào liền mạch, uốn lượn sắc nét với dải màu tím - vàng neon rực rỡ phân tách tự nhiên.
-- **Dấu hiệu NẾU LỖI:** Nếu toàn bộ ảnh bị đen, xuất hiện sọc nhiễu xé hình hoặc không sinh ra hoa văn do barrier giữa các pass Ping-Pong bị đứt gãy.
 
----
+## 3. Môi trường WebGPU
 
-## 3. Cấu Trúc Đồ Thị Thực Thi (RenderGraph Pipeline)
-- **Đầu vào (Inputs):** 2 Storage Textures $800 \times 600$ (`Texture A` & `Texture B`), Uniform tham số hóa sinh ($F=0.037, K=0.060$).
-- **Chuỗi Pass:**
-  1. `Pass 1 -> 50 (Compute Ping-Pong)`: 50 compute passes đảo chiều đọc/ghi giữa Texture A và Texture B.
-  2. `Pass 51 (Render Color Mapping)`: Đọc Texture kết quả và ánh xạ nồng độ hóa chất sang bảng màu phát quang.
-- **Đầu ra:** RenderTarget $800 \times 600$ format `Rgba8UnormSrgb`.
+- **Thời gian render lần đầu (cold):** `365.6000 ms`
+- **Thời gian render lần hai (warm/cache):** `274.0000 ms`
+- **Số lần warm được đo:** `1`
+- **Output cold và warm giống nhau:** `True`
+- **Speedup cold → warm:** `25.1%`
+- **Adapter:** `gen-12lp`
+- **Phạm vi timing:** `2480 compute ping-pong passes + 1 color mapping pass + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback`
+- **Phạm vi cô lập/cache:** `Resource của TC được hủy sau khi hoàn tất; state mutable được reset trước warm; không xóa cache nội bộ của browser/driver/GPU`
+- **Dữ liệu raw:** `../outputs/web/tc67_pingpong_web.bin`
+- **Dấu vân tay raw (FNV-1a):** `342c4537eef480b7`
+- **SHA-256:** `9ddac8d46083f591048b6345950ab60c42a1149a6018206508295719f355dc22`
+- **Ảnh:** ![WebGPU output](../outputs/web/tc67_pingpong_web.png)
+- **Đánh giá nội dung:** `ĐẠT`
+- **Đánh giá bằng vision:** WebGPU hiển thị cùng nền và ba pattern Gray-Scott deterministic; cấu trúc trùng khớp, khác biệt nhỏ do floating-point/rasterization, không có lỗi hazard.
+- **Graph thực tế:** nodes=2, draw commands=2481, instances=1
 
----
 
-## 4. Đo Lường Hiệu Năng & Thời Gian Thực Thi (Detailed Performance Timings)
 
-### ⏱️ Bảng Phân Rã Thời Gian (Execution Breakdown):
-| Hạng mục thực thi | Lần đầu (Cold Start) | Lần sau (Warm / Cached) | Đơn vị đo |
-| :--- | :--- | :--- | :--- |
-| **Thời gian Chuẩn bị (CPU Graph Build Overhead)** | 1.15 ms | 42.10 µs | ms / µs |
-| **Thời gian Compute Pass (50 chu kỳ Ping-Pong)** | 10.35 ms | 8.80 ms | ms / µs |
-| **Thời gian Render Pass (Color Mapping)** | 0.88 ms | 0.35 ms | ms / µs |
-| **Tổng Độ Trễ Khung Hình (Total GPU Latency)** | 12.38 ms | 9.19 ms | ms |
-| **Tốc Độ Khung Hình Tương Đương (Equivalent FPS)**| 80.7 FPS | **108.8 FPS** | FPS |
+## 4. So sánh và kết luận
 
-### ⚙️ Thông Số Phần Cứng & Điều Phối GPU (GPU Dispatch Metrics):
-- **Độ phân giải bề mặt tương tác:** $800 \times 600$ pixels ($480,000$ tế bào).
-- **Số lượng Texture trung gian:** 2 Storage Textures.
-- **Cấu hình Workgroup:** $16 \times 16 = 256$ threads.
-- **Số lượng Workgroups dispatch:** $[50, 38, 1] = 1,900$ workgroups / pass.
-- **Tổng số Compute Passes:** 50 Passes liên tiếp.
+| Tiêu chí | Kết quả |
+| --- | --- |
+| Graph/manifest giống nhau | `ĐẠT` |
+| Kích thước dữ liệu raw giống nhau | `ĐẠT` |
+| Byte raw giống tuyệt đối | `KHÔNG ĐẠT` |
+| Số byte khác nhau | `8095` |
+| Số pixel khác nhau | `6380` |
+| Sai số kênh màu lớn nhất | `10/255` |
+| Khác biệt màu/presentation | `CÓ - cần theo dõi để đạt byte parity` |
+| Số pixel non-background Desktop/Web | `KHÔNG ÁP DỤNG` |
+| Bounding box Desktop | `KHÔNG ÁP DỤNG` |
+| Bounding box WebGPU | `KHÔNG ÁP DỤNG` |
+| Bounding box non-background giống nhau | `ĐẠT` |
+| Số pixel mask khác nhau | `0` (ngưỡng `0`) |
+| Parity cấu trúc không phụ thuộc màu | `ĐẠT` |
+| Cache giữ nguyên output cold/warm ở cả hai môi trường | `ĐẠT` |
+| Validation/fallback contract không panic | `ĐẠT` |
+| Đúng mô tả test case | `ĐẠT` |
 
----
+**Kết luận:** `ĐẠT CÓ ĐIỀU KIỆN - graph và cấu trúc render giống; khác biệt còn lại thuộc pixel/màu và nằm trong ngưỡng đã khai báo.`
 
-## 5. Xác Thực Tính Toàn Vẹn Số Học & Ràng Buộc An Toàn (Verification Check)
-- **Kiểm tra rào cản tài nguyên (Resource Barrier Invariant):** 50 pass luân phiên không xảy ra bất kỳ lỗi xung đột bộ nhớ WGPU nào.
-- **Trạng thái:** **PASSED (Cơ chế Ping-Pong nhiều Pass trên RenderGraph hoạt động hoàn hảo)**.
+## 5. Phân tích hiệu suất
 
----
-
-## 6. Khả Năng Tương Thích & Đa Nền Tảng (Cross-Platform Status)
-- **Desktop (Tauri/wgpu - Vulkan/DX12/Metal):** Hoạt động ổn định (Passed).
-- **Web (WASM/WebGPU):** *(Sẵn sàng tích hợp khi chạy trên Web)*.
-- **Đánh giá tổng quan:** Đạt 100% chuẩn hợp đồng kiến trúc `ifol-gpu`.
+Các giá trị trên đo thời gian thực thi graph, submit lệnh và chờ GPU hoàn tất;
+không bao gồm khởi tạo device/pipeline hoặc readback. Vì vậy `cold` ở đây là
+lần execute đầu sau khi resource/pipeline đã được tạo, không phải cold start
+của toàn bộ ứng dụng. Giá trị dưới `1 ms` tương đương microsecond và cần được
+đọc theo đơn vị đó khi phân tích.

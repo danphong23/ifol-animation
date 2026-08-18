@@ -403,6 +403,16 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   reset toàn bộ particle buffer trước warm để hai lượt đo không nối tiếp state.
 - Không có graph JSON legacy cho TC62–TC64; manifest là graph contract duy nhất
   của batch này. Các output Web được lưu riêng để đối chiếu raw bytes và vision.
+- TC65–TC67 đã được chuyển sang manifest canonical và runner Desktop/Web chung.
+  Fingerprint lần lượt là `9219b57bf1c71f6b`, `52de157767d72d36` và
+  `92b7444c45f8deee`; cả 3 pass validation, vision và cold/warm. TC65 khác
+  56353 byte/43747 pixel, TC66 khác 74771 byte/54379 pixel và TC67 khác 8095
+  byte/6380 pixel; report ghi rõ max delta và phân loại `ĐẠT CÓ ĐIỀU KIỆN`.
+  TC66 đạt numeric histogram `480000/480000`; TC67 giữ 2480 bước như runner
+  cũ và reset seed trước warm.
+- Không có graph JSON legacy cho TC65–TC67; manifest là graph contract duy nhất
+  của batch này. Các runner Desktop cũ đã được thay bằng wrapper gọi shared
+  runner, Web catalog/card và output/report song song đã được bổ sung.
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 

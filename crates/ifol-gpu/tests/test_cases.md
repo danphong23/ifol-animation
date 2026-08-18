@@ -389,3 +389,21 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Waveform cyan ở phần trên, divider, grid và 64 cột FFT gradient ở phần dưới với peak hợp lệ.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `eb63136e435ed1cb`; validation và vision đạt; raw khác 3893 byte ở 2088 pixel, sai số tối đa `99/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
 - **Báo cáo:** [`tc64_audio_fft_report.md`](reports/tc64_audio_fft_report.md)
+
+### TC65 - Workgroup Shared Memory Blur
+- **Mục tiêu:** Kiểm thử blur Gaussian 9x9 dùng tile 24x24 trong workgroup memory.
+- **Kỳ vọng hình ảnh xuất ra:** Nửa trái giữ ảnh nhân vật sắc nét, divider vàng ở giữa, nửa phải blur mượt không artifact.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `9219b57bf1c71f6b`; validation và vision đạt; raw khác 56353 byte ở 43747 pixel, sai số tối đa `7/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc65_workgroup_blur_report.md`](reports/tc65_workgroup_blur_report.md)
+
+### TC66 - Parallel Luminance Histogram
+- **Mục tiêu:** Tính histogram 256 bin bằng atomic workgroup và vẽ overlay lên ảnh nguồn.
+- **Kỳ vọng hình ảnh xuất ra:** Ảnh nguồn vẫn rõ, histogram nằm ở góc phải; tổng 256 bin phải bằng 480000 pixel.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `52de157767d72d36`; validation, vision và numeric readback `480000/480000` đạt; raw khác 74771 byte ở 54379 pixel, sai số tối đa `242/255`, nên `ĐẠT CÓ ĐIỀU KIỆN` do decoder/format input JPEG.
+- **Báo cáo:** [`tc66_histogram_report.md`](reports/tc66_histogram_report.md)
+
+### TC67 - Reaction Diffusion Ping-Pong
+- **Mục tiêu:** Kiểm thử 2.480 bước Gray-Scott qua hai storage texture luân phiên và color mapping.
+- **Kỳ vọng hình ảnh xuất ra:** Ba pattern hữu cơ cyan/hồng phát triển từ seed trên nền tím tối, không đen toàn ảnh hoặc resource hazard.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `92b7444c45f8deee`; validation và vision đạt; raw khác 8095 byte ở 6380 pixel, sai số tối đa `10/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`. Seed được reset trước warm.
+- **Báo cáo:** [`tc67_pingpong_report.md`](reports/tc67_pingpong_report.md)

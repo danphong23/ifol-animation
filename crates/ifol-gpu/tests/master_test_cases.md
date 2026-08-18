@@ -271,3 +271,9 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Hợp đồng:** Mỗi TC dùng manifest canonical, fingerprint chung giữa Desktop/Web, runner chạy tuần tự và report tiếng Việt riêng. TC63 reset particle buffer trước lượt warm; TC64 không phụ thuộc microphone hoặc decoder nền tảng.
 - **Kết quả:** 3/3 pass validation, vision và cold/warm output ổn định. TC62 khác 59987 byte/31132 pixel max `128/255`; TC63 khác 204777 byte/74419 pixel max `222/255`; TC64 khác 3893 byte/2088 pixel max `99/255`. Cả ba là `ĐẠT CÓ ĐIỀU KIỆN` về raw parity.
 - **Báo cáo:** [`tc62_storage_texture_report.md`](reports/tc62_storage_texture_report.md), [`tc63_particles_100k_report.md`](reports/tc63_particles_100k_report.md), [`tc64_audio_fft_report.md`](reports/tc64_audio_fft_report.md)
+
+### TC65–TC67 - Workgroup, histogram và reaction-diffusion parity
+- **Phạm vi:** Workgroup shared-memory blur, histogram luminance 256 atomic bins và reaction-diffusion ping-pong 2.480 bước.
+- **Hợp đồng:** Mỗi TC có manifest canonical, fingerprint chung giữa Desktop/Web, cùng WGSL và report tiếng Việt riêng. TC66 reset histogram trước warm và xác nhận `480000/480000`; TC67 reset seed texture trước warm để hai lượt độc lập.
+- **Kết quả:** 3/3 pass validation, vision và cold/warm output ổn định. TC65 khác 56353 byte/43747 pixel max `7/255`; TC66 khác 74771 byte/54379 pixel max `242/255` do input JPEG decoder/format; TC67 khác 8095 byte/6380 pixel max `10/255`. Cả ba `ĐẠT CÓ ĐIỀU KIỆN` về raw parity.
+- **Báo cáo:** [`tc65_workgroup_blur_report.md`](reports/tc65_workgroup_blur_report.md), [`tc66_histogram_report.md`](reports/tc66_histogram_report.md), [`tc67_pingpong_report.md`](reports/tc67_pingpong_report.md)
