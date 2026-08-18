@@ -57,9 +57,9 @@ phải được cập nhật khi thêm, đổi tên hoặc di chuyển tài li�
 Trước mỗi task, đọc theo thứ tự:
 
 1. tài liệu liên quan trong nhóm sở hữu;
-2. `00-foundation/13-task-plan.md` và
+2. `00-foundation/17-incremental-module-splitting-plan.md` và
    `00-foundation/14-definition-of-done.md`;
-3. tài liệu status/roadmap mới nhất trong `70-status`;
+3. tài liệu status mới nhất trong `70-status`;
 4. test hiện có và public API trong source.
 
 Task chỉ được xem là hoàn tất khi code, test gate và tài liệu cùng phản ánh

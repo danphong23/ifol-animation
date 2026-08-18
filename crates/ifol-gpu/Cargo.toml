@@ -427,7 +427,7 @@ path = "tests/desktop/tc99_video_nv12_pipeline.rs"
 
 [[test]]
 name = "tc100_desktop"
-path = "tests/desktop/tc100_resilience_fallback.rs"
+path = "tests/desktop/tc100_validation_resilience.rs"
 
 [[test]]
 name = "tc101_desktop"

@@ -7,7 +7,7 @@ use ifol_gpu::resources::{PipelineHandle, TextureHandle};
 use std::time::Instant;
 
 #[test]
-fn test_tc100_resilience_fallback() {
+fn test_tc100_validation_resilience() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     pollster::block_on(async {
@@ -79,13 +79,13 @@ fn test_tc100_resilience_fallback() {
 
         println!("TC100: All 3 error validation assertions passed with zero-crash!");
 
-        // 4. Case D: Graceful Fallback Recovery Execution
+        // 4. Case D: Host-provided recovery execution
         let render_shader_str = std::fs::read_to_string(
-            std::path::Path::new(manifest_dir).join("tests/shared_assets/shaders/fallback_checkerboard.wgsl"),
+            std::path::Path::new(manifest_dir).join("tests/shared_assets/shaders/host_recovery_checkerboard.wgsl"),
         ).expect("read fallback shader");
 
         let render_shader = h.engine.device().create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("fallback_checkerboard_shader"),
+            label: Some("host_recovery_checkerboard_shader"),
             source: wgpu::ShaderSource::Wgsl(render_shader_str.into()),
         });
 
@@ -123,9 +123,9 @@ fn test_tc100_resilience_fallback() {
             multiview_mask: None,
             cache: None,
         });
-        let fallback_pipe_h = h.insert_pipeline(render_pipeline, vec![]);
+        let recovery_pipe_h = h.insert_pipeline(render_pipeline, vec![]);
 
-        // When a node fails, host swaps in the fallback checkerboard batch
+        // Host explicitly builds a recovery graph after handling the typed error.
         let mut pool_recovery = RenderNodePool::new();
         let mut recovery_graph = RenderGraph::new(RenderTarget::Offscreen {
             color: target_h,
@@ -134,11 +134,11 @@ fn test_tc100_resilience_fallback() {
         }).with_clear_color([0.0, 0.0, 0.0, 1.0]);
 
         recovery_graph.add_batch(&mut pool_recovery, vec![
-            DrawCommand::new(fallback_pipe_h, DrawAction::Procedural { vertex_count: 4, instance_range: 0..1 }),
+            DrawCommand::new(recovery_pipe_h, DrawAction::Procedural { vertex_count: 4, instance_range: 0..1 }),
         ]);
 
         let report = h.executor.execute_checked_with_report(&h.engine, &h.registry, &mut pool_recovery, &recovery_graph)
-            .expect("Fallback recovery graph execution must succeed");
+            .expect("Host recovery graph execution must succeed");
 
         let _ = h.engine.device().poll(wgpu::PollType::Wait {
             submission_index: Some(report.submission),
@@ -147,26 +147,26 @@ fn test_tc100_resilience_fallback() {
 
         let exec_time = start_time.elapsed();
         println!(
-            "TC100: Graceful Fallback & Error Resilience completed in {:.2?} | Fallback rendered cleanly!",
+            "TC100: Validation resilience completed in {:.2?} | Host recovery rendered cleanly!",
             exec_time
         );
 
         // Save Output & Report
         let outputs_dir = std::path::Path::new(manifest_dir).join("tests").join("outputs").join("desktop");
         std::fs::create_dir_all(&outputs_dir).unwrap();
-        let png_path = outputs_dir.join("tc100_resilience_fallback.png");
+        let png_path = outputs_dir.join("tc100_validation_resilience.png");
 
         let actual_rendered_tex = h.registry.owned_texture(&target_h).unwrap_or(&target_tex);
         h.save_texture_to_file_checked(actual_rendered_tex, wgpu::TextureFormat::Rgba8UnormSrgb, &png_path).unwrap();
 
         let reports_dir = std::path::Path::new(manifest_dir).join("tests").join("reports");
         std::fs::create_dir_all(&reports_dir).unwrap();
-        let report_path = reports_dir.join("tc100_resilience_fallback_report.md");
+        let report_path = reports_dir.join("tc100_validation_resilience_report.md");
 
         let report_content = format!(
-r#"# Báo cáo: TC100_RESILIENCE_FALLBACK - Graceful Error Handling & Fallback Recovery
+r#"# Báo cáo: TC100_VALIDATION_RESILIENCE - Typed Validation và Host Recovery
 
-Đây là báo cáo tổng hợp chi tiết kết quả kiểm thử khả năng bắt lỗi an toàn (Zero-crash Validation) và cơ chế cứu hộ Fallback hiển thị bàn cờ cảnh báo (Magenta Checkerboard) khi xảy ra lỗi tài nguyên.
+Đây là báo cáo kiểm thử validation có kiểu và quy trình host tự tạo recovery graph sau khi nhận lỗi. Core không tự thay node lỗi và không sở hữu checkerboard policy.
 
 ---
 
@@ -177,40 +177,40 @@ r#"# Báo cáo: TC100_RESILIENCE_FALLBACK - Graceful Error Handling & Fallback R
   2. `MissingIndirectBuffer(888888)`: Indirect Buffer bị thiếu.
   3. `DependencyCycle(1 <-> 2)`: Đồ thị chứa chu trình phụ thuộc vòng kín.
 - **Kết quả Validation:** 100% bắt chính xác các biến thể `RenderGraphValidationError` trước khi nạp GPU.
-- **Cơ Chế Cứu Hộ:** Tự động thế chỗ node lỗi bằng `FallbackCheckerboardNode` và xuất hình an toàn.
+- **Recovery policy:** Host nhận `RenderGraphValidationError`, sau đó chủ động tạo recovery graph bằng shader checkerboard.
 - **Thời gian Thực thi:** {exec_time:.2?}
 
 ---
 
-## 2. Quy Trình Cứu Hộ Fallback (Zero-Crash Lifecycle)
+## 2. Quy Trình Validation và Host Recovery
 
 ```mermaid
 flowchart TD
     GRAPH["RenderGraph Yêu Cầu Thực Thi"] --> VAL{{"validate_with_device()"}}
     VAL -->|Hợp Lệ| EXEC["✅ GPU Command Execution"]
     VAL -->|Phát Hiện Lỗi| ERR["⚠️ Bắt RenderGraphValidationError"]
-    ERR --> FALLBACK["🛡️ Host Tráo Node Fallback Checkerboard"]
-    FALLBACK --> RE_EXEC["✅ Xuất Hình Debug Cảnh Báo (Zero Crash)"]
+    ERR --> RECOVERY["🛡️ Host tạo recovery graph"]
+    RECOVERY --> RE_EXEC["✅ Execute graph hợp lệ"]
 ```
 
 ---
 
-## 3. Ảnh Render Kết Quả (Fallback Debug Checkerboard)
+## 3. Ảnh Render Kết Quả (Host Recovery Debug Checkerboard)
 
-![TC100 Fallback Checkerboard](../outputs/desktop/tc100_resilience_fallback.png)
+![TC100 Host Recovery Checkerboard](../outputs/desktop/tc100_validation_resilience.png)
 
 ---
 
 ## 4. ⚠️ ĐÁNH GIÁ ẢNH RENDER (AI's Self-Analysis)
 
 - **Cấu trúc Hiển thị:** Ảnh hiển thị bàn cờ 16x16 ô màu Tím Magenta (#FF00FF) và Xám Đậm (#181818), bao quanh bởi viền sọc cảnh báo vàng/đen (Hazard warning stripes).
-- **Ý Nghĩa Trực Quan:** Bất kỳ lỗi texture thiếu hoặc shader lỗi nào cũng sẽ được hiển thị trực quan thay vì gây crash ứng dụng hoặc đứng hình.
-- **Tính Ổn Định:** Toàn bộ tiến trình engine giữ vững trạng thái lành mạnh, sẵn sàng nhận các frame tiếp theo sau khi người dùng sửa lỗi tài nguyên.
+- **Ý Nghĩa Trực Quan:** Host có thể chọn hiển thị recovery output thay vì dừng frame sau khi xử lý lỗi typed.
+- **Tính Ổn Định:** Core trả lỗi trước submit cho graph không hợp lệ; recovery và thông báo cho người dùng thuộc host.
 
 ---
 
 ## 5. Kết luận
-- **Trạng thái:** ✅ **PASSED** (Khả năng chịu lỗi và tự phục hồi đạt chuẩn Production).
+- **Trạng thái:** ✅ **PASSED** (Typed validation và host recovery đúng contract).
 "#,
             exec_time = exec_time
         );

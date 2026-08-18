@@ -44,7 +44,6 @@ pub(crate) use validation::bind_group_slot_index;
 pub(crate) use validation::texture_supports_aspect;
 
 #[cfg(test)]
-#[cfg(test)]
 #[path = "encoder_tests.rs"]
 mod encoder_tests;
 #[cfg(test)]

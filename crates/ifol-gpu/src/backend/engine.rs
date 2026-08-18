@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use crate::backend::capabilities::GpuCapabilities;
-pub use super::readback::{RawTextureReadback, ReadbackError, ReadbackTicket};
 
 pub struct GpuEngine<'a> {
     device: Arc<wgpu::Device>,

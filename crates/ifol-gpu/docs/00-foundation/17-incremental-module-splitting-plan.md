@@ -1,8 +1,8 @@
 # Kế hoạch tách module từng bước
 
-Đây là execution plan hiện hành. File
-`docs/ifol-gpu-upgrade-plan.md` là architecture backlog dài hạn, không phải
-danh sách task chạy nguyên khối.
+Đây là execution plan hiện hành. Các tài liệu backlog cũ không còn thuộc
+execution path đã được loại bỏ; mọi bước còn lại phải đối chiếu source và test
+hiện hành trước khi thực hiện.
 
 Parity Desktop/Web và canonical media export là một boundary riêng, không được
 đưa file decoder/encoder hoặc color policy vào core chỉ để làm test pass. Quy
@@ -103,8 +103,8 @@ extensions facade vào `extensions/tests.rs`; production facade giữ
 extension contracts, validation và registries. Các task này chỉ di chuyển
 test responsibility và giữ nguyên behavior. Phase E4 tách regression tests
 inline khỏi `memory/frame.rs` vào `memory/frame_tests.rs` qua test-only path;
-memory production logic và public API không đổi. Bước kế tiếp là E5: audit
-`memory/lru_cache.rs`. Phase E5 tách regression tests inline khỏi transient
+memory production logic và public API không đổi. Phase E5 tách regression tests
+inline khỏi transient
 pool implementation vào `memory/lru_tests.rs`; pool contracts và public API
 không đổi. Phase E6 tách regression tests inline khỏi
 `memory/ring_buffer.rs` vào `memory/ring_tests.rs`; ring buffer production
@@ -239,8 +239,8 @@ giữ nguyên graph model, public construction API và hazard semantics. F10 đ�
 bundle cache identity calculation khỏi `execution/render_bundles.rs` vào
 `execution/bundle_key.rs`, giữ nguyên cache key behavior và internal test
 surface. F11 đã tách transient texture/buffer pool thành
-`memory/texture_pool.rs` và `memory/buffer_pool.rs`; `memory/lru_cache.rs`
-giữ facade re-export nhỏ, còn submission-gated reuse semantics và regression
+`memory/texture_pool.rs` và `memory/buffer_pool.rs`; facade `memory` re-export
+trực tiếp các type canonical, còn submission-gated reuse semantics và regression
 tests không đổi. F12 đã tách resource conflict matching thành
 `graph/buffer_overlap.rs` và `graph/texture_overlap.rs`; `graph/usage_overlap.rs`
 giữ conflict policy và facade điều phối, không đổi hazard semantics. F13 đã

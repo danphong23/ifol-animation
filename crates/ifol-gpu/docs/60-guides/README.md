@@ -22,6 +22,10 @@ trạng thái version, boundary và cách tích hợp dependency.
    mà không đưa semantic engine vào core.
 7. [API map và versioning](93-guide-api-map-and-versioning.md) — import path,
    ownership, error contract và mức ổn định của public API.
+8. [Tra cứu public API](94-guide-public-api-reference.md) — method và type
+   contract hiện hành.
+9. [Mẫu tích hợp](95-guide-integration-recipes.md) — host resource, graph,
+   extension và raw readback.
 
 ## Quy tắc quan trọng
 

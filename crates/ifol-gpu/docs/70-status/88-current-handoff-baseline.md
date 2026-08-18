@@ -50,8 +50,8 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - `src/memory/lru_tests.rs` chứa transient pool regression suite;
   `src/memory/texture_pool.rs` giữ texture descriptor key và
   `TransientTexturePool`, còn `src/memory/buffer_pool.rs` giữ buffer
-  descriptor key và `TransientBufferPool`; `lru_cache.rs` chỉ là facade
-  re-export nhỏ để giữ canonical public path;
+  descriptor key và `TransientBufferPool`; `memory` re-export trực tiếp các
+  type canonical và không còn `lru_cache.rs`;
 - `src/memory/ring_tests.rs` chứa ring buffer regression suite; ring buffer
   production module chỉ giữ allocation và submission-gated reset logic;
 - `src/memory/submission_tests.rs` chứa submission tracker regression suite;
@@ -422,8 +422,8 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - Không có graph JSON legacy cho TC68–TC70; manifest là graph contract duy
   nhất. Các wrapper Desktop cũ đã được thay bằng wrapper mỏng gọi shared
   runner; Web catalog/card và output/report song song đã được bổ sung.
-- file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
-  trạng thái.
+- các tài liệu backlog cũ không phải execution plan và không còn được giữ trong
+  docs hiện hành.
 
 ## Ranh giới chứng nhận hiện tại
 

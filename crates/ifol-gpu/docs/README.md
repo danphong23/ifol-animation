@@ -38,5 +38,9 @@ không phải user manual:
 - [Status và release audit](70-status/87-core-baseline-release-audit.md)
 - [Migration history](80-migration/README.md)
 
+Tài liệu kiến trúc nền tảng gồm [architecture contracts](00-foundation/20-architecture-contracts.md).
+Tài liệu sử dụng public gồm [API reference](60-guides/94-guide-public-api-reference.md)
+và [integration recipes](60-guides/95-guide-integration-recipes.md).
+
 `docs/` là design source chính thức của crate; `.agents/design` chỉ là lịch sử
 hoặc tài liệu điều phối cấp workspace.
