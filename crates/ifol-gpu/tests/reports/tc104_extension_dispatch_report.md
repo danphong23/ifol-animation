@@ -10,7 +10,7 @@
 - **Cơ Chế Điều Phối:** `ExtensionDispatchRegistry` nạp vào `RenderGraphExecutor`
 - **Ràng Buộc Tài Nguyên Khai Báo:** `ResourceUsage { Target Texture, Access: Write }`
 - **Số Lần Kích Hoạt Extension:** 1 lần (Đồng bộ chuẩn xác trong đồ thị)
-- **Thời gian Thực thi:** 33.37ms
+- **Thời gian Thực thi:** 190.44ms
 
 ---
 
@@ -51,3 +51,13 @@ flowchart LR
 
 ## 5. Kết luận
 - **Trạng thái:** ✅ **PASSED** (Khả năng mở rộng plugin đạt chuẩn kiến trúc).
+
+## 6. Đối chiếu WebGPU
+
+- **WebGPU:** PASS, thời gian runner `258.00ms`; ảnh [WebGPU](../outputs/web/tc104_extension_dispatch.png).
+- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
+- **Vision:** Pattern và bố cục render tương ứng; không có fallback hoặc khung hình rỗng.
+- **Pixel PNG Desktop/Web:** `480000` pixel khác nhau, sai lệch kênh lớn nhất `74/255`.
+- **Giới hạn:** Desktop gọi `ExtensionDispatchRegistry` thật; Web runner mô phỏng extension bằng CommandBuffer, chưa phải cùng implementation Rust.
+- **Kết luận parity:** `ĐẠT` về đường đi chức năng được kiểm thử; `CHƯA ĐẠT` parity implementation/pixel tuyệt đối.
+- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.

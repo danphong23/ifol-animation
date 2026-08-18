@@ -12,7 +12,7 @@
   - `ComputeBatch`: 1 Lệnh Compute Shader (Xử lý suy hao độ sáng và tán mờ hạt).
   - `DrawBatch` 2: Additive Composite Pass (Hòa trộn vệt bóng ma lên khung hình chính).
 - **Tổng Số Node Được Flattened:** 4
-- **Thời gian Thực thi:** 105.19ms
+- **Thời gian Thực thi:** 167.20ms
 
 ---
 
@@ -28,7 +28,7 @@ flowchart TD
         COMP["⚡ ComputeBatch: Decay & Dispersion"]
         PONG["Feedback Texture (Pong)"]
         COMPOSITE["🎨 DrawBatch 2: Additive Blend"]
-
+        
         ORB --> TARGET
         TARGET --> COPY
         COPY --> PING
@@ -56,3 +56,12 @@ flowchart TD
 
 ## 5. Kết luận
 - **Trạng thái:** ✅ **PASSED** (Khẳng định khả năng phối hợp tối ưu 100% các loại Node trong GPU Engine).
+
+## 6. Đối chiếu WebGPU
+
+- **WebGPU:** PASS, thời gian runner `634.70ms`; ảnh [WebGPU](../outputs/web/tc105_pingpong_echo.png).
+- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
+- **Vision:** Orb, vòng echo, điểm sáng và bố cục feedback tương ứng giữa hai môi trường.
+- **Pixel PNG Desktop/Web:** `476656` pixel khác nhau, sai lệch kênh lớn nhất `116/255`.
+- **Kết luận parity:** `ĐẠT CÓ ĐIỀU KIỆN` về Draw → Copy → Compute → Composite; `CHƯA ĐẠT` pixel parity do màu nền, gamma và presentation khác.
+- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.

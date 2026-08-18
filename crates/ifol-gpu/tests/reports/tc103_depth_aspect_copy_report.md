@@ -14,7 +14,7 @@
   - **Tầng 4 - Hậu Cảnh Vô Cực ($Z = 1.0$):** Màu Xám Đen Slate (Dark Slate `#1A1F2E`)
 - **Chuỗi Node Phụ Thuộc:** 3D Scene (Depth Write) $\rightarrow$ DMA Depth Isolation Copy $\rightarrow$ Depth Heatmap Post-Process
 - **Lệnh Sao Chép Kênh (Aspect Copy):** 1 lệnh DMA (`TextureAspect::DepthOnly`)
-- **Thời gian Thực thi:** 76.91ms
+- **Thời gian Thực thi:** 113.87ms
 
 ---
 
@@ -62,3 +62,12 @@ flowchart LR
 
 ## 5. Kết luận
 - **Trạng thái:** ✅ **PASSED** (Hỗ trợ hoàn hảo trích xuất chuyên biệt từng kênh Texture Aspect).
+
+## 6. Đối chiếu WebGPU
+
+- **WebGPU:** PASS, thời gian runner `391.50ms`; ảnh [WebGPU](../outputs/web/tc103_depth_aspect_copy.png).
+- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
+- **Vision:** Các vùng hình học và phân tầng depth giống nhau: nền, mặt phẳng vàng, xanh lục và xanh lam.
+- **Pixel PNG Desktop/Web:** `480000` pixel khác nhau, sai lệch kênh lớn nhất `72/255`.
+- **Kết luận parity:** `ĐẠT CÓ ĐIỀU KIỆN` về depth-aspect/copy và cấu trúc heatmap; `CHƯA ĐẠT` pixel parity do bảng màu/presentation khác.
+- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.

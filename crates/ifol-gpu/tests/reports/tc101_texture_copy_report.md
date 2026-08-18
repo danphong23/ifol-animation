@@ -12,7 +12,7 @@
   - **Lệnh 1 (Left Half Copy):** Sao chép toàn bộ Texture Nguồn $A$ $[400 \times 600]$ vào Nửa Trái của $B$ $[0, 0]$.
   - **Lệnh 2 (Right Half Clone):** Sao chép toàn bộ Texture Nguồn $A$ $[400 \times 600]$ vào Nửa Phải của $B$ $[400, 0]$.
 - **Chi phí Shader cho Thao Tác Copy:** 0% (DMA thuần phần cứng).
-- **Thời gian Thực thi:** 64.99ms
+- **Thời gian Thực thi:** 150.10ms
 
 ---
 
@@ -57,3 +57,12 @@ flowchart TD
 
 ## 5. Kết luận
 - **Trạng thái:** ✅ **PASSED** (Xác minh hoàn hảo khả năng DMA Texture Blit & Nhân bản Texture).
+
+## 6. Đối chiếu WebGPU
+
+- **WebGPU:** PASS, thời gian runner `431.50ms`; ảnh [WebGPU](../outputs/web/tc101_texture_copy.png).
+- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
+- **Vision:** Hai nửa trái/phải đều là bản sao side-by-side; bố cục lưới và gradient tương ứng.
+- **Pixel PNG Desktop/Web:** `480000` pixel khác nhau, sai lệch kênh lớn nhất `74/255`.
+- **Kết luận parity:** `ĐẠT CÓ ĐIỀU KIỆN` về chức năng/cấu trúc; `CHƯA ĐẠT` pixel parity do format/presentation của runner Web khác Desktop.
+- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.

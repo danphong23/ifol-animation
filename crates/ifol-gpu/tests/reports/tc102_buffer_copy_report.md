@@ -10,7 +10,7 @@
 - **Số Tam Giác Kết Xuất (Index Buffer):** $31 \times 31 \times 2 = 1.922$ Tam giác ($5.766$ Indices)
 - **Chuỗi Node Phụ Thuộc:** Compute Wave Sim $\rightarrow$ DMA Buffer Copy $\rightarrow$ Mesh Render Pass
 - **Lệnh Sao Chép Buffer:** 1 lệnh DMA (32768 Bytes)
-- **Thời gian Thực thi:** 72.78ms
+- **Thời gian Thực thi:** 133.09ms
 
 ---
 
@@ -55,3 +55,12 @@ flowchart LR
 
 ## 5. Kết luận
 - **Trạng thái:** ✅ **PASSED** (Hoàn hảo cho các hệ thống mô phỏng vật lý / particle $\rightarrow$ mesh).
+
+## 6. Đối chiếu WebGPU
+
+- **WebGPU:** PASS, thời gian runner `575.70ms`; ảnh [WebGPU](../outputs/web/tc102_buffer_copy.png).
+- **Kích thước ảnh Desktop/Web:** `800x600 / 800x600`.
+- **Vision:** Hình dạng lưới sóng, đỉnh lõm/lồi và đường biên tương ứng giữa hai môi trường.
+- **Pixel PNG Desktop/Web:** `479555` pixel khác nhau, sai lệch kênh lớn nhất `74/255`.
+- **Kết luận parity:** `ĐẠT CÓ ĐIỀU KIỆN` về compute → copy → render; `CHƯA ĐẠT` pixel parity do màu nền/đường cong được trình bày khác.
+- **Phạm vi đo:** Web runner hiện lưu PNG presentation, chưa lưu raw readback và chưa đo cold/warm cache độc lập.
