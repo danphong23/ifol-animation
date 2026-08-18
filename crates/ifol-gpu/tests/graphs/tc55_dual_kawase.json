@@ -1,8 +1,0 @@
-{
-  "features": [
-    "Hierarchical Downsampling (800x600 -> 400x300)",
-    "8-Tap Dual Kawase Bloom Filter",
-    "High-Speed 60FPS Additive Glow Upsampling"
-  ],
-  "test_case": "TC55 - Dual Kawase Fast Bloom & Downsample Hierarchy"
-}

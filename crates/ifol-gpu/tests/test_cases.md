@@ -317,3 +317,21 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Quả cầu plasma cyan giao thoa mềm với paladin, không có hard intersection.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `3f930de62616d52f`; vision đạt; raw khác 4495 byte ở 1554 pixel, sai số tối đa `101/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
 - **Báo cáo:** [`tc52_soft_particles_report.md`](reports/tc52_soft_particles_report.md)
+
+### TC53 - Blend Modes Matrix
+- **Mục tiêu:** Kiểm thử tám công thức blend deterministic trên ma trận 4x2 với nền và sprite canonical.
+- **Kỳ vọng hình ảnh xuất ra:** Tám ô Normal, Multiply, Screen, Overlay, Hard Light, Soft Light, Color Dodge và Difference; có grid trắng, không mất ô.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `0045bf536afcf57d`; vision và cấu trúc đạt; raw khác 69 byte ở 51 pixel, sai số tối đa `1/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc53_blend_modes_report.md`](reports/tc53_blend_modes_report.md)
+
+### TC54 - Indexed Flag Mesh Wave
+- **Mục tiêu:** Kiểm thử mesh indexed 32x32, biến dạng đỉnh deterministic và chiếu sáng Phong.
+- **Kỳ vọng hình ảnh xuất ra:** Vùng mesh cờ phủ đúng bố cục, có biến dạng sóng/lighting, không mất index hoặc validation error.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `99296555552df541`; vision và cấu trúc đạt; raw khác 976 byte ở 350 pixel, sai số tối đa `71/255`, nên `ĐẠT CÓ ĐIỀU KIỆN`.
+- **Báo cáo:** [`tc54_flag_mesh_report.md`](reports/tc54_flag_mesh_report.md)
+
+### TC55 - Dual Kawase Bloom
+- **Mục tiêu:** Kiểm thử chuỗi extract → downsample 400x300 → composite bloom và foreground sắc nét.
+- **Kỳ vọng hình ảnh xuất ra:** Mage sắc nét trên nền Sci-Fi, bloom mềm không làm mất foreground hoặc sai tỷ lệ.
+- **Kết quả parity:** Desktop/Web dùng fingerprint `2a88441e6a8ac270`; vision đạt và raw byte parity tuyệt đối `0 byte` khác.
+- **Báo cáo:** [`tc55_dual_kawase_report.md`](reports/tc55_dual_kawase_report.md)

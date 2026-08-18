@@ -5415,6 +5415,15 @@ function advancedTextureLayout(device) {
     ] });
 }
 
+function advancedDualTextureLayout(device) {
+    return device.createBindGroupLayout({ entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+    ] });
+}
+
 function advancedUniformLayout(device) {
     return device.createBindGroupLayout({ entries: [
         { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
@@ -5565,6 +5574,154 @@ async function runTC52(gpu) {
         const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message);
     };
     await finishAdvancedResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc52', finalTexture, textureLayout, sampler, render, [finalTexture, depthTexture, heroes.texture, scifi.texture, bg.buffer, paladin.buffer, energy.buffer], '1 pass depth-tested sprites + additive particle + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback');
+}
+
+async function runTC53(gpu) {
+    const { device } = gpu;
+    const manifestName = 'tc53_blend_modes.json';
+    const outputName = 'tc53_blend_modes';
+    const caseId = 'TC53';
+    const response = await fetch('/manifests/' + manifestName);
+    const manifestText = await response.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const textureLayout = advancedTextureLayout(device);
+    const dualLayout = advancedDualTextureLayout(device);
+    const uniformLayout = advancedUniformLayout(device);
+    const samplerSpec = manifest.graph.sampler;
+    const sampler = device.createSampler({ addressModeU: samplerSpec.address_mode_u, addressModeV: samplerSpec.address_mode_v, addressModeW: samplerSpec.address_mode_w, magFilter: samplerSpec.mag_filter, minFilter: samplerSpec.min_filter, mipmapFilter: samplerSpec.mipmap_filter });
+    const shader = device.createShaderModule({ code: await fetchShader('blend_modes.wgsl') });
+    const shaderInfo = await shader.getCompilationInfo();
+    const shaderErrors = shaderInfo.messages.filter(message => message.type === 'error');
+    if (shaderErrors.length > 0) throw new Error(caseId + ' shader compilation error: ' + shaderErrors.map(message => message.message).join('; '));
+    const alphaBlend = { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } };
+    const pipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [dualLayout, uniformLayout] }),
+        vertex: { module: shader, entryPoint: 'vs_main' },
+        fragment: { module: shader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: alphaBlend }] },
+        primitive: { topology: 'triangle-list' }
+    });
+    const heroes = await loadImageTexture(device, 'canonical_sprites_heroes.png');
+    const scifi = await loadImageTexture(device, 'canonical_bg_scifi.png');
+    const dualBG = device.createBindGroup({ layout: dualLayout, entries: [
+        { binding: 0, resource: scifi.texture.createView() }, { binding: 1, resource: sampler },
+        { binding: 2, resource: heroes.texture.createView() }, { binding: 3, resource: sampler }
+    ] });
+    const uniform = advancedUniformBuffer(device, uniformLayout, new Float32Array([1.0, 0, 0, 0]));
+    const finalTexture = device.createTexture({ size: [target.width, target.height], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING });
+    const render = async () => {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+        pass.setPipeline(pipeline); pass.setBindGroup(0, dualBG); pass.setBindGroup(1, uniform.bindGroup); pass.draw(6, 1, 0, 0); pass.end();
+        device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message);
+    };
+    await finishAdvancedResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc53', finalTexture, textureLayout, sampler, render, [finalTexture, heroes.texture, scifi.texture, uniform.buffer], '1 pass 4x2 blend matrix + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback');
+}
+
+async function runTC54(gpu) {
+    const { device } = gpu;
+    const manifestName = 'tc54_flag_mesh.json';
+    const outputName = 'tc54_flag_mesh';
+    const caseId = 'TC54';
+    const response = await fetch('/manifests/' + manifestName);
+    const manifestText = await response.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const textureLayout = advancedTextureLayout(device);
+    const uniformLayout = advancedUniformLayout(device);
+    const sampler = device.createSampler({ addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge', addressModeW: 'clamp-to-edge', magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
+    const shader = device.createShaderModule({ code: await fetchShader('flag_mesh.wgsl') });
+    const alphaBlend = { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } };
+    const pipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }),
+        vertex: { module: shader, entryPoint: 'vs_main', buffers: [{ arrayStride: 20, stepMode: 'vertex', attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }] },
+        fragment: { module: shader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend: alphaBlend }] },
+        primitive: { topology: 'triangle-list', cullMode: 'none' }
+    });
+    const scifi = await loadImageTexture(device, 'canonical_bg_scifi.png');
+    const scifiBG = advancedTextureBG(device, textureLayout, scifi.texture, sampler);
+    const gridSize = 32;
+    const vertices = [];
+    for (let y = 0; y <= gridSize; y++) for (let x = 0; x <= gridSize; x++) {
+        const u = x / gridSize; const v = y / gridSize;
+        vertices.push(u * 1.4 - 0.7, (1 - v) - 0.5, 0, u, v);
+    }
+    const indices = [];
+    for (let y = 0; y < gridSize; y++) for (let x = 0; x < gridSize; x++) {
+        const i0 = y * (gridSize + 1) + x; const i1 = i0 + 1; const i2 = i0 + gridSize + 1; const i3 = i2 + 1;
+        indices.push(i0, i2, i1, i1, i2, i3);
+    }
+    const vertexBuffer = device.createBuffer({ size: vertices.length * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(vertexBuffer, 0, new Float32Array(vertices));
+    const indexBuffer = device.createBuffer({ size: indices.length * 2, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(indexBuffer, 0, new Uint16Array(indices));
+    const uniform = advancedUniformBuffer(device, uniformLayout, new Float32Array([1.2, 6.0, 0.15, 0]));
+    const finalTexture = device.createTexture({ size: [target.width, target.height], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING });
+    const render = async () => {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0.08, g: 0.08, b: 0.12, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+        pass.setPipeline(pipeline); pass.setBindGroup(0, scifiBG); pass.setBindGroup(1, uniform.bindGroup); pass.setVertexBuffer(0, vertexBuffer); pass.setIndexBuffer(indexBuffer, 'uint16'); pass.drawIndexed(indices.length, 1, 0, 0, 0); pass.end();
+        device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message);
+    };
+    await finishAdvancedResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc54', finalTexture, textureLayout, sampler, render, [finalTexture, scifi.texture, vertexBuffer, indexBuffer, uniform.buffer], '1 pass indexed 32x32 mesh + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback');
+}
+
+async function runTC55(gpu) {
+    const { device } = gpu;
+    const manifestName = 'tc55_dual_kawase.json';
+    const outputName = 'tc55_dual_kawase';
+    const caseId = 'TC55';
+    const response = await fetch('/manifests/' + manifestName);
+    const manifestText = await response.text();
+    const manifest = JSON.parse(manifestText);
+    const target = manifest.graph.target;
+    const textureLayout = advancedTextureLayout(device);
+    const uniformLayout = advancedUniformLayout(device);
+    const sampler = device.createSampler({ addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge', addressModeW: 'clamp-to-edge', magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
+    const chromaShader = device.createShaderModule({ code: await fetchShader('chroma_key_cropped.wgsl') });
+    const kawaseShader = device.createShaderModule({ code: await fetchShader('dual_kawase.wgsl') });
+    const blitShader = device.createShaderModule({ code: await fetchShader('texture_blit.wgsl') });
+    const alphaBlend = { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } };
+    const additiveBlend = { color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } };
+    const makeUniformPipeline = (module, blend) => device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout, uniformLayout] }), vertex: { module, entryPoint: 'vs_main' }, fragment: { module, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend }] }, primitive: { topology: 'triangle-list' } });
+    const makeTexturePipeline = (blend) => device.createRenderPipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [textureLayout] }), vertex: { module: blitShader, entryPoint: 'vs_main' }, fragment: { module: blitShader, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm-srgb', blend }] }, primitive: { topology: 'triangle-list' } });
+    const chroma = makeUniformPipeline(chromaShader, alphaBlend);
+    const kawase = makeUniformPipeline(kawaseShader, alphaBlend);
+    const screen = makeTexturePipeline(alphaBlend);
+    const additive = makeTexturePipeline(additiveBlend);
+    const heroes = await loadImageTexture(device, 'canonical_sprites_heroes.png');
+    const scifi = await loadImageTexture(device, 'canonical_bg_scifi.png');
+    const heroesBG = advancedTextureBG(device, textureLayout, heroes.texture, sampler);
+    const scifiBG = advancedTextureBG(device, textureLayout, scifi.texture, sampler);
+    const aspect = target.width / target.height;
+    const cropWidth = (0.54 - 0.27) * heroes.width;
+    const cropHeight = (0.98 - 0.01) * heroes.height;
+    const mage = advancedUniformBuffer(device, uniformLayout, new Float32Array([0, 0, 0.8 * (cropWidth / cropHeight) / aspect, 0.8, 0.27, 0.01, 0.54, 0.98, 0, 1, 0, 0.48, 0.1, 0.5, 1, 0]));
+    const kawaseUniform = advancedUniformBuffer(device, uniformLayout, new Float32Array([4.5, 2.2, 0, 0]));
+    const mageTexture = device.createTexture({ size: [800, 600], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+    const downTexture = device.createTexture({ size: [400, 300], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+    const finalTexture = device.createTexture({ size: [800, 600], format: 'rgba8unorm-srgb', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING });
+    const mageBG = advancedTextureBG(device, textureLayout, mageTexture, sampler);
+    const downBG = advancedTextureBG(device, textureLayout, downTexture, sampler);
+    const render = async () => {
+        device.pushErrorScope('validation');
+        const encoder = device.createCommandEncoder();
+        const extract = encoder.beginRenderPass({ colorAttachments: [{ view: mageTexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: 'clear', storeOp: 'store' }] });
+        extract.setPipeline(chroma); extract.setBindGroup(0, heroesBG); extract.setBindGroup(1, mage.bindGroup); extract.draw(6, 1, 0, 0); extract.end();
+        const down = encoder.beginRenderPass({ colorAttachments: [{ view: downTexture.createView(), clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: 'clear', storeOp: 'store' }] });
+        down.setPipeline(kawase); down.setBindGroup(0, mageBG); down.setBindGroup(1, kawaseUniform.bindGroup); down.draw(6, 1, 0, 0); down.end();
+        const composite = encoder.beginRenderPass({ colorAttachments: [{ view: finalTexture.createView(), clearValue: { r: 0.05, g: 0.05, b: 0.1, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+        composite.setPipeline(screen); composite.setBindGroup(0, scifiBG); composite.draw(6, 1, 0, 0);
+        composite.setPipeline(additive); composite.setBindGroup(0, downBG); composite.draw(6, 1, 0, 0);
+        composite.setPipeline(screen); composite.setBindGroup(0, mageBG); composite.draw(6, 1, 0, 0); composite.end();
+        device.queue.submit([encoder.finish()]); await device.queue.onSubmittedWorkDone();
+        const error = await device.popErrorScope(); if (error) throw new Error(caseId + ' validation error: ' + error.message);
+    };
+    await finishAdvancedResult(gpu, caseId, manifestText, manifest, outputName, 'canvas-tc55', finalTexture, textureLayout, sampler, render, [finalTexture, mageTexture, downTexture, heroes.texture, scifi.texture, mage.buffer, kawaseUniform.buffer], '3 pass extract → 400x300 Kawase → composite + submit queue + onSubmittedWorkDone; không gồm khởi tạo device/pipeline và readback');
 }
 
 async function runTC37(gpu) {
@@ -5799,7 +5956,7 @@ async function runTC085(gpu) {
 }
 
 async function fetchShader(name) {
-    const res = await fetch(`/shaders/${name}?runner_shader_revision=7`);
+    const res = await fetch(`/shaders/${name}?runner_shader_revision=8`);
     if (!res.ok) throw new Error(`Failed to load shader: ${name}`);
     return await res.text();
 }
@@ -6570,6 +6727,9 @@ async function runAllTests() {
         { name: "TC50: Exposure Inspector", fn: runTC50 },
         { name: "TC51: Atlas Clamp", fn: runTC51 },
         { name: "TC52: Soft Particles", fn: runTC52 },
+        { name: "TC53: Blend Modes", fn: runTC53 },
+        { name: "TC54: Flag Mesh", fn: runTC54 },
+        { name: "TC55: Dual Kawase", fn: runTC55 },
         { name: "TC98: Uniform Ring Buffer", fn: runTC98 },
         { name: "TC99: Video NV12 BT.709", fn: runTC99 },
         { name: "TC101: Texture Copy DMA", fn: runTC101 },

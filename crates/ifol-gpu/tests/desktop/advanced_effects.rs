@@ -53,7 +53,7 @@ fn fnv1a64(bytes: &[u8]) -> String {
     format!("{hash:016x}")
 }
 
-fn execute_graphs(
+pub(crate) fn execute_graphs(
     h: &mut DesktopTestHarness,
     graphs: &[&RenderGraph],
     target: &wgpu::Texture,
@@ -80,7 +80,7 @@ fn execute_graphs(
     (elapsed, raw.bytes)
 }
 
-fn record(
+pub(crate) fn record(
     h: &mut DesktopTestHarness,
     graphs: &[&RenderGraph],
     target: &wgpu::Texture,

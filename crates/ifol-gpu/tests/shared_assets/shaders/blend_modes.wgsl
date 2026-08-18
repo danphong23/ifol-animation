@@ -95,7 +95,7 @@ fn blend_difference(base: vec3<f32>, blend: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let base_color = textureSample(t_base, s_base, in.uv);
+    let base_color = textureSampleLevel(t_base, s_base, in.uv, 0.0);
 
     // Each cell is 200x300. Center Paladin in each cell with exact natural aspect ratio
     let cell_uv = fract(in.uv * vec2<f32>(4.0, 2.0));
@@ -110,7 +110,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var blend_color = vec4<f32>(0.0);
     if (norm_x >= 0.0 && norm_x <= 1.0 && norm_y >= 0.0 && norm_y <= 1.0) {
         let hero_uv = mix(vec2<f32>(0.005, 0.01), vec2<f32>(0.28, 0.98), vec2<f32>(norm_x, norm_y));
-        let raw = textureSample(t_blend, s_blend, hero_uv);
+        let raw = textureSampleLevel(t_blend, s_blend, hero_uv, 0.0);
         let dist = distance(raw.rgb, vec3<f32>(0.0, 1.0, 0.0));
         let a = smoothstep(0.45, 0.55, dist);
         blend_color = vec4<f32>(raw.rgb, a);

@@ -250,3 +250,8 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Phạm vi:** Exposure inspector, texture-atlas clamp và soft particles có depth.
 - **Kết quả:** 3/3 pass validation, cold/warm output ổn định và vision đạt. TC50–TC52 đều `ĐẠT CÓ ĐIỀU KIỆN` về raw parity; TC51 đã sửa lỗi Web uniform `key_color` khiến nền xanh bị lộ trước đó.
 - **Báo cáo:** [`tc50_exposure_inspector_report.md`](reports/tc50_exposure_inspector_report.md), [`tc51_atlas_clamp_report.md`](reports/tc51_atlas_clamp_report.md), [`tc52_soft_particles_report.md`](reports/tc52_soft_particles_report.md)
+
+### TC53–TC55 - Blend, indexed mesh và multi-pass bloom parity
+- **Phạm vi:** Ma trận tám blend modes, mesh indexed 32x32 có wave/Phong và chuỗi Dual Kawase bloom qua target 400x300.
+- **Kết quả:** 3/3 pass Desktop/Web validation, cold/warm output ổn định, graph fingerprint trùng và vision đạt. TC53 khác 69 byte/51 pixel với max delta `1/255`; TC54 khác 976 byte/350 pixel với max delta `71/255`; TC55 đạt raw byte parity tuyệt đối. TC53–TC54 là `ĐẠT CÓ ĐIỀU KIỆN`, TC55 là `ĐẠT`.
+- **Báo cáo:** [`tc53_blend_modes_report.md`](reports/tc53_blend_modes_report.md), [`tc54_flag_mesh_report.md`](reports/tc54_flag_mesh_report.md), [`tc55_dual_kawase_report.md`](reports/tc55_dual_kawase_report.md)

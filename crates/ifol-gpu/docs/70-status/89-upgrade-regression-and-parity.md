@@ -206,6 +206,17 @@ trong các report không được diễn giải thành cold start tuyệt đối
   `ĐẠT CÓ ĐIỀU KIỆN` vì khác biệt raw còn lại thuộc pixel/backend sau khi đã
   loại lỗi graph/ABI.
 
+- [TC53](../../tests/reports/tc53_blend_modes_report.md) đến
+  [TC55](../../tests/reports/tc55_dual_kawase_report.md): 3 TC advanced dùng
+  manifest/fingerprint chung giữa Desktop/Web, shader WGSL dùng chung và
+  input PNG canonical. Cả 3 pass validation, cold/warm output ổn định và
+  vision. TC53 khác 69 byte/51 pixel, max delta `1/255`; TC54 khác 976
+  byte/350 pixel, max delta `71/255`; TC55 đạt raw byte parity tuyệt đối.
+  TC53–TC54 là `ĐẠT CÓ ĐIỀU KIỆN`, TC55 là `ĐẠT`. TC53 phải đổi
+  `textureSample` sang `textureSampleLevel` vì WebGPU yêu cầu sample trong
+  uniform control flow; đây là sửa portability shader, không phải chấp nhận
+  output sai.
+
 TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải pixel-perfect. PNG
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo

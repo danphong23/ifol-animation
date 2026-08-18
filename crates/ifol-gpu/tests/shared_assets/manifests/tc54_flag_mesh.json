@@ -1,0 +1,19 @@
+{
+  "test_case": "TC54",
+  "title": "3D Flag Mesh Wave Displacement",
+  "title_vi": "Lưới cờ 3D uốn theo sóng",
+  "description": "Render a 32x32 indexed flag mesh with deterministic vertex displacement and Phong lighting.",
+  "description_vi": "Render lưới cờ indexed 32x32 với biến dạng đỉnh và chiếu sáng Phong deterministic.",
+  "input_policy_vi": "Desktop và WebGPU dùng nền PNG canonical; mesh vertex/index và uniform được tạo cùng thông số.",
+  "graph": {
+    "target": { "kind": "offscreen", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" },
+    "targets": [{ "id": "final", "width": 800, "height": 600, "format": "Rgba8UnormSrgb" }],
+    "sampler": { "address_mode_u": "clamp-to-edge", "address_mode_v": "clamp-to-edge", "address_mode_w": "clamp-to-edge", "mag_filter": "linear", "min_filter": "linear", "mipmap_filter": "linear" },
+    "pipelines": { "flag": { "shader": "flag_mesh.wgsl", "blend": "AlphaBlending", "layout": "vertex_index_texture_uniform" } },
+    "operations": [{ "id": "flag_mesh", "kind": "indexed_mesh", "pass": "flag_pass", "pipeline": "flag", "shader": "flag_mesh.wgsl", "source": [{ "kind": "asset", "asset": "canonical_bg_scifi.png" }], "mesh": { "grid_size": 32, "vertex_count": 1089, "index_count": 6144 }, "uniform": { "time": 1.2, "wave_freq": 6.0, "wave_amp": 0.15 }, "vertex_count": 6144, "instance_count": 1 }],
+    "passes": [{ "id": "flag_pass", "name": "Indexed flag mesh", "target": "final", "clear_color": [0.08, 0.08, 0.12, 1.0] }],
+    "command_count": 1,
+    "node_count": 1
+  },
+  "evaluation": { "expected_non_empty": true, "expected_layer_order": ["flag_pass"], "expected_instance_count": 1, "visual_check": "Lá cờ rectangular có sóng 3D và shading Phong trên nền tối; mesh không bị đen, mất index hoặc validation error." }
+}

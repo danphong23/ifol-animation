@@ -360,6 +360,16 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
   lần lượt là `6eb21c3021072252`, `d8d597349c97b340` và
   `3f930de62616d52f`. Raw parity đều là `ĐẠT CÓ ĐIỀU KIỆN`; TC51 đã sửa
   lỗi Web uniform `key_color` làm lộ nền xanh, không còn sai lệch cấu trúc;
+- TC53–TC55 đã được chuyển sang manifest canonical và runner Desktop/Web riêng.
+  Cả 3/3 pass validation, cold/warm output ổn định và vision đạt. Fingerprint
+  lần lượt là `0045bf536afcf57d`, `99296555552df541` và
+  `2a88441e6a8ac270`. TC53 khác 69 byte/51 pixel với max delta `1/255`;
+  TC54 khác 976 byte/350 pixel với max delta `71/255`; TC55 đạt raw parity
+  tuyệt đối. Không còn runner hợp lệ nào tham chiếu graph legacy của TC53–TC55;
+  các file `tests/graphs/tc53...tc55.json` đã được loại bỏ;
+- TC53 yêu cầu `textureSampleLevel` trong shader dùng sample bên trong nhánh
+  điều kiện để tương thích validation WebGPU; Desktop và Web dùng cùng WGSL
+  sau khi sửa portability này;
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
