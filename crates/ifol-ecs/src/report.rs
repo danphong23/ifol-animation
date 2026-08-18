@@ -1,5 +1,17 @@
 use crate::error::SystemError;
 
+/// Policy controlling how a runtime responds when a system returns `SystemError`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExecutionPolicy {
+    /// Record the error and continue with the remaining systems.
+    #[default]
+    CollectErrors,
+    /// Record the error and skip the remaining systems in the current phase.
+    StopPhaseOnError,
+    /// Abort the pass and return the typed error to the host immediately.
+    FailFast,
+}
+
 /// Details on why a system was skipped during execution.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkippedSystem {

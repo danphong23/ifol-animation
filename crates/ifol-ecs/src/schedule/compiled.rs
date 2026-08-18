@@ -1,6 +1,6 @@
 use crate::error::EcsError;
 use crate::registry::{PhaseId, PhaseRegistry, SystemId, SystemRegistry};
-use crate::report::{RunReport, SkippedSystem};
+use crate::report::{ExecutionPolicy, RunReport, SkippedSystem};
 use crate::schedule::graph::PhaseGraph;
 use crate::system::{Commands, SystemContext};
 use crate::world::World;
@@ -62,6 +62,7 @@ impl CompiledSchedule {
         systems: &mut SystemRegistry,
         commands: &mut Commands,
         execution_revision: u64,
+        execution_policy: ExecutionPolicy,
     ) -> Result<RunReport, EcsError> {
         let start_time = Instant::now();
 
@@ -120,7 +121,21 @@ impl CompiledSchedule {
                     }
                     Err(err) => {
                         commands.clear();
-                        report.system_errors.push((sys_name, err));
+                        match execution_policy {
+                            ExecutionPolicy::CollectErrors => {
+                                report.system_errors.push((sys_name, err));
+                            }
+                            ExecutionPolicy::StopPhaseOnError => {
+                                report.system_errors.push((sys_name, err));
+                                break;
+                            }
+                            ExecutionPolicy::FailFast => {
+                                return Err(EcsError::SystemExecutionFailed {
+                                    system: sys_name,
+                                    error: err,
+                                });
+                            }
+                        }
                     }
                 }
 

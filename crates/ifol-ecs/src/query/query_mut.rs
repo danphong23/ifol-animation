@@ -1,5 +1,6 @@
 use crate::entity::EntityId;
 use crate::query::QueryAccess;
+use crate::query::QueryPlanKey;
 use crate::query::filter::{With, Without};
 use crate::storage::Component;
 use crate::world::World;
@@ -265,23 +266,35 @@ impl_tuple_query_mut!(A, B, C, D, E, F, G, H);
 /// A mutable query over a world.
 pub struct QueryMut<'w, Q: WorldQueryMut> {
     world: &'w mut World,
+    entities: Vec<EntityId>,
     _marker: PhantomData<Q>,
 }
 
 impl<'w, Q: WorldQueryMut> QueryMut<'w, Q> {
     pub(crate) fn new(world: &'w mut World) -> Self {
+        let access = Q::access();
+        let key = QueryPlanKey::new(
+            std::any::TypeId::of::<Q>(),
+            access.component_type_ids(),
+            world.component_registry().revision(),
+            world.structural_version(),
+        );
+        let entities = world.cached_query_candidates(key, || {
+            if Q::has_driver() {
+                Q::driver_entities(world)
+            } else {
+                world.alive_entities()
+            }
+        });
         Self {
             world,
+            entities,
             _marker: PhantomData,
         }
     }
 
     pub fn iter(&mut self) -> QueryMutIter<'_, Q> {
-        let entities = if Q::has_driver() {
-            Q::driver_entities(self.world)
-        } else {
-            self.world.alive_entities()
-        };
+        let entities = self.entities.clone();
         QueryMutIter {
             world: self.world as *mut World,
             entities: entities.into_iter(),

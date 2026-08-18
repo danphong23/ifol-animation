@@ -1,9 +1,9 @@
 mod support;
 
-use ifol_ecs::EcsRuntime;
 use ifol_ecs::error::SystemError;
 use ifol_ecs::schedule::PhaseId;
 use ifol_ecs::system::AccessDescriptor;
+use ifol_ecs::{EcsError, EcsRuntime, ExecutionPolicy};
 use support::{FailingSystem, Health};
 
 #[test]
@@ -127,4 +127,49 @@ fn undeclared_component_access_is_reported_as_a_system_error() {
             .systems_executed
             .contains(&"UndeclaredWriter".to_string())
     );
+}
+
+#[test]
+fn execution_policy_controls_system_error_flow() {
+    let mut runtime = EcsRuntime::new();
+    let phase = ifol_ecs::PhaseId::new("policy.stop");
+    runtime.register_phase(phase.clone()).unwrap();
+    runtime
+        .register_system("stop-here", FailingSystem, AccessDescriptor::new(), vec![])
+        .and_then(|system| runtime.attach_system(&phase, system).map(|_| system))
+        .unwrap();
+    let reached = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let reached_clone = reached.clone();
+    let next = runtime
+        .register_function_system(
+            "must-not-run",
+            move |_| {
+                reached_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            },
+            AccessDescriptor::new(),
+            vec![],
+        )
+        .unwrap();
+    runtime.attach_system(&phase, next).unwrap();
+    runtime.compile().unwrap();
+    runtime.set_execution_policy(ExecutionPolicy::StopPhaseOnError);
+
+    let report = runtime.run_once().unwrap();
+    assert_eq!(report.system_errors.len(), 1);
+    assert_eq!(reached.load(std::sync::atomic::Ordering::SeqCst), 0);
+
+    let mut fail_fast = EcsRuntime::new();
+    let fail_phase = ifol_ecs::PhaseId::new("policy.fail-fast");
+    fail_fast.register_phase(fail_phase.clone()).unwrap();
+    let system = fail_fast
+        .register_system("fail-fast", FailingSystem, AccessDescriptor::new(), vec![])
+        .unwrap();
+    fail_fast.attach_system(&fail_phase, system).unwrap();
+    fail_fast.compile().unwrap();
+    fail_fast.set_execution_policy(ExecutionPolicy::FailFast);
+    assert!(matches!(
+        fail_fast.run_once(),
+        Err(EcsError::SystemExecutionFailed { .. })
+    ));
 }

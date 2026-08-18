@@ -35,7 +35,7 @@ pub use registry::{
     ComponentDescriptor, ComponentId, ComponentRegistry, PhaseId, PhaseNode, PhaseRegistry,
     SystemId, SystemRegistration, SystemRegistry,
 };
-pub use report::{RunReport, SkippedSystem};
+pub use report::{ExecutionPolicy, RunReport, SkippedSystem};
 pub use runtime::EcsRuntime;
 pub use schedule::{CompiledPhase, CompiledSchedule, PhaseGraph};
 pub use storage::{AnyStorage, Component, SparseSet};

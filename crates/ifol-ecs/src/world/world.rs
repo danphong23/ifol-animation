@@ -1,9 +1,10 @@
 use crate::entity::{EntityId, EntityManager};
 use crate::error::{EcsError, SystemError};
-use crate::query::{Query, QueryMut, WorldQuery, WorldQueryMut};
+use crate::query::{Query, QueryMut, QueryPlanCache, QueryPlanKey, WorldQuery, WorldQueryMut};
 use crate::registry::{ComponentId, ComponentRegistry};
 use crate::storage::{AnyStorage, Component, SparseSet};
 use std::any::TypeId;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 /// The central container owning entities, component storages, and revision state.
@@ -13,6 +14,7 @@ pub struct World {
     storages: HashMap<TypeId, Box<dyn AnyStorage>>,
     structural_version: u64,
     current_tick: u64,
+    query_plan_cache: RefCell<QueryPlanCache>,
 }
 
 impl World {
@@ -24,12 +26,14 @@ impl World {
             storages: HashMap::new(),
             structural_version: 0,
             current_tick: 1,
+            query_plan_cache: RefCell::new(QueryPlanCache::new()),
         }
     }
 
     /// Spawns a new entity in the world and increments `structural_version`.
     pub fn spawn(&mut self) -> EntityId {
         self.structural_version = self.structural_version.wrapping_add(1);
+        self.query_plan_cache.borrow_mut().clear();
         self.entities.spawn()
     }
 
@@ -42,6 +46,7 @@ impl World {
             storage.remove_entity(entity);
         }
         self.structural_version = self.structural_version.wrapping_add(1);
+        self.query_plan_cache.borrow_mut().clear();
         Ok(())
     }
 
@@ -66,6 +71,11 @@ impl World {
     #[inline(always)]
     pub fn structural_version(&self) -> u64 {
         self.structural_version
+    }
+
+    /// Returns query-plan cache statistics `(hits, misses)`.
+    pub fn query_plan_cache_stats(&self) -> (usize, usize) {
+        self.query_plan_cache.borrow().stats()
     }
 
     /// Returns the current execution tick counter.
@@ -119,6 +129,7 @@ impl World {
         let old = storage.insert(entity, component, current_tick);
         if old.is_none() {
             self.structural_version = self.structural_version.wrapping_add(1);
+            self.query_plan_cache.borrow_mut().clear();
         }
         Ok(old)
     }
@@ -130,6 +141,7 @@ impl World {
         let removed = sparse_set.remove(entity);
         if removed.is_some() {
             self.structural_version = self.structural_version.wrapping_add(1);
+            self.query_plan_cache.borrow_mut().clear();
         }
         removed
     }
@@ -194,9 +206,19 @@ impl World {
         storage.as_any().downcast_ref::<SparseSet<T>>()
     }
 
-    /// Returns a mutable reference to the underlying `SparseSet<T>` storage.
-    pub fn storage_mut<T: Component>(&mut self) -> &mut SparseSet<T> {
-        self.get_or_insert_storage::<T>()
+    pub(crate) fn cached_query_candidates(
+        &self,
+        key: QueryPlanKey,
+        build: impl FnOnce() -> Vec<EntityId>,
+    ) -> Vec<EntityId> {
+        let mut cache = self.query_plan_cache.borrow_mut();
+        if let Some(entities) = cache.get(&key) {
+            entities.to_vec()
+        } else {
+            let entities = build();
+            cache.insert(key, entities.clone());
+            entities
+        }
     }
 
     /// Queries entities matching the specified `WorldQuery` pattern.
@@ -216,6 +238,7 @@ impl World {
         self.entities = EntityManager::new();
         self.storages.clear();
         self.structural_version = self.structural_version.wrapping_add(1);
+        self.query_plan_cache.borrow_mut().clear();
     }
 
     fn get_or_insert_storage<T: Component>(&mut self) -> &mut SparseSet<T> {

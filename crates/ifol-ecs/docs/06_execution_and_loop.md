@@ -38,6 +38,11 @@ insert/remove/despawn trong cùng buffer; command target lỗi được trả v�
 dạng `EcsError`, không bị nuốt. Command còn lại sau lỗi bị bỏ. Nếu system tự
 trả `SystemError`, các command nó đã xếp cũng bị bỏ và không làm thay đổi World.
 
+`ExecutionPolicy` là cấu hình của runtime, không phải kiến thức của system:
+`CollectErrors` ghi lỗi vào `RunReport` và chạy tiếp, `StopPhaseOnError` bỏ phần
+còn lại của phase hiện tại, còn `FailFast` trả `EcsError::SystemExecutionFailed`
+ngay cho host.
+
 ## 3. Execute preconditions
 
 Trước run, ECS phải có compiled schedule hợp lệ. Nếu registration/graph thay đổi,

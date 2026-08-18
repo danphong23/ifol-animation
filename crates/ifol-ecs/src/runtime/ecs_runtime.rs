@@ -1,8 +1,8 @@
 use crate::entity::EntityId;
 use crate::error::{EcsError, SystemError};
-use crate::query::{Query, QueryMut, QueryPlanCache, WorldQuery, WorldQueryMut};
+use crate::query::{Query, QueryMut, WorldQuery, WorldQueryMut};
 use crate::registry::{ComponentId, PhaseId, PhaseRegistry, SystemId, SystemRegistry};
-use crate::report::RunReport;
+use crate::report::{ExecutionPolicy, RunReport};
 use crate::schedule::CompiledSchedule;
 use crate::storage::Component;
 use crate::system::{
@@ -16,9 +16,9 @@ pub struct EcsRuntime {
     phase_registry: PhaseRegistry,
     system_registry: SystemRegistry,
     compiled_schedule: Option<CompiledSchedule>,
-    query_plan_cache: QueryPlanCache,
     commands: Commands,
     execution_counter: u64,
+    execution_policy: ExecutionPolicy,
 }
 
 impl EcsRuntime {
@@ -29,9 +29,9 @@ impl EcsRuntime {
             phase_registry: PhaseRegistry::new(),
             system_registry: SystemRegistry::new(),
             compiled_schedule: None,
-            query_plan_cache: QueryPlanCache::new(),
             commands: Commands::new(),
             execution_counter: 0,
+            execution_policy: ExecutionPolicy::default(),
         }
     }
 
@@ -120,7 +120,20 @@ impl EcsRuntime {
             &mut self.system_registry,
             &mut self.commands,
             execution_rev,
+            self.execution_policy,
         )
+    }
+
+    /// Returns the current system-error execution policy.
+    #[inline]
+    pub fn execution_policy(&self) -> ExecutionPolicy {
+        self.execution_policy
+    }
+
+    /// Sets the system-error execution policy for future passes.
+    #[inline]
+    pub fn set_execution_policy(&mut self, policy: ExecutionPolicy) {
+        self.execution_policy = policy;
     }
 
     // World access API
@@ -204,16 +217,20 @@ impl EcsRuntime {
         self.world.query_mut::<Q>()
     }
 
+    /// Returns query-plan cache statistics `(hits, misses)`.
+    #[inline]
+    pub fn query_plan_cache_stats(&self) -> (usize, usize) {
+        self.world.query_plan_cache_stats()
+    }
+
     /// Reconfigures registrations and invalidates current compiled schedule.
     pub fn reconfigure(&mut self) {
         self.compiled_schedule = None;
-        self.query_plan_cache.clear();
     }
 
     /// Clears world data while preserving component, phase, and system registrations.
     pub fn clear(&mut self) {
         self.world.clear();
-        self.query_plan_cache.clear();
     }
 
     /// Shuts down the runtime, clearing all data, registrations, and caches.
@@ -222,9 +239,9 @@ impl EcsRuntime {
         self.phase_registry = PhaseRegistry::new();
         self.system_registry = SystemRegistry::new();
         self.compiled_schedule = None;
-        self.query_plan_cache.clear();
         self.commands = Commands::new();
         self.execution_counter = 0;
+        self.execution_policy = ExecutionPolicy::default();
     }
 }
 

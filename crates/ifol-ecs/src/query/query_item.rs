@@ -35,6 +35,14 @@ impl QueryAccess {
         }
         Ok(())
     }
+
+    pub(crate) fn component_type_ids(&self) -> Vec<TypeId> {
+        self.reads
+            .iter()
+            .chain(self.writes.iter())
+            .copied()
+            .collect()
+    }
 }
 
 /// Trait implemented by types that can be fetched via an ECS query.

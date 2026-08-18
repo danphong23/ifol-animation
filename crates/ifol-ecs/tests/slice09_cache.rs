@@ -92,3 +92,26 @@ fn slice09_cache_invalidation_and_recompile_safety() {
         Some(&Position { x: 2.0, y: 0.0 })
     );
 }
+
+#[test]
+fn query_plan_cache_hits_on_data_changes_and_clears_on_structure_changes() {
+    let mut runtime = EcsRuntime::new();
+    runtime.register_component::<Position>().unwrap();
+    let entity = runtime.spawn();
+    runtime.insert(entity, Position { x: 1.0, y: 0.0 }).unwrap();
+
+    assert_eq!(runtime.query_plan_cache_stats(), (0, 0));
+    assert_eq!(runtime.query::<&'static Position>().count(), 1);
+    assert_eq!(runtime.query_plan_cache_stats(), (0, 1));
+    assert_eq!(runtime.query::<&'static Position>().count(), 1);
+    assert_eq!(runtime.query_plan_cache_stats(), (1, 1));
+
+    runtime.get_mut::<Position>(entity).unwrap().x = 2.0;
+    assert_eq!(runtime.query::<&'static Position>().count(), 1);
+    assert_eq!(runtime.query_plan_cache_stats(), (2, 1));
+
+    let second = runtime.spawn();
+    runtime.insert(second, Position { x: 3.0, y: 0.0 }).unwrap();
+    assert_eq!(runtime.query::<&'static Position>().count(), 2);
+    assert_eq!(runtime.query_plan_cache_stats(), (2, 2));
+}
