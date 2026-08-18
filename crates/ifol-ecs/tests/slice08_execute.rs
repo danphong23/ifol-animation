@@ -24,7 +24,7 @@ fn slice08_execute_deferred_commands_and_safe_points() {
             "DeferredSpawnerSystem",
             |ctx| {
                 let entities: Vec<ifol_ecs::EntityId> = ctx
-                    .query::<&'static Position>()
+                    .query::<&'static Position>()?
                     .iter_with_entity()
                     .map(|(e, _)| e)
                     .collect();
@@ -35,7 +35,11 @@ fn slice08_execute_deferred_commands_and_safe_points() {
                 }
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_read(runtime.world().component_id::<Position>().unwrap());
+                access
+            },
             vec![],
         )
         .unwrap();
@@ -45,13 +49,20 @@ fn slice08_execute_deferred_commands_and_safe_points() {
         .register_function_system(
             "HealthReaderSystem",
             |ctx| {
-                let healths: Vec<i32> =
-                    ctx.query::<&'static Health>().iter().map(|h| h.0).collect();
+                let healths: Vec<i32> = ctx
+                    .query::<&'static Health>()?
+                    .iter()
+                    .map(|h| h.0)
+                    .collect();
 
                 assert_eq!(healths, vec![200]); // Health is present because commands were flushed at safe point!
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_read(runtime.world().component_id::<Health>().unwrap());
+                access
+            },
             vec![],
         )
         .unwrap();

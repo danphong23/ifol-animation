@@ -2,11 +2,37 @@ use crate::entity::EntityId;
 use crate::query::filter::{With, Without};
 use crate::storage::Component;
 use crate::world::World;
+use std::any::TypeId;
+
+/// Type-level access requirements emitted by a query signature.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct QueryAccess {
+    pub(crate) reads: Vec<TypeId>,
+    pub(crate) writes: Vec<TypeId>,
+}
+
+impl QueryAccess {
+    fn read<T: Component>() -> Self {
+        Self {
+            reads: vec![TypeId::of::<T>()],
+            writes: Vec::new(),
+        }
+    }
+
+    fn merge(mut self, other: Self) -> Self {
+        self.reads.extend(other.reads);
+        self.writes.extend(other.writes);
+        self
+    }
+}
 
 /// Trait implemented by types that can be fetched via an ECS query.
 pub trait WorldQuery: 'static {
     /// The reference type yielded when querying the world for a specific entity.
     type Item<'w>;
+
+    /// Returns the type-level read/write requirements of this query.
+    fn access() -> QueryAccess;
 
     /// Returns candidate entity IDs from the most restrictive storage driver.
     fn driver_entities(world: &World) -> Vec<EntityId>;
@@ -21,6 +47,10 @@ pub trait WorldQuery: 'static {
 // Implement WorldQuery for &'static T
 impl<T: Component> WorldQuery for &'static T {
     type Item<'w> = &'w T;
+
+    fn access() -> QueryAccess {
+        QueryAccess::read::<T>()
+    }
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
@@ -42,6 +72,10 @@ impl<T: Component> WorldQuery for &'static T {
 impl<T: Component> WorldQuery for Option<&'static T> {
     type Item<'w> = Option<&'w T>;
 
+    fn access() -> QueryAccess {
+        QueryAccess::read::<T>()
+    }
+
     fn driver_entities(_world: &World) -> Vec<EntityId> {
         Vec::new() // Option terms are modifiers; they should not act as standalone drivers
     }
@@ -58,6 +92,10 @@ impl<T: Component> WorldQuery for Option<&'static T> {
 // Implement WorldQuery for With<T>
 impl<T: Component> WorldQuery for With<T> {
     type Item<'w> = ();
+
+    fn access() -> QueryAccess {
+        QueryAccess::read::<T>()
+    }
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         world
@@ -79,6 +117,10 @@ impl<T: Component> WorldQuery for With<T> {
 impl<T: Component> WorldQuery for Without<T> {
     type Item<'w> = ();
 
+    fn access() -> QueryAccess {
+        QueryAccess::read::<T>()
+    }
+
     fn driver_entities(_world: &World) -> Vec<EntityId> {
         Vec::new()
     }
@@ -95,6 +137,10 @@ impl<T: Component> WorldQuery for Without<T> {
 // Tuple implementations (2, 3, 4)
 impl<A: WorldQuery, B: WorldQuery> WorldQuery for (A, B) {
     type Item<'w> = (A::Item<'w>, B::Item<'w>);
+
+    fn access() -> QueryAccess {
+        A::access().merge(B::access())
+    }
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         let a_driver = A::driver_entities(world);
@@ -117,6 +163,10 @@ impl<A: WorldQuery, B: WorldQuery> WorldQuery for (A, B) {
 
 impl<A: WorldQuery, B: WorldQuery, C: WorldQuery> WorldQuery for (A, B, C) {
     type Item<'w> = (A::Item<'w>, B::Item<'w>, C::Item<'w>);
+
+    fn access() -> QueryAccess {
+        A::access().merge(B::access()).merge(C::access())
+    }
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         let a_driver = A::driver_entities(world);
@@ -144,6 +194,13 @@ impl<A: WorldQuery, B: WorldQuery, C: WorldQuery> WorldQuery for (A, B, C) {
 
 impl<A: WorldQuery, B: WorldQuery, C: WorldQuery, D: WorldQuery> WorldQuery for (A, B, C, D) {
     type Item<'w> = (A::Item<'w>, B::Item<'w>, C::Item<'w>, D::Item<'w>);
+
+    fn access() -> QueryAccess {
+        A::access()
+            .merge(B::access())
+            .merge(C::access())
+            .merge(D::access())
+    }
 
     fn driver_entities(world: &World) -> Vec<EntityId> {
         let a_driver = A::driver_entities(world);

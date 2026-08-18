@@ -21,7 +21,7 @@ fn slice11_runtime_lifecycle_and_100k_stress_test() {
             "BatchMovementSystem",
             |ctx| {
                 let items: Vec<(ifol_ecs::EntityId, Position)> = ctx
-                    .query::<(&'static Position, &'static Velocity)>()
+                    .query::<(&'static Position, &'static Velocity)>()?
                     .iter_with_entity()
                     .map(|(e, (p, v))| {
                         (
@@ -35,13 +35,18 @@ fn slice11_runtime_lifecycle_and_100k_stress_test() {
                     .collect();
 
                 for (e, p) in items {
-                    if let Some(pos) = ctx.get_mut::<Position>(e) {
+                    if let Some(pos) = ctx.get_mut::<Position>(e)? {
                         *pos = p;
                     }
                 }
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_read(runtime.world().component_id::<Velocity>().unwrap());
+                access.add_write(runtime.world().component_id::<Position>().unwrap());
+                access
+            },
             vec![],
         )
         .unwrap();

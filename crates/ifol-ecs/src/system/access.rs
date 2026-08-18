@@ -24,6 +24,16 @@ impl AccessDescriptor {
         self.writes.insert(id);
     }
 
+    #[inline]
+    pub(crate) fn allows_read(&self, id: ComponentId) -> bool {
+        self.reads.contains(&id) || self.writes.contains(&id)
+    }
+
+    #[inline]
+    pub(crate) fn allows_write(&self, id: ComponentId) -> bool {
+        self.writes.contains(&id)
+    }
+
     /// Validates that there are no internal conflicting read/write accesses.
     pub fn validate(&self) -> Result<(), &'static str> {
         for write_id in &self.writes {

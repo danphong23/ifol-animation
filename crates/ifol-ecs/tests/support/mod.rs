@@ -61,11 +61,11 @@ pub struct MovementSystem;
 impl System for MovementSystem {
     fn run(&mut self, ctx: &mut SystemContext<'_>) -> Result<(), SystemError> {
         let speed = ctx
-            .world_ref::<TestConfig>()
+            .world_ref::<TestConfig>()?
             .map(|c| c.speed_multiplier)
             .unwrap_or(1.0);
 
-        let query = ctx.query::<(&'static Position, &'static Velocity)>();
+        let query = ctx.query::<(&'static Position, &'static Velocity)>()?;
         let updates: Vec<(ifol_ecs::EntityId, Position)> = query
             .iter_with_entity()
             .map(|(e, (pos, vel))| {
@@ -80,12 +80,12 @@ impl System for MovementSystem {
             .collect();
 
         for (e, new_pos) in updates {
-            if let Some(pos) = ctx.get_mut::<Position>(e) {
+            if let Some(pos) = ctx.get_mut::<Position>(e)? {
                 *pos = new_pos;
             }
         }
 
-        if let Some(counter) = ctx.world_mut::<RunCounter>() {
+        if let Some(counter) = ctx.world_mut::<RunCounter>()? {
             counter.ticks += 1;
         }
 

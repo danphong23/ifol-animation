@@ -1,5 +1,5 @@
 use crate::error::EcsError;
-use crate::registry::SystemId;
+use crate::registry::{ComponentRegistry, SystemId};
 use crate::system::{AccessDescriptor, RunCondition, System};
 
 /// Registration metadata and implementation for a system.
@@ -73,6 +73,28 @@ impl SystemRegistry {
     #[inline]
     pub(crate) fn get_mut(&mut self, id: SystemId) -> Option<&mut SystemRegistration> {
         self.registrations.get_mut(id.index())
+    }
+
+    pub(crate) fn validate_components(
+        &self,
+        components: &ComponentRegistry,
+    ) -> Result<(), EcsError> {
+        for registration in &self.registrations {
+            for id in registration
+                .access
+                .reads
+                .iter()
+                .chain(&registration.access.writes)
+            {
+                if components.descriptor(*id).is_none() {
+                    return Err(EcsError::ComponentIdNotRegistered(format!("{id:?}")));
+                }
+            }
+            for condition in &registration.conditions {
+                condition.validate(components)?;
+            }
+        }
+        Ok(())
     }
 
     /// Returns the current monotonic registration revision.

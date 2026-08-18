@@ -105,9 +105,14 @@ impl CompiledSchedule {
                     continue;
                 }
 
-                // Execute system with SystemContext
-                let sys_name_leak: &'static str = Box::leak(sys_name.clone().into_boxed_str());
-                let mut ctx = SystemContext::new(world, commands, sys_id, sys_name_leak);
+                // Execute system with a checked SystemContext.
+                let mut ctx = SystemContext::new(
+                    world,
+                    commands,
+                    sys_id,
+                    sys_name.clone(),
+                    sys_reg.access.clone(),
+                );
 
                 match sys_reg.system.run(&mut ctx) {
                     Ok(()) => {

@@ -1,4 +1,5 @@
-use crate::registry::ComponentId;
+use crate::error::EcsError;
+use crate::registry::{ComponentId, ComponentRegistry};
 use crate::world::World;
 
 /// Execution condition evaluated before invoking a system.
@@ -15,6 +16,19 @@ pub enum RunCondition {
 }
 
 impl RunCondition {
+    pub(crate) fn validate(&self, components: &ComponentRegistry) -> Result<(), EcsError> {
+        match self {
+            Self::Always => Ok(()),
+            Self::WorldHas(id, _) => components
+                .descriptor(*id)
+                .map(|_| ())
+                .ok_or_else(|| EcsError::ComponentIdNotRegistered(format!("{id:?}"))),
+            Self::All(conditions) | Self::Any(conditions) => conditions
+                .iter()
+                .try_for_each(|condition| condition.validate(components)),
+        }
+    }
+
     /// Evaluates this run condition against current world state.
     ///
     /// Returns `Ok(())` if condition passes, or `Err(reason)` if failed.

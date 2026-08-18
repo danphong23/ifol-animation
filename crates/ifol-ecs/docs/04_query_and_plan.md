@@ -4,6 +4,10 @@
 
 Query không biết phase hay domain. Nó mô tả tập component mà system muốn đọc/ghi.
 
+Khi query chạy trong `SystemContext`, signature của query phát ra access metadata.
+ECS resolve `TypeId` thành `ComponentId` của runtime và kiểm tra với
+`AccessDescriptor`; query không có trong contract bị từ chối bằng `SystemError`.
+
 ~~~mermaid
 flowchart LR
     Signature["Query signature"] --> Resolve["Resolve ComponentIds"]

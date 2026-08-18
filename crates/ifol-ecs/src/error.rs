@@ -25,6 +25,14 @@ impl SystemError {
             code: Some(code),
         }
     }
+
+    /// Creates a structured error for an access that is outside the system contract.
+    pub fn access_denied<S: Into<String>>(component: S, mode: &str) -> Self {
+        Self::new(format!(
+            "system access denied: {mode} component '{}' is not declared",
+            component.into()
+        ))
+    }
 }
 
 /// Typed, fail-closed errors returned by `ifol-ecs`.
@@ -38,6 +46,9 @@ pub enum EcsError {
 
     #[error("component type '{0}' has not been registered in the component registry")]
     ComponentNotRegistered(&'static str),
+
+    #[error("component ID '{0}' has not been registered in the component registry")]
+    ComponentIdNotRegistered(String),
 
     #[error("component of type '{component}' was not found on entity {entity:?}")]
     ComponentNotFound {

@@ -81,6 +81,12 @@ impl World {
         &self.component_registry
     }
 
+    /// Returns the registered component ID for `T`, if present.
+    #[inline]
+    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.component_registry.get_id::<T>()
+    }
+
     /// Returns a mutable reference to the component registry.
     #[inline(always)]
     pub fn component_registry_mut(&mut self) -> &mut ComponentRegistry {

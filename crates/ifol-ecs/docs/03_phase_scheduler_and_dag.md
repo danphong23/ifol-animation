@@ -6,6 +6,9 @@ Phase là một node trong execution graph. Nó không phải frame, clock, inpu
 hay semantic cố định. Phase chỉ định một nhóm system được chạy trong cùng vùng thứ
 tự.
 
+Feature tạo phase bằng `PhaseId::new(name)`. Core không có phase mặc định và không
+biết input, animation, render hay GPU.
+
 ~~~text
 PhaseNode
 ├── PhaseId

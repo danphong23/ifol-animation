@@ -93,6 +93,8 @@ impl EcsRuntime {
 
     /// Validates all registrations, detects cycles, and compiles the phase DAG into an owned schedule.
     pub fn compile(&mut self) -> Result<(), EcsError> {
+        self.system_registry
+            .validate_components(self.world.component_registry())?;
         let schedule = CompiledSchedule::compile(&self.phase_registry, &self.system_registry)?;
         self.compiled_schedule = Some(schedule);
         Ok(())

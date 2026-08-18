@@ -9,4 +9,4 @@ pub use cache::QueryPlanCache;
 pub use execution::Query;
 pub use filter::{With, Without};
 pub use plan::QueryPlanKey;
-pub use query_item::WorldQuery;
+pub use query_item::{QueryAccess, WorldQuery};

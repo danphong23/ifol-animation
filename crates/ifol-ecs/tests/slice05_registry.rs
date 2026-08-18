@@ -1,5 +1,6 @@
 mod support;
 
+use ifol_ecs::EcsRuntime;
 use ifol_ecs::error::EcsError;
 use ifol_ecs::registry::{ComponentRegistry, PhaseId, PhaseRegistry, SystemRegistry};
 use ifol_ecs::system::{AccessDescriptor, FunctionSystem};
@@ -87,4 +88,25 @@ fn slice05_registry_transactional_commit_and_revisions() {
 
     assert_eq!(sys_reg.revision(), 1);
     assert!(sys_reg.get(sys_id).is_some());
+}
+
+#[test]
+fn compile_rejects_component_ids_from_another_registry() {
+    let mut foreign_registry = ComponentRegistry::new();
+    let foreign_id = foreign_registry.register::<Position>().unwrap();
+
+    let mut runtime = EcsRuntime::new();
+    let phase = PhaseId::new("validation");
+    runtime.register_phase(phase.clone()).unwrap();
+    let mut access = AccessDescriptor::new();
+    access.add_read(foreign_id);
+    let system = runtime
+        .register_function_system("foreign-access", |_| Ok(()), access, vec![])
+        .unwrap();
+    runtime.attach_system(&phase, system).unwrap();
+
+    assert!(matches!(
+        runtime.compile(),
+        Err(EcsError::ComponentIdNotRegistered(_))
+    ));
 }

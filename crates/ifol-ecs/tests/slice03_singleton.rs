@@ -20,12 +20,16 @@ fn slice03_world_singleton_and_run_conditions() {
         .register_function_system(
             "ConfigRequiredSystem",
             |ctx| {
-                if let Some(counter) = ctx.world_mut::<RunCounter>() {
+                if let Some(counter) = ctx.world_mut::<RunCounter>()? {
                     counter.ticks += 10;
                 }
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_write(_counter_id);
+                access
+            },
             vec![RunCondition::WorldHas(cfg_id, "TestConfig")],
         )
         .unwrap();
@@ -35,12 +39,16 @@ fn slice03_world_singleton_and_run_conditions() {
         .register_function_system(
             "OptionalSystem",
             |ctx| {
-                if let Some(counter) = ctx.world_mut::<RunCounter>() {
+                if let Some(counter) = ctx.world_mut::<RunCounter>()? {
                     counter.ticks += 1;
                 }
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_write(_counter_id);
+                access
+            },
             vec![RunCondition::Always],
         )
         .unwrap();

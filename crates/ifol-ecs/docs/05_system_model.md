@@ -25,6 +25,11 @@ trait System {
 System chỉ biết access/query được context cấp, command buffer và execution metadata.
 System không tự gọi phase khác hoặc giữ reference tới system khác.
 
+Mọi access dữ liệu đều được kiểm tra theo `AccessDescriptor` đã đăng ký. Các API
+`query`, `get`, `get_mut`, `world_ref` và `world_mut` trả `Result`; access không
+khai báo hoặc component chưa được đăng ký trở thành `SystemError`, không bị âm
+thầm trả về dữ liệu rỗng.
+
 ## 3. Registration metadata
 
 ~~~text

@@ -20,19 +20,23 @@ fn slice07_system_context_isolation_and_structured_errors() {
             "HealSystem",
             |ctx| {
                 let e_candidates: Vec<ifol_ecs::EntityId> = ctx
-                    .query::<&'static Health>()
+                    .query::<&'static Health>()?
                     .iter_with_entity()
                     .map(|(e, _)| e)
                     .collect();
 
                 for e in e_candidates {
-                    if let Some(h) = ctx.get_mut::<Health>(e) {
+                    if let Some(h) = ctx.get_mut::<Health>(e)? {
                         h.0 += 50;
                     }
                 }
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_write(runtime.world().component_id::<Health>().unwrap());
+                access
+            },
             vec![],
         )
         .unwrap();
@@ -86,4 +90,41 @@ fn system_ids_are_scoped_to_their_runtime() {
         target.attach_system(&phase, system_id),
         Err(ifol_ecs::EcsError::SystemNotFound(_))
     ));
+}
+
+#[test]
+fn undeclared_component_access_is_reported_as_a_system_error() {
+    let mut runtime = EcsRuntime::new();
+    runtime.register_component::<Health>().unwrap();
+    let phase = ifol_ecs::PhaseId::new("access-check");
+    runtime.register_phase(phase.clone()).unwrap();
+
+    let system_id = runtime
+        .register_function_system(
+            "UndeclaredWriter",
+            |ctx| {
+                let _ = ctx.get_mut::<Health>(ifol_ecs::EntityId::WORLD)?;
+                Ok(())
+            },
+            AccessDescriptor::new(),
+            vec![],
+        )
+        .unwrap();
+
+    runtime.attach_system(&phase, system_id).unwrap();
+    runtime.compile().unwrap();
+    let report = runtime.run_once().unwrap();
+
+    assert_eq!(report.system_errors.len(), 1);
+    assert!(
+        report.system_errors[0]
+            .1
+            .message
+            .contains("write component")
+    );
+    assert!(
+        !report
+            .systems_executed
+            .contains(&"UndeclaredWriter".to_string())
+    );
 }

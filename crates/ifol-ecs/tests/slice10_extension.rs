@@ -47,19 +47,24 @@ fn slice10_feature_package_registration_and_extension() {
             "AnimationEvaluateSystem",
             |ctx| {
                 let items: Vec<(ifol_ecs::EntityId, f32)> = ctx
-                    .query::<(&'static Transform, &'static KeyframeTrack)>()
+                    .query::<(&'static Transform, &'static KeyframeTrack)>()?
                     .iter_with_entity()
                     .map(|(e, (tf, track))| (e, tf.x + (track.target_x - track.start_x) * 0.5))
                     .collect();
 
                 for (e, new_x) in items {
-                    if let Some(tf) = ctx.get_mut::<Transform>(e) {
+                    if let Some(tf) = ctx.get_mut::<Transform>(e)? {
                         tf.x = new_x;
                     }
                 }
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_read(runtime.world().component_id::<KeyframeTrack>().unwrap());
+                access.add_write(runtime.world().component_id::<Transform>().unwrap());
+                access
+            },
             vec![],
         )
         .unwrap();
@@ -70,19 +75,24 @@ fn slice10_feature_package_registration_and_extension() {
             "RenderPrepareSystem",
             |ctx| {
                 let items: Vec<ifol_ecs::EntityId> = ctx
-                    .query::<(&'static Transform, &'static RenderCache)>()
+                    .query::<(&'static Transform, &'static RenderCache)>()?
                     .iter_with_entity()
                     .map(|(e, _)| e)
                     .collect();
 
                 for e in items {
-                    if let Some(cache) = ctx.get_mut::<RenderCache>(e) {
+                    if let Some(cache) = ctx.get_mut::<RenderCache>(e)? {
                         cache.is_dirty = true;
                     }
                 }
                 Ok(())
             },
-            AccessDescriptor::new(),
+            {
+                let mut access = AccessDescriptor::new();
+                access.add_read(runtime.world().component_id::<Transform>().unwrap());
+                access.add_write(runtime.world().component_id::<RenderCache>().unwrap());
+                access
+            },
             vec![],
         )
         .unwrap();
