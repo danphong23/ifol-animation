@@ -283,3 +283,12 @@ Mỗi khi thay đổi lõi đồ họa, toàn bộ 20 Test Cases này phải đ�
 - **Hợp đồng:** Mỗi TC dùng manifest canonical, shader WGSL dùng chung, wrapper Desktop gọi shared runner, Web catalog gọi cùng graph contract; state mutable được reset trước warm và report tiếng Việt riêng.
 - **Kết quả:** 3/3 pass validation, vision và cold/warm. TC68 khác 48 byte/17 pixel max `166/255`; TC69 khác 1.501 byte/1.297 pixel max `247/255` nhưng cấu trúc giống; TC70 đạt raw parity tuyệt đối `0` byte. TC68–TC69 `ĐẠT CÓ ĐIỀU KIỆN`, TC70 `ĐẠT`.
 - **Báo cáo:** [`tc68_verlet_report.md`](reports/tc68_verlet_report.md), [`tc69_deformation_report.md`](reports/tc69_deformation_report.md), [`tc70_culling_report.md`](reports/tc70_culling_report.md)
+
+### Trạng thái chứng nhận
+
+Baseline chính thức dừng ở TC70 tại commit `4d90857`. TC71–TC73 là pending và
+không được tính vào tổng số TC đã chứng nhận: TC71 còn vấn đề nondeterministic
+trong shader/graph test contract; TC72–TC73 chưa hoàn tất preview/report. Các
+sai khác do decoder, browser, driver hoặc presentation không được quy trực tiếp
+cho lõi `ifol-gpu`; lỗi scheduler, resource hazard, binding, format contract
+hoặc cache của core mới được phân loại là lỗi `ifol-gpu`.

@@ -425,3 +425,12 @@ Tài liệu này lưu trữ định nghĩa 20 Test Cases tiêu chuẩn của d�
 - **Kỳ vọng hình ảnh xuất ra:** Chỉ còn các hạt xanh trong vùng culling trung tâm; ngoài vùng rỗng và không có hạt rác.
 - **Kết quả parity:** Desktop/Web dùng fingerprint `208bace8904bea29`; validation, indirect count, vision và cold/warm đều đạt. Raw parity tuyệt đối: `0` byte và `0` pixel khác; phân loại `ĐẠT`.
 - **Báo cáo:** [`tc70_culling_report.md`](reports/tc70_culling_report.md)
+
+## Trạng thái chứng nhận sau TC70
+
+TC01–TC70 là phạm vi bằng chứng hiện tại; TC68–TC70 là batch đã commit gần
+nhất. TC71–TC73 chưa được tính là pass chính thức: TC71 còn nondeterministic ở
+shader/graph test contract, còn TC72–TC73 chưa hoàn tất bằng chứng preview/report.
+Không mở rộng TC74+ trước khi baseline và ranh giới core/test harness/tầng media
+được chốt. Tiêu chí chi tiết nằm tại
+[`90-validation-boundary-and-clean-baseline.md`](../docs/70-status/90-validation-boundary-and-clean-baseline.md).

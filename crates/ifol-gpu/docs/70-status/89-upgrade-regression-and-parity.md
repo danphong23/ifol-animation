@@ -275,3 +275,15 @@ TC02 và TC03 được đánh dấu `ĐẠT CÓ ĐIỀU KIỆN`, không phải p
 canonical được dùng như input fixture để loại decoder JPG khác nhau khỏi phép
 đo; canonical export thực sự vẫn phải do higher layer quản lý theo
 [canonical render và media output contract](../00-foundation/18-canonical-render-and-media-output-contract.md).
+
+## Baseline sau TC70
+
+Commit `4d90857` là baseline chứng nhận gần nhất. Phạm vi đã kiểm tra đến TC70;
+raw parity của từng TC và các điều kiện ngoại lệ được ghi trong report riêng.
+TC71–TC73 hiện là thử nghiệm pending, không phải kết quả pass chính thức. TC71
+còn nondeterministic ở shader/graph contract; TC72–TC73 chưa hoàn tất bằng chứng
+preview/report. Vì vậy không dùng các output hoặc report pending này để kết luận
+lõi `ifol-gpu` lỗi, cũng không dùng chúng để tuyên bố parity media tuyệt đối.
+
+Xem [90-validation-boundary-and-clean-baseline.md](90-validation-boundary-and-clean-baseline.md)
+để biết tiêu chí phân biệt lỗi core, lỗi test graph và giới hạn tầng ngoài.

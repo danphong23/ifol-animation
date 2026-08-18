@@ -425,6 +425,15 @@ minh pixel parity cho toàn bộ TC98–TC105 hoặc mọi platform.
 - file `docs/ifol-gpu-upgrade-plan.md` chưa phải execution plan đã cập nhật
   trạng thái.
 
+## Ranh giới chứng nhận hiện tại
+
+Baseline kiểm thử chính thức vẫn là commit `4d90857`, với bằng chứng đã commit
+đến TC70. TC71–TC73 chưa được cộng vào baseline: TC71 còn nondeterministic ở
+shader/graph test contract; TC72–TC73 có raw readback tốt nhưng preview/report
+chưa đủ sạch để chứng nhận. Không có lỗi production source của lõi
+`ifol-gpu` được chứng minh từ các sai khác này. Xem đầy đủ tiêu chí và quy tắc
+handoff tại [90-validation-boundary-and-clean-baseline.md](90-validation-boundary-and-clean-baseline.md).
+
 ## Trạng thái handoff
 
 Đợt refactor incremental F21–F31 đã hoàn tất bounded audit. Các production
