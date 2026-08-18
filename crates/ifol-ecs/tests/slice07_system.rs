@@ -11,7 +11,7 @@ fn slice07_system_context_isolation_and_structured_errors() {
     let mut runtime = EcsRuntime::new();
 
     runtime.register_component::<Health>().unwrap();
-    let phase = PhaseId::Update;
+    let phase = PhaseId::new("simulation");
     runtime.register_phase(phase.clone()).unwrap();
 
     // 1. Register a system that mutates health via SystemContext
@@ -69,4 +69,21 @@ fn slice07_system_context_isolation_and_structured_errors() {
         report.system_errors[0].1,
         SystemError::new("intentional test failure")
     );
+}
+
+#[test]
+fn system_ids_are_scoped_to_their_runtime() {
+    let mut source = EcsRuntime::new();
+    let system_id = source
+        .register_function_system("source", |_| Ok(()), AccessDescriptor::new(), vec![])
+        .unwrap();
+
+    let mut target = EcsRuntime::new();
+    let phase = ifol_ecs::PhaseId::new("target.phase");
+    target.register_phase(phase.clone()).unwrap();
+
+    assert!(matches!(
+        target.attach_system(&phase, system_id),
+        Err(ifol_ecs::EcsError::SystemNotFound(_))
+    ));
 }

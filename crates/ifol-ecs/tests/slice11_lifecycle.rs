@@ -13,7 +13,7 @@ fn slice11_runtime_lifecycle_and_100k_stress_test() {
     runtime.register_component::<Position>().unwrap();
     runtime.register_component::<Velocity>().unwrap();
 
-    let p = PhaseId::Update;
+    let p = PhaseId::new("simulation");
     runtime.register_phase(p.clone()).unwrap();
 
     let sys = runtime

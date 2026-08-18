@@ -2,39 +2,19 @@ use crate::error::EcsError;
 use std::collections::HashMap;
 use std::fmt;
 
-/// Predefined standard phases and custom phase identifier.
+/// Opaque, domain-neutral identifier for an execution phase.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum PhaseId {
-    /// Initial phase of the frame: input polling, system clock update.
-    PreUpdate,
-    /// Main simulation / animation / gameplay logic phase.
-    Update,
-    /// Transform propagation, physics constraints, hierarchy resolution phase.
-    PostUpdate,
-    /// Render contribution preparation phase.
-    RenderPrepare,
-    /// Graph build & command submission to GPU phase.
-    RenderSubmit,
-    /// Custom user-defined or feature-defined phase identifier.
-    Custom(String),
-}
+pub struct PhaseId(String);
 
 impl PhaseId {
-    /// Creates a custom phase identifier.
-    pub fn custom<S: Into<String>>(name: S) -> Self {
-        Self::Custom(name.into())
+    /// Creates a phase identifier from a stable name.
+    pub fn new<S: Into<String>>(name: S) -> Self {
+        Self(name.into())
     }
 
     /// Returns a string representation of this phase.
     pub fn as_str(&self) -> &str {
-        match self {
-            Self::PreUpdate => "PreUpdate",
-            Self::Update => "Update",
-            Self::PostUpdate => "PostUpdate",
-            Self::RenderPrepare => "RenderPrepare",
-            Self::RenderSubmit => "RenderSubmit",
-            Self::Custom(name) => name.as_str(),
-        }
+        &self.0
     }
 }
 
@@ -46,15 +26,24 @@ impl fmt::Display for PhaseId {
 
 /// Opaque sequential identifier assigned to a registered system.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct SystemId(pub u32);
+pub struct SystemId(u32);
+
+impl SystemId {
+    pub(crate) const fn new(index: u32) -> Self {
+        Self(index)
+    }
+
+    pub(crate) const fn index(self) -> usize {
+        self.0 as usize
+    }
+}
 
 /// A node in the phase execution graph containing dependency edges and system bindings.
 #[derive(Debug, Clone)]
 pub struct PhaseNode {
-    pub id: PhaseId,
-    pub before: Vec<PhaseId>,
-    pub after: Vec<PhaseId>,
-    pub system_bindings: Vec<SystemId>,
+    id: PhaseId,
+    before: Vec<PhaseId>,
+    system_bindings: Vec<SystemId>,
 }
 
 impl PhaseNode {
@@ -62,9 +51,20 @@ impl PhaseNode {
         Self {
             id,
             before: Vec::new(),
-            after: Vec::new(),
             system_bindings: Vec::new(),
         }
+    }
+
+    pub fn id(&self) -> &PhaseId {
+        &self.id
+    }
+
+    pub(crate) fn before(&self) -> &[PhaseId] {
+        &self.before
+    }
+
+    pub(crate) fn system_bindings(&self) -> &[SystemId] {
+        &self.system_bindings
     }
 }
 
@@ -86,6 +86,9 @@ impl PhaseRegistry {
 
     /// Registers a new phase into the registry.
     pub fn register_phase(&mut self, id: PhaseId) -> Result<(), EcsError> {
+        if id.as_str().is_empty() {
+            return Err(EcsError::InvalidPhaseId);
+        }
         if self.phases.contains_key(&id) {
             return Err(EcsError::DuplicatePhase(id.to_string()));
         }
@@ -95,11 +98,21 @@ impl PhaseRegistry {
     }
 
     /// Attaches a registered system to the specified phase.
-    pub fn attach_system(&mut self, phase: &PhaseId, system: SystemId) -> Result<(), EcsError> {
+    pub(crate) fn attach_system(
+        &mut self,
+        phase: &PhaseId,
+        system: SystemId,
+    ) -> Result<(), EcsError> {
         let node = self
             .phases
             .get_mut(phase)
             .ok_or_else(|| EcsError::PhaseNotFound(phase.to_string()))?;
+        if node.system_bindings.contains(&system) {
+            return Err(EcsError::DuplicateSystemBinding {
+                phase: phase.to_string(),
+                system: format!("{system:?}"),
+            });
+        }
         node.system_bindings.push(system);
         self.revision = self.revision.wrapping_add(1);
         Ok(())
@@ -114,15 +127,21 @@ impl PhaseRegistry {
             return Err(EcsError::PhaseNotFound(to.to_string()));
         }
 
-        self.phases.get_mut(from).unwrap().before.push(to.clone());
-        self.phases.get_mut(to).unwrap().after.push(from.clone());
+        let from_node = self.phases.get_mut(from).expect("phase existence checked");
+        if from_node.before.contains(to) {
+            return Err(EcsError::DuplicatePhaseEdge {
+                from: from.to_string(),
+                to: to.to_string(),
+            });
+        }
+        from_node.before.push(to.clone());
         self.revision = self.revision.wrapping_add(1);
         Ok(())
     }
 
     /// Returns the current phase node map.
     #[inline]
-    pub fn phases(&self) -> &HashMap<PhaseId, PhaseNode> {
+    pub(crate) fn phases(&self) -> &HashMap<PhaseId, PhaseNode> {
         &self.phases
     }
 

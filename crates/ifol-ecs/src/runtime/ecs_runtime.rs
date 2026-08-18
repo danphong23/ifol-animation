@@ -80,6 +80,9 @@ impl EcsRuntime {
 
     /// Attaches a registered system to the specified phase.
     pub fn attach_system(&mut self, phase: &PhaseId, system: SystemId) -> Result<(), EcsError> {
+        if self.system_registry.get(system).is_none() {
+            return Err(EcsError::SystemNotFound(format!("binding {system:?}")));
+        }
         self.phase_registry.attach_system(phase, system)
     }
 
@@ -90,7 +93,7 @@ impl EcsRuntime {
 
     /// Validates all registrations, detects cycles, and compiles the phase DAG into an owned schedule.
     pub fn compile(&mut self) -> Result<(), EcsError> {
-        let schedule = CompiledSchedule::compile(&self.phase_registry)?;
+        let schedule = CompiledSchedule::compile(&self.phase_registry, &self.system_registry)?;
         self.compiled_schedule = Some(schedule);
         Ok(())
     }

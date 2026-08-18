@@ -4,11 +4,21 @@ use crate::system::{AccessDescriptor, RunCondition, System};
 
 /// Registration metadata and implementation for a system.
 pub struct SystemRegistration {
-    pub id: SystemId,
-    pub name: String,
-    pub access: AccessDescriptor,
-    pub conditions: Vec<RunCondition>,
-    pub system: Box<dyn System>,
+    pub(crate) id: SystemId,
+    pub(crate) name: String,
+    pub(crate) access: AccessDescriptor,
+    pub(crate) conditions: Vec<RunCondition>,
+    pub(crate) system: Box<dyn System>,
+}
+
+impl SystemRegistration {
+    pub fn id(&self) -> SystemId {
+        self.id
+    }
+
+    pub fn access(&self) -> &AccessDescriptor {
+        &self.access
+    }
 }
 
 /// Registry managing system instances, access contracts, and conditions.
@@ -39,7 +49,7 @@ impl SystemRegistry {
             return Err(EcsError::InvalidAccessDescriptor(name, err));
         }
 
-        let id = SystemId(self.registrations.len() as u32);
+        let id = SystemId::new(self.registrations.len() as u32);
         let reg = SystemRegistration {
             id,
             name,
@@ -56,13 +66,13 @@ impl SystemRegistry {
     /// Returns a reference to a system registration.
     #[inline]
     pub fn get(&self, id: SystemId) -> Option<&SystemRegistration> {
-        self.registrations.get(id.0 as usize)
+        self.registrations.get(id.index())
     }
 
     /// Returns a mutable reference to a system registration.
     #[inline]
-    pub fn get_mut(&mut self, id: SystemId) -> Option<&mut SystemRegistration> {
-        self.registrations.get_mut(id.0 as usize)
+    pub(crate) fn get_mut(&mut self, id: SystemId) -> Option<&mut SystemRegistration> {
+        self.registrations.get_mut(id.index())
     }
 
     /// Returns the current monotonic registration revision.

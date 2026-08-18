@@ -12,8 +12,8 @@ fn slice08_execute_deferred_commands_and_safe_points() {
     runtime.register_component::<Position>().unwrap();
     runtime.register_component::<Health>().unwrap();
 
-    let p1 = PhaseId::PreUpdate;
-    let p2 = PhaseId::Update;
+    let p1 = PhaseId::new("prepare");
+    let p2 = PhaseId::new("observe");
     runtime.register_phase(p1.clone()).unwrap();
     runtime.register_phase(p2.clone()).unwrap();
     runtime.add_phase_edge(&p1, &p2).unwrap();

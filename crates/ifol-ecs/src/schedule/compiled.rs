@@ -4,6 +4,7 @@ use crate::report::{RunReport, SkippedSystem};
 use crate::schedule::graph::PhaseGraph;
 use crate::system::{Commands, SystemContext};
 use crate::world::World;
+use std::collections::HashSet;
 use std::time::Instant;
 
 /// A compiled phase containing ordered system IDs.
@@ -21,15 +22,30 @@ pub struct CompiledSchedule {
 
 impl CompiledSchedule {
     /// Compiles the phase graph from `PhaseRegistry` into an ordered `CompiledSchedule`.
-    pub fn compile(registry: &PhaseRegistry) -> Result<Self, EcsError> {
+    pub fn compile(registry: &PhaseRegistry, systems: &SystemRegistry) -> Result<Self, EcsError> {
         let order = PhaseGraph::compile_order(registry)?;
         let mut phases = Vec::with_capacity(order.len());
 
         for phase_id in order {
-            let node = registry.phases().get(&phase_id).unwrap();
+            let node = registry
+                .phases()
+                .get(&phase_id)
+                .ok_or_else(|| EcsError::PhaseNotFound(phase_id.to_string()))?;
+            let mut seen = HashSet::new();
+            for system_id in node.system_bindings() {
+                let registration = systems
+                    .get(*system_id)
+                    .ok_or_else(|| EcsError::SystemNotFound(format!("binding {system_id:?}")))?;
+                if !seen.insert(*system_id) {
+                    return Err(EcsError::DuplicateSystemBinding {
+                        phase: phase_id.to_string(),
+                        system: registration.name.clone(),
+                    });
+                }
+            }
             phases.push(CompiledPhase {
                 id: phase_id,
-                systems: node.system_bindings.clone(),
+                systems: node.system_bindings().to_vec(),
             });
         }
 
@@ -66,9 +82,9 @@ impl CompiledSchedule {
             report.phases_visited.push(phase.id.to_string());
 
             for &sys_id in &phase.systems {
-                let Some(sys_reg) = systems.get_mut(sys_id) else {
-                    continue;
-                };
+                let sys_reg = systems
+                    .get_mut(sys_id)
+                    .ok_or_else(|| EcsError::SystemNotFound(format!("binding {sys_id:?}")))?;
 
                 let sys_name = sys_reg.name.clone();
 

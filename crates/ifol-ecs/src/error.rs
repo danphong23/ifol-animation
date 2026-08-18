@@ -51,6 +51,9 @@ pub enum EcsError {
     #[error("phase '{0}' was not found in the phase registry")]
     PhaseNotFound(String),
 
+    #[error("phase identifier cannot be empty")]
+    InvalidPhaseId,
+
     #[error("system '{0}' was not found in the system registry")]
     SystemNotFound(String),
 
@@ -62,6 +65,12 @@ pub enum EcsError {
 
     #[error("system '{0}' is already registered in phase '{1}'")]
     DuplicateSystem(String, String),
+
+    #[error("system binding '{system}' is already attached to phase '{phase}'")]
+    DuplicateSystemBinding { phase: String, system: String },
+
+    #[error("phase edge '{from}' -> '{to}' is already registered")]
+    DuplicatePhaseEdge { from: String, to: String },
 
     #[error("phase cycle detected in schedule: {0}")]
     PhaseCycleDetected(String),

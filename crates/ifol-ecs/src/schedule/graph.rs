@@ -23,18 +23,7 @@ impl PhaseGraph {
             in_degrees.entry(id.clone()).or_insert(0);
             adj_list.entry(id.clone()).or_default();
 
-            for after in &node.after {
-                if !phases.contains_key(after) {
-                    return Err(EcsError::MissingPhaseDependency {
-                        phase: id.to_string(),
-                        dependency: after.to_string(),
-                    });
-                }
-                *in_degrees.entry(id.clone()).or_insert(0) += 1;
-                adj_list.entry(after.clone()).or_default().push(id.clone());
-            }
-
-            for before in &node.before {
+            for before in node.before() {
                 if !phases.contains_key(before) {
                     return Err(EcsError::MissingPhaseDependency {
                         phase: id.to_string(),

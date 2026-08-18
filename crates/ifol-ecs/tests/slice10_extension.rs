@@ -34,8 +34,8 @@ fn slice10_feature_package_registration_and_extension() {
     runtime.register_component::<RenderCache>().unwrap();
 
     // Features register their phases
-    let p_anim = PhaseId::custom("animation.evaluate");
-    let p_render = PhaseId::custom("render.prepare");
+    let p_anim = PhaseId::new("animation.evaluate");
+    let p_render = PhaseId::new("render.prepare");
 
     runtime.register_phase(p_anim.clone()).unwrap();
     runtime.register_phase(p_render.clone()).unwrap();

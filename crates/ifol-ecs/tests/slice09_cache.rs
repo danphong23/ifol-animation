@@ -12,7 +12,7 @@ fn slice09_cache_invalidation_and_recompile_safety() {
     runtime.register_component::<Position>().unwrap();
     runtime.register_component::<Velocity>().unwrap();
 
-    let p = PhaseId::Update;
+    let p = PhaseId::new("simulate");
     runtime.register_phase(p.clone()).unwrap();
 
     let sys = runtime
@@ -74,7 +74,7 @@ fn slice09_cache_invalidation_and_recompile_safety() {
     );
 
     // 2. Recompile schedule (e.g. adding a new phase): World data MUST BE PRESERVED!
-    let p_post = PhaseId::PostUpdate;
+    let p_post = PhaseId::new("finalize");
     runtime.register_phase(p_post.clone()).unwrap();
     runtime.add_phase_edge(&p, &p_post).unwrap();
     runtime.compile().unwrap();

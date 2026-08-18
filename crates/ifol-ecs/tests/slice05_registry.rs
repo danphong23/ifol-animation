@@ -23,21 +23,34 @@ fn slice05_registry_transactional_commit_and_revisions() {
 
     // 2. PhaseRegistry
     let mut phase_reg = PhaseRegistry::new();
-    phase_reg.register_phase(PhaseId::PreUpdate).unwrap();
-    phase_reg.register_phase(PhaseId::Update).unwrap();
+    let prepare = PhaseId::new("prepare");
+    let simulate = PhaseId::new("simulate");
+    phase_reg.register_phase(prepare.clone()).unwrap();
+    phase_reg.register_phase(simulate.clone()).unwrap();
     assert_eq!(phase_reg.revision(), 2);
+
+    assert_eq!(
+        phase_reg.register_phase(PhaseId::new("")),
+        Err(EcsError::InvalidPhaseId)
+    );
 
     // Duplicate phase registration
     assert_eq!(
-        phase_reg.register_phase(PhaseId::PreUpdate),
-        Err(EcsError::DuplicatePhase("PreUpdate".to_string()))
+        phase_reg.register_phase(prepare.clone()),
+        Err(EcsError::DuplicatePhase("prepare".to_string()))
     );
 
     // Unknown phase dependency edge
     assert_eq!(
-        phase_reg.add_phase_edge(&PhaseId::PreUpdate, &PhaseId::custom("NonExistent")),
-        Err(EcsError::PhaseNotFound("NonExistent".to_string()))
+        phase_reg.add_phase_edge(&prepare, &PhaseId::new("missing")),
+        Err(EcsError::PhaseNotFound("missing".to_string()))
     );
+
+    phase_reg.add_phase_edge(&prepare, &simulate).unwrap();
+    assert!(matches!(
+        phase_reg.add_phase_edge(&prepare, &simulate),
+        Err(EcsError::DuplicatePhaseEdge { .. })
+    ));
 
     // 3. SystemRegistry & AccessDescriptor validation
     let mut sys_reg = SystemRegistry::new();

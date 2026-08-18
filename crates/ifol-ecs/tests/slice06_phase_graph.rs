@@ -9,11 +9,11 @@ fn slice06_phase_graph_topological_sort_and_cycle_detection() {
     let mut reg = PhaseRegistry::new();
 
     // 1. Register 5 phases
-    let p_pre = PhaseId::PreUpdate;
-    let p_up = PhaseId::Update;
-    let p_post = PhaseId::PostUpdate;
-    let p_prep = PhaseId::RenderPrepare;
-    let p_sub = PhaseId::RenderSubmit;
+    let p_pre = PhaseId::new("prepare");
+    let p_up = PhaseId::new("simulate");
+    let p_post = PhaseId::new("finalize");
+    let p_prep = PhaseId::new("graph");
+    let p_sub = PhaseId::new("submit");
 
     reg.register_phase(p_sub.clone()).unwrap();
     reg.register_phase(p_post.clone()).unwrap();
@@ -32,18 +32,18 @@ fn slice06_phase_graph_topological_sort_and_cycle_detection() {
     assert_eq!(
         order,
         vec![
-            PhaseId::PreUpdate,
-            PhaseId::Update,
-            PhaseId::PostUpdate,
-            PhaseId::RenderPrepare,
-            PhaseId::RenderSubmit,
+            p_pre.clone(),
+            p_up.clone(),
+            p_post.clone(),
+            p_prep.clone(),
+            p_sub.clone(),
         ]
     );
 
     // 3. 2-Node Direct Cycle: A <-> B
     let mut cycle_reg = PhaseRegistry::new();
-    let p_a = PhaseId::custom("PhaseA");
-    let p_b = PhaseId::custom("PhaseB");
+    let p_a = PhaseId::new("phase.a");
+    let p_b = PhaseId::new("phase.b");
 
     cycle_reg.register_phase(p_a.clone()).unwrap();
     cycle_reg.register_phase(p_b.clone()).unwrap();
@@ -60,6 +60,6 @@ fn slice06_phase_graph_topological_sort_and_cycle_detection() {
     let missing_edge = missing_reg.add_phase_edge(&p_a, &p_b);
     assert_eq!(
         missing_edge,
-        Err(EcsError::PhaseNotFound("PhaseB".to_string()))
+        Err(EcsError::PhaseNotFound("phase.b".to_string()))
     );
 }

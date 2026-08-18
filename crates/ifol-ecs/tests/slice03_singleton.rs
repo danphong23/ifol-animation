@@ -12,7 +12,7 @@ fn slice03_world_singleton_and_run_conditions() {
     let cfg_id = runtime.register_world_singleton::<TestConfig>().unwrap();
     let _counter_id = runtime.register_world_singleton::<RunCounter>().unwrap();
 
-    let phase = PhaseId::Update;
+    let phase = PhaseId::new("simulation");
     runtime.register_phase(phase.clone()).unwrap();
 
     // 1. Register a system that REQUIRES TestConfig
