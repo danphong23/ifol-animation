@@ -20,10 +20,11 @@ flowchart LR
 ## 2. Các revision chính
 
 ~~~text
-registration_revision  → component/system/phase registry thay đổi
-graph_revision          → edge/binding/phase ordering thay đổi
+component_registry_revision → component type registration thay đổi
+system_registry_revision    → system registration thay đổi
+graph_revision              → phase/edge/binding ordering thay đổi
 structural_version      → entity/component membership thay đổi
-component_revision      → component value thay đổi
+component_change_tick   → từng component entry bị mutable write
 execution_revision      → mỗi run_once
 ~~~
 
@@ -34,8 +35,7 @@ Không dùng địa chỉ pointer làm cache key.
 - component ID/type lookup cache;
 - query plan cache;
 - compiled phase order;
-- system activation result;
-- access/condition validation result;
+- access/condition validation result (compile-time check, chưa cache riêng).
 - execution diagnostics cache tùy chọn.
 
 Render cache, animation cache và media cache thuộc feature, không thuộc ECS core.
@@ -44,7 +44,8 @@ Render cache, animation cache và media cache thuộc feature, không thuộc EC
 
 ~~~text
 QueryPlanKey:
-    query signature
+    concrete query type/signature
+    component type IDs
     component registry revision
     structural version
 

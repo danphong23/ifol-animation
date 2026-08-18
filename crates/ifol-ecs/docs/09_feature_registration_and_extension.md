@@ -4,9 +4,9 @@
 
 ~~~mermaid
 flowchart LR
-    F1["feature-animation"] -->|"registration batch"| ECS["ifol-ecs runtime"]
-    F2["feature-render-core"] -->|"registration batch"| ECS
-    F3["test-feature"] -->|"registration batch"| ECS
+    F1["feature-animation"] -->|"registration calls"| ECS["ifol-ecs runtime"]
+    F2["feature-render-core"] -->|"registration calls"| ECS
+    F3["test-feature"] -->|"registration calls"| ECS
     ECS --> Registry["owned registries + phase graph"]
     ECS --> Run["owned executor"]
 ~~~
@@ -22,8 +22,8 @@ Feature không tự tạo World, Schedule hoặc execution loop riêng cho cùng
 ~~~mermaid
 flowchart TD
     Discover["Discover feature packages"] --> Resolve["Resolve dependencies"]
-    Resolve --> Batch["Create registration batch"]
-    Batch --> ECSReg["EcsRuntime register"]
+    Resolve --> Contributions["Prepare contributions"]
+    Contributions --> ECSReg["EcsRuntime register"]
     ECSReg --> Validate["Validate all contributions"]
     Validate --> Compile["Compile ECS-owned plan"]
     Compile --> Load["Load World/project data"]

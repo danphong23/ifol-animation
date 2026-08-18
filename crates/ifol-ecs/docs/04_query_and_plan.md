@@ -25,8 +25,8 @@ Query<(&A, &B)>
 QueryMut<(&mut A, &B)>
 Query<(&A, Option<&B>)>
 Query<(&A, With<B>, Without<C>)>
-WorldRef<T>
-Option<WorldRef<T>>
+ctx.world_ref::<T>()?
+ctx.world_mut::<T>()?
 ~~~
 
 `Query<Q>` chỉ đọc. `QueryMut<Q>` nhận `&mut World`, kiểm tra aliasing của toàn

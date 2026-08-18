@@ -35,7 +35,7 @@ System mẫu:
 - multi-read/write và query 0 match;
 - required singleton với `WorldHas<TestConfig>`;
 - optional singleton: vẫn chạy khi config vắng;
-- `QueryMatches` để chứng minh skip theo yêu cầu rõ;
+- `WorldHas` và tổ hợp `All`/`Any` để chứng minh skip theo yêu cầu rõ;
 - deferred spawn/despawn/add/remove;
 - system cố ý trả error để kiểm tra execution policy.
 
@@ -63,22 +63,21 @@ System mẫu:
 
 ### Change tracking
 
-- added/changed/removed metadata đúng;
+- mỗi component entry có last-change tick đúng;
 - sửa singleton dùng cùng tracking với entity thường;
 - structural version chỉ đổi bởi thay đổi cấu trúc;
-- wraparound counter được test;
-- mutable-access change policy đã chọn được khóa bằng test.
+- tick tăng theo execution pass và mutable access cập nhật tick.
 
 ### Schedule
 
-- duplicate ID, missing dependency, phase cycle và system cycle làm build lỗi;
+- duplicate ID, missing dependency và phase cycle làm build lỗi;
 - topological tie-break cho kết quả ổn định;
 - access descriptor tự mâu thuẫn bị từ chối;
 - thiếu component type ở condition làm build lỗi;
 - thiếu singleton bắt buộc làm skip có reason;
 - insert singleton làm system active, remove làm skip lại;
 - optional singleton vắng vẫn chạy;
-- query rỗng mặc định vẫn chạy, `QueryMatches` thì skip;
+- query rỗng mặc định vẫn chạy; `WorldHas` thiếu thì skip;
 - system error và deferred command outcome xuất hiện trong `RunReport`.
 
 ### Cache và lifecycle
@@ -95,8 +94,8 @@ System mẫu:
 2. Integration test cho query và scheduler bằng test feature.
 3. Property/stress test cho chuỗi spawn/despawn/add/remove và DAG ngẫu nhiên.
 4. Benchmark riêng, không trộn với correctness test.
-5. Vertical slice workspace `feature-shape -> feature-render-core -> ifol-gpu`
-   chỉ bắt đầu sau khi acceptance core tương ứng đã xanh.
+5. Property/benchmark mở rộng có thể bổ sung sau; không được biến thành dependency
+   của core runtime hoặc ghi artifact vào source tree.
 
-Definition of Done của core V1 là acceptance matrix xanh và public contract được
+Definition of Done của core là acceptance matrix xanh và public contract được
 ghi lại; không phải số lượng domain feature đã xây.

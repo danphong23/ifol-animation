@@ -49,7 +49,7 @@ Phase binding nằm ở PhaseNode.system_bindings, không nằm trong system log
 SystemContext
 ├── read/query access
 ├── mutable tracked query access
-├── WorldRef<T>
+├── world_ref/world_mut<T>
 ├── deferred Commands
 ├── execution id/revision
 └── diagnostics marker

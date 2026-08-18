@@ -18,7 +18,7 @@ fn slice08_execute_deferred_commands_and_safe_points() {
     runtime.register_phase(p2.clone()).unwrap();
     runtime.add_phase_edge(&p1, &p2).unwrap();
 
-    // System 1 (PreUpdate): Iterates entities, queues deferred despawn and deferred insert
+    // System 1: Iterates entities and queues deferred component insertion
     let sys1 = runtime
         .register_function_system(
             "DeferredSpawnerSystem",
@@ -45,7 +45,7 @@ fn slice08_execute_deferred_commands_and_safe_points() {
         )
         .unwrap();
 
-    // System 2 (Update): Reads Health component inserted at safe point!
+    // System 2: Reads Health component inserted at the safe point
     let sys2 = runtime
         .register_function_system(
             "HealthReaderSystem",

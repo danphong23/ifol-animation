@@ -10,7 +10,7 @@ flowchart TB
     Type["Component type T"] --> Register["ComponentRegistry"]
     Register --> Install["World API: insert(WORLD_ENTITY, T)"]
     Install --> Store["Normal component storage"]
-    Store --> Query["Normal Query / WorldRef<T>"]
+    Store --> Query["Normal Query / ctx.world_ref<T>"]
 ~~~
 
 ~~~text
@@ -44,8 +44,8 @@ và entity thường; query trả tất cả entity khớp.
 
 | Khai báo | Khi vắng mặt | Ý nghĩa |
 |---|---|---|
-| WorldRef<A> | Skip system, ghi reason | Singleton bắt buộc |
-| Option<WorldRef<A>> | System vẫn chạy | Singleton tùy chọn |
+| `RunCondition::WorldHas(A)` | Skip system, ghi reason | Singleton bắt buộc |
+| `ctx.world_ref::<A>()?` | System tự xử lý `None` | Singleton tùy chọn |
 | Query<&A> | Chạy, iterator có thể rỗng | Query mọi entity có A |
 | RequireMatches<Q> | Skip khi query rỗng | Yêu cầu rõ ràng |
 

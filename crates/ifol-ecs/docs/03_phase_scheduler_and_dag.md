@@ -47,9 +47,15 @@ flowchart TB
 System registration và phase binding là hai việc khác nhau:
 
 ~~~rust
-let id = runtime.register_system(AnimationSystem::new());
-let phase = runtime.register_phase(PhaseId::new("animation.evaluate"));
-runtime.attach_system(phase, id);
+let id = runtime.register_system(
+    "animation.evaluate.system",
+    AnimationSystem::new(),
+    access_descriptor,
+    vec![],
+)?;
+let phase = PhaseId::new("animation.evaluate");
+runtime.register_phase(phase.clone())?;
+runtime.attach_system(&phase, id)?;
 ~~~
 
 System không chứa phase và không gọi system khác.
@@ -57,8 +63,9 @@ System không chứa phase và không gọi system khác.
 ## 4. Access descriptor
 
 Mỗi system khai báo component types đọc/ghi. Schedule lưu metadata để kiểm tra
-aliasing, chuẩn bị cho parallelism và cấp đúng quyền qua SystemContext. V1 có thể
-chạy tuần tự nhưng không được bỏ access contract.
+aliasing, chuẩn bị cho parallelism và cấp đúng quyền qua SystemContext. Executor
+hiện chạy tuần tự deterministic; access contract không được bỏ vì nó là nền tảng
+cho các executor khác về sau.
 
 ## 5. Graph và thứ tự
 
@@ -71,16 +78,16 @@ flowchart LR
     A --> B --> C --> D
 ~~~
 
-Trong V1, system trong một phase có declaration order deterministic. System-level
-edges có thể được biểu diễn sau nếu cần parallel batch hoặc dependency nội phase.
+System trong một phase có declaration order deterministic. Core hiện chỉ có
+dependency giữa phase; system-level edges hoặc parallel batch là extension phải
+được thiết kế thêm, không phải hành vi ngầm.
 
 ## 6. Run conditions
 
 ~~~rust
 enum RunCondition {
     Always,
-    WorldHas(ComponentId),
-    QueryMatches(QueryDescriptor),
+    WorldHas(ComponentId, &'static str),
     All(Vec<RunCondition>),
     Any(Vec<RunCondition>),
 }
@@ -93,10 +100,9 @@ Typed adapter có thể suy ra:
 
 | Parameter | Access | Condition |
 |---|---|---|
-| WorldRef<T> | Read T trên root | WorldHas(T) |
-| Option<WorldRef<T>> | Read T trên root | Không có |
+| `ctx.world_ref::<T>()?` | Read T trên root | WorldHas(T) |
+| `Option<T>` do system tự xử lý | Read T trên root | Không có |
 | Query<Q> | Access theo Q | Không có |
-| RequireMatches<Q> | Access theo Q | QueryMatches(Q) |
 
 ## 7. Compile validation
 

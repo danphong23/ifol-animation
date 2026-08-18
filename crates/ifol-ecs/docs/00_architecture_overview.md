@@ -32,8 +32,7 @@ EcsRuntime
 │   └── SystemBindings
 ├── Compiled state
 │   ├── CompiledPhasePlan
-│   ├── QueryPlanCache
-│   ├── ActivationCache
+│   ├── QueryPlanCache (owned by World)
 │   └── Revision metadata
 └── Execution layer
     ├── SystemContext

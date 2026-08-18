@@ -29,31 +29,33 @@ EcsRuntime
 │   ├── insert/get/get_mut/remove
 │   ├── insert_world_component
 │   └── query
-├── compilation
-│   ├── validate
-│   ├── compile
-│   └── compilation_revision
-├── execution
-│   ├── run_once
-│   ├── run_once_with_options
-│   └── report/diagnostics
+    ├── compilation
+    │   ├── compile
+    │   └── phase graph revision check
+    ├── execution
+    │   ├── run_once
+    │   ├── execution policy
+    │   └── report/diagnostics
 └── lifecycle
     ├── clear
     ├── reconfigure
     └── shutdown
 ~~~
 
-## 3. Transactional registration
+## 3. Registration and compilation boundary
 
 ~~~mermaid
 flowchart LR
-    Batch["Feature registration batch"] --> Validate["Validate IDs/deps/access"]
+    Batch["Host-prepared feature contributions"] --> Validate["Validate IDs/deps/access"]
     Validate -->|"fail"| Reject["No partial activation"]
     Validate -->|"pass"| Commit["Commit registries + graph revision"]
     Commit --> Compile["Compile owned schedule"]
 ~~~
 
-Feature không active một nửa nếu dependency hoặc validation thất bại.
+Mỗi lệnh registration tự kiểm tra lỗi cục bộ; `compile()` kiểm tra toàn bộ
+component access, conditions, bindings và phase graph trước khi publish schedule.
+Nếu compile thất bại, schedule cũ vẫn bị coi là stale và host phải sửa cấu hình
+hoặc tạo lại compilation; World data không bị thay đổi.
 
 ## 4. Read/mutate boundary
 

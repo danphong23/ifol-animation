@@ -26,17 +26,24 @@ Các registry tối thiểu:
 ## 2. Registration API
 
 ~~~rust
-let position = runtime.register_component::<Position>();
-let phase = runtime.register_phase(PhaseId::new("movement"));
-let system = runtime.register_system(MovementSystem::registration());
+let position = runtime.register_component::<Position>()?;
+let phase = PhaseId::new("movement");
+runtime.register_phase(phase.clone())?;
+let system = runtime.register_system(
+    "movement",
+    MovementSystem,
+    access_descriptor,
+    vec![],
+)?;
 
-runtime.attach_system(phase, system)?;
-runtime.add_phase_edge(phase_a, phase_b)?;
+runtime.attach_system(&phase, system)?;
+runtime.add_phase_edge(&phase_a, &phase_b)?;
 runtime.compile()?;
 ~~~
 
-Các hàm registration chỉ thay đổi logical model. Runtime phải validate và commit
-transactionally; lỗi không được để registry ở trạng thái active một phần.
+Các hàm registration chỉ thay đổi logical model và mỗi lệnh lỗi không commit
+trạng thái một phần. `compile()` là transaction boundary của execution schedule:
+chỉ schedule hợp lệ mới được publish để chạy.
 
 ## 3. World data API
 
@@ -49,6 +56,7 @@ runtime.get_mut<T>(entity)
 runtime.remove<T>(entity)
 runtime.insert_world_component(value)
 runtime.query<Q>()
+runtime.query_mut<Q>()
 ~~~
 
 UI/MCP/CLI thường không gọi trực tiếp các hàm này mà đi qua Engine Command/Query
