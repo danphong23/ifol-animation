@@ -38,3 +38,7 @@ path = "tests/slice07_reconfiguration.rs"
 [[test]]
 name = "slice08_dev_test_packages"
 path = "tests/slice08_dev_test_packages.rs"
+
+[[test]]
+name = "slice09_hardening"
+path = "tests/slice09_hardening.rs"
