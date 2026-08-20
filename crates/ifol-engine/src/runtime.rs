@@ -22,6 +22,7 @@ use crate::state::EngineState;
 pub struct EngineRuntime {
     ecs: ifol_ecs::EcsRuntime,
     command_registry: crate::registration::CommandRegistry,
+    provider_manager: crate::provider::ProviderManager,
     state: EngineState,
     revision: u64,
 }
@@ -32,6 +33,7 @@ impl std::fmt::Debug for EngineRuntime {
             .field("state", &self.state)
             .field("revision", &self.revision)
             .field("command_registry", &self.command_registry)
+            .field("provider_manager", &self.provider_manager)
             .finish()
     }
 }
@@ -44,16 +46,24 @@ impl EngineRuntime {
     pub(crate) fn from_parts(
         ecs: ifol_ecs::EcsRuntime,
         command_registry: crate::registration::CommandRegistry,
+        provider_manager: crate::provider::ProviderManager,
     ) -> Self {
         Self {
             ecs,
             command_registry,
+            provider_manager,
             state: EngineState::Ready,
             revision: 0,
         }
     }
 
     // ── Queries (always valid except ShuttingDown) ──────────────────
+
+    /// Returns a reference to the provider manager.
+    #[inline]
+    pub fn provider_manager(&self) -> &crate::provider::ProviderManager {
+        &self.provider_manager
+    }
 
     /// Returns a reference to the command/query/event registry.
     #[inline]
@@ -148,8 +158,15 @@ impl EngineRuntime {
         let final_revision = self.revision;
         self.state = EngineState::ShuttingDown;
 
-        // Tear down ECS
+        // 1. Tear down resource providers in reverse topological order
+        let provider_res = self.provider_manager.teardown_all(&mut self.ecs);
+
+        // 2. Tear down ECS
         self.ecs.shutdown();
+
+        if let Err(e) = provider_res {
+            return Err(EngineError::Provider(e));
+        }
 
         Ok(ShutdownReport {
             final_revision,

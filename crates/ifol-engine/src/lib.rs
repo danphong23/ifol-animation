@@ -3,6 +3,7 @@
 pub mod builder;
 pub mod error;
 pub mod package;
+pub mod provider;
 pub mod registration;
 pub mod report;
 pub mod runtime;
@@ -15,6 +16,7 @@ pub use package::{
     PackageDependency, PackageId, PackageLock, PackageManifest, PackageResolver, ResolveError,
     ResolvedPackage, Version, VersionReq,
 };
+pub use provider::{ProviderError, ProviderManager, ResourceId, ResourceProvider};
 pub use registration::{
     CommandHandler, CommandId, CommandReceipt, CommandRegistry, EventDescriptor, EventId,
     QueryHandler, QueryId, RegistrationContext, RegistrationTransaction, TransactionError,

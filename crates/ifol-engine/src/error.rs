@@ -45,4 +45,8 @@ pub enum EngineError {
     /// Package dependency resolution error.
     #[error("package resolution error: {0}")]
     Resolution(#[from] crate::package::ResolveError),
+
+    /// Resource provider error.
+    #[error("resource provider error: {0}")]
+    Provider(#[from] crate::provider::ProviderError),
 }

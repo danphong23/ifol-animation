@@ -18,3 +18,7 @@ path = "tests/slice02_package_resolver.rs"
 [[test]]
 name = "slice03_transactional_registration"
 path = "tests/slice03_transactional_registration.rs"
+
+[[test]]
+name = "slice04_resource_providers"
+path = "tests/slice04_resource_providers.rs"
