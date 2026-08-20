@@ -53,4 +53,8 @@ pub enum EngineError {
     /// Project container or namespace error.
     #[error("project error: {0}")]
     Project(#[from] crate::project::ProjectError),
+
+    /// Scene loading, codec, or migration error.
+    #[error("scene error: {0}")]
+    Scene(#[from] crate::scene::SceneError),
 }

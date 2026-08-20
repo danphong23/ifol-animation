@@ -8,9 +8,9 @@
 //! - ProjectContainer save and load roundtrip
 
 use ifol_engine::{
-    CURRENT_FORMAT_VERSION, MemoryStorage, Namespace, NamespaceError, NamespaceRegistry,
-    PackageId, PackageLock, PackageLockFile, PathSecurity, ProjectContainer,
-    ProjectManifest, ProjectStorage, ResolvedPackage, StorageError, Version, VersionReq,
+    CURRENT_FORMAT_VERSION, MemoryStorage, Namespace, NamespaceError, NamespaceRegistry, PackageId,
+    PackageLock, PackageLockFile, PathSecurity, ProjectContainer, ProjectManifest, ProjectStorage,
+    ResolvedPackage, StorageError, Version, VersionReq,
 };
 
 // ═══════════════════════════════════════════════════════════════════

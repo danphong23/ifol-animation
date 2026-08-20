@@ -8,6 +8,7 @@ pub mod provider;
 pub mod registration;
 pub mod report;
 pub mod runtime;
+pub mod scene;
 pub mod state;
 
 // Public re-exports
@@ -29,4 +30,9 @@ pub use registration::{
 };
 pub use report::{ShutdownReport, StepInput, StepReport};
 pub use runtime::EngineRuntime;
+pub use scene::{
+    CodecError, ComponentCodec, ComponentRecord, EntityKey, MigrationError, MigrationFn,
+    MigrationRegistry, OpaqueRecord, SceneDocument, SceneError, SceneLoadResult, SceneLoader,
+    SchemaId, SchemaRegistry,
+};
 pub use state::EngineState;
