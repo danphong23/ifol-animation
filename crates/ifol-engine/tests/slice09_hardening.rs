@@ -8,14 +8,16 @@
 //! - Complete end-to-end full-lifecycle integration test
 
 use ifol_ecs::{AccessDescriptor, PhaseId, SystemContext};
-use ifol_engine::testing::{TestMotionPackage, TestRendererPackage, TestTimelinePackage};
+mod support;
+
 use ifol_engine::{
     CommandId, CommandRegistry, EngineBuilder, EngineError, EngineRuntime, EngineState,
     PackageDependency, PackageId, PackageLock, PackageLockFile, PackageManifest, PackageResolver,
     ProjectContainer, ResourceId, ResourceProvider, SceneDocument, StepInput, Version, VersionReq,
 };
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
+use support::{TestMotionPackage, TestRendererPackage, TestTimelinePackage};
 
 // ═══════════════════════════════════════════════════════════════════
 // 1. THREAD-SAFETY ASSERTIONS
@@ -57,20 +59,20 @@ fn stress_test_1000_steps_determinism() {
     let pkg_r = TestRendererPackage::new();
 
     let mut engine = EngineBuilder::new()
-        .with_package(TestTimelinePackage::id(), move |ctx| pkg_t.register(ctx, tc))
+        .with_package(TestTimelinePackage::id(), move |ctx| {
+            pkg_t.register(ctx, tc)
+        })
         .with_package(TestMotionPackage::id(), move |ctx| pkg_m.register(ctx, mc))
-        .with_package(TestRendererPackage::id(), move |ctx| pkg_r.register(ctx, rc))
+        .with_package(TestRendererPackage::id(), move |ctx| {
+            pkg_r.register(ctx, rc)
+        })
         .build()
         .unwrap();
 
     const NUM_STEPS: u64 = 1_000;
 
     for i in 1..=NUM_STEPS {
-        let report = engine
-            .step(StepInput {
-                correlation_id: i,
-            })
-            .unwrap();
+        let report = engine.step(StepInput { correlation_id: i }).unwrap();
 
         assert_eq!(report.correlation_id, i);
         assert_eq!(report.engine_revision, i);
@@ -152,14 +154,11 @@ fn full_end_to_end_lifecycle_and_features() {
         Version::new(1, 0, 0),
     ));
     resolver.add(
-        PackageManifest::new(
-            PackageId::new("app-motion").unwrap(),
-            Version::new(1, 0, 0),
-        )
-        .with_dependency(PackageDependency {
-            package_id: PackageId::new("core-render").unwrap(),
-            version_req: VersionReq::caret(Version::new(1, 0, 0)),
-        }),
+        PackageManifest::new(PackageId::new("app-motion").unwrap(), Version::new(1, 0, 0))
+            .with_dependency(PackageDependency {
+                package_id: PackageId::new("core-render").unwrap(),
+                version_req: VersionReq::caret(Version::new(1, 0, 0)),
+            }),
     );
 
     let lock = resolver.resolve().unwrap();
@@ -183,10 +182,16 @@ fn full_end_to_end_lifecycle_and_features() {
         fn id(&self) -> ResourceId {
             ResourceId::new("gpu_device")
         }
-        fn init(&mut self, _ecs: &mut ifol_ecs::EcsRuntime) -> Result<(), ifol_engine::ProviderError> {
+        fn init(
+            &mut self,
+            _ecs: &mut ifol_ecs::EcsRuntime,
+        ) -> Result<(), ifol_engine::ProviderError> {
             Ok(())
         }
-        fn teardown(&mut self, _ecs: &mut ifol_ecs::EcsRuntime) -> Result<(), ifol_engine::ProviderError> {
+        fn teardown(
+            &mut self,
+            _ecs: &mut ifol_ecs::EcsRuntime,
+        ) -> Result<(), ifol_engine::ProviderError> {
             Ok(())
         }
     }

@@ -241,7 +241,7 @@ fn project_container_save_and_load_roundtrip() {
     container.save().unwrap();
 
     // Verify written files exist
-    assert!(container.storage.exists("manifest.ifol"));
+    assert!(container.storage.exists(ifol_engine::PROJECT_MANIFEST_PATH));
     assert!(container.storage.exists("package.lock"));
 
     // Reload from the same storage

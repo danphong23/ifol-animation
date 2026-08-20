@@ -27,5 +27,5 @@ Không có package thì engine vẫn chạy rỗng hợp lệ. Mọi chức năn
 qua registration, không qua enum/list hard-code trong engine.
 
 Manual nằm cùng crate để thay đổi public contract, implementation và acceptance
-tests luôn được review trong cùng phạm vi. Crate chưa publish API production cho
-tới khi Slice 1 được triển khai đầy đủ.
+tests luôn được review trong cùng phạm vi. Synthetic package fixtures chỉ tồn tại
+trong integration tests; chúng không phải production API của crate.

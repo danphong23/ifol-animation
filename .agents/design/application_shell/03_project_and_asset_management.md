@@ -5,11 +5,13 @@ không phụ thuộc UI hoặc đường dẫn tuyệt đối của máy đã t�
 
 ---
 
-## 1. Cấu Trúc Project Tự Chứa (Self-Contained Bundle)
-Thay vì file project chỉ chứa chữ (JSON), khi người dùng ấn "Save", phần mềm sẽ tạo ra một gói (Bundle) với định dạng `.ifol`. Thực chất `.ifol` là một thư mục nén `.zip` với cấu trúc như sau:
+## 1. Cấu Trúc Project Tự Chứa (Self-Contained Project)
+Project là một logical container được đọc/ghi qua `ProjectStorage`. Directory,
+memory, archive hoặc remote stream chỉ là backend adapter; engine không chốt một
+đuôi file hay định dạng đóng gói cụ thể. Một backend có thể biểu diễn cấu trúc:
 
 ```text
-my_animation.ifol (bundle/archive)
+project storage (directory/archive/memory/remote)
 ├── project.toml           (format version, required packages, entry scene)
 ├── package.lock           (resolved package IDs, versions, fingerprints)
 ├── packages/              (optional project-local packages)

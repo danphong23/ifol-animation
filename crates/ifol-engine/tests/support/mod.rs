@@ -1,18 +1,12 @@
-//! Dev-only synthetic test packages for end-to-end multi-package pipeline validation.
+//! Synthetic packages shared by integration tests.
 //!
-//! Models realistic feature packages without external crate dependencies:
-//! - `pkg-timeline`: clock and time updates
-//! - `pkg-motion`: entity physics and interpolation
-//! - `pkg-renderer`: rasterization into mock framebuffers
-//! - `pkg-audio`: sample mixing
+//! These fixtures intentionally live outside the library so test-only package
+//! behavior cannot become production API or a hidden built-in feature.
 
-use crate::package::PackageId;
-use crate::registration::RegistrationContext;
 use ifol_ecs::{AccessDescriptor, PhaseId, SystemContext};
+use ifol_engine::{PackageId, RegistrationContext};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
-
-// ── Synthetic Components & Singletons ──────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ClockTime {
@@ -25,13 +19,6 @@ pub struct RenderBuffer {
     pub drawn_entities: Vec<u64>,
     pub frame_counter: u64,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct AudioSink {
-    pub samples_rendered: usize,
-}
-
-// ── Package Definitions ───────────────────────────────────────────
 
 pub struct TestTimelinePackage {
     pub phase: PhaseId,
@@ -51,7 +38,6 @@ impl TestTimelinePackage {
     pub fn register(&self, ctx: &mut RegistrationContext, frame_counter: Arc<AtomicU32>) {
         ctx.register_world_singleton::<ClockTime>();
         ctx.register_phase(self.phase.clone());
-
         ctx.register_system(
             "timeline_tick_system",
             self.phase.clone(),
@@ -90,7 +76,6 @@ impl TestMotionPackage {
     pub fn register(&self, ctx: &mut RegistrationContext, motion_counter: Arc<AtomicU32>) {
         ctx.register_phase(self.phase.clone());
         ctx.add_phase_edge(PhaseId::new("timeline"), self.phase.clone());
-
         ctx.register_system(
             "motion_integrate_system",
             self.phase.clone(),
@@ -129,7 +114,6 @@ impl TestRendererPackage {
         ctx.register_world_singleton::<RenderBuffer>();
         ctx.register_phase(self.phase.clone());
         ctx.add_phase_edge(PhaseId::new("motion"), self.phase.clone());
-
         ctx.register_system(
             "render_draw_system",
             self.phase.clone(),

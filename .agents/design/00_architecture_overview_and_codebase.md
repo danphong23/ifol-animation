@@ -139,7 +139,7 @@ Tài liệu trong `.agents/design/` được chuẩn hóa theo đúng 3 nhóm:
 2. **Nhóm 2: Application Host & Shell**
    * [`application_shell/01_platform_strategy.md`](file:///c:/Users/abc/.AI/Code/ifol-animation/.agents/design/application_shell/01_platform_strategy.md): Chiến lược đa nền tảng Desktop/Web/Mobile/CLI.
    * [`application_shell/02_ui_and_mcp_command_bus.md`](file:///c:/Users/abc/.AI/Code/ifol-animation/.agents/design/application_shell/02_ui_and_mcp_command_bus.md): Typed command/query/event mechanism, transactions và adapter parity.
-   * [`application_shell/03_project_and_asset_management.md`](file:///c:/Users/abc/.AI/Code/ifol-animation/.agents/design/application_shell/03_project_and_asset_management.md): Gói Bundle `.ifol`, Virtual Path, VFS.
+   * [`application_shell/03_project_and_asset_management.md`](file:///c:/Users/abc/.AI/Code/ifol-animation/.agents/design/application_shell/03_project_and_asset_management.md): Project storage, Virtual Path, VFS.
 3. **Nhóm 3: Ecosystem & Extensibility**
    * [`ecosystem/01_plugin_architecture.md`](file:///c:/Users/abc/.AI/Code/ifol-animation/.agents/design/ecosystem/01_plugin_architecture.md): Package contract, dependency và transactional registration.
    * [`ecosystem/02_versioning_and_migration.md`](file:///c:/Users/abc/.AI/Code/ifol-animation/.agents/design/ecosystem/02_versioning_and_migration.md): Nâng cấp tương thích ngược Schema.

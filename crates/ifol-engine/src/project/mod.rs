@@ -1,6 +1,6 @@
 //! Project Container and Namespace subsystem.
 //!
-//! Provides the self-contained `.ifol` bundle container:
+//! Provides the generic self-contained project container:
 //! - Manifest validation and serialization
 //! - Storage abstraction with path containment security
 //! - Hierarchical namespace registry and collision prevention
@@ -18,6 +18,12 @@ pub use storage::{MemoryStorage, PathSecurity, ProjectStorage, StorageError};
 
 use thiserror::Error;
 
+/// Canonical path of the project manifest inside a project storage backend.
+pub const PROJECT_MANIFEST_PATH: &str = "project.toml";
+
+/// Canonical path of the resolved package lock inside a project storage backend.
+pub const PACKAGE_LOCK_PATH: &str = "package.lock";
+
 /// Errors produced during project operations.
 #[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum ProjectError {
@@ -34,7 +40,7 @@ pub enum ProjectError {
     Lockfile(String),
 }
 
-/// A complete, self-contained `.ifol` project container.
+/// A complete, self-contained project container over an injected storage backend.
 pub struct ProjectContainer {
     pub manifest: ProjectManifest,
     pub storage: Box<dyn ProjectStorage>,
@@ -57,17 +63,17 @@ impl ProjectContainer {
     pub fn save(&mut self) -> Result<(), ProjectError> {
         self.manifest.validate().map_err(ProjectError::Manifest)?;
 
-        // Write manifest.ifol
+        // Write the canonical project manifest.
         let manifest_bytes = self.manifest.serialize().into_bytes();
         self.storage
-            .write_file("manifest.ifol", &manifest_bytes)
+            .write_file(PROJECT_MANIFEST_PATH, &manifest_bytes)
             .map_err(ProjectError::Storage)?;
 
         // Write package.lock if present
         if let Some(lock) = &self.lockfile {
             let lock_bytes = lock.serialize().into_bytes();
             self.storage
-                .write_file("package.lock", &lock_bytes)
+                .write_file(PACKAGE_LOCK_PATH, &lock_bytes)
                 .map_err(ProjectError::Storage)?;
         }
 
@@ -76,18 +82,18 @@ impl ProjectContainer {
 
     /// Loads a project container from a given storage backend.
     pub fn load(storage: Box<dyn ProjectStorage>) -> Result<Self, ProjectError> {
-        // 1. Read manifest.ifol
+        // 1. Read the canonical project manifest.
         let manifest_bytes = storage
-            .read_file("manifest.ifol")
+            .read_file(PROJECT_MANIFEST_PATH)
             .map_err(ProjectError::Storage)?;
         let manifest_str =
             String::from_utf8(manifest_bytes).map_err(|e| ProjectError::Manifest(e.to_string()))?;
         let manifest = ProjectManifest::parse(&manifest_str).map_err(ProjectError::Manifest)?;
 
         // 2. Read package.lock if present
-        let lockfile = if storage.exists("package.lock") {
+        let lockfile = if storage.exists(PACKAGE_LOCK_PATH) {
             let lock_bytes = storage
-                .read_file("package.lock")
+                .read_file(PACKAGE_LOCK_PATH)
                 .map_err(ProjectError::Storage)?;
             let lock_str =
                 String::from_utf8(lock_bytes).map_err(|e| ProjectError::Lockfile(e.to_string()))?;

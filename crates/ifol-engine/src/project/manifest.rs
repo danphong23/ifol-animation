@@ -4,7 +4,7 @@ use std::fmt;
 /// Supported project bundle format version.
 pub const CURRENT_FORMAT_VERSION: u32 = 1;
 
-/// Manifest header describing an `.ifol` project container.
+/// Manifest header describing a project container.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectManifest {
     /// Bundle container format specification version.

@@ -11,7 +11,8 @@ use ifol_ecs::{AccessDescriptor, Component, PhaseId, RunCondition, SystemContext
 /// Controlled registration API exposed to packages.
 ///
 /// Collects contributions into a staging area. The contributions are
-/// validated and committed atomically by [`RegistrationTransaction`].
+/// validated and committed atomically by
+/// [`RegistrationTransaction`](crate::registration::RegistrationTransaction).
 ///
 /// The context does **not** give access to `&mut World`, internal
 /// registries, or subsystem implementations.

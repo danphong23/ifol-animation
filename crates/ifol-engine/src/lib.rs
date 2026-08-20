@@ -11,7 +11,6 @@ pub mod report;
 pub mod runtime;
 pub mod scene;
 pub mod state;
-pub mod testing;
 
 // Public re-exports
 pub use builder::EngineBuilder;
@@ -22,8 +21,8 @@ pub use package::{
 };
 pub use project::{
     CURRENT_FORMAT_VERSION, MemoryStorage, Namespace, NamespaceError, NamespaceRegistry,
-    PackageLockFile, PathSecurity, ProjectContainer, ProjectError, ProjectManifest, ProjectStorage,
-    StorageError,
+    PACKAGE_LOCK_PATH, PROJECT_MANIFEST_PATH, PackageLockFile, PathSecurity, ProjectContainer,
+    ProjectError, ProjectManifest, ProjectStorage, StorageError,
 };
 pub use provider::{ProviderError, ProviderManager, ResourceId, ResourceProvider};
 pub use reconfiguration::{ReconfigurationError, ReconfigurationPlan, ReconfigurationReport};

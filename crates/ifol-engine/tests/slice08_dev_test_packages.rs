@@ -6,10 +6,12 @@
 //! - Deterministic state advancement across multiple steps
 //! - Zero memory leaks and clean shutdown
 
-use ifol_engine::testing::{TestMotionPackage, TestRendererPackage, TestTimelinePackage};
+mod support;
+
 use ifol_engine::{EngineBuilder, StepInput};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use support::{TestMotionPackage, TestRendererPackage, TestTimelinePackage};
 
 #[test]
 fn multi_package_pipeline_ordering_and_execution() {
