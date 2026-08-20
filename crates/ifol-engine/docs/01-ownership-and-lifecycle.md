@@ -94,7 +94,8 @@ ngược; không dựa vào global mutable static.
   theo policy, không hủy platform service được host chia sẻ;
 - `reconfigure`: chuẩn bị runtime mới hoặc transactional delta rồi publish khi
   compile thành công; ECS, command/schema/migration registry và package lock
-  được swap cùng một commit, lỗi giữ nguyên runtime cũ;
+  được swap cùng một commit, lỗi staging giữ nguyên runtime cũ; lỗi teardown
+  provider chuyển runtime sang `Faulted` vì external side effect không rollback;
 - `shutdown`: ngăn step mới, drain/cancel job theo policy, drop root resources,
   shutdown ECS và trả report.
 

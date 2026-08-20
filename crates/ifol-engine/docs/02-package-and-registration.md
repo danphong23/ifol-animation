@@ -43,7 +43,6 @@ Package chỉ góp contract qua context giới hạn:
 ```text
 RegistrationContext
 ├── register_component<T>(schema)
-├── register_provider(provider)
 ├── register_system(system, access, conditions)
 ├── register_phase(id)
 ├── add_phase_edge(from, to)
@@ -112,3 +111,6 @@ effect trước commit boundary.
 Add/remove/replace package là transaction. Runtime cũ tiếp tục hợp lệ cho tới khi
 runtime/config mới validate và compile. Nếu migration không thể rollback an toàn,
 engine phải dùng staged runtime rồi swap ở safe boundary.
+Provider candidate được initialize trong staging trước khi swap. Provider cũ được
+teardown ngay trước publish; nếu teardown thất bại, engine chuyển sang `Faulted`
+và không chạy tiếp, vì external side effect không thể rollback vật lý.

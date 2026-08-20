@@ -17,6 +17,36 @@ struct ValueCodec;
 
 struct CountingProvider(Arc<AtomicU32>);
 
+struct LifecycleProvider {
+    teardown_calls: Arc<AtomicU32>,
+    fail_teardown: bool,
+}
+
+impl ifol_engine::ResourceProvider for LifecycleProvider {
+    fn id(&self) -> ifol_engine::ResourceId {
+        ifol_engine::ResourceId::new("test.lifecycle-provider")
+    }
+
+    fn init(&mut self, _ecs: &mut ifol_ecs::EcsRuntime) -> Result<(), ifol_engine::ProviderError> {
+        Ok(())
+    }
+
+    fn teardown(
+        &mut self,
+        _ecs: &mut ifol_ecs::EcsRuntime,
+    ) -> Result<(), ifol_engine::ProviderError> {
+        self.teardown_calls.fetch_add(1, Ordering::SeqCst);
+        if self.fail_teardown {
+            Err(ifol_engine::ProviderError::TeardownFailed {
+                provider: self.id().to_string(),
+                reason: "test failure".into(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
+
 impl ifol_engine::ResourceProvider for CountingProvider {
     fn id(&self) -> ifol_engine::ResourceId {
         ifol_engine::ResourceId::new("test.counting-provider")
@@ -206,4 +236,68 @@ fn package_provider_is_staged_and_initialized_after_registration() {
         .unwrap();
     assert_eq!(initialized.load(Ordering::SeqCst), 1);
     engine.shutdown().unwrap();
+}
+
+fn empty_reconfiguration_request() -> ifol_engine::ReconfigurationRequest {
+    ifol_engine::ReconfigurationRequest {
+        transaction: RegistrationTransaction::new(),
+        command_registry: CommandRegistry::new(),
+        schemas: SchemaRegistry::new(),
+        migrations: MigrationRegistry::new(),
+        provider_manager: ifol_engine::ProviderManager::new(),
+        package_lock: ifol_engine::PackageLock { packages: vec![] },
+        added_packages: vec![],
+        removed_packages: vec![],
+    }
+}
+
+#[test]
+fn reconfiguration_tears_down_old_providers_before_swap() {
+    let teardown_calls = Arc::new(AtomicU32::new(0));
+    let calls = teardown_calls.clone();
+    let package = PackageRegistration::new(
+        manifest("pkg-lifecycle-provider"),
+        move |context: &mut RegistrationContext| {
+            context.register_provider(Box::new(LifecycleProvider {
+                teardown_calls: calls,
+                fail_teardown: false,
+            }));
+        },
+    );
+
+    let mut engine = EngineBuilder::new()
+        .register_package(package)
+        .build()
+        .unwrap();
+    engine.reconfigure(empty_reconfiguration_request()).unwrap();
+
+    assert_eq!(teardown_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(engine.state(), ifol_engine::EngineState::Ready);
+}
+
+#[test]
+fn provider_teardown_failure_faults_runtime_before_swap() {
+    let teardown_calls = Arc::new(AtomicU32::new(0));
+    let calls = teardown_calls.clone();
+    let package = PackageRegistration::new(
+        manifest("pkg-failing-provider"),
+        move |context: &mut RegistrationContext| {
+            context.register_provider(Box::new(LifecycleProvider {
+                teardown_calls: calls,
+                fail_teardown: true,
+            }));
+        },
+    );
+
+    let mut engine = EngineBuilder::new()
+        .register_package(package)
+        .build()
+        .unwrap();
+    let error = engine
+        .reconfigure(empty_reconfiguration_request())
+        .unwrap_err();
+
+    assert!(matches!(error, ifol_engine::EngineError::Provider(_)));
+    assert_eq!(teardown_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(engine.state(), ifol_engine::EngineState::Faulted);
 }

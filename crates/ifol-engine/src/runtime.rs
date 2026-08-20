@@ -142,8 +142,10 @@ impl EngineRuntime {
 
     /// Dynamically reconfigures the active packages and schedule using an atomic stage-and-swap transaction.
     ///
-    /// If registration or schedule compilation fails, the live runtime remains completely
-    /// untouched and in the `Ready` state.
+    /// Registration, schedule compilation, or candidate-provider initialization
+    /// failures leave the live runtime untouched and in `Ready`. If an active
+    /// provider teardown fails, external side effects cannot be rolled back;
+    /// the runtime transitions to `Faulted` and refuses further stepping.
     pub fn reconfigure(
         &mut self,
         request: crate::reconfiguration::ReconfigurationRequest,
@@ -181,7 +183,17 @@ impl EngineRuntime {
         )?;
         provider_manager.init_all(&mut staging_ecs)?;
 
-        // 3. Atomic swap
+        // Provider teardown is the external side-effect boundary. It cannot be
+        // rolled back if a provider itself reports failure, so fault the
+        // runtime and refuse further stepping instead of publishing a partial
+        // replacement.
+        if let Err(error) = self.provider_manager.teardown_all(&mut self.ecs) {
+            let _ = provider_manager.teardown_all(&mut staging_ecs);
+            self.state = EngineState::Faulted;
+            return Err(EngineError::Provider(error));
+        }
+
+        // 3. Swap only after all fallible staging and old-provider teardown.
         self.ecs = staging_ecs;
         self.command_registry = staging_cmd_reg;
         self.schemas = staging_schemas;
