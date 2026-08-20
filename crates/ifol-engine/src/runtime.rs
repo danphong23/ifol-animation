@@ -146,32 +146,34 @@ impl EngineRuntime {
     /// untouched and in the `Ready` state.
     pub fn reconfigure(
         &mut self,
-        transaction: crate::registration::RegistrationTransaction,
-        command_registry: crate::registration::CommandRegistry,
-        new_lock: crate::package::PackageLock,
-        added_packages: Vec<crate::package::PackageId>,
-        removed_packages: Vec<crate::package::PackageId>,
+        request: crate::reconfiguration::ReconfigurationRequest,
     ) -> Result<crate::reconfiguration::ReconfigurationReport, EngineError> {
         self.require_state(EngineState::Ready, "reconfigure")?;
+
+        let crate::reconfiguration::ReconfigurationRequest {
+            transaction,
+            command_registry,
+            schemas,
+            migrations,
+            package_lock: new_lock,
+            added_packages,
+            removed_packages,
+        } = request;
 
         // 1. Build staging runtime
         let staging_ecs = ifol_ecs::EcsRuntime::new();
         let staging_cmd_reg = command_registry;
 
         // 2. Commit transaction onto staging ECS
-        let (staging_ecs, staging_cmd_reg, staging_schemas, staging_migrations) = transaction
-            .commit(
-                staging_ecs,
-                staging_cmd_reg,
-                crate::scene::SchemaRegistry::new(),
-                crate::scene::MigrationRegistry::new(),
-            )?;
+        let (staging_ecs, staging_cmd_reg, staging_schemas, staging_migrations) =
+            transaction.commit(staging_ecs, staging_cmd_reg, schemas, migrations)?;
 
         // 3. Atomic swap
         self.ecs = staging_ecs;
         self.command_registry = staging_cmd_reg;
         self.schemas = staging_schemas;
         self.migrations = staging_migrations;
+        self.package_lock = new_lock.clone();
         self.revision = self.revision.wrapping_add(1);
 
         Ok(crate::reconfiguration::ReconfigurationReport {

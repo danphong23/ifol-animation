@@ -276,13 +276,15 @@ fn full_end_to_end_lifecycle_and_features() {
     });
 
     let reconfig_rep = engine
-        .reconfigure(
-            reconfig_tx,
-            CommandRegistry::new(),
-            PackageLock { packages: vec![] },
-            vec![pkg_post],
-            vec![],
-        )
+        .reconfigure(ifol_engine::ReconfigurationRequest {
+            transaction: reconfig_tx,
+            command_registry: CommandRegistry::new(),
+            schemas: ifol_engine::SchemaRegistry::new(),
+            migrations: ifol_engine::MigrationRegistry::new(),
+            package_lock: PackageLock { packages: vec![] },
+            added_packages: vec![pkg_post],
+            removed_packages: vec![],
+        })
         .unwrap();
 
     assert_eq!(reconfig_rep.revision, 2);

@@ -9,8 +9,8 @@
 
 use ifol_ecs::{AccessDescriptor, PhaseId, SystemContext};
 use ifol_engine::{
-    CommandRegistry, EngineBuilder, EngineError, EngineState, PackageId, PackageLock,
-    RegistrationTransaction, StepInput,
+    CommandRegistry, EngineBuilder, EngineError, EngineState, MigrationRegistry, PackageId,
+    PackageLock, ReconfigurationRequest, RegistrationTransaction, SchemaRegistry, StepInput,
 };
 
 mod support;
@@ -73,7 +73,15 @@ fn dynamic_reconfiguration_successful_swap() {
 
     // 3. Perform dynamic reconfiguration
     let report = engine
-        .reconfigure(tx, cmd_reg, lock, vec![pkg_b.clone()], vec![])
+        .reconfigure(ReconfigurationRequest {
+            transaction: tx,
+            command_registry: cmd_reg,
+            schemas: SchemaRegistry::new(),
+            migrations: MigrationRegistry::new(),
+            package_lock: lock,
+            added_packages: vec![pkg_b.clone()],
+            removed_packages: vec![],
+        })
         .unwrap();
 
     assert_eq!(report.added_packages, vec![pkg_b]);
@@ -120,13 +128,15 @@ fn failed_reconfiguration_preserves_live_runtime() {
     let lock = PackageLock { packages: vec![] };
 
     // 3. Attempt reconfiguration -> MUST fail
-    let res = engine.reconfigure(
-        bad_tx,
-        CommandRegistry::new(),
-        lock,
-        vec![PackageId::new("pkg-bad").unwrap()],
-        vec![],
-    );
+    let res = engine.reconfigure(ReconfigurationRequest {
+        transaction: bad_tx,
+        command_registry: CommandRegistry::new(),
+        schemas: SchemaRegistry::new(),
+        migrations: MigrationRegistry::new(),
+        package_lock: lock,
+        added_packages: vec![PackageId::new("pkg-bad").unwrap()],
+        removed_packages: vec![],
+    });
     assert!(res.is_err(), "reconfiguration with cycle must fail");
 
     // 4. Verify live engine remains 100% functional in Ready state
@@ -140,13 +150,15 @@ fn reconfigure_fails_if_engine_shut_down() {
     let mut engine = EngineBuilder::new().build().unwrap();
     engine.shutdown().unwrap();
 
-    let res = engine.reconfigure(
-        RegistrationTransaction::new(),
-        CommandRegistry::new(),
-        PackageLock { packages: vec![] },
-        vec![],
-        vec![],
-    );
+    let res = engine.reconfigure(ReconfigurationRequest {
+        transaction: RegistrationTransaction::new(),
+        command_registry: CommandRegistry::new(),
+        schemas: SchemaRegistry::new(),
+        migrations: MigrationRegistry::new(),
+        package_lock: PackageLock { packages: vec![] },
+        added_packages: vec![],
+        removed_packages: vec![],
+    });
 
     assert!(matches!(res, Err(EngineError::InvalidState { .. })));
 }

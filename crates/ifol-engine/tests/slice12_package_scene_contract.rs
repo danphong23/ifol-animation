@@ -3,8 +3,9 @@
 use ifol_ecs::entity::EntityId;
 use ifol_ecs::world::World;
 use ifol_engine::{
-    CodecError, ComponentCodec, ComponentRecord, EngineBuilder, EntityKey, PackageId,
-    PackageManifest, PackageRegistration, RegistrationContext, SceneDocument, SchemaId, Version,
+    CodecError, CommandRegistry, ComponentCodec, ComponentRecord, EngineBuilder, EntityKey,
+    MigrationRegistry, PackageId, PackageManifest, PackageRegistration, RegistrationContext,
+    RegistrationTransaction, SceneDocument, SchemaId, SchemaRegistry, Version,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -134,4 +135,33 @@ fn duplicate_schema_across_packages_aborts_build() {
         .unwrap_err();
 
     assert!(error.to_string().contains("schema registration failed"));
+}
+
+#[test]
+fn successful_reconfiguration_swaps_schema_registry_atomically() {
+    let mut engine = EngineBuilder::new()
+        .register_package(value_package())
+        .build()
+        .unwrap();
+
+    let mut transaction = RegistrationTransaction::new();
+    transaction.stage_package(PackageId::new("pkg-scene-value").unwrap(), |context| {
+        context.register_component::<Value>();
+        context.register_schema(SchemaId::new("test.value"), Box::new(ValueCodec));
+    });
+
+    let report = engine
+        .reconfigure(ifol_engine::ReconfigurationRequest {
+            transaction,
+            command_registry: CommandRegistry::new(),
+            schemas: SchemaRegistry::new(),
+            migrations: MigrationRegistry::new(),
+            package_lock: ifol_engine::PackageLock { packages: vec![] },
+            added_packages: vec![],
+            removed_packages: vec![],
+        })
+        .unwrap();
+
+    assert_eq!(report.revision, 1);
+    assert_eq!(engine.schema_registry().len(), 1);
 }

@@ -93,7 +93,8 @@ ngược; không dựa vào global mutable static.
 - `unload_project`: đóng scene/project state và package-owned project resources
   theo policy, không hủy platform service được host chia sẻ;
 - `reconfigure`: chuẩn bị runtime mới hoặc transactional delta rồi publish khi
-  compile thành công;
+  compile thành công; ECS, command/schema/migration registry và package lock
+  được swap cùng một commit, lỗi giữ nguyên runtime cũ;
 - `shutdown`: ngăn step mới, drain/cancel job theo policy, drop root resources,
   shutdown ECS và trả report.
 

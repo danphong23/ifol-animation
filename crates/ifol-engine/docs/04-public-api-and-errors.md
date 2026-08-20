@@ -22,7 +22,7 @@ EngineRuntime
 ├── query(request) -> QueryResult
 ├── step(input) -> StepReport
 ├── snapshot(request) -> Snapshot
-├── reconfigure(change) -> ReconfigureReport
+├── reconfigure(transaction, registries, lock) -> ReconfigureReport
 ├── unload_project()
 └── shutdown() -> ShutdownReport
 ```
@@ -33,6 +33,8 @@ diagnostics có thể kiểm tra chính xác package set đã được resolve.
 `load_scene` là boundary để nạp `SceneDocument` vào ECS; document được validate,
 decode/migrate theo schema do package đăng ký, rollback khi lỗi, và chỉ tăng
 revision khi thành công.
+Reconfigure cũng nhận các registry ứng viên đã được chuẩn bị đầy đủ; engine chỉ
+swap ECS, command, schema, migration và package lock sau khi compile thành công.
 
 API cụ thể có thể tách type theo borrow/async requirement, nhưng không mở raw
 mutable `EcsRuntime` cho adapter bình thường. Bootstrap/test có controlled access

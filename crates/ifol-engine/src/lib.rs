@@ -25,7 +25,9 @@ pub use project::{
     ProjectError, ProjectManifest, ProjectStorage, StorageError,
 };
 pub use provider::{ProviderError, ProviderManager, ResourceId, ResourceProvider};
-pub use reconfiguration::{ReconfigurationError, ReconfigurationPlan, ReconfigurationReport};
+pub use reconfiguration::{
+    ReconfigurationError, ReconfigurationPlan, ReconfigurationReport, ReconfigurationRequest,
+};
 pub use registration::{
     CommandHandler, CommandId, CommandReceipt, CommandRegistry, EventDescriptor, EventId,
     QueryHandler, QueryId, RegistrationContext, RegistrationTransaction, TransactionError,
