@@ -1,6 +1,4 @@
-use crate::entity::EntityId;
 use crate::error::{EcsError, SystemError};
-use crate::query::{Query, QueryMut, WorldQuery, WorldQueryMut};
 use crate::registry::{ComponentId, PhaseId, PhaseRegistry, SystemId, SystemRegistry};
 use crate::report::{ExecutionPolicy, RunReport};
 use crate::schedule::CompiledSchedule;
@@ -12,13 +10,13 @@ use crate::world::World;
 
 /// Central composition root owning World, Registries, Compiled Schedule, and Query Plan Cache.
 pub struct EcsRuntime {
-    world: World,
-    phase_registry: PhaseRegistry,
-    system_registry: SystemRegistry,
-    compiled_schedule: Option<CompiledSchedule>,
-    commands: Commands,
-    execution_counter: u64,
-    execution_policy: ExecutionPolicy,
+    pub(crate) world: World,
+    pub(crate) phase_registry: PhaseRegistry,
+    pub(crate) system_registry: SystemRegistry,
+    pub(crate) compiled_schedule: Option<CompiledSchedule>,
+    pub(crate) commands: Commands,
+    pub(crate) execution_counter: u64,
+    pub(crate) execution_policy: ExecutionPolicy,
 }
 
 impl EcsRuntime {
@@ -136,114 +134,6 @@ impl EcsRuntime {
     #[inline]
     pub fn set_execution_policy(&mut self, policy: ExecutionPolicy) {
         self.execution_policy = policy;
-    }
-
-    // World access API
-    #[inline(always)]
-    pub fn world(&self) -> &World {
-        &self.world
-    }
-
-    #[inline(always)]
-    pub fn world_mut(&mut self) -> &mut World {
-        &mut self.world
-    }
-
-    #[inline(always)]
-    pub fn spawn(&mut self) -> EntityId {
-        self.world.spawn()
-    }
-
-    #[inline(always)]
-    pub fn despawn(&mut self, entity: EntityId) -> Result<(), EcsError> {
-        self.world.despawn(entity)
-    }
-
-    #[inline(always)]
-    pub fn insert<T: Component>(
-        &mut self,
-        entity: EntityId,
-        component: T,
-    ) -> Result<Option<T>, EcsError> {
-        self.world.insert(entity, component)
-    }
-
-    #[inline(always)]
-    pub fn get<T: Component>(&self, entity: EntityId) -> Option<&T> {
-        self.world.get::<T>(entity)
-    }
-
-    #[inline(always)]
-    pub fn get_mut<T: Component>(&mut self, entity: EntityId) -> Option<&mut T> {
-        self.world.get_mut::<T>(entity)
-    }
-
-    #[inline(always)]
-    pub fn remove<T: Component>(&mut self, entity: EntityId) -> Option<T> {
-        self.world.remove::<T>(entity)
-    }
-
-    #[inline(always)]
-    pub fn insert_world_component<T: Component>(&mut self, component: T) -> Option<T> {
-        self.world.insert_world_component(component)
-    }
-
-    #[inline(always)]
-    pub fn get_world_component<T: Component>(&self) -> Option<&T> {
-        self.world.get_world_component::<T>()
-    }
-
-    #[inline(always)]
-    pub fn get_world_component_mut<T: Component>(&mut self) -> Option<&mut T> {
-        self.world.get_world_component_mut::<T>()
-    }
-
-    #[inline(always)]
-    pub fn has_world_component<T: Component>(&self) -> bool {
-        self.world.has_world_component::<T>()
-    }
-
-    #[inline(always)]
-    pub fn remove_world_component<T: Component>(&mut self) -> Option<T> {
-        self.world.remove_world_component::<T>()
-    }
-
-    #[inline(always)]
-    pub fn query<Q: WorldQuery>(&self) -> Query<'_, Q> {
-        self.world.query::<Q>()
-    }
-
-    /// Creates a mutable query over the runtime world after validating aliasing.
-    #[inline]
-    pub fn query_mut<Q: WorldQueryMut>(&mut self) -> Result<QueryMut<'_, Q>, SystemError> {
-        self.world.query_mut::<Q>()
-    }
-
-    /// Returns query-plan cache statistics `(hits, misses)`.
-    #[inline]
-    pub fn query_plan_cache_stats(&self) -> (usize, usize) {
-        self.world.query_plan_cache_stats()
-    }
-
-    /// Reconfigures registrations and invalidates current compiled schedule.
-    pub fn reconfigure(&mut self) {
-        self.compiled_schedule = None;
-    }
-
-    /// Clears world data while preserving component, phase, and system registrations.
-    pub fn clear(&mut self) {
-        self.world.clear();
-    }
-
-    /// Shuts down the runtime, clearing all data, registrations, and caches.
-    pub fn shutdown(&mut self) {
-        self.world = World::new();
-        self.phase_registry = PhaseRegistry::new();
-        self.system_registry = SystemRegistry::new();
-        self.compiled_schedule = None;
-        self.commands = Commands::new();
-        self.execution_counter = 0;
-        self.execution_policy = ExecutionPolicy::default();
     }
 }
 
