@@ -11,7 +11,7 @@ use ifol_ecs::entity::EntityId;
 use ifol_ecs::world::World;
 use ifol_engine::{
     CodecError, ComponentCodec, ComponentRecord, EntityKey, MigrationError, MigrationRegistry,
-    SceneDocument, SceneLoader, SchemaId, SchemaRegistry,
+    SceneDocument, SceneError, SceneLoader, SchemaId, SchemaRegistry,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,28 +77,32 @@ fn multi_step_migration_chain() {
     let schema = SchemaId::new("core.transform");
 
     // v1 -> v2: adds y=0 (v1 had only x)
-    migrations.register_step(
-        schema.clone(),
-        1,
-        2,
-        Box::new(|v1_data| {
-            let mut v2 = v1_data.to_vec();
-            v2.extend_from_slice(&0i32.to_le_bytes()); // default y
-            Ok(v2)
-        }),
-    );
+    migrations
+        .register_step(
+            schema.clone(),
+            1,
+            2,
+            Box::new(|v1_data| {
+                let mut v2 = v1_data.to_vec();
+                v2.extend_from_slice(&0i32.to_le_bytes()); // default y
+                Ok(v2)
+            }),
+        )
+        .unwrap();
 
     // v2 -> v3: adds scale=100 (v2 had x, y)
-    migrations.register_step(
-        schema.clone(),
-        2,
-        3,
-        Box::new(|v2_data| {
-            let mut v3 = v2_data.to_vec();
-            v3.extend_from_slice(&100u32.to_le_bytes()); // default scale 100
-            Ok(v3)
-        }),
-    );
+    migrations
+        .register_step(
+            schema.clone(),
+            2,
+            3,
+            Box::new(|v2_data| {
+                let mut v3 = v2_data.to_vec();
+                v3.extend_from_slice(&100u32.to_le_bytes()); // default scale 100
+                Ok(v3)
+            }),
+        )
+        .unwrap();
 
     // Initial v1 payload: x = 42
     let v1_payload = 42i32.to_le_bytes().to_vec();
@@ -122,7 +126,9 @@ fn migration_gap_detected() {
     let schema = SchemaId::new("core.transform");
 
     // Only v1 -> v2 registered, v2 -> v3 is missing!
-    migrations.register_step(schema.clone(), 1, 2, Box::new(|v1| Ok(v1.to_vec())));
+    migrations
+        .register_step(schema.clone(), 1, 2, Box::new(|v1| Ok(v1.to_vec())))
+        .unwrap();
 
     let v1_payload = 10i32.to_le_bytes().to_vec();
     let result = migrations.migrate(&schema, 1, 3, v1_payload);
@@ -150,29 +156,35 @@ fn scene_loader_remapping_and_opaque_preservation() {
         .unwrap();
 
     let mut schemas = SchemaRegistry::new();
-    schemas.register(SchemaId::new("core.transform"), Box::new(TransformCodec));
+    schemas
+        .register(SchemaId::new("core.transform"), Box::new(TransformCodec))
+        .unwrap();
 
     let mut migrations = MigrationRegistry::new();
-    migrations.register_step(
-        SchemaId::new("core.transform"),
-        1,
-        2,
-        Box::new(|v1| {
-            let mut out = v1.to_vec();
-            out.extend_from_slice(&50i32.to_le_bytes());
-            Ok(out)
-        }),
-    );
-    migrations.register_step(
-        SchemaId::new("core.transform"),
-        2,
-        3,
-        Box::new(|v2| {
-            let mut out = v2.to_vec();
-            out.extend_from_slice(&100u32.to_le_bytes());
-            Ok(out)
-        }),
-    );
+    migrations
+        .register_step(
+            SchemaId::new("core.transform"),
+            1,
+            2,
+            Box::new(|v1| {
+                let mut out = v1.to_vec();
+                out.extend_from_slice(&50i32.to_le_bytes());
+                Ok(out)
+            }),
+        )
+        .unwrap();
+    migrations
+        .register_step(
+            SchemaId::new("core.transform"),
+            2,
+            3,
+            Box::new(|v2| {
+                let mut out = v2.to_vec();
+                out.extend_from_slice(&100u32.to_le_bytes());
+                Ok(out)
+            }),
+        )
+        .unwrap();
 
     // Build scene document with 2 entities:
     // Entity 1: Transform (v1, will be migrated to v3)
@@ -244,7 +256,9 @@ fn rollback_on_decode_failure() {
     let initial_alive_count = 1; // WORLD entity is always alive (index 0)
 
     let mut schemas = SchemaRegistry::new();
-    schemas.register(SchemaId::new("core.transform"), Box::new(TransformCodec));
+    schemas
+        .register(SchemaId::new("core.transform"), Box::new(TransformCodec))
+        .unwrap();
     let migrations = MigrationRegistry::new();
 
     // Corrupt payload (only 2 bytes instead of 12 for v3)
@@ -272,4 +286,48 @@ fn rollback_on_decode_failure() {
         initial_alive_count,
         "world must be restored to clean state after load failure"
     );
+}
+
+#[test]
+fn malformed_scene_document_is_rejected_without_allocating_entities() {
+    let mut world = World::new();
+    let mut doc = SceneDocument::new();
+    doc.entities.push(EntityKey(1));
+    doc.entities.push(EntityKey(1));
+
+    let result = SceneLoader::load_scene(
+        &mut world,
+        &doc,
+        &SchemaRegistry::new(),
+        &MigrationRegistry::new(),
+    );
+
+    assert!(matches!(result, Err(SceneError::InvalidDocument(_))));
+    assert_eq!(world.entity_count(), 1, "only WORLD_ENTITY may remain");
+}
+
+#[test]
+fn duplicate_schema_and_invalid_migration_steps_are_rejected() {
+    let mut schemas = SchemaRegistry::new();
+    schemas
+        .register(SchemaId::new("core.transform"), Box::new(TransformCodec))
+        .unwrap();
+    assert!(matches!(
+        schemas.register(SchemaId::new("core.transform"), Box::new(TransformCodec)),
+        Err(CodecError::DuplicateSchema(_))
+    ));
+
+    let mut migrations = MigrationRegistry::new();
+    let schema = SchemaId::new("core.transform");
+    assert!(matches!(
+        migrations.register_step(schema.clone(), 2, 2, Box::new(|data| Ok(data.to_vec()))),
+        Err(MigrationError::InvalidStep { .. })
+    ));
+    migrations
+        .register_step(schema.clone(), 1, 2, Box::new(|data| Ok(data.to_vec())))
+        .unwrap();
+    assert!(matches!(
+        migrations.register_step(schema, 1, 3, Box::new(|data| Ok(data.to_vec()))),
+        Err(MigrationError::DuplicateStep { .. })
+    ));
 }

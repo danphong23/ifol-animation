@@ -44,6 +44,9 @@ pub enum CodecError {
 
     #[error("encoding error for schema '{schema}': {reason}")]
     EncodeFailed { schema: String, reason: String },
+
+    #[error("schema '{0}' is already registered")]
+    DuplicateSchema(String),
 }
 
 /// Codec trait for serializing and deserializing components to/from ECS World.
@@ -76,8 +79,16 @@ impl SchemaRegistry {
         }
     }
 
-    pub fn register(&mut self, id: SchemaId, codec: Box<dyn ComponentCodec>) {
+    pub fn register(
+        &mut self,
+        id: SchemaId,
+        codec: Box<dyn ComponentCodec>,
+    ) -> Result<(), CodecError> {
+        if self.codecs.contains_key(&id) {
+            return Err(CodecError::DuplicateSchema(id.to_string()));
+        }
         self.codecs.insert(id, codec);
+        Ok(())
     }
 
     pub fn get(&self, id: &SchemaId) -> Option<&dyn ComponentCodec> {

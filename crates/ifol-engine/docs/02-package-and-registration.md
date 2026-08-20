@@ -48,7 +48,7 @@ RegistrationContext
 ├── register_phase(id)
 ├── add_phase_edge(from, to)
 ├── attach_system(phase, system)
-├── register_codec(schema_id, version, codec)
+├── register_schema(schema_id, codec)
 ├── register_migration(schema_id, from, to, fn)
 ├── register_command(command_id, version, handler)
 ├── register_query(query_id, version, handler)
@@ -86,9 +86,9 @@ Validation bao gồm:
 - deterministic order khi input order khác nhau.
 
 `RegistrationTransaction` chỉ commit vào các staging candidates đã được caller
-chuyển quyền sở hữu. Nó trả ECS runtime và command registry lại sau khi compile
-thành công; lỗi làm rơi toàn bộ candidates, nên live runtime không thể bị mutate
-một phần qua API transaction.
+chuyển quyền sở hữu. Nó trả ECS runtime, command registry, schema registry và
+migration registry lại sau khi compile thành công; lỗi làm rơi toàn bộ
+candidates, nên live runtime không thể bị mutate một phần qua API transaction.
 
 ## 5. Resource provider
 

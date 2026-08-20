@@ -24,6 +24,12 @@ pub enum MigrationError {
         to: u32,
         reason: String,
     },
+
+    #[error("migration step already exists for schema '{schema}' from version {from}")]
+    DuplicateStep { schema: String, from: u32 },
+
+    #[error("invalid migration step for schema '{schema}': {from} -> {to}")]
+    InvalidStep { schema: String, from: u32, to: u32 },
 }
 
 /// Type alias for a single migration function from version N to version N+1.
@@ -50,9 +56,23 @@ impl MigrationRegistry {
         from_version: u32,
         to_version: u32,
         step: MigrationFn,
-    ) {
+    ) -> Result<(), MigrationError> {
+        if from_version >= to_version {
+            return Err(MigrationError::InvalidStep {
+                schema: schema.to_string(),
+                from: from_version,
+                to: to_version,
+            });
+        }
+        if self.steps.contains_key(&(schema.clone(), from_version)) {
+            return Err(MigrationError::DuplicateStep {
+                schema: schema.to_string(),
+                from: from_version,
+            });
+        }
         self.steps
             .insert((schema, from_version), (to_version, step));
+        Ok(())
     }
 
     /// Migrates a payload from `current_version` to `target_version` using a chain of steps.
@@ -76,6 +96,14 @@ impl MigrationRegistry {
                     target: target_version,
                 });
             };
+
+            if *next_ver <= current_version || *next_ver > target_version {
+                return Err(MigrationError::MigrationGap {
+                    schema: schema.to_string(),
+                    from: current_version,
+                    target: target_version,
+                });
+            }
 
             payload = step_fn(&payload).map_err(|reason| MigrationError::StepFailed {
                 schema: schema.to_string(),

@@ -15,6 +15,9 @@ EngineRuntime
 ├── state()
 ├── active_packages()
 ├── project_info()
+├── schema_registry()
+├── migration_registry()
+├── load_scene(document)
 ├── submit(command) -> CommandReceipt
 ├── query(request) -> QueryResult
 ├── step(input) -> StepReport
@@ -27,6 +30,9 @@ EngineRuntime
 `register_package` nhận một `EnginePackage`, không nhận domain enum hoặc path
 implementation. Runtime lưu `PackageLock` immutable của lần build để host và
 diagnostics có thể kiểm tra chính xác package set đã được resolve.
+`load_scene` là boundary để nạp `SceneDocument` vào ECS; document được validate,
+decode/migrate theo schema do package đăng ký, rollback khi lỗi, và chỉ tăng
+revision khi thành công.
 
 API cụ thể có thể tách type theo borrow/async requirement, nhưng không mở raw
 mutable `EcsRuntime` cho adapter bình thường. Bootstrap/test có controlled access

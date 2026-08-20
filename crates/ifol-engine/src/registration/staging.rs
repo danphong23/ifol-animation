@@ -61,6 +61,13 @@ pub struct StagedContribution {
     )>,
     /// Events to register.
     pub events: Vec<crate::registration::command_registry::EventDescriptor>,
+    /// Component codecs owned by the package.
+    pub schemas: Vec<(
+        crate::scene::SchemaId,
+        Box<dyn crate::scene::ComponentCodec>,
+    )>,
+    /// Schema migration steps owned by the package.
+    pub migrations: Vec<(crate::scene::SchemaId, u32, u32, crate::scene::MigrationFn)>,
 }
 
 impl std::fmt::Debug for StagedContribution {
@@ -74,6 +81,8 @@ impl std::fmt::Debug for StagedContribution {
             .field("command_count", &self.commands.len())
             .field("query_count", &self.queries.len())
             .field("event_count", &self.events.len())
+            .field("schema_count", &self.schemas.len())
+            .field("migration_count", &self.migrations.len())
             .finish()
     }
 }

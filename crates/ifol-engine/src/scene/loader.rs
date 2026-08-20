@@ -9,6 +9,9 @@ use thiserror::Error;
 /// Errors during scene loading or saving.
 #[derive(Debug, Error)]
 pub enum SceneError {
+    #[error("invalid scene document: {0}")]
+    InvalidDocument(String),
+
     #[error("codec error: {0}")]
     Codec(#[from] CodecError),
 
@@ -50,9 +53,11 @@ impl SceneLoader {
         schemas: &SchemaRegistry,
         migrations: &MigrationRegistry,
     ) -> Result<SceneLoadResult, SceneError> {
+        doc.validate().map_err(SceneError::InvalidDocument)?;
+
         let mut spawned_entities = Vec::new();
         let mut key_to_entity = BTreeMap::new();
-        let mut preserved_opaque = doc.opaque_records.clone();
+        let mut preserved_opaque = Vec::new();
 
         // Helper for cleanup on error
         let cleanup = |world: &mut World, spawned: &[EntityId]| {

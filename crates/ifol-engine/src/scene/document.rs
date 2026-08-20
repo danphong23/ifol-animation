@@ -1,6 +1,7 @@
 //! Scene document, stable persistent entity keys, and serialized component records.
 
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fmt;
 
 /// Stable persistent entity identifier used in serialized scene documents.
@@ -68,5 +69,53 @@ impl SceneDocument {
     pub fn add_opaque(&mut self, opaque: OpaqueRecord) {
         self.create_entity(opaque.entity_key);
         self.opaque_records.push(opaque);
+    }
+
+    /// Validates the structural invariants required by the scene loader.
+    pub fn validate(&self) -> Result<(), String> {
+        let declared: BTreeSet<EntityKey> = self.entities.iter().copied().collect();
+        if declared.len() != self.entities.len() {
+            return Err("duplicate serialized entity key".into());
+        }
+
+        for key in self.components.keys() {
+            if !declared.contains(key) {
+                return Err(format!(
+                    "component records reference undeclared entity '{key}'"
+                ));
+            }
+        }
+
+        for (key, records) in &self.components {
+            let mut schemas = BTreeSet::new();
+            for record in records {
+                if record.schema.trim().is_empty() {
+                    return Err(format!("entity '{key}' contains an empty schema ID"));
+                }
+                if !schemas.insert(record.schema.clone()) {
+                    return Err(format!(
+                        "entity '{key}' contains duplicate component schema '{}'",
+                        record.schema
+                    ));
+                }
+            }
+        }
+
+        for opaque in &self.opaque_records {
+            if !declared.contains(&opaque.entity_key) {
+                return Err(format!(
+                    "opaque record references undeclared entity '{}'",
+                    opaque.entity_key
+                ));
+            }
+            if opaque.record.schema.trim().is_empty() {
+                return Err(format!(
+                    "opaque record on entity '{}' contains an empty schema ID",
+                    opaque.entity_key
+                ));
+            }
+        }
+
+        Ok(())
     }
 }

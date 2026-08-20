@@ -107,6 +107,28 @@ impl RegistrationContext {
         self.staging.events.push(descriptor);
     }
 
+    /// Registers a versioned component codec owned by this package.
+    pub fn register_schema(
+        &mut self,
+        id: crate::scene::SchemaId,
+        codec: Box<dyn crate::scene::ComponentCodec>,
+    ) {
+        self.staging.schemas.push((id, codec));
+    }
+
+    /// Registers one adjacent schema migration step owned by this package.
+    pub fn register_migration(
+        &mut self,
+        schema: crate::scene::SchemaId,
+        from_version: u32,
+        to_version: u32,
+        migration: crate::scene::MigrationFn,
+    ) {
+        self.staging
+            .migrations
+            .push((schema, from_version, to_version, migration));
+    }
+
     /// Returns the owner package ID.
     pub fn owner(&self) -> &PackageId {
         &self.owner

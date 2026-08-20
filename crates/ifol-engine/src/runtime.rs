@@ -25,6 +25,8 @@ pub struct EngineRuntime {
     provider_manager: crate::provider::ProviderManager,
     package_lock: crate::package::PackageLock,
     project: Option<crate::project::ProjectContainer>,
+    schemas: crate::scene::SchemaRegistry,
+    migrations: crate::scene::MigrationRegistry,
     state: EngineState,
     revision: u64,
 }
@@ -38,6 +40,7 @@ impl std::fmt::Debug for EngineRuntime {
             .field("provider_manager", &self.provider_manager)
             .field("package_lock", &self.package_lock)
             .field("has_project", &self.project.is_some())
+            .field("schema_count", &self.schemas.len())
             .finish()
     }
 }
@@ -53,6 +56,8 @@ impl EngineRuntime {
         provider_manager: crate::provider::ProviderManager,
         package_lock: crate::package::PackageLock,
         project: Option<crate::project::ProjectContainer>,
+        schemas: crate::scene::SchemaRegistry,
+        migrations: crate::scene::MigrationRegistry,
     ) -> Self {
         Self {
             ecs,
@@ -60,6 +65,8 @@ impl EngineRuntime {
             provider_manager,
             package_lock,
             project,
+            schemas,
+            migrations,
             state: EngineState::Ready,
             revision: 0,
         }
@@ -103,6 +110,34 @@ impl EngineRuntime {
         self.project.as_ref()
     }
 
+    /// Returns the immutable registry of package-owned component schemas.
+    #[inline]
+    pub fn schema_registry(&self) -> &crate::scene::SchemaRegistry {
+        &self.schemas
+    }
+
+    /// Returns the immutable registry of package-owned scene migrations.
+    #[inline]
+    pub fn migration_registry(&self) -> &crate::scene::MigrationRegistry {
+        &self.migrations
+    }
+
+    /// Loads one validated scene document into the ECS world atomically.
+    pub fn load_scene(
+        &mut self,
+        document: &crate::scene::SceneDocument,
+    ) -> Result<crate::scene::SceneLoadResult, EngineError> {
+        self.require_state(EngineState::Ready, "load_scene")?;
+        let result = crate::scene::SceneLoader::load_scene(
+            self.ecs.world_mut(),
+            document,
+            &self.schemas,
+            &self.migrations,
+        )?;
+        self.revision = self.revision.wrapping_add(1);
+        Ok(result)
+    }
+
     // ── Dynamic Reconfiguration ─────────────────────────────────────
 
     /// Dynamically reconfigures the active packages and schedule using an atomic stage-and-swap transaction.
@@ -124,11 +159,19 @@ impl EngineRuntime {
         let staging_cmd_reg = command_registry;
 
         // 2. Commit transaction onto staging ECS
-        let (staging_ecs, staging_cmd_reg) = transaction.commit(staging_ecs, staging_cmd_reg)?;
+        let (staging_ecs, staging_cmd_reg, staging_schemas, staging_migrations) = transaction
+            .commit(
+                staging_ecs,
+                staging_cmd_reg,
+                crate::scene::SchemaRegistry::new(),
+                crate::scene::MigrationRegistry::new(),
+            )?;
 
         // 3. Atomic swap
         self.ecs = staging_ecs;
         self.command_registry = staging_cmd_reg;
+        self.schemas = staging_schemas;
+        self.migrations = staging_migrations;
         self.revision = self.revision.wrapping_add(1);
 
         Ok(crate::reconfiguration::ReconfigurationReport {

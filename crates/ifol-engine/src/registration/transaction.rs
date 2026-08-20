@@ -21,6 +21,12 @@ pub enum TransactionError {
 
     #[error("command registration error: {0}")]
     Command(String),
+
+    #[error("schema registration error: {0}")]
+    Schema(#[from] crate::scene::CodecError),
+
+    #[error("migration registration error: {0}")]
+    Migration(#[from] crate::scene::MigrationError),
 }
 
 /// Transaction orchestrator for preparing staged package contributions.
@@ -66,7 +72,17 @@ impl RegistrationTransaction {
         self,
         mut ecs: ifol_ecs::EcsRuntime,
         mut command_registry: CommandRegistry,
-    ) -> Result<(ifol_ecs::EcsRuntime, CommandRegistry), TransactionError> {
+        mut schemas: crate::scene::SchemaRegistry,
+        mut migrations: crate::scene::MigrationRegistry,
+    ) -> Result<
+        (
+            ifol_ecs::EcsRuntime,
+            CommandRegistry,
+            crate::scene::SchemaRegistry,
+            crate::scene::MigrationRegistry,
+        ),
+        TransactionError,
+    > {
         for (pkg_id, staging) in self.packages {
             // 1. Register components
             for reg in staging.component_registrations {
@@ -155,12 +171,31 @@ impl RegistrationTransaction {
                     }
                 })?;
             }
+
+            // 9. Register package-owned schemas and migration steps
+            for (schema, codec) in staging.schemas {
+                schemas.register(schema, codec).map_err(|error| {
+                    TransactionError::ContributionFailed {
+                        package: pkg_id.clone(),
+                        reason: format!("schema registration failed: {error}"),
+                    }
+                })?;
+            }
+
+            for (schema, from, to, migration) in staging.migrations {
+                migrations
+                    .register_step(schema, from, to, migration)
+                    .map_err(|error| TransactionError::ContributionFailed {
+                        package: pkg_id.clone(),
+                        reason: format!("migration registration failed: {error}"),
+                    })?;
+            }
         }
 
-        // 9. Compile schedule
+        // 10. Compile schedule
         ecs.compile()?;
 
-        Ok((ecs, command_registry))
+        Ok((ecs, command_registry, schemas, migrations))
     }
 }
 

@@ -141,7 +141,10 @@ impl EngineBuilder {
         }
 
         let ecs = ifol_ecs::EcsRuntime::new();
-        let (mut ecs, command_registry) = transaction.commit(ecs, self.command_registry)?;
+        let schemas = crate::scene::SchemaRegistry::new();
+        let migrations = crate::scene::MigrationRegistry::new();
+        let (mut ecs, command_registry, schemas, migrations) =
+            transaction.commit(ecs, self.command_registry, schemas, migrations)?;
 
         // Initialize resource providers topologically with fail-closed rollback
         self.provider_manager.init_all(&mut ecs)?;
@@ -152,6 +155,8 @@ impl EngineBuilder {
             self.provider_manager,
             package_lock,
             project,
+            schemas,
+            migrations,
         ))
     }
 }
