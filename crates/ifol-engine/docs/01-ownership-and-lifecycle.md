@@ -22,6 +22,11 @@ identity/version/lifecycle package; component/system/phase thực tế thuộc E
 không phụ thuộc trực tiếp `ifol-gpu`, `ifol-asset` hoặc package production. Test
 fixtures là dev-dependencies và không được rò vào public API.
 
+`EngineBuilder::with_project` chuyển quyền sở hữu một `ProjectContainer` vào
+runtime. Project manifest chọn required package roots; resolver chỉ activate
+transitive dependency closure của các roots đó. Runtime giữ project session và
+active `PackageLock` cùng lifecycle revision.
+
 ## 2. State machine
 
 ```mermaid

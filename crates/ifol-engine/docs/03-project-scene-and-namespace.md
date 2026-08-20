@@ -23,6 +23,11 @@ Engine không mặc định tạo `assets`, `presets`, `render`, `animation`, `g
 `artifacts`. Package owner tự định nghĩa dữ liệu, cache policy và migration trong
 namespace của nó.
 
+Khi project được mở, `required_packages` là root selection. Package candidate
+không nằm trong transitive closure của các root không được activate. Nếu có
+`package.lock`, lock phải khớp chính xác với closure đã resolve; engine không tự
+thay package hoặc âm thầm cập nhật lock trong lúc build.
+
 ## 2. Scene document
 
 ```text
@@ -74,4 +79,3 @@ step hoặc hai package configuration.
 Project không lưu OS absolute path, process handle, GPU handle, URL tạm hoặc pointer.
 Package namespace dùng virtual path tương đối. Backend archive/directory/memory/
 remote stream là adapter ngoài format semantic.
-

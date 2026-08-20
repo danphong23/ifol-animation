@@ -24,6 +24,7 @@ pub struct EngineRuntime {
     command_registry: crate::registration::CommandRegistry,
     provider_manager: crate::provider::ProviderManager,
     package_lock: crate::package::PackageLock,
+    project: Option<crate::project::ProjectContainer>,
     state: EngineState,
     revision: u64,
 }
@@ -36,6 +37,7 @@ impl std::fmt::Debug for EngineRuntime {
             .field("command_registry", &self.command_registry)
             .field("provider_manager", &self.provider_manager)
             .field("package_lock", &self.package_lock)
+            .field("has_project", &self.project.is_some())
             .finish()
     }
 }
@@ -50,12 +52,14 @@ impl EngineRuntime {
         command_registry: crate::registration::CommandRegistry,
         provider_manager: crate::provider::ProviderManager,
         package_lock: crate::package::PackageLock,
+        project: Option<crate::project::ProjectContainer>,
     ) -> Self {
         Self {
             ecs,
             command_registry,
             provider_manager,
             package_lock,
+            project,
             state: EngineState::Ready,
             revision: 0,
         }
@@ -91,6 +95,12 @@ impl EngineRuntime {
     #[inline]
     pub fn package_lock(&self) -> &crate::package::PackageLock {
         &self.package_lock
+    }
+
+    /// Returns the project session, when this runtime was built for a project.
+    #[inline]
+    pub fn project(&self) -> Option<&crate::project::ProjectContainer> {
+        self.project.as_ref()
     }
 
     // ── Dynamic Reconfiguration ─────────────────────────────────────

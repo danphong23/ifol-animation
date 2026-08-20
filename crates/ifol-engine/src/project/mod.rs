@@ -38,6 +38,9 @@ pub enum ProjectError {
 
     #[error("lockfile error: {0}")]
     Lockfile(String),
+
+    #[error("package lock does not match resolved project packages: {reason}")]
+    LockMismatch { reason: String },
 }
 
 /// A complete, self-contained project container over an injected storage backend.

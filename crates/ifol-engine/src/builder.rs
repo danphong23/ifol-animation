@@ -1,5 +1,6 @@
 use crate::error::EngineError;
 use crate::package::{EnginePackage, PackageId, PackageResolver};
+use crate::project::{PackageLockFile, ProjectContainer, ProjectError};
 use crate::provider::{ProviderManager, ResourceProvider};
 use crate::registration::{CommandRegistry, RegistrationContext, RegistrationTransaction};
 use crate::runtime::EngineRuntime;
@@ -39,6 +40,7 @@ use crate::state::EngineState;
 /// ```
 pub struct EngineBuilder {
     packages: Vec<Box<dyn EnginePackage>>,
+    project: Option<ProjectContainer>,
     command_registry: CommandRegistry,
     provider_manager: ProviderManager,
     _state: EngineState,
@@ -49,6 +51,7 @@ impl EngineBuilder {
     pub fn new() -> Self {
         Self {
             packages: Vec::new(),
+            project: None,
             command_registry: CommandRegistry::new(),
             provider_manager: ProviderManager::new(),
             _state: EngineState::Building,
@@ -68,6 +71,12 @@ impl EngineBuilder {
         self
     }
 
+    /// Supplies the generic project document and storage for this runtime.
+    pub fn with_project(mut self, project: ProjectContainer) -> Self {
+        self.project = Some(project);
+        self
+    }
+
     /// Registers a root resource provider to be topologically initialized.
     pub fn with_provider(mut self, provider: impl ResourceProvider) -> Self {
         self.provider_manager.add(Box::new(provider));
@@ -80,11 +89,28 @@ impl EngineBuilder {
     /// If registration or provider init fails, returns `EngineError` and tears down
     /// any partial state.
     pub fn build(mut self) -> Result<EngineRuntime, EngineError> {
+        let project = self.project;
         let mut resolver = PackageResolver::new();
         for package in &self.packages {
             resolver.add(package.manifest().clone());
         }
-        let package_lock = resolver.resolve()?;
+        let package_lock = match project.as_ref() {
+            Some(project) => resolver.resolve_required(&project.manifest.required_packages)?,
+            None => resolver.resolve()?,
+        };
+
+        if let Some(project) = project.as_ref()
+            && let Some(lockfile) = &project.lockfile
+        {
+            let expected = PackageLockFile::from_lock(&package_lock);
+            if lockfile.format_version != expected.format_version
+                || lockfile.packages != expected.packages
+            {
+                return Err(EngineError::Project(ProjectError::LockMismatch {
+                    reason: "project lockfile differs from the resolved package closure".into(),
+                }));
+            }
+        }
 
         let mut candidates: std::collections::BTreeMap<PackageId, Box<dyn EnginePackage>> = self
             .packages
@@ -125,6 +151,7 @@ impl EngineBuilder {
             command_registry,
             self.provider_manager,
             package_lock,
+            project,
         ))
     }
 }

@@ -6,7 +6,7 @@
 //! the same lock result.
 
 use super::PackageId;
-use super::manifest::PackageManifest;
+use super::manifest::{PackageDependency, PackageManifest};
 use super::version::Version;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use thiserror::Error;
@@ -19,6 +19,9 @@ pub enum ResolveError {
 
     #[error("missing dependency: package '{from}' requires '{dep}' which is not available")]
     MissingDependency { from: String, dep: String },
+
+    #[error("required root package '{0}' is not available")]
+    MissingRoot(String),
 
     #[error(
         "version conflict: package '{from}' requires '{dep}' {required}, but available is {available}"
@@ -97,6 +100,75 @@ impl PackageResolver {
     /// The resolver sorts candidates by `PackageId` before processing
     /// to ensure the same result regardless of insertion order.
     pub fn resolve(self) -> Result<PackageLock, ResolveError> {
+        self.resolve_impl()
+    }
+
+    /// Resolves only the transitive dependency closure of the required roots.
+    ///
+    /// Candidates outside this closure remain discoverable by the host but are
+    /// not activated in the resulting lock.
+    pub fn resolve_required(
+        self,
+        required: &[PackageDependency],
+    ) -> Result<PackageLock, ResolveError> {
+        let mut manifests_by_id = BTreeMap::new();
+        for manifest in self.manifests {
+            let id = manifest.id.clone();
+            if manifests_by_id.contains_key(&id) {
+                return Err(ResolveError::DuplicateId(id.as_str().to_string()));
+            }
+            manifests_by_id.insert(id, manifest);
+        }
+
+        let mut selected = BTreeSet::new();
+        let mut pending: VecDeque<PackageId> = VecDeque::new();
+
+        for root in required {
+            let Some(manifest) = manifests_by_id.get(&root.package_id) else {
+                return Err(ResolveError::MissingRoot(
+                    root.package_id.as_str().to_string(),
+                ));
+            };
+            if !root.version_req.matches(&manifest.version) {
+                return Err(ResolveError::VersionConflict {
+                    from: "<project>".into(),
+                    dep: root.package_id.as_str().into(),
+                    required: root.version_req.to_string(),
+                    available: manifest.version.to_string(),
+                });
+            }
+            pending.push_back(root.package_id.clone());
+        }
+
+        while let Some(id) = pending.pop_front() {
+            if !selected.insert(id.clone()) {
+                continue;
+            }
+            let Some(manifest) = manifests_by_id.get(&id) else {
+                return Err(ResolveError::MissingDependency {
+                    from: "<project>".into(),
+                    dep: id.as_str().into(),
+                });
+            };
+            for dependency in &manifest.dependencies {
+                if !manifests_by_id.contains_key(&dependency.package_id) {
+                    return Err(ResolveError::MissingDependency {
+                        from: manifest.id.as_str().into(),
+                        dep: dependency.package_id.as_str().into(),
+                    });
+                }
+                pending.push_back(dependency.package_id.clone());
+            }
+        }
+
+        let manifests = manifests_by_id
+            .into_iter()
+            .filter_map(|(id, manifest)| selected.contains(&id).then_some(manifest))
+            .collect();
+        Self { manifests }.resolve_impl()
+    }
+
+    fn resolve_impl(self) -> Result<PackageLock, ResolveError> {
         // Sort by ID for determinism
         let mut manifests = self.manifests;
         manifests.sort_by(|a, b| a.id.cmp(&b.id));

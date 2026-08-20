@@ -7,6 +7,7 @@ EngineBuilder
 ├── register_package(package)
 ├── add_package_source(source)
 ├── bind_host_resource<T>(provider)
+├── with_project(project)
 ├── open_project(source, policy)
 └── build() -> EngineRuntime
 
