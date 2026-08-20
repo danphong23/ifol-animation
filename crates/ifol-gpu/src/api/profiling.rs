@@ -88,10 +88,10 @@ impl TimestampQueryPool {
     /// Reset slot sau khi submission cuối cùng đã hoàn tất. `Ok(false)` nghĩa
     /// là host phải giữ pool và thử lại ở frame sau.
     pub fn reset_after(&mut self, tracker: &SubmissionTracker) -> Result<bool, ProfilingError> {
-        if let Some(submission) = self.in_flight_until {
-            if !tracker.can_reuse_after(submission) {
-                return Ok(false);
-            }
+        if let Some(submission) = self.in_flight_until
+            && !tracker.can_reuse_after(submission)
+        {
+            return Ok(false);
         }
         self.next_query = 0;
         self.in_flight_until = None;
@@ -120,7 +120,7 @@ impl TimestampQueryPool {
         destination_offset: u64,
     ) -> Result<(), ProfilingError> {
         self.validate_span(span)?;
-        let alignment = wgpu::QUERY_RESOLVE_BUFFER_ALIGNMENT as u64;
+        let alignment = wgpu::QUERY_RESOLVE_BUFFER_ALIGNMENT;
         if !destination_offset.is_multiple_of(alignment) {
             return Err(ProfilingError::MisalignedResolveOffset { alignment });
         }

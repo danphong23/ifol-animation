@@ -39,6 +39,10 @@ impl ExtensionRegistry {
     pub fn len(&self) -> usize {
         self.entries.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 #[derive(Default, Clone)]
@@ -73,5 +77,9 @@ impl ExtensionDispatchRegistry {
 
     pub fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 }

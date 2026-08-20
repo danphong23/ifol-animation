@@ -3,7 +3,7 @@ use super::descriptors::{
     BufferResourceDescriptor, MeshDescriptorError, MeshResourceDescriptor,
     PipelineLayoutResourceDescriptor, ResourceDescriptorError, TextureResourceDescriptor,
 };
-use super::ResourceRegistry;
+use super::{MeshResource, ResourceRegistry};
 use crate::resources::handle::{
     BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle,
 };
@@ -65,10 +65,10 @@ impl ResourceRegistry {
     pub fn insert_mesh_with_descriptor(
         &mut self,
         handle: MeshHandle,
-        mesh: (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32),
+        mesh: MeshResource,
         descriptor: MeshResourceDescriptor,
     ) -> Result<
-        Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
+        Option<MeshResource>,
         MeshDescriptorError,
     > {
         descriptor.validate()?;
@@ -137,7 +137,7 @@ impl ResourceRegistry {
     pub fn remove_mesh(
         &mut self,
         handle: &MeshHandle,
-    ) -> Option<(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
+    ) -> Option<MeshResource> {
         let old = self.meshes.remove(handle);
         self.mesh_descriptors.remove(handle);
         if old.is_some() {

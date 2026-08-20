@@ -30,10 +30,10 @@ pub(crate) fn validate_render_commands(
             validate_bind_group_offsets(registry, bind_group, offsets)?;
             validate_render_pipeline_layout(registry, command.pipeline, slot, bind_group)?;
         }
-        if let DrawAction::Indexed { mesh, .. } = command.action {
-            if !registry.contains_mesh(&mesh) {
-                return Err(RenderGraphValidationError::MissingMesh(mesh));
-            }
+        if let DrawAction::Indexed { mesh, .. } = command.action
+            && !registry.contains_mesh(&mesh)
+        {
+            return Err(RenderGraphValidationError::MissingMesh(mesh));
         }
         match command.action {
             DrawAction::Indirect { buffer, offset } => {

@@ -2,7 +2,7 @@ use super::descriptors::{
     BindGroupResourceDescriptor, BufferResourceDescriptor, MeshResourceDescriptor,
     PipelineLayoutResourceDescriptor, TextureResourceDescriptor,
 };
-use super::{OwnedTextureResource, ResourceRegistry};
+use super::{MeshResource, OwnedTextureResource, ResourceRegistry};
 use crate::resources::handle::{
     BindGroupHandle, BufferHandle, ComputePipelineHandle, MeshHandle, PipelineHandle, TextureHandle,
 };
@@ -81,7 +81,7 @@ impl ResourceRegistry {
     pub fn mesh(
         &self,
         handle: &MeshHandle,
-    ) -> Option<&(wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)> {
+    ) -> Option<&MeshResource> {
         self.meshes.get(handle)
     }
 

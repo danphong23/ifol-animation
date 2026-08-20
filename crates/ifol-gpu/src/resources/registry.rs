@@ -6,6 +6,8 @@ use crate::resources::handle::{
 };
 use std::collections::HashMap;
 
+pub type MeshResource = (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32);
+
 /// Nơi ánh xạ từ Handle siêu nhẹ (u64) sang các đối tượng nặng của GPU (Buffer, Texture, Pipeline)
 #[derive(Default)]
 pub struct ResourceRegistry {
@@ -18,8 +20,7 @@ pub struct ResourceRegistry {
         HashMap<ComputePipelineHandle, PipelineLayoutResourceDescriptor>,
     pub(super) buffers: HashMap<BufferHandle, wgpu::Buffer>,
     /// Lưu trữ Mesh: (VBO, Option<(IBO, IndexFormat)>, Số lượng Index/Vertex mặc định)
-    pub(super) meshes:
-        HashMap<MeshHandle, (wgpu::Buffer, Option<(wgpu::Buffer, wgpu::IndexFormat)>, u32)>,
+    pub(super) meshes: HashMap<MeshHandle, MeshResource>,
     pub(super) mesh_descriptors: HashMap<MeshHandle, MeshResourceDescriptor>,
     pub(super) bind_groups: HashMap<BindGroupHandle, wgpu::BindGroup>,
     pub(super) bind_group_descriptors: HashMap<BindGroupHandle, BindGroupResourceDescriptor>,

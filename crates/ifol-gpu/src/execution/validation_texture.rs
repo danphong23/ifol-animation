@@ -79,7 +79,7 @@ pub(crate) fn validate_texture_copy(
             actual_usage: destination_descriptor.usage.bits(),
         });
     }
-    if extent.iter().any(|value| *value == 0) {
+    if extent.contains(&0) {
         return Err(RenderGraphValidationError::InvalidTextureCopyExtent { extent });
     }
     validate_texture_mip(

@@ -10,4 +10,4 @@ mod versions;
 
 pub use descriptors::*;
 pub use handle::*;
-pub use registry::{OwnedTextureResource, ResourceRegistry};
+pub use registry::{MeshResource, OwnedTextureResource, ResourceRegistry};

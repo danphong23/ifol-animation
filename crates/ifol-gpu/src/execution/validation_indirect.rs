@@ -12,7 +12,7 @@ pub(crate) fn validate_indirect_buffer(
     let Some(buffer) = registry.buffer(&handle) else {
         return Err(RenderGraphValidationError::MissingIndirectBuffer(handle));
     };
-    if offset % 4 != 0
+    if !offset.is_multiple_of(4)
         || offset
             .checked_add(size)
             .is_none_or(|end| end > buffer.size())
