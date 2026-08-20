@@ -21,8 +21,19 @@ use crate::state::EngineState;
 /// full diagram.
 pub struct EngineRuntime {
     ecs: ifol_ecs::EcsRuntime,
+    command_registry: crate::registration::CommandRegistry,
     state: EngineState,
     revision: u64,
+}
+
+impl std::fmt::Debug for EngineRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EngineRuntime")
+            .field("state", &self.state)
+            .field("revision", &self.revision)
+            .field("command_registry", &self.command_registry)
+            .finish()
+    }
 }
 
 impl EngineRuntime {
@@ -30,15 +41,25 @@ impl EngineRuntime {
 
     /// Create a runtime from pre-validated parts.
     /// Only called by `EngineBuilder::build()`.
-    pub(crate) fn from_parts(ecs: ifol_ecs::EcsRuntime) -> Self {
+    pub(crate) fn from_parts(
+        ecs: ifol_ecs::EcsRuntime,
+        command_registry: crate::registration::CommandRegistry,
+    ) -> Self {
         Self {
             ecs,
+            command_registry,
             state: EngineState::Ready,
             revision: 0,
         }
     }
 
     // ── Queries (always valid except ShuttingDown) ──────────────────
+
+    /// Returns a reference to the command/query/event registry.
+    #[inline]
+    pub fn command_registry(&self) -> &crate::registration::CommandRegistry {
+        &self.command_registry
+    }
 
     /// Returns the current lifecycle state.
     #[inline]

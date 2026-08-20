@@ -33,8 +33,16 @@ pub enum EngineError {
     #[error("ECS error: {0}")]
     Ecs(#[from] ifol_ecs::EcsError),
 
-    // ── Build / configuration ──────────────────────────────────────────
+    // ── Build / configuration / registration ───────────────────────────
     /// Engine build failed during validation or compilation.
     #[error("engine build failed: {reason}")]
     BuildFailed { reason: String },
+
+    /// Registration transaction error.
+    #[error("registration error: {0}")]
+    Registration(#[from] crate::registration::TransactionError),
+
+    /// Package dependency resolution error.
+    #[error("package resolution error: {0}")]
+    Resolution(#[from] crate::package::ResolveError),
 }
