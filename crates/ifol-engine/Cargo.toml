@@ -10,3 +10,7 @@ thiserror = "2.0.20"
 [[test]]
 name = "slice01_lifecycle"
 path = "tests/slice01_lifecycle.rs"
+
+[[test]]
+name = "slice02_package_resolver"
+path = "tests/slice02_package_resolver.rs"

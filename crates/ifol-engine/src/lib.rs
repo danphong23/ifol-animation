@@ -2,6 +2,7 @@
 
 pub mod builder;
 pub mod error;
+pub mod package;
 pub mod report;
 pub mod runtime;
 pub mod state;
@@ -9,6 +10,10 @@ pub mod state;
 // Public re-exports
 pub use builder::EngineBuilder;
 pub use error::EngineError;
+pub use package::{
+    PackageDependency, PackageId, PackageLock, PackageManifest, PackageResolver, ResolveError,
+    ResolvedPackage, Version, VersionReq,
+};
 pub use report::{ShutdownReport, StepInput, StepReport};
 pub use runtime::EngineRuntime;
 pub use state::EngineState;
