@@ -11,6 +11,7 @@ pub mod report;
 pub mod runtime;
 pub mod scene;
 pub mod state;
+pub mod testing;
 
 // Public re-exports
 pub use builder::EngineBuilder;
