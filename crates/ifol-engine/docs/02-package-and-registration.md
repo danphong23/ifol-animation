@@ -42,18 +42,18 @@ Package chỉ góp contract qua context giới hạn:
 
 ```text
 RegistrationContext
-├── register_component<T>(schema)
-├── register_system(system, access, conditions)
+├── register_component<T>()
+├── register_world_singleton<T>()
+├── register_provider(provider)
+├── register_system(name, phase, system, access, conditions)
 ├── register_phase(id)
 ├── add_phase_edge(from, to)
-├── attach_system(phase, system)
 ├── register_schema(schema_id, codec)
 ├── register_migration(schema_id, from, to, fn)
-├── register_provider(provider)
-├── register_command(command_id, version, handler)
-├── register_query(query_id, version, handler)
-├── register_event(event_id, version, descriptor)
-└── claim_project_namespace(id, policy)
+├── register_command(command_id, handler)
+├── register_query(query_id, handler)
+├── register_event(descriptor)
+└── claim_project_namespace(namespace)
 ```
 
 Không trả `&mut World`, registry nội bộ hoặc subsystem implementation cho package

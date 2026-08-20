@@ -365,3 +365,16 @@ fn colliding_package_namespaces_abort_build_before_runtime_publish() {
         .unwrap_err();
     assert!(error.to_string().contains("namespace claim failed"));
 }
+
+#[test]
+fn scene_loading_after_shutdown_is_rejected_without_revision_change() {
+    let mut engine = EngineBuilder::new().build().unwrap();
+    engine.shutdown().unwrap();
+
+    let error = engine.load_scene(&SceneDocument::new()).unwrap_err();
+    assert!(matches!(
+        error,
+        ifol_engine::EngineError::InvalidState { .. }
+    ));
+    assert_eq!(engine.revision(), 0);
+}
