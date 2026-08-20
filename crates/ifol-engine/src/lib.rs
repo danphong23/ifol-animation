@@ -3,6 +3,7 @@
 pub mod builder;
 pub mod error;
 pub mod package;
+pub mod project;
 pub mod provider;
 pub mod registration;
 pub mod report;
@@ -15,6 +16,11 @@ pub use error::EngineError;
 pub use package::{
     PackageDependency, PackageId, PackageLock, PackageManifest, PackageResolver, ResolveError,
     ResolvedPackage, Version, VersionReq,
+};
+pub use project::{
+    CURRENT_FORMAT_VERSION, MemoryStorage, Namespace, NamespaceError, NamespaceRegistry,
+    PackageLockFile, PathSecurity, ProjectContainer, ProjectError, ProjectManifest, ProjectStorage,
+    StorageError,
 };
 pub use provider::{ProviderError, ProviderManager, ResourceId, ResourceProvider};
 pub use registration::{

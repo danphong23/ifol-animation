@@ -22,3 +22,7 @@ path = "tests/slice03_transactional_registration.rs"
 [[test]]
 name = "slice04_resource_providers"
 path = "tests/slice04_resource_providers.rs"
+
+[[test]]
+name = "slice05_project_and_namespace"
+path = "tests/slice05_project_and_namespace.rs"

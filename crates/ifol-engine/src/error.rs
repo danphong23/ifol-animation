@@ -49,4 +49,8 @@ pub enum EngineError {
     /// Resource provider error.
     #[error("resource provider error: {0}")]
     Provider(#[from] crate::provider::ProviderError),
+
+    /// Project container or namespace error.
+    #[error("project error: {0}")]
+    Project(#[from] crate::project::ProjectError),
 }
