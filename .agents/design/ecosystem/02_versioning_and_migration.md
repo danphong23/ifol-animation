@@ -4,24 +4,60 @@ Bài toán đau đầu nhất của các phần mềm làm việc với File: Ng
 
 ---
 
-## 1. Nguyên Tắc Tách Biệt Bộ Nhớ và Ổ Cứng
-*   **Dữ liệu Ổ cứng (Disk State - `project.json`):** Là định dạng lưu trữ cứng nhắc, có Version.
-*   **Dữ liệu RAM (ECS Runtime State):** Là cấu trúc Rust struct mới nhất, tối ưu nhất đang chạy trong máy. 
+## 1. Nguyên Tắc Tách Biệt Bộ Nhớ Và Ổ Cứng
+*   **Dữ liệu ổ cứng:** Manifest, package lock, scene records và package-owned
+    namespace records có version ổn định.
+*   **Dữ liệu RAM (ECS Runtime State):** Là cấu trúc Rust struct mới nhất, tối ưu nhất đang chạy trong máy.
 *   **Không bao giờ Mapping trực tiếp 1-1** từ File thẳng vào ECS Struct mà không qua màng lọc.
 
+Project format version, scene format version, package version và component schema
+version là các khái niệm khác nhau; không dùng một số `version` duy nhất để đại
+diện tất cả.
+
 ## 2. Đường Ống Migration (Upgrader Pipeline)
-Mỗi file `project.json` bên trong `.ifol` bắt buộc phải có thuộc tính `version`:
+Manifest và component record tối thiểu có version/ID ổn định:
 ```json
 {
-  "version": 1,
-  "entities": [...]
+  "format_version": 1,
+    "required_packages": [
+    { "id": "ifol.shape", "version": "^1" }
+  ]
 }
 ```
 
-Khi Asset Manager đọc file, nó đi qua một chuỗi các trạm kiểm duyệt (Migration Chain):
-1.  Đọc file thấy `version: 1`. Nhưng phần mềm hiện tại đang chạy lõi ECS V3.
-2.  Chạy hàm `migrate_v1_to_v2(json_data)`: Hàm này tìm các Component đổi tên, thêm các Component bắt buộc bị thiếu, xóa các giá trị lỗi thời. Kết quả ra cục JSON V2.
-3.  Tiếp tục chạy hàm `migrate_v2_to_v3(json_data)`. Kết quả ra cục JSON chuẩn V3.
-4.  Cuối cùng, lấy JSON V3 đó chuyển thành dữ liệu đưa vào ECS.
+```json
+{
+  "entity_id": "...",
+  "component_type": "ifol.shape",
+  "schema_version": 2,
+  "data": {}
+}
+```
 
-👉 Nhờ chuỗi Migration một chiều này, phần mềm **luôn có khả năng tương thích ngược (Backward Compatibility)** với bất kỳ file project cổ đại nào, mà lõi ECS hiện tại không cần phải chứa những dòng code "vá lỗi" rác rưởi của quá khứ.
+Khi engine project module mở project:
+
+1. migrate container/manifest format nếu cần;
+2. resolve required packages và versions;
+3. đăng ký component schemas/migration handlers;
+4. migrate từng scene/component record theo owner feature;
+5. validate dữ liệu chuẩn hóa;
+6. mới deserialize thành runtime component và đưa vào ECS World.
+
+Migration của `ShapeComponent` thuộc package shape, không thuộc ECS kernel hoặc
+engine. Engine project module chỉ điều phối chain và transaction.
+
+Migration một chiều giúp giữ compatibility có chủ đích, nhưng không được tuyên bố
+"luôn mở mọi project cổ" nếu migration/package cần thiết không còn khả dụng.
+Loader phải trả typed error và giữ opaque component record khi thiếu feature để
+không làm mất dữ liệu lúc save lại.
+
+---
+
+## 3. Quy Tắc Versioning Feature
+
+- `FeatureId` và component type ID không đổi theo rename thư mục/crate.
+- Breaking schema change phải tăng schema version và cung cấp migration hoặc
+  khai báo rõ unsupported path.
+- Project tham chiếu version range; lock metadata có thể ghi implementation đã
+  dùng nhưng không lưu đường dẫn tuyệt đối.
+- Migration phải deterministic, test bằng golden fixtures và không phụ thuộc UI.

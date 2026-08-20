@@ -47,7 +47,8 @@ System mẫu:
 - `WORLD_ENTITY` không despawn/recycle nhưng insert/remove component được;
 - swap-remove giữ sparse/dense mapping chính xác;
 - despawn drop mỗi component đúng một lần;
-- type chưa đăng ký trả diagnostic rõ.
+- `World::insert` tự đăng ký component chưa có; system access dùng component ID
+  chưa thuộc registry vẫn trả diagnostic ở `compile()`.
 - forged next-generation ID trong slot free bị từ chối.
 
 ### Query

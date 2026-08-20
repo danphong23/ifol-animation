@@ -1,38 +1,86 @@
-# Giao Tiếp: Svelte UI, ECS Singleton & AI (MCP)
+# Giao Tiếp: Single Command Bus, Transactions & Parity Giữa UI, CLI & AI (MCP)
 
-Tài liệu này định nghĩa cách lớp Vỏ Giao Diện (UI) và Hệ thống Trí Tuệ Nhân Tạo (AI Agent) tương tác với lõi ECS. Điểm mấu chốt là **Sự Bình Đẳng (Parity)** và **Đồng Bộ Thời Gian Thực (Live Sync)**.
+Tài liệu này định nghĩa backend boundary của `ifol-engine`. UI, CLI, MCP và Agent
+dùng cùng semantic capability; chúng có thể khác transport, permission và cách
+nhận stream. Parity không có nghĩa mọi actor mặc định có toàn quyền.
 
 ---
 
-## 1. Trái Tim Singleton (Core State)
-*   Khi phần mềm khởi động, ECS World và GPU Engine được bật lên tạo thành một **Background Service (Singleton)**.
-*   Nó nắm giữ toàn bộ trạng thái (State) của project: Có bao nhiêu layer, đang ở giây thứ mấy, màu sắc là gì.
-*   Lớp giao diện Svelte UI hoàn toàn "ngu ngốc" (Dumb View). Nó không tự ý lưu trữ dữ liệu project. Nó chỉ là một lớp hiển thị những gì ECS bảo nó hiển thị.
+## 1. Single Command Bus (Cổng Nhận Lệnh Độc Nhất)
 
-## 2. Command Bus (Cổng Nhận Lệnh Độc Nhất)
-Để thay đổi bất kỳ thứ gì trong dự án, hệ thống bắt buộc phải đi qua một cổng kiểm duyệt gọi là `CommandBus`.
+Trong `ifol-engine`, external mutation đi qua typed command contract do package
+đăng ký. Engine cung cấp dispatch/transaction mechanism generic; nó không chứa
+enum `Command` trung tâm hoặc command nghiệp vụ như thêm Shape/nạp Asset.
 
-### 2.1. Cấu trúc Lệnh (Command)
-Các lệnh được định nghĩa dưới dạng JSON chuẩn mực. Ví dụ:
-```json
-{
-  "action": "AddEntity",
-  "payload": { "type": "Shape", "color": "red" }
-}
+```mermaid
+flowchart LR
+    UI["Svelte UI (User Clicks)"] -->|"Typed Command"| Bus["Single Command Bus"]
+    CLI["ifol-cli (Terminal Cmd)"] -->|"Typed Command"| Bus
+    MCP["MCP Server (AI Agent)"] -->|"Typed Command"| Bus
+
+    subgraph Host ["ifol-engine Host"]
+        Bus --> Trans["Transaction boundary<br/>(validate · commit · rollback)"]
+        Trans --> Dispatch["Dispatch to registered handler"]
+        Dispatch --> State["ECS/Project/Service state mutated"]
+        State --> Events["Event Broadcaster"]
+    end
+
+    Events -->|"Event: StateChanged"| UI
+    Events -->|"Event: FrameReady"| CLI
+    Events -->|"Event: ToolResponse"| MCP
 ```
 
-### 2.2. Sự Bình Đẳng Giữa Người & Máy
-*   **Người Dùng Thật (UI):** Khi user click nút "Add Shape" trên giao diện Svelte, Svelte sẽ ném cục JSON trên vào `CommandBus`.
-*   **AI Agent (MCP):** Khi AI muốn thao tác, nó cũng thông qua Model Context Protocol (MCP) ném đúng cục JSON y hệt vào `CommandBus`.
-👉 ECS hoàn toàn không phân biệt lệnh này do ai gửi. Cả UI và MCP đều tuân thủ 1 bộ API Docs duy nhất.
+---
 
-## 3. Đồng Bộ Thời Gian Thực (Live Synchronization)
-Vậy làm sao để khi AI (MCP) thêm một hình khối, giao diện của User lập tức xuất hiện khối đó mà không cần tải lại trang?
+## 2. Sự Bình Đẳng Giữa 3 Loại Tác Nhân (UI, CLI, AI)
 
-**Cơ chế Pub/Sub (Event Emitter):**
-1.  MCP gửi lệnh `AddEntity` vào Command Bus.
-2.  ECS Singleton nhận lệnh, xử lý thay đổi dữ liệu trong RAM.
-3.  Xử lý xong, ECS **phát ra một Event Broadcast** (Ví dụ: `Event: StateChanged`).
-4.  Giao diện Svelte UI luôn luôn lắng nghe (Subscribe) các Event này.
-5.  Ngay khi nhận Event, Svelte UI gọi hàm lấy dữ liệu mới nhất từ ECS và cập nhật Reactivity (`$state` trong Svelte 5).
-6.  **Kết quả:** User thấy AI Agent điều khiển phần mềm trực tiếp trên màn hình của mình (Zero-latency AI Pairing).
+| Tác nhân | Cách gửi lệnh | Cách nhận phản hồi |
+| :--- | :--- | :--- |
+| **1. CLI Terminal** | `ifol-cli entity add --type shape` | Nhận kết quả trực tiếp qua stdout hoặc mã thoát (Exit code). |
+| **2. Svelte UI** | User bấm chuột trên giao diện $\rightarrow$ gửi `Command::AddShape` qua IPC/WASM binding | Lắng nghe `Event::StateChanged` để cập nhật Svelte 5 `$state`. |
+| **3. AI Agent (MCP)**| AI gọi Tool Call `add_shape({ rect, color })` qua MCP Protocol | Nhận JSON kết quả và lắng nghe Event để biết thao tác đã thành công. |
+
+👉 **Lợi ích:** Không có bất kỳ logic đặc biệt nào dành riêng cho UI hay AI. Nếu CLI làm được, AI làm được và UI làm được.
+
+Typed command là representation nội bộ. JSON/IPC/MCP arguments chỉ là wire
+format và phải được deserialize/validate trước khi dispatch.
+
+Backend API gồm bốn nhóm tách biệt:
+
+| Nhóm | Tác dụng |
+|---|---|
+| Command | Thay đổi state trong transaction |
+| Query | Đọc state, không mutate |
+| Event | Thông báo state/job/frame đã commit |
+| Job | Công việc dài có progress/cancel như import/render/export |
+
+Command envelope tối thiểu chứa command ID/version, actor, correlation ID,
+transaction ID và capability context. Concrete command nằm cạnh feature sở hữu
+nó và đăng ký vào Command Registry; không tạo một enum trung tâm phải sửa mỗi
+khi thêm feature.
+
+---
+
+## 3. Transaction Và History Policy
+
+Mỗi Command khi thực thi được bọc trong một `Transaction`:
+1. validate command, actor capability và precondition;
+2. handler tạo mutation patch/inverse command/snapshot phù hợp;
+3. chỉ broadcast event sau khi transaction commit;
+4. rollback toàn transaction nếu handler thất bại giữa chừng;
+5. coalesce history cho thao tác kéo liên tục khi command policy cho phép.
+
+Undo/redo không phải trách nhiệm bắt buộc của engine core. Package có thể đăng ký
+inverse/patch policy; application/editor layer có thể xây history service trên
+transaction result. Engine không giữ history stack mặc định. Save project dùng
+schema registry của engine và package codecs, không serialize trực tiếp layout
+bộ nhớ ECS.
+
+---
+
+## 4. Live Sync
+
+Sau commit, Event Broadcaster phát event có revision/correlation ID. UI cập nhật
+state từ event hoặc query lại projection cần thiết. MCP/Agent nhận cùng kết quả
+semantic, nhưng transport có thể trả response trực tiếp thay vì giữ subscription
+dài hạn. Không phát `StateChanged` chung chung nếu có thể phát event typed và hẹp.

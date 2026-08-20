@@ -28,9 +28,11 @@ flowchart LR
 
 ## Definition of Done
 
-Core chỉ hoàn chỉnh khi mọi slice có test, public API không cần raw storage access,
-cùng input/revision tạo execution order deterministic, cache miss cho cùng semantic
-result, invalid input có typed diagnostic và ifol-ecs không chứa domain
-component/phase.
+Core được feature-freeze khi mọi slice có test, public API không cần raw storage
+access, cùng input/revision tạo execution order deterministic, cache miss cho
+cùng semantic result, invalid input có typed diagnostic và ifol-ecs không chứa
+domain component/phase. `World::insert` là ngoại lệ có chủ đích: nó tự đăng ký
+component để giữ standalone API đơn giản; system access vẫn phải qua registry
+validation ở `compile()`.
 
 Correctness test không tự ghi file vào source tree. Benchmark/profiling là nhóm riêng.

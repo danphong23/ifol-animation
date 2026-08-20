@@ -1,6 +1,7 @@
-# Quản Lý Project & Asset Đa Nền Tảng
+# Project Tự Chứa, VFS Và Asset Boundary
 
-Bài toán hóc búa nhất của đa nền tảng là: Web không có đường dẫn ổ cứng (`C:/...`), trong khi Desktop thì có. Làm sao để một Project mở trên App và Web đều hoạt động? Câu trả lời là: **Gói độc lập (Bundle) và Đường dẫn tương đối (Relative Path)**.
+Project phải mở, chạy và render được bằng CLI trên host có đủ feature/capability,
+không phụ thuộc UI hoặc đường dẫn tuyệt đối của máy đã tạo project.
 
 ---
 
@@ -8,28 +9,73 @@ Bài toán hóc búa nhất của đa nền tảng là: Web không có đường
 Thay vì file project chỉ chứa chữ (JSON), khi người dùng ấn "Save", phần mềm sẽ tạo ra một gói (Bundle) với định dạng `.ifol`. Thực chất `.ifol` là một thư mục nén `.zip` với cấu trúc như sau:
 
 ```text
-my_animation.ifol (ZIP archive)
-├── project.json      (Lưu toàn bộ Entity, Component của ECS)
-└── assets/           (Thư mục chứa toàn bộ tài nguyên dùng trong project)
-    ├── video_01.mp4
-    └── logo_02.png
+my_animation.ifol (bundle/archive)
+├── project.toml           (format version, required packages, entry scene)
+├── package.lock           (resolved package IDs, versions, fingerprints)
+├── packages/              (optional project-local packages)
+├── scenes/
+│   ├── main.scene         (component records theo stable TypeId/schema version)
+│   └── intro.scene
+└── runtime/
+    ├── ifol.asset/        (chỉ tồn tại khi package asset claim namespace)
+    ├── ifol.render/       (chỉ tồn tại khi package render claim namespace)
+    └── <package-id>/      (opaque package-owned data)
 ```
 
-## 2. Hệ Thống Đường Dẫn Tương Đối
-*   Khi người dùng kéo thả 1 file `C:/Users/abc/Downloads/logo_02.png` vào phần mềm, Asset Manager **KHÔNG** ghi lại đường dẫn ổ cứng này.
-*   Nó sẽ âm thầm **copy** file đó vào thư mục `assets/` của project hiện tại.
-*   Trong bộ nhớ của ECS, nó chỉ lưu đường dẫn tương đối: `./assets/logo_02.png`.
-*   👉 **Kết quả:** Bạn gửi file `.ifol` này cho máy Mac, máy Linux, hay upload lên Web, project vẫn chạy bình thường vì mọi tài nguyên đều nằm bên trong nó, không bị đứt gãy đường dẫn (Broken Links).
+Project không dump trực tiếp Rust struct layout của ECS. Scene document chứa
+record versioned; Component Registry deserialize/migrate chúng sau khi required
+feature packages đã được resolve.
+
+## 2. Namespace Và Đường Dẫn Tương Đối
+
+Engine không biết `assets/`. Nó chỉ validate virtual path và quyền sở hữu
+`runtime/<package-id>`. Nếu `pkg-asset` được cài, package đó có thể ingest source,
+quản lý `AssetId`, catalog, revision và cache trong namespace của nó. Component
+feature giữ stable ID do package asset định nghĩa, không giữ OS path hoặc URL tạm.
+
+Package khác có thể định nghĩa dữ liệu hoàn toàn khác mà không sửa project core.
 
 ## 3. Hệ Thống VFS (Virtual File System)
-Làm sao lõi ECS biết đọc file `./assets/logo_02.png` ở đâu khi chạy đa nền tảng? Chúng ta sử dụng một lớp trừu tượng VFS ở giữa:
+
+ECS không đọc file. Engine project module dùng storage/VFS interface cho phần
+manifest/lock/scenes. Package dùng scoped VFS view chỉ trong namespace đã claim;
+importer/decoder nhận bytes/stream từ package owner.
 
 ### 3.1. Chế độ Desktop App (Tauri)
-*   VFS dịch `./assets/...` thành đường dẫn thư mục tạm thời trên ổ cứng mà Tauri vừa bung nén file `.ifol` ra.
-*   ECS dùng hàm đọc file hệ điều hành chuẩn (`std::fs`) cực kỳ nhanh.
+* VFS backend có thể đọc archive trực tiếp hoặc materialize phần cần thiết vào
+  thư mục cache/tạm do host/backend quản lý.
+* Feature/ECS system chỉ request `AssetId`; không gọi `std::fs`.
 
 ### 3.2. Chế độ Web App
-*   Trình duyệt giải nén file `.ifol` (bằng JS zip library) vào bộ nhớ RAM hoặc IndexedDB.
-*   File ảnh/video được hệ thống Web tạo thành các Virtual URL (dạng `blob://...`).
-*   VFS ở lõi WASM dịch `./assets/...` thành các đường dẫn `blob://...` này. 
-*   GPU Engine và FFmpeg WASM gọi vào các đường link ảo này để đọc byte mà không cần quan tâm nó không nằm trên ổ cứng vật lý.
+* Web backend có thể dùng memory, IndexedDB, File System Access API hoặc stream
+  từ archive tùy capability.
+* `blob:` URL chỉ là chi tiết adapter khi API web cụ thể yêu cầu; không phải VFS
+  contract chung.
+* `ifol-gpu` không đọc asset URL/file. Decoder/importer nhận bytes/stream; Render
+  Feature chuyển artifact đã chuẩn bị thành resource/command GPU.
+
+---
+
+## 4. Project Core Và Package-Owned Subsystem
+
+| Service | Trách nhiệm |
+|---|---|
+| Engine project module | bundle, manifest, lock, scene documents, generic snapshot/load/save |
+| Package namespace owner | schema, migration, source/artifact/cache policy của namespace |
+
+`pkg-asset` là optional và dùng cùng package contract như package khác. Project
+chỉ có Shape không tạo namespace asset. Decode media, font shaping và 3D parsing
+không bị hard-code vào engine hoặc asset core; package đăng ký subsystem/processor
+theo nhu cầu.
+
+---
+
+## 5. Required Features Và Portability
+
+Manifest lưu `PackageId + version range`, không lưu đường dẫn implementation
+tuyệt đối. Engine resolve package phù hợp platform trước khi load scene. Nếu
+thiếu owner package, strict mode trả typed error; preservation mode giữ component
+record/namespace opaque để tránh mất dữ liệu khi save lại.
+
+Package phải đánh dấu dữ liệu cache có thể tái tạo. Project đúng không được phụ
+thuộc bắt buộc vào cache sinh riêng cho một GPU/OS/codec backend.

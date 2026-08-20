@@ -1,11 +1,15 @@
-# Chiến Lược Đa Nền Tảng (Platform Strategy)
+# Chiến Lược Đa Nền Tảng Và Capability Adapters
 
-Tài liệu này định nghĩa kiến trúc lõi để phần mềm `ifol-animation` có thể chạy trên Desktop, Trình duyệt Web, và Thiết bị Di động mà **chỉ sử dụng một Codebase duy nhất**.
+Tài liệu này định nghĩa cách tái sử dụng cùng kernel/feature contracts trên
+Desktop, Web, Mobile và CLI. Mục tiêu là dùng chung business core, không giả định
+mọi platform có implementation, codec, filesystem hay GPU capability giống nhau.
 
 ---
 
-## 1. Triết Lý Kiến Trúc (Write Once, Run Everywhere)
-Trái tim của phần mềm là lõi ECS và GPU Engine được viết bằng **Rust**. Thay vì phải viết lại logic cho từng hệ điều hành, chúng ta tận dụng khả năng biên dịch chéo (Cross-compilation) cực mạnh của Rust:
+## 1. Triết Lý Kiến Trúc
+
+`ifol-engine`, `ifol-ecs`, schema và feature logic thuần Rust được dùng chung.
+Subsystem/platform service được thay bằng adapter theo capability:
 *   Biên dịch ra mã máy Native (`.exe`, `.app`, `.apk`).
 *   Biên dịch ra WebAssembly (`.wasm`) để chạy trong trình duyệt.
 
@@ -14,15 +18,40 @@ Trái tim của phần mềm là lõi ECS và GPU Engine được viết bằng 
 ### 2.1. Desktop App (Windows, macOS, Linux)
 *   **Công nghệ Vỏ (App Shell):** Sử dụng **Tauri**. Tauri sử dụng trình duyệt mặc định của HĐH (Edge/WebKit) để hiển thị giao diện Svelte, giúp dung lượng app chỉ còn khoảng vài MB (nhẹ hơn Electron 10 lần).
 *   **Giao tiếp:** Svelte UI gọi lõi Rust thông qua Tauri IPC (Inter-Process Communication).
-*   **Render:** GPU Engine sẽ xin HĐH một cái cửa sổ gốc (Native OS Window Handle) và vẽ trực tiếp bằng đồ họa phần cứng (DirectX 12/Metal/Vulkan). Tốc độ tối đa tuyệt đối.
+*   **Render:** platform adapter sở hữu window/surface lifecycle và truyền boundary
+    hợp lệ cho Render Core/GpuService. Backend thực tế phụ thuộc adapter/capability.
 
-### 2.2. Web App (Client-side 100%)
+### 2.2. Web App
 *   **Công nghệ Vỏ:** Trình duyệt Web thông thường (Chrome, Edge). Giao diện Svelte được đóng gói thành file HTML/JS tĩnh.
 *   **Lõi Rust:** Được biên dịch thành file `engine.wasm`.
 *   **Render (WebGPU):** Engine WASM chọc thẳng vào card màn hình của người dùng thông qua API WebGPU. Trình duyệt không có cửa sổ hệ điều hành, nên GPU Engine sẽ vẽ kết quả ra một thẻ `<canvas>`.
-*   **Không tốn tiền máy chủ (Zero Server Cost):** Toàn bộ việc render và xuất video (sử dụng FFmpeg WASM) đều chạy cục bộ trên máy người dùng (Client-side). Máy chủ duy nhất ta cần là máy chủ lưu trữ file HTML tĩnh (như Github Pages hoặc Vercel).
+* Client-side render là profile mục tiêu. Decode/encode có thể dùng WebCodecs,
+  WASM codec hoặc fallback khác; không bắt buộc FFmpeg WASM và không cam kết mọi
+  export chạy client-side trước khi có capability/runtime evidence.
 
 ### 2.3. Mobile App (iOS, Android)
 *   **Công nghệ Vỏ:** Tauri Mobile hoặc các framework native.
-*   **Tích hợp lõi:** Biên dịch lõi Rust thành thư viện động/tĩnh C-ABI (C Application Binary Interface). 
-*   **Mở rộng:** App Swift (iOS) hoặc Kotlin (Android) gọi trực tiếp các hàm C-ABI này để giao tiếp với ECS. GPU Engine dùng Metal (iOS) hoặc Vulkan (Android) để vẽ thẳng lên màn hình điện thoại. Kiến trúc hoàn toàn khả thi và nhất quán!
+*   **Tích hợp lõi:** Có thể dùng Tauri Mobile, Rust bridge hoặc C-ABI tùy kết quả
+    spike; C-ABI không phải contract bắt buộc từ đầu.
+*   **Render/media:** dùng adapter phù hợp Metal/Vulkan/codec platform nếu được
+    hỗ trợ. Mobile chỉ được đánh dấu supported sau compile + runtime evidence.
+
+---
+
+## 3. Platform Service Contracts
+
+Engine/feature chỉ phụ thuộc interface cho VFS, task execution, clock, surface,
+clipboard/input và codec capability. Adapter được khởi tạo bên ngoài rồi truyền
+vào `EngineRuntime`; core không gọi ngược lên `apps/*`.
+
+CLI là platform profile không UI và phải là đường kiểm chứng đầu tiên cho open,
+mutate, tick, render và export. Desktop/Web/Mobile gọi trực tiếp headless engine
+API; chúng không phụ thuộc binary `ifol-cli`.
+
+Mọi tuyên bố parity phải phân biệt:
+
+- compile support;
+- runtime support;
+- visual/correctness evidence;
+- performance evidence;
+- fallback/unsupported capability.

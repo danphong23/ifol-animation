@@ -806,10 +806,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15cdd26707701c53297e2fa6afb323d55fbc1d0810c3aec078ae3ef0424c3c15"
 
 [[package]]
-name = "ifol-app-core"
-version = "0.1.0"
-
-[[package]]
 name = "ifol-asset"
 version = "0.1.0"
 
@@ -817,6 +813,14 @@ version = "0.1.0"
 name = "ifol-ecs"
 version = "0.1.0"
 dependencies = [
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "ifol-engine"
+version = "0.1.0"
+dependencies = [
+ "ifol-ecs",
  "thiserror 2.0.20",
 ]
 

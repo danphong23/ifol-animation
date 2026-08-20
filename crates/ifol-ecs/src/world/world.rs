@@ -111,6 +111,11 @@ impl World {
     /// Inserts a component into the given entity.
     ///
     /// Automatically registers the component type if not already present.
+    ///
+    /// This is intentional: direct `World` usage is permissive, while system
+    /// access remains governed by the registered `AccessDescriptor` contract.
+    /// Hosts that require strict upfront registration can validate
+    /// `component_registry()` before loading or executing systems.
     /// Increments `structural_version` if the component was not already attached.
     pub fn insert<T: Component>(
         &mut self,

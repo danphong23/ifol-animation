@@ -1,85 +1,97 @@
-# Lõi ECS: Kiến Trúc Khung Xương (Framework Architecture)
+# ifol-ecs: ECS Execution Substrate
 
-Tài liệu này định nghĩa bản chất và cơ chế vận hành của hệ thống ECS trong `ifol-animation`. Tài liệu định nghĩa khung xương và các Render Component bắt buộc.
+Đây là contract kiến trúc cấp workspace của ifol-ecs. Chi tiết API và data model
+nằm trong ECS architecture manual tại crates/ifol-ecs/docs/README.md.
 
----
+## 1. Bản chất
 
-## 1. Bản Chất Của ECS
+ifol-ecs là một execution substrate hoàn chỉnh. Nó không phải callback runner tạm
+thời và không phải animation/render engine. Core sở hữu:
 
-ECS là một cỗ máy xử lý dữ liệu theo pha (Phase Pipeline). Mục đích cuối cùng duy nhất của nó là: **Biến đổi dữ liệu phức tạp của Scene (phân cấp cha-con, tọa độ tương đối, thuộc tính vật lý,...) thành các danh sách Draw Call phẳng gửi cho GPU Engine vẽ.**
+- World, entity lifecycle và component storage;
+- component/system/phase registries;
+- phase graph và compiled schedule;
+- query plan, change tracking, activation state và deferred commands;
+- executor, lifecycle và RunReport.
 
-Bản thân ECS không quan tâm Component là gì. Nó chỉ quan tâm:
-*   Các System có tạo ra hoặc biến đổi RenderNode cho Entity hay không.
-*   Ở phase render cuối cùng, gom các RenderNode đó gửi xuống `ifol-gpu` vẽ 1 lần duy nhất.
+Feature/Engine chỉ gọi public registration/data/execution API. Feature cung cấp
+component type và system implementation; ECS giữ chúng trong runtime sau khi đăng
+ký. ECS không biết semantic của component hoặc phase.
 
----
+~~~mermaid
+flowchart TB
+    External["Feature · Engine · CLI · Test"] -->|"public API: register / mutate / read / run"| Runtime
+    subgraph Runtime["ifol-ecs::EcsRuntime sở hữu"]
+        Registries["Component · System · Phase registries"]
+        Graph["Phase graph + system bindings"]
+        Plan["Compiled schedule + query plans"]
+        World["World + WORLD_ENTITY + component storage"]
+        Cache["Revision/change/activation cache"]
+        Executor["Executor + deferred command queues"]
+        Report["RunReport + diagnostics"]
+        Registries --> Graph --> Plan --> Executor
+        World --> Executor
+        Cache --> Plan
+        Executor --> Report
+    end
+~~~
 
-## 2. Các Thành Phần Khung Xương
+## 2. Ranh giới mù
 
-### 2.1. Entity
-Chỉ là một ID định danh độc nhất (`EntityId`). Bản thân nó rỗng hoàn toàn.
+Core không hard-code hoặc import:
 
-### 2.2. Component
-Các túi dữ liệu thuần túy (Pure Data Struct) được gắn vào Entity.
+~~~text
+Time · Input · Scene · Transform · Hierarchy
+Animation · Shape · Image · Video · Font
+GPU · Asset · Decode · Encode · Project · UI · MCP
+~~~
 
-### 2.3. System
-Các đơn vị logic xử lý dữ liệu theo pha (Phase).
+Một feature có thể đăng ký các tên trên như component, phase hoặc system; ECS chỉ
+xử lý chúng như ID, descriptor và dữ liệu generic.
 
-### 2.4. World
-Trình quản lý trung tâm chứa toàn bộ Entity, Components, và `RenderNodePool` Resource.
+## 3. Registration và ownership
 
----
+Bên ngoài gọi các API dạng:
 
-## 3. Các Render Component Bắt Buộc
+~~~rust
+runtime.register_component::<T>();
+runtime.register_phase(phase_id, phase_descriptor);
+runtime.register_system(system_id, system_registration);
+runtime.attach_system(phase_id, system_id);
+runtime.add_phase_edge(before, after);
+runtime.compile()?;
+~~~
 
-Sự giao tiếp giữa đồ họa và hệ thống ECS thông qua các Component cốt lõi sau:
+Sau đó EcsRuntime sở hữu registry, graph binding và compiled plan. Bên ngoài không
+tự giữ một phase graph song song để chạy.
 
-### 3.1. `DrawCacheComponent`
-Là cái rương chứa kết quả tính toán đồ họa của một Entity.
-*   **Chức năng:** Mỗi Entity có khả năng hiển thị (Shape, Image, Camera, SubGraph) lưu một con trỏ `node_id: RenderNodeId`.
-*   **Arena Lookup:** Node thực sự nằm trong `RenderNodePool` (sống trong ECS World Resource).
-*   **Tính chất:** Nhờ có con trỏ này, hệ thống tái sử dụng (Cache) `RenderBundle` của frame trước nếu Entity không có sự thay đổi.
+## 4. Execution boundary
 
-### 3.2. `RenderRequestComponent`
-Là điểm kích hoạt yêu cầu vẽ, gắn vào một Entity rỗng đại diện cho một Viewport/Màn hình Editor. Nó chứa:
-*   `source_camera: EntityId` — Trỏ đến Entity Camera muốn xuất ra màn hình.
-*   `output_target: RenderTarget` — Thông tin nơi GPU sẽ in kết quả ra (`Screen` hoặc `Offscreen`).
+Core cung cấp một execution pass:
 
----
+~~~rust
+let report = runtime.run_once()?;
+~~~
 
-## 4. `RenderSystem` & Phong Bì `RenderGraph`
+Outer loop thuộc Engine/CLI/exporter:
 
-`RenderGraph` không phải là thứ do Camera hay Entity sở hữu cố định. Nó là một **"Phong bì tạm thời"** do `RenderSystem` tạo ra ở cuối mỗi frame:
+~~~text
+host loop
+  ├── cập nhật platform/service state qua public API
+  ├── runtime.run_once()
+  ├── đọc RunReport/output
+  └── lặp theo policy realtime/export/test
+~~~
 
-```rust
-fn render_system(world: &mut World, gpu_engine: &GpuEngine, executor: &RenderGraphExecutor) {
-    // 1. Quét tìm tất cả RenderRequestComponent
-    for (request_entity, request) in world.query::<&RenderRequestComponent>() {
-        // 2. Lấy danh sách node_ids từ Camera được chỉ định
-        let camera_cache = world.get::<DrawCacheComponent>(request.source_camera);
-        let camera_node_ids = camera_cache.node_ids.clone();
+ECS không sleep, poll window, đo FPS hay quyết định một pass có ý nghĩa là frame,
+tick hay export step.
 
-        // 3. Tạo "phong bì" RenderGraph tạm thời
-        let root_graph = RenderGraph {
-            target: request.output_target.clone(),
-            clear_color: Some([0.1, 0.1, 0.1, 1.0]),
-            depth_stencil: camera_cache.depth_handle,
-            node_ids: camera_node_ids,
-        };
+## 5. Invariant cấp core
 
-        // 4. Gửi phong bì + pool xuống GPU Engine
-        let mut pool = world.get_resource_mut::<RenderNodePool>();
-        executor.execute(gpu_engine, &registry, &mut pool, &root_graph);
-    }
-}
-```
-
----
-
-## 5. Tổng Kết Kiến Trúc
-
-*   **RenderNodePool:** Nằm trong ECS World Resource, chứa tất cả `RenderNode`.
-*   **DrawCacheComponent:** Gắn vào từng Entity, trỏ đến `RenderNodeId` trong Pool.
-*   **RenderRequestComponent:** Quyết định Target (`Screen`/`Offscreen`).
-*   **RenderSystem:** Bọc Nodes từ Camera + Target từ Request -> `RenderGraph` gửi `ifol-gpu`.
-*   **`ifol-gpu`:** Hoàn toàn mù quáng, chỉ nhận `RenderGraph` + `RenderNodePool` và biên dịch ra GPU CommandBuffer.
+- Input invalid bị từ chối bằng typed error trước khi compile/run.
+- Không có phase/system dependency implicit ngoài contract đã đăng ký.
+- Compiled plan deterministic với cùng registration/revision/capability.
+- Cache chỉ là optimization; logical World/graph là source of truth.
+- Mutation đi qua boundary có tracking; raw storage mutation không phải public API.
+- WORLD_ENTITY sống suốt đời World và dùng cùng component/query storage.
+- Một lần run luôn có report về executed/skipped/error/commands.

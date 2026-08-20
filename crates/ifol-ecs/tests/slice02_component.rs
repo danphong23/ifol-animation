@@ -84,3 +84,18 @@ fn slice02_component_storage_drop_and_revisions() {
         }
     }
 }
+
+#[test]
+fn world_insert_auto_registers_component_types() {
+    let mut world = World::new();
+    let entity = world.spawn();
+
+    assert_eq!(world.component_id::<Position>(), None);
+    world.insert(entity, Position { x: 1.0, y: 2.0 }).unwrap();
+
+    assert!(world.component_id::<Position>().is_some());
+    assert_eq!(
+        world.get::<Position>(entity),
+        Some(&Position { x: 1.0, y: 2.0 })
+    );
+}

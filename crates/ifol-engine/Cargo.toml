@@ -1,0 +1,12 @@
+[package]
+name = "ifol-engine"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ifol-ecs = { path = "../ifol-ecs" }
+thiserror = "2.0.20"
+
+[[test]]
+name = "slice01_lifecycle"
+path = "tests/slice01_lifecycle.rs"

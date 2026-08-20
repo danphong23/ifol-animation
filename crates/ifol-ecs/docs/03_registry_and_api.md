@@ -5,6 +5,12 @@
 Registry là nơi ECS giữ identity/runtime metadata, không phải map do feature tự
 quản lý.
 
+`World::insert` có semantics permissive: nếu `T` chưa được đăng ký, world tự
+đăng ký type trước khi tạo storage. Đây là lựa chọn có chủ đích để standalone
+`World` dễ dùng. Ở execution boundary, system vẫn strict: các component ID
+trong `AccessDescriptor` phải thuộc registry của runtime và được validate khi
+`compile()`.
+
 ~~~mermaid
 flowchart TB
     Runtime["EcsRuntime"] --> CR["ComponentRegistry"]
