@@ -1,7 +1,6 @@
 use crate::config::EngineConfig;
 use crate::error::EngineError;
 use crate::package::{EnginePackage, PackageId, PackageResolver};
-use crate::project::{PackageLockFile, ProjectContainer, ProjectError};
 use crate::provider::{ProviderManager, ResourceProvider};
 use crate::registration::{CommandRegistry, RegistrationContext, RegistrationTransaction};
 use crate::runtime::{EngineRuntime, RuntimeParts};
@@ -41,8 +40,7 @@ use crate::state::EngineState;
 /// ```
 pub struct EngineBuilder {
     packages: Vec<Box<dyn EnginePackage>>,
-    config: Option<EngineConfig>,
-    project: Option<ProjectContainer>,
+    config: EngineConfig,
     command_registry: CommandRegistry,
     provider_manager: ProviderManager,
     _state: EngineState,
@@ -53,8 +51,7 @@ impl EngineBuilder {
     pub fn new() -> Self {
         Self {
             packages: Vec::new(),
-            config: None,
-            project: None,
+            config: EngineConfig::new(),
             command_registry: CommandRegistry::new(),
             provider_manager: ProviderManager::new(),
             _state: EngineState::Building,
@@ -77,13 +74,7 @@ impl EngineBuilder {
     /// Supplies runtime composition inputs without coupling the engine to a
     /// project file, filesystem, or serialization format.
     pub fn with_config(mut self, config: EngineConfig) -> Self {
-        self.config = Some(config);
-        self
-    }
-
-    /// Supplies the generic project document and storage for this runtime.
-    pub fn with_project(mut self, project: ProjectContainer) -> Self {
-        self.project = Some(project);
+        self.config = config;
         self
     }
 
@@ -99,48 +90,23 @@ impl EngineBuilder {
     /// If registration or provider init fails, returns `EngineError` and tears down
     /// any partial state.
     pub fn build(self) -> Result<EngineRuntime, EngineError> {
-        if self.config.is_some() && self.project.is_some() {
-            return Err(EngineError::BuildFailed {
-                reason: "with_config and with_project cannot be used together".into(),
-            });
-        }
         let config = self.config;
-        let mut project = self.project;
         let mut resolver = PackageResolver::new();
         for package in &self.packages {
             resolver.add(package.manifest().clone());
         }
-        let package_lock = match config.as_ref() {
-            Some(config) if !config.required_packages().is_empty() => {
-                resolver.resolve_required(config.required_packages())?
-            }
-            Some(_) => resolver.resolve()?,
-            None => match project.as_ref() {
-                Some(project) => resolver.resolve_required(&project.manifest.required_packages)?,
-                None => resolver.resolve()?,
-            },
+        let package_lock = if !config.required_packages().is_empty() {
+            resolver.resolve_required(config.required_packages())?
+        } else {
+            resolver.resolve()?
         };
 
-        if let Some(config) = config.as_ref()
-            && let Some(expected) = config.expected_lock()
+        if let Some(expected) = config.expected_lock()
             && expected != &package_lock
         {
             return Err(EngineError::BuildFailed {
                 reason: "expected package lock differs from the resolved package closure".into(),
             });
-        }
-
-        if let Some(project) = project.as_ref()
-            && let Some(lockfile) = &project.lockfile
-        {
-            let expected = PackageLockFile::from_lock(&package_lock);
-            if lockfile.format_version != expected.format_version
-                || lockfile.packages != expected.packages
-            {
-                return Err(EngineError::Project(ProjectError::LockMismatch {
-                    reason: "project lockfile differs from the resolved package closure".into(),
-                }));
-            }
         }
 
         let mut candidates: std::collections::BTreeMap<PackageId, Box<dyn EnginePackage>> = self
@@ -174,11 +140,7 @@ impl EngineBuilder {
         let ecs = ifol_ecs::EcsRuntime::new();
         let schemas = crate::scene::SchemaRegistry::new();
         let migrations = crate::scene::MigrationRegistry::new();
-        let namespaces = config
-            .as_ref()
-            .map(EngineConfig::namespaces)
-            .or_else(|| project.as_ref().map(|project| project.namespaces.clone()))
-            .unwrap_or_default();
+        let namespaces = config.namespaces();
         let (mut ecs, command_registry, schemas, migrations, mut provider_manager, namespaces) =
             transaction.commit(
                 ecs,
@@ -189,10 +151,6 @@ impl EngineBuilder {
                 namespaces,
             )?;
 
-        if let Some(project) = project.as_mut() {
-            project.namespaces = namespaces.clone();
-        }
-
         // Initialize resource providers topologically with fail-closed rollback
         provider_manager.init_all(&mut ecs)?;
 
@@ -201,7 +159,6 @@ impl EngineBuilder {
             command_registry,
             provider_manager,
             package_lock,
-            project,
             schemas,
             migrations,
             namespaces,

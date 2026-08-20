@@ -49,13 +49,3 @@ fn config_rejects_lock_drift_before_runtime_publish() {
         .unwrap_err();
     assert!(matches!(error, EngineError::BuildFailed { .. }));
 }
-
-#[test]
-fn config_and_project_compatibility_inputs_are_mutually_exclusive() {
-    let error = EngineBuilder::new()
-        .with_config(EngineConfig::new())
-        .with_project(ifol_engine::ProjectContainer::new_memory("demo", "main"))
-        .build()
-        .unwrap_err();
-    assert!(matches!(error, EngineError::BuildFailed { .. }));
-}

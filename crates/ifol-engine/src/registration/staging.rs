@@ -70,8 +70,8 @@ pub struct StagedContribution {
     pub migrations: Vec<(crate::scene::SchemaId, u32, u32, crate::scene::MigrationFn)>,
     /// Root resource providers owned by the package.
     pub providers: Vec<Box<dyn crate::provider::ResourceProvider>>,
-    /// Project namespaces claimed by the package.
-    pub namespaces: Vec<crate::project::Namespace>,
+    /// Runtime namespaces claimed by the package.
+    pub namespaces: Vec<crate::namespace::Namespace>,
 }
 
 impl std::fmt::Debug for StagedContribution {

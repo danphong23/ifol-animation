@@ -6,18 +6,6 @@ use ifol_engine::{
 };
 
 #[test]
-fn manifest_round_trip_preserves_escaped_project_values() {
-    let manifest = ifol_engine::ProjectManifest::new("demo \"project\"", "scenes/main\nnext")
-        .with_package(
-            PackageId::new("pkg.demo").unwrap(),
-            ifol_engine::VersionReq::caret(Version::new(1, 2, 3)),
-        );
-    let serialized = manifest.serialize();
-    let parsed = ifol_engine::ProjectManifest::parse(&serialized).unwrap();
-    assert_eq!(parsed, manifest);
-}
-
-#[test]
 fn scene_replacement_is_load_first_and_clear_preserves_runtime_contract() {
     let mut engine = EngineBuilder::new().build().unwrap();
     let first = SceneId::new("scene.first").unwrap();

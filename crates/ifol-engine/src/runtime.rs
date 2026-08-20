@@ -25,10 +25,9 @@ pub struct EngineRuntime {
     command_registry: crate::registration::CommandRegistry,
     provider_manager: crate::provider::ProviderManager,
     package_lock: crate::package::PackageLock,
-    project: Option<crate::project::ProjectContainer>,
     schemas: crate::scene::SchemaRegistry,
     migrations: crate::scene::MigrationRegistry,
-    namespaces: crate::project::NamespaceRegistry,
+    namespaces: crate::namespace::NamespaceRegistry,
     active_scene: Option<crate::scene::SceneId>,
     active_scene_entities: BTreeSet<ifol_ecs::entity::EntityId>,
     state: EngineState,
@@ -40,10 +39,9 @@ pub(crate) struct RuntimeParts {
     pub command_registry: crate::registration::CommandRegistry,
     pub provider_manager: crate::provider::ProviderManager,
     pub package_lock: crate::package::PackageLock,
-    pub project: Option<crate::project::ProjectContainer>,
     pub schemas: crate::scene::SchemaRegistry,
     pub migrations: crate::scene::MigrationRegistry,
-    pub namespaces: crate::project::NamespaceRegistry,
+    pub namespaces: crate::namespace::NamespaceRegistry,
 }
 
 impl std::fmt::Debug for EngineRuntime {
@@ -54,7 +52,6 @@ impl std::fmt::Debug for EngineRuntime {
             .field("command_registry", &self.command_registry)
             .field("provider_manager", &self.provider_manager)
             .field("package_lock", &self.package_lock)
-            .field("has_project_compat", &self.project.is_some())
             .field("schema_count", &self.schemas.len())
             .field("namespace_count", &self.namespaces.len())
             .finish()
@@ -72,7 +69,6 @@ impl EngineRuntime {
             command_registry: parts.command_registry,
             provider_manager: parts.provider_manager,
             package_lock: parts.package_lock,
-            project: parts.project,
             schemas: parts.schemas,
             migrations: parts.migrations,
             namespaces: parts.namespaces,
@@ -115,12 +111,6 @@ impl EngineRuntime {
         &self.package_lock
     }
 
-    /// Returns the project session, when this runtime was built for a project.
-    #[inline]
-    pub fn project(&self) -> Option<&crate::project::ProjectContainer> {
-        self.project.as_ref()
-    }
-
     /// Returns the immutable registry of package-owned component schemas.
     #[inline]
     pub fn schema_registry(&self) -> &crate::scene::SchemaRegistry {
@@ -133,9 +123,9 @@ impl EngineRuntime {
         &self.migrations
     }
 
-    /// Returns the project namespace claims active in this runtime.
+    /// Returns the package namespace claims active in this runtime.
     #[inline]
-    pub fn namespace_registry(&self) -> &crate::project::NamespaceRegistry {
+    pub fn namespace_registry(&self) -> &crate::namespace::NamespaceRegistry {
         &self.namespaces
     }
 

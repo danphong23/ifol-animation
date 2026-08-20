@@ -22,8 +22,8 @@ pub struct ReconfigurationRequest {
     pub migrations: crate::scene::MigrationRegistry,
     /// Replacement provider manager candidate.
     pub provider_manager: crate::provider::ProviderManager,
-    /// Replacement project namespace registry candidate.
-    pub namespaces: crate::project::NamespaceRegistry,
+    /// Replacement runtime namespace registry candidate.
+    pub namespaces: crate::namespace::NamespaceRegistry,
     /// Replacement resolved package lock.
     pub package_lock: crate::package::PackageLock,
     /// Package IDs added by this request, for diagnostics.

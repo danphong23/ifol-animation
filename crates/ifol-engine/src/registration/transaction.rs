@@ -75,7 +75,7 @@ impl RegistrationTransaction {
         mut schemas: crate::scene::SchemaRegistry,
         mut migrations: crate::scene::MigrationRegistry,
         mut provider_manager: crate::provider::ProviderManager,
-        mut namespaces: crate::project::NamespaceRegistry,
+        mut namespaces: crate::namespace::NamespaceRegistry,
     ) -> Result<
         (
             ifol_ecs::EcsRuntime,
@@ -83,7 +83,7 @@ impl RegistrationTransaction {
             crate::scene::SchemaRegistry,
             crate::scene::MigrationRegistry,
             crate::provider::ProviderManager,
-            crate::project::NamespaceRegistry,
+            crate::namespace::NamespaceRegistry,
         ),
         TransactionError,
     > {

@@ -11,8 +11,8 @@
 - provider dependency DAG với rollback init và reverse teardown;
 - `EngineConfig` in-memory cho required package closure, expected lock và namespace;
 - persistence project đã có crate riêng `ifol-project` (manifest, lockfile,
-  virtual storage và path containment); engine chỉ giữ compatibility API cũ trong
-  giai đoạn chuyển tiếp;
+  virtual storage và path containment); engine không compile hoặc sở hữu các
+  kiểu persistence này;
 - scene document generic, schema codec, migration và opaque preservation;
 - scene session với `SceneId`, load-new-before-replace và `clear_scene`;
 - atomic batch-write boundary cho project storage;
@@ -26,8 +26,8 @@ Những phần đó phải là package/provider/codec độc lập đăng ký t�
 
 - `ifol-project::ProjectContainer` quản lý manifest, lock và storage; nó không
   gán semantic cho thư mục `assets`, `render`, `animation` hoặc `game`.
-- `EngineConfig` không đọc file và không giữ storage. `with_config` là API chuẩn;
-  `with_project` chỉ là compatibility path cần loại bỏ sau khi consumers migrate.
+- `EngineConfig` không đọc file và không giữ storage. `with_config` là API duy nhất
+  để đưa runtime composition inputs vào engine.
 - `EngineRuntime` quản lý một active scene session trên một ECS world. Scene mới
   được load hoàn tất trước, sau đó scene cũ mới bị remove; `WORLD_ENTITY` và
   singleton runtime không bị xóa bởi `clear_scene`.
@@ -48,9 +48,10 @@ cargo test -p ifol-engine --doc                            PASS
 cargo check -p ifol-engine --no-default-features --all-targets PASS
 ```
 
-Test suite bao gồm unit, integration slice 01–14, rollback, deterministic
-resolver chain 256 package, scene replacement, malformed input và opaque record
-preservation.
+Test suite bao gồm 34 unit tests, integration slice 01–04, 06–10, 12–14 và
+3 project integration tests; có rollback, deterministic resolver chain 256
+package, scene replacement, malformed input, opaque record preservation và
+project-to-engine headless bootstrap.
 
 ## Freeze rule
 

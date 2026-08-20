@@ -3,7 +3,7 @@
 ## 1. API surface
 
 Các mục dưới đây là contract đang được expose. Hiện tại đã có `state`, `revision`,
-`package_lock`, `project`, `schema_registry`, `migration_registry`,
+`package_lock`, `schema_registry`, `migration_registry`,
 `load_scene`, `step`, `reconfigure` và `shutdown`; các mục còn lại là phần mở
 rộng tiếp theo, không được giả định là đã có trong crate.
 
@@ -11,13 +11,12 @@ rộng tiếp theo, không được giả định là đã có trong crate.
 EngineBuilder
 ├── register_package(package)
 ├── with_provider(provider)
-├── with_project(project)
+├── with_config(config)
 └── build() -> EngineRuntime
 
 EngineRuntime
 ├── state()
 ├── active_packages()
-├── project_info()
 ├── schema_registry()
 ├── migration_registry()
 ├── namespace_registry()
@@ -39,8 +38,9 @@ decode/migrate theo schema do package đăng ký, rollback khi lỗi, và chỉ 
 revision khi thành công. `load_scene_as` thay active scene theo chính sách
 load-new-before-replace; `clear_scene` chỉ xóa entity của scene, giữ world
 singleton và package registration.
-`namespace_registry` là snapshot các claim đã được package commit; khi có project,
-snapshot này đồng thời được ghi vào `ProjectContainer` đang chạy.
+`namespace_registry` là snapshot các claim đã được package commit. Engine không
+ghi snapshot này ngược vào project storage; host/project layer tự quyết định
+cách lưu nếu cần.
 Reconfigure cũng nhận các registry ứng viên đã được chuẩn bị đầy đủ; engine chỉ
 swap ECS, command, schema, migration và package lock sau khi compile thành công.
 
@@ -78,7 +78,7 @@ EngineError
 ├── CapabilityUnavailable
 ├── Registration/Namespace/Schema
 ├── ResourceInitialization
-├── ProjectFormat/SceneLoad/Migration
+├── SceneLoad/Migration
 ├── EcsCompile/EcsExecution
 ├── ReconfigureRollback
 └── Shutdown

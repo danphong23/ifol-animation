@@ -3,8 +3,8 @@
 pub mod builder;
 pub mod config;
 pub mod error;
+pub mod namespace;
 pub mod package;
-pub mod project;
 pub mod provider;
 pub mod reconfiguration;
 pub mod registration;
@@ -17,14 +17,10 @@ pub mod state;
 pub use builder::EngineBuilder;
 pub use config::EngineConfig;
 pub use error::EngineError;
+pub use namespace::{Namespace, NamespaceError, NamespaceRegistry};
 pub use package::{
     EnginePackage, PackageDependency, PackageError, PackageId, PackageLock, PackageManifest,
     PackageRegistration, PackageResolver, ResolveError, ResolvedPackage, Version, VersionReq,
-};
-pub use project::{
-    CURRENT_FORMAT_VERSION, MemoryStorage, Namespace, NamespaceError, NamespaceRegistry,
-    PACKAGE_LOCK_PATH, PROJECT_MANIFEST_PATH, PackageLockFile, PathSecurity, ProjectContainer,
-    ProjectError, ProjectManifest, ProjectStorage, StorageError,
 };
 pub use provider::{ProviderError, ProviderManager, ResourceId, ResourceProvider};
 pub use reconfiguration::{

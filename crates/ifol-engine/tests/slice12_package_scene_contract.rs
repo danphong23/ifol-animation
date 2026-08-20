@@ -5,8 +5,8 @@ use ifol_ecs::world::World;
 use ifol_engine::{
     CodecError, CommandRegistry, ComponentCodec, ComponentRecord, EngineBuilder, EntityKey,
     MigrationRegistry, Namespace, PackageId, PackageManifest, PackageRegistration,
-    ProjectContainer, RegistrationContext, RegistrationTransaction, SceneDocument, SchemaId,
-    SchemaRegistry, Version, VersionReq,
+    RegistrationContext, RegistrationTransaction, SceneDocument, SchemaId, SchemaRegistry, Version,
+    VersionReq,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -306,28 +306,25 @@ fn provider_teardown_failure_faults_runtime_before_swap() {
 }
 
 #[test]
-fn project_package_namespace_claim_is_committed_into_runtime_and_project() {
+fn package_namespace_claim_is_committed_into_runtime() {
     let package_id = PackageId::new("pkg-namespace").unwrap();
     let namespace = Namespace::new("pkg.scene").unwrap();
     let package_namespace = namespace.clone();
     let package = PackageRegistration::new(
         manifest("pkg-namespace"),
         move |context: &mut RegistrationContext| {
-            context.claim_project_namespace(package_namespace);
+            context.claim_namespace(package_namespace);
         },
     );
 
-    let project = ProjectContainer::new_memory("namespace-project", "scenes/main");
-    let project = ProjectContainer {
-        manifest: project
-            .manifest
-            .with_package(package_id, VersionReq::caret(Version::new(1, 0, 0))),
-        ..project
-    };
-
     let engine = EngineBuilder::new()
+        .with_config(ifol_engine::EngineConfig::new().require_package(
+            ifol_engine::PackageDependency {
+                package_id,
+                version_req: VersionReq::caret(Version::new(1, 0, 0)),
+            },
+        ))
         .register_package(package)
-        .with_project(project)
         .build()
         .unwrap();
 
@@ -340,7 +337,6 @@ fn project_package_namespace_claim_is_committed_into_runtime_and_project() {
             .as_str(),
         "pkg-namespace"
     );
-    assert_eq!(engine.project().unwrap().namespaces.len(), 1);
 }
 
 #[test]
@@ -348,13 +344,13 @@ fn colliding_package_namespaces_abort_build_before_runtime_publish() {
     let first = PackageRegistration::new(
         manifest("pkg-namespace-a"),
         |context: &mut RegistrationContext| {
-            context.claim_project_namespace(Namespace::new("shared").unwrap());
+            context.claim_namespace(Namespace::new("shared").unwrap());
         },
     );
     let second = PackageRegistration::new(
         manifest("pkg-namespace-b"),
         |context: &mut RegistrationContext| {
-            context.claim_project_namespace(Namespace::new("shared.child").unwrap());
+            context.claim_namespace(Namespace::new("shared.child").unwrap());
         },
     );
 

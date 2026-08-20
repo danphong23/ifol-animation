@@ -29,7 +29,7 @@ PackageManifest
 ├── engine/API compatibility range
 ├── dependencies + version constraints
 ├── platform/capability requirements
-├── claimed project namespaces
+├── claimed runtime namespaces
 └── declared contributions summary/fingerprint
 ```
 
@@ -53,7 +53,7 @@ RegistrationContext
 ├── register_command(command_id, handler)
 ├── register_query(query_id, handler)
 ├── register_event(descriptor)
-└── claim_project_namespace(namespace)
+└── claim_namespace(namespace)
 ```
 
 Không trả `&mut World`, registry nội bộ hoặc subsystem implementation cho package

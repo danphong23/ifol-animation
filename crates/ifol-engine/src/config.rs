@@ -5,7 +5,7 @@
 //! discovered. A higher-level project/package tool may translate its own
 //! manifest into this value.
 
-use crate::NamespaceRegistry;
+use crate::namespace::NamespaceRegistry;
 use crate::package::{PackageDependency, PackageLock};
 
 /// Immutable inputs required to construct an engine runtime.

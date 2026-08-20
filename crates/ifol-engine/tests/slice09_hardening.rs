@@ -12,8 +12,8 @@ mod support;
 
 use ifol_engine::{
     CommandId, CommandRegistry, EngineBuilder, EngineError, EngineRuntime, EngineState,
-    PackageDependency, PackageId, PackageLock, PackageLockFile, PackageManifest, PackageResolver,
-    ProjectContainer, ResourceId, ResourceProvider, SceneDocument, StepInput, Version, VersionReq,
+    PackageDependency, PackageId, PackageLock, PackageManifest, PackageResolver, ResourceId,
+    ResourceProvider, SceneDocument, StepInput, Version, VersionReq,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -33,12 +33,12 @@ fn assert_sync<T: Sync>() {}
 fn engine_types_thread_safety() {
     assert_send::<EngineRuntime>();
     assert_send::<PackageResolver>();
-    assert_send::<PackageLockFile>();
+    assert_send::<PackageLock>();
     assert_send::<SceneDocument>();
     assert_send::<EngineError>();
 
     assert_sync::<PackageResolver>();
-    assert_sync::<PackageLockFile>();
+    assert_sync::<PackageLock>();
     assert_sync::<SceneDocument>();
     assert_sync::<EngineError>();
 }
@@ -176,19 +176,7 @@ fn full_end_to_end_lifecycle_and_features() {
     let lock = resolver.resolve().unwrap();
     assert_eq!(lock.packages.len(), 2);
 
-    // B. Project Container & Storage
-    let mut project = ProjectContainer::new_memory("FullMovie", "scenes/main.ifol");
-    project.manifest = project.manifest.with_package(
-        PackageId::new("app-motion").unwrap(),
-        VersionReq::caret(Version::new(1, 0, 0)),
-    );
-    project.lockfile = Some(PackageLockFile::from_lock(&lock));
-    project.save().unwrap();
-
-    let reloaded_project = ProjectContainer::load(project.storage).unwrap();
-    assert_eq!(reloaded_project.manifest.name, "FullMovie");
-
-    // C. Root Resource Provider
+    // B. Root Resource Provider
     struct MockDeviceProvider;
     impl ResourceProvider for MockDeviceProvider {
         fn id(&self) -> ResourceId {
@@ -208,7 +196,7 @@ fn full_end_to_end_lifecycle_and_features() {
         }
     }
 
-    // D. Build Engine Runtime
+    // C. Build Engine Runtime
     let mut engine = EngineBuilder::new()
         .with_provider(MockDeviceProvider)
         .register_package(inline_package(
@@ -241,12 +229,12 @@ fn full_end_to_end_lifecycle_and_features() {
 
     assert_eq!(engine.state(), EngineState::Ready);
 
-    // E. Execute Step
+    // D. Execute Step
     let step_rep = engine.step(StepInput::default()).unwrap();
     assert_eq!(step_rep.engine_revision, 1);
     assert_eq!(step_rep.ecs_report.systems_executed, vec!["motion_system"]);
 
-    // F. Dynamic Reconfiguration (Add post-processing package)
+    // E. Dynamic Reconfiguration (Add post-processing package)
     let pkg_post = PackageId::new("post-process").unwrap();
     let mut reconfig_tx = ifol_engine::RegistrationTransaction::new();
     reconfig_tx.stage_package(PackageId::new("core-render").unwrap(), |ctx| {

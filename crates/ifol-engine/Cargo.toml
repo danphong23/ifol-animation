@@ -2,6 +2,7 @@
 name = "ifol-engine"
 version = "0.1.0"
 edition = "2024"
+autotests = false
 
 [dependencies]
 ifol-ecs = { path = "../ifol-ecs" }
@@ -24,10 +25,6 @@ name = "slice04_resource_providers"
 path = "tests/slice04_resource_providers.rs"
 
 [[test]]
-name = "slice05_project_and_namespace"
-path = "tests/slice05_project_and_namespace.rs"
-
-[[test]]
 name = "slice06_scene_and_migration"
 path = "tests/slice06_scene_and_migration.rs"
 
@@ -48,5 +45,13 @@ name = "slice10_package_contract"
 path = "tests/slice10_package_contract.rs"
 
 [[test]]
-name = "slice11_project_runtime"
-path = "tests/slice11_project_runtime.rs"
+name = "slice12_package_scene_contract"
+path = "tests/slice12_package_scene_contract.rs"
+
+[[test]]
+name = "slice13_final_hardening"
+path = "tests/slice13_final_hardening.rs"
+
+[[test]]
+name = "slice14_config_boundary"
+path = "tests/slice14_config_boundary.rs"

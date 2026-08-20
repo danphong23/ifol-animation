@@ -10,7 +10,7 @@ EngineRuntime
 ├── EcsRuntime
 ├── ActivePackageSet
 ├── SchemaRegistry
-├── ProjectSession?
+├── NamespaceRegistry
 ├── EngineRevision
 └── Diagnostics
 ```
@@ -22,10 +22,9 @@ identity/version/lifecycle package; component/system/phase thực tế thuộc E
 không phụ thuộc trực tiếp `ifol-gpu`, `ifol-asset` hoặc package production. Test
 fixtures là dev-dependencies và không được rò vào public API.
 
-`EngineBuilder::with_project` chuyển quyền sở hữu một `ProjectContainer` vào
-runtime. Project manifest chọn required package roots; resolver chỉ activate
-transitive dependency closure của các roots đó. Runtime giữ project session và
-active `PackageLock` cùng lifecycle revision.
+`EngineBuilder::with_config` nhận `EngineConfig` in-memory. Project manifest,
+storage và lock-file được `ifol-project` chuyển đổi thành config trước khi gọi
+engine. Runtime không giữ project container, filesystem hay persistence state.
 
 ## 2. State machine
 
@@ -88,9 +87,9 @@ ngược; không dựa vào global mutable static.
 ## 5. Clear, unload và shutdown
 
 - `clear_scene`: xóa entity scene, giữ root resources/package registrations;
-- `clear_scene`: đóng active scene và giữ project/package/runtime resources;
-- project container lifecycle thuộc host/session boundary; engine không tự
-  unload filesystem hoặc platform service;
+- `clear_scene`: đóng active scene và giữ package/runtime resources;
+- project container lifecycle thuộc host/session boundary; engine không đọc,
+  ghi hoặc unload filesystem;
 - `reconfigure`: chuẩn bị runtime mới hoặc transactional delta rồi publish khi
   compile thành công; ECS, command/schema/migration registry và package lock
   được swap cùng một commit, lỗi staging giữ nguyên runtime cũ; lỗi teardown
