@@ -54,7 +54,7 @@ impl std::fmt::Debug for EngineRuntime {
             .field("command_registry", &self.command_registry)
             .field("provider_manager", &self.provider_manager)
             .field("package_lock", &self.package_lock)
-            .field("has_project", &self.project.is_some())
+            .field("has_project_compat", &self.project.is_some())
             .field("schema_count", &self.schemas.len())
             .field("namespace_count", &self.namespaces.len())
             .finish()

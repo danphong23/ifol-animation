@@ -2,7 +2,8 @@
 
 Đây là architecture và acceptance manual hiện hành của `ifol-engine`. Engine là
 headless composition runtime quanh `ifol-ecs`, không phải application shell và
-không chứa feature nghiệp vụ.
+không chứa feature nghiệp vụ. `EngineConfig` là boundary runtime thuần in-memory;
+persistence project thuộc `ifol-project`.
 
 ## Thứ tự đọc
 
@@ -17,7 +18,7 @@ không chứa feature nghiệp vụ.
 ## Tóm tắt bất biến
 
 ```text
-Host owns loop
+Host owns loop and project persistence
 Engine owns composition/session
 ECS owns runtime state/schedule/execution
 Package owns feature semantics and project namespace

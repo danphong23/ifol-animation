@@ -845,6 +845,14 @@ name = "ifol-math"
 version = "0.1.0"
 
 [[package]]
+name = "ifol-project"
+version = "0.1.0"
+dependencies = [
+ "ifol-engine",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "image"
 version = "0.24.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

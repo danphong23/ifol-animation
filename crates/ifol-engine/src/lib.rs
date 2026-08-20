@@ -1,6 +1,7 @@
 #![doc = include_str!("../docs/README.md")]
 
 pub mod builder;
+pub mod config;
 pub mod error;
 pub mod package;
 pub mod project;
@@ -14,6 +15,7 @@ pub mod state;
 
 // Public re-exports
 pub use builder::EngineBuilder;
+pub use config::EngineConfig;
 pub use error::EngineError;
 pub use package::{
     EnginePackage, PackageDependency, PackageError, PackageId, PackageLock, PackageManifest,
