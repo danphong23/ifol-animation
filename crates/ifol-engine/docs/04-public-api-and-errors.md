@@ -1,6 +1,11 @@
 # Public API và typed diagnostics
 
-## 1. API surface mục tiêu
+## 1. API surface
+
+Các mục bên dưới là contract đích của engine. Hiện tại đã có `state`, `revision`,
+`package_lock`, `project`, `schema_registry`, `migration_registry`,
+`load_scene`, `step`, `reconfigure` và `shutdown`; các mục còn lại là phần mở
+rộng tiếp theo, không được giả định là đã có trong crate.
 
 ```text
 EngineBuilder

@@ -77,7 +77,7 @@ step bị từ chối.
 Service/capability dùng chung được expose bằng component trên `WORLD_ENTITY`:
 
 ```text
-register_resource<T>(provider)
+register_provider(provider)
   -> register_world_singleton<T>()
   -> provider.create(context)
   -> insert_world_component<T>(value)

@@ -43,7 +43,7 @@ Package chỉ góp contract qua context giới hạn:
 ```text
 RegistrationContext
 ├── register_component<T>(schema)
-├── register_resource<T>(schema, provider)
+├── register_provider(provider)
 ├── register_system(system, access, conditions)
 ├── register_phase(id)
 ├── add_phase_edge(from, to)
