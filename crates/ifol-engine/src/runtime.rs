@@ -110,11 +110,11 @@ impl EngineRuntime {
         self.require_state(EngineState::Ready, "reconfigure")?;
 
         // 1. Build staging runtime
-        let mut staging_ecs = ifol_ecs::EcsRuntime::new();
-        let mut staging_cmd_reg = command_registry;
+        let staging_ecs = ifol_ecs::EcsRuntime::new();
+        let staging_cmd_reg = command_registry;
 
         // 2. Commit transaction onto staging ECS
-        transaction.commit(&mut staging_ecs, &mut staging_cmd_reg)?;
+        let (staging_ecs, staging_cmd_reg) = transaction.commit(staging_ecs, staging_cmd_reg)?;
 
         // 3. Atomic swap
         self.ecs = staging_ecs;

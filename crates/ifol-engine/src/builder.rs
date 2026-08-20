@@ -114,15 +114,15 @@ impl EngineBuilder {
             transaction.stage(package_id, context.into_staging());
         }
 
-        let mut ecs = ifol_ecs::EcsRuntime::new();
-        transaction.commit(&mut ecs, &mut self.command_registry)?;
+        let ecs = ifol_ecs::EcsRuntime::new();
+        let (mut ecs, command_registry) = transaction.commit(ecs, self.command_registry)?;
 
         // Initialize resource providers topologically with fail-closed rollback
         self.provider_manager.init_all(&mut ecs)?;
 
         Ok(EngineRuntime::from_parts(
             ecs,
-            self.command_registry,
+            command_registry,
             self.provider_manager,
             package_lock,
         ))

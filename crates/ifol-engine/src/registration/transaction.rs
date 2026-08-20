@@ -23,7 +23,11 @@ pub enum TransactionError {
     Command(String),
 }
 
-/// Transaction orchestrator for committing staged package contributions into `EcsRuntime`.
+/// Transaction orchestrator for preparing staged package contributions.
+///
+/// The commit operation consumes its ECS and command-registry candidates and
+/// returns them only after every contribution and schedule compilation step
+/// succeeds. A failed commit therefore cannot partially mutate a live runtime.
 pub struct RegistrationTransaction {
     packages: Vec<(PackageId, StagedContribution)>,
 }
@@ -51,24 +55,22 @@ impl RegistrationTransaction {
         self.stage(package, ctx.into_staging());
     }
 
-    /// Applies all staged contributions to a target `EcsRuntime` and `CommandRegistry`,
-    /// then compiles the ECS schedule.
+    /// Applies all staged contributions to staging candidates and compiles the
+    /// ECS schedule.
     ///
     /// # Atomicity
     ///
-    /// To ensure fail-closed atomicity, if applied to an existing runtime during reconfiguration,
-    /// a clone or staging runtime is used before swapping.
-    pub fn commit(
+    /// The candidates are consumed and returned only on success. Callers must
+    /// pass a fresh staging runtime when replacing an existing live runtime.
+    pub(crate) fn commit(
         self,
-        ecs: &mut ifol_ecs::EcsRuntime,
-        command_registry: &mut CommandRegistry,
-    ) -> Result<(), TransactionError> {
-        let _ = command_registry; // Used for future command/query staging verification if needed
-
+        mut ecs: ifol_ecs::EcsRuntime,
+        mut command_registry: CommandRegistry,
+    ) -> Result<(ifol_ecs::EcsRuntime, CommandRegistry), TransactionError> {
         for (pkg_id, staging) in self.packages {
             // 1. Register components
             for reg in staging.component_registrations {
-                reg(ecs).map_err(|e| TransactionError::ContributionFailed {
+                reg(&mut ecs).map_err(|e| TransactionError::ContributionFailed {
                     package: pkg_id.clone(),
                     reason: format!("component registration failed: {e}"),
                 })?;
@@ -76,7 +78,7 @@ impl RegistrationTransaction {
 
             // 2. Register world singletons
             for reg in staging.singleton_registrations {
-                reg(ecs).map_err(|e| TransactionError::ContributionFailed {
+                reg(&mut ecs).map_err(|e| TransactionError::ContributionFailed {
                     package: pkg_id.clone(),
                     reason: format!("singleton registration failed: {e}"),
                 })?;
@@ -158,7 +160,7 @@ impl RegistrationTransaction {
         // 9. Compile schedule
         ecs.compile()?;
 
-        Ok(())
+        Ok((ecs, command_registry))
     }
 }
 

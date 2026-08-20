@@ -85,6 +85,11 @@ Validation bao gồm:
 - phase/system binding, missing phase và phase cycle;
 - deterministic order khi input order khác nhau.
 
+`RegistrationTransaction` chỉ commit vào các staging candidates đã được caller
+chuyển quyền sở hữu. Nó trả ECS runtime và command registry lại sau khi compile
+thành công; lỗi làm rơi toàn bộ candidates, nên live runtime không thể bị mutate
+một phần qua API transaction.
+
 ## 5. Resource provider
 
 Resource component không được tự động tạo bằng `Default` ngầm. Package phải cung
