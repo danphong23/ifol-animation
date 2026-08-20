@@ -5,6 +5,9 @@ use crate::world::World;
 use std::any::TypeId;
 use std::collections::HashSet;
 
+#[path = "query_item_tuples.rs"]
+mod query_item_tuples;
+
 /// Type-level access requirements emitted by a query signature.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct QueryAccess {
@@ -216,48 +219,3 @@ impl WorldQuery for () {
         Some(())
     }
 }
-
-macro_rules! impl_tuple_query {
-    ($($name:ident),+; $($index:tt),+) => {
-        impl<$($name: WorldQuery),+> WorldQuery for ($($name,)+) {
-            type Item<'w> = ($($name::Item<'w>,)+);
-
-            fn access() -> QueryAccess {
-                QueryAccess::default()$(.merge($name::access()))+
-            }
-
-            fn has_driver() -> bool {
-                false $(|| $name::has_driver())+
-            }
-
-            fn driver_entities(world: &World) -> Vec<EntityId> {
-                let mut best: Option<Vec<EntityId>> = None;
-                $(
-                    if $name::has_driver() {
-                        let candidates = $name::driver_entities(world);
-                        if best.as_ref().is_none_or(|current| candidates.len() < current.len()) {
-                            best = Some(candidates);
-                        }
-                    }
-                )+
-                best.unwrap_or_else(|| world.alive_entities())
-            }
-
-            fn matches(world: &World, entity: EntityId) -> bool {
-                true $(&& $name::matches(world, entity))+
-            }
-
-            fn fetch<'w>(world: &'w World, entity: EntityId) -> Option<Self::Item<'w>> {
-                Some(($($name::fetch(world, entity)?,)+))
-            }
-        }
-    };
-}
-
-impl_tuple_query!(A, B; 0, 1);
-impl_tuple_query!(A, B, C; 0, 1, 2);
-impl_tuple_query!(A, B, C, D; 0, 1, 2, 3);
-impl_tuple_query!(A, B, C, D, E; 0, 1, 2, 3, 4);
-impl_tuple_query!(A, B, C, D, E, F; 0, 1, 2, 3, 4, 5);
-impl_tuple_query!(A, B, C, D, E, F, G; 0, 1, 2, 3, 4, 5, 6);
-impl_tuple_query!(A, B, C, D, E, F, G, H; 0, 1, 2, 3, 4, 5, 6, 7);
