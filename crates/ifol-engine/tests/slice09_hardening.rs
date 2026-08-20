@@ -281,6 +281,7 @@ fn full_end_to_end_lifecycle_and_features() {
             command_registry: CommandRegistry::new(),
             schemas: ifol_engine::SchemaRegistry::new(),
             migrations: ifol_engine::MigrationRegistry::new(),
+            provider_manager: ifol_engine::ProviderManager::new(),
             package_lock: PackageLock { packages: vec![] },
             added_packages: vec![pkg_post],
             removed_packages: vec![],

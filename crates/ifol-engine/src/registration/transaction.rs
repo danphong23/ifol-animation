@@ -74,12 +74,14 @@ impl RegistrationTransaction {
         mut command_registry: CommandRegistry,
         mut schemas: crate::scene::SchemaRegistry,
         mut migrations: crate::scene::MigrationRegistry,
+        mut provider_manager: crate::provider::ProviderManager,
     ) -> Result<
         (
             ifol_ecs::EcsRuntime,
             CommandRegistry,
             crate::scene::SchemaRegistry,
             crate::scene::MigrationRegistry,
+            crate::provider::ProviderManager,
         ),
         TransactionError,
     > {
@@ -190,12 +192,16 @@ impl RegistrationTransaction {
                         reason: format!("migration registration failed: {error}"),
                     })?;
             }
+
+            for provider in staging.providers {
+                provider_manager.add(provider);
+            }
         }
 
         // 10. Compile schedule
         ecs.compile()?;
 
-        Ok((ecs, command_registry, schemas, migrations))
+        Ok((ecs, command_registry, schemas, migrations, provider_manager))
     }
 }
 

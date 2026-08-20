@@ -88,7 +88,7 @@ impl EngineBuilder {
     ///
     /// If registration or provider init fails, returns `EngineError` and tears down
     /// any partial state.
-    pub fn build(mut self) -> Result<EngineRuntime, EngineError> {
+    pub fn build(self) -> Result<EngineRuntime, EngineError> {
         let project = self.project;
         let mut resolver = PackageResolver::new();
         for package in &self.packages {
@@ -143,16 +143,22 @@ impl EngineBuilder {
         let ecs = ifol_ecs::EcsRuntime::new();
         let schemas = crate::scene::SchemaRegistry::new();
         let migrations = crate::scene::MigrationRegistry::new();
-        let (mut ecs, command_registry, schemas, migrations) =
-            transaction.commit(ecs, self.command_registry, schemas, migrations)?;
+        let (mut ecs, command_registry, schemas, migrations, mut provider_manager) = transaction
+            .commit(
+                ecs,
+                self.command_registry,
+                schemas,
+                migrations,
+                self.provider_manager,
+            )?;
 
         // Initialize resource providers topologically with fail-closed rollback
-        self.provider_manager.init_all(&mut ecs)?;
+        provider_manager.init_all(&mut ecs)?;
 
         Ok(EngineRuntime::from_parts(
             ecs,
             command_registry,
-            self.provider_manager,
+            provider_manager,
             package_lock,
             project,
             schemas,

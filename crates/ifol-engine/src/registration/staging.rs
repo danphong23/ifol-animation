@@ -68,6 +68,8 @@ pub struct StagedContribution {
     )>,
     /// Schema migration steps owned by the package.
     pub migrations: Vec<(crate::scene::SchemaId, u32, u32, crate::scene::MigrationFn)>,
+    /// Root resource providers owned by the package.
+    pub providers: Vec<Box<dyn crate::provider::ResourceProvider>>,
 }
 
 impl std::fmt::Debug for StagedContribution {
@@ -83,6 +85,7 @@ impl std::fmt::Debug for StagedContribution {
             .field("event_count", &self.events.len())
             .field("schema_count", &self.schemas.len())
             .field("migration_count", &self.migrations.len())
+            .field("provider_count", &self.providers.len())
             .finish()
     }
 }

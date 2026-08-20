@@ -20,6 +20,8 @@ pub struct ReconfigurationRequest {
     pub schemas: crate::scene::SchemaRegistry,
     /// Replacement package-owned migration registry candidate.
     pub migrations: crate::scene::MigrationRegistry,
+    /// Replacement provider manager candidate.
+    pub provider_manager: crate::provider::ProviderManager,
     /// Replacement resolved package lock.
     pub package_lock: crate::package::PackageLock,
     /// Package IDs added by this request, for diagnostics.

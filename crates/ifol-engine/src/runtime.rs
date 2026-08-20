@@ -155,6 +155,7 @@ impl EngineRuntime {
             command_registry,
             schemas,
             migrations,
+            provider_manager,
             package_lock: new_lock,
             added_packages,
             removed_packages,
@@ -165,14 +166,27 @@ impl EngineRuntime {
         let staging_cmd_reg = command_registry;
 
         // 2. Commit transaction onto staging ECS
-        let (staging_ecs, staging_cmd_reg, staging_schemas, staging_migrations) =
-            transaction.commit(staging_ecs, staging_cmd_reg, schemas, migrations)?;
+        let (
+            mut staging_ecs,
+            staging_cmd_reg,
+            staging_schemas,
+            staging_migrations,
+            mut provider_manager,
+        ) = transaction.commit(
+            staging_ecs,
+            staging_cmd_reg,
+            schemas,
+            migrations,
+            provider_manager,
+        )?;
+        provider_manager.init_all(&mut staging_ecs)?;
 
         // 3. Atomic swap
         self.ecs = staging_ecs;
         self.command_registry = staging_cmd_reg;
         self.schemas = staging_schemas;
         self.migrations = staging_migrations;
+        self.provider_manager = provider_manager;
         self.package_lock = new_lock.clone();
         self.revision = self.revision.wrapping_add(1);
 

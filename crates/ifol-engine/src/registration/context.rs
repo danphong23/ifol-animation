@@ -129,6 +129,11 @@ impl RegistrationContext {
             .push((schema, from_version, to_version, migration));
     }
 
+    /// Registers a package-owned root resource provider.
+    pub fn register_provider(&mut self, provider: Box<dyn crate::provider::ResourceProvider>) {
+        self.staging.providers.push(provider);
+    }
+
     /// Returns the owner package ID.
     pub fn owner(&self) -> &PackageId {
         &self.owner

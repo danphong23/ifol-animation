@@ -7,11 +7,33 @@ use ifol_engine::{
     MigrationRegistry, PackageId, PackageManifest, PackageRegistration, RegistrationContext,
     RegistrationTransaction, SceneDocument, SchemaId, SchemaRegistry, Version,
 };
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Value(u32);
 
 struct ValueCodec;
+
+struct CountingProvider(Arc<AtomicU32>);
+
+impl ifol_engine::ResourceProvider for CountingProvider {
+    fn id(&self) -> ifol_engine::ResourceId {
+        ifol_engine::ResourceId::new("test.counting-provider")
+    }
+
+    fn init(&mut self, _ecs: &mut ifol_ecs::EcsRuntime) -> Result<(), ifol_engine::ProviderError> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn teardown(
+        &mut self,
+        _ecs: &mut ifol_ecs::EcsRuntime,
+    ) -> Result<(), ifol_engine::ProviderError> {
+        Ok(())
+    }
+}
 
 impl ComponentCodec for ValueCodec {
     fn current_version(&self) -> u32 {
@@ -156,6 +178,7 @@ fn successful_reconfiguration_swaps_schema_registry_atomically() {
             command_registry: CommandRegistry::new(),
             schemas: SchemaRegistry::new(),
             migrations: MigrationRegistry::new(),
+            provider_manager: ifol_engine::ProviderManager::new(),
             package_lock: ifol_engine::PackageLock { packages: vec![] },
             added_packages: vec![],
             removed_packages: vec![],
@@ -164,4 +187,23 @@ fn successful_reconfiguration_swaps_schema_registry_atomically() {
 
     assert_eq!(report.revision, 1);
     assert_eq!(engine.schema_registry().len(), 1);
+}
+
+#[test]
+fn package_provider_is_staged_and_initialized_after_registration() {
+    let initialized = Arc::new(AtomicU32::new(0));
+    let provider_counter = initialized.clone();
+    let package = PackageRegistration::new(
+        manifest("pkg-provider"),
+        move |context: &mut RegistrationContext| {
+            context.register_provider(Box::new(CountingProvider(provider_counter)));
+        },
+    );
+
+    let mut engine = EngineBuilder::new()
+        .register_package(package)
+        .build()
+        .unwrap();
+    assert_eq!(initialized.load(Ordering::SeqCst), 1);
+    engine.shutdown().unwrap();
 }
