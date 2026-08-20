@@ -23,6 +23,7 @@ pub struct EngineRuntime {
     ecs: ifol_ecs::EcsRuntime,
     command_registry: crate::registration::CommandRegistry,
     provider_manager: crate::provider::ProviderManager,
+    package_lock: crate::package::PackageLock,
     state: EngineState,
     revision: u64,
 }
@@ -34,6 +35,7 @@ impl std::fmt::Debug for EngineRuntime {
             .field("revision", &self.revision)
             .field("command_registry", &self.command_registry)
             .field("provider_manager", &self.provider_manager)
+            .field("package_lock", &self.package_lock)
             .finish()
     }
 }
@@ -47,11 +49,13 @@ impl EngineRuntime {
         ecs: ifol_ecs::EcsRuntime,
         command_registry: crate::registration::CommandRegistry,
         provider_manager: crate::provider::ProviderManager,
+        package_lock: crate::package::PackageLock,
     ) -> Self {
         Self {
             ecs,
             command_registry,
             provider_manager,
+            package_lock,
             state: EngineState::Ready,
             revision: 0,
         }
@@ -81,6 +85,12 @@ impl EngineRuntime {
     #[inline]
     pub fn revision(&self) -> u64 {
         self.revision
+    }
+
+    /// Returns the resolved package lock used to construct this runtime.
+    #[inline]
+    pub fn package_lock(&self) -> &crate::package::PackageLock {
+        &self.package_lock
     }
 
     // ── Dynamic Reconfiguration ─────────────────────────────────────

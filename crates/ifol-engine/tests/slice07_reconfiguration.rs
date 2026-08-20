@@ -13,25 +13,29 @@ use ifol_engine::{
     RegistrationTransaction, StepInput,
 };
 
+mod support;
+use support::inline_package;
+
 #[test]
 fn dynamic_reconfiguration_successful_swap() {
     let pkg_a = PackageId::new("pkg-a").unwrap();
     let pkg_b = PackageId::new("pkg-b").unwrap();
     let phase_update = PhaseId::new("update");
     let phase_render = PhaseId::new("render");
+    let phase_update_for_package = phase_update.clone();
 
     // 1. Initial engine with pkg-a only
     let mut engine = EngineBuilder::new()
-        .with_package(pkg_a.clone(), |ctx| {
-            ctx.register_phase(phase_update.clone());
+        .register_package(inline_package(pkg_a.clone(), move |ctx| {
+            ctx.register_phase(phase_update_for_package.clone());
             ctx.register_system(
                 "sys_a",
-                phase_update.clone(),
+                phase_update_for_package,
                 |_: &mut SystemContext<'_>| Ok(()),
                 AccessDescriptor::new(),
                 vec![],
             );
-        })
+        }))
         .build()
         .unwrap();
 
@@ -87,19 +91,20 @@ fn failed_reconfiguration_preserves_live_runtime() {
     let pkg_bad = PackageId::new("pkg-bad").unwrap();
     let p1 = PhaseId::new("p1");
     let p2 = PhaseId::new("p2");
+    let p1_for_package = p1.clone();
 
     // 1. Initial stable engine with pkg-a
     let mut engine = EngineBuilder::new()
-        .with_package(pkg_a.clone(), |ctx| {
-            ctx.register_phase(p1.clone());
+        .register_package(inline_package(pkg_a.clone(), move |ctx| {
+            ctx.register_phase(p1_for_package.clone());
             ctx.register_system(
                 "sys_a",
-                p1.clone(),
+                p1_for_package,
                 |_: &mut SystemContext<'_>| Ok(()),
                 AccessDescriptor::new(),
                 vec![],
             );
-        })
+        }))
         .build()
         .unwrap();
 

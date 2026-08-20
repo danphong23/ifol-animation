@@ -46,6 +46,13 @@ pub enum EngineError {
     #[error("package resolution error: {0}")]
     Resolution(#[from] crate::package::ResolveError),
 
+    /// A resolved package failed while preparing its contribution.
+    #[error("package '{package}' preparation failed: {reason}")]
+    PackagePreparation {
+        package: crate::package::PackageId,
+        reason: String,
+    },
+
     /// Resource provider error.
     #[error("resource provider error: {0}")]
     Provider(#[from] crate::provider::ProviderError),

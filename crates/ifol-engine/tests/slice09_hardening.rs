@@ -17,7 +17,10 @@ use ifol_engine::{
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use support::{TestMotionPackage, TestRendererPackage, TestTimelinePackage};
+use support::{
+    TestMotionPackage, TestRendererPackage, TestTimelinePackage, inline_package,
+    inline_package_with_dependency,
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // 1. THREAD-SAFETY ASSERTIONS
@@ -59,13 +62,19 @@ fn stress_test_1000_steps_determinism() {
     let pkg_r = TestRendererPackage::new();
 
     let mut engine = EngineBuilder::new()
-        .with_package(TestTimelinePackage::id(), move |ctx| {
+        .register_package(inline_package(TestTimelinePackage::id(), move |ctx| {
             pkg_t.register(ctx, tc)
-        })
-        .with_package(TestMotionPackage::id(), move |ctx| pkg_m.register(ctx, mc))
-        .with_package(TestRendererPackage::id(), move |ctx| {
-            pkg_r.register(ctx, rc)
-        })
+        }))
+        .register_package(inline_package_with_dependency(
+            TestMotionPackage::id(),
+            TestTimelinePackage::id(),
+            move |ctx| pkg_m.register(ctx, mc),
+        ))
+        .register_package(inline_package_with_dependency(
+            TestRendererPackage::id(),
+            TestMotionPackage::id(),
+            move |ctx| pkg_r.register(ctx, rc),
+        ))
         .build()
         .unwrap();
 
@@ -95,16 +104,19 @@ fn stress_test_1000_steps_determinism() {
 fn repeated_construction_and_shutdown_cycles() {
     for _ in 0..50 {
         let mut engine = EngineBuilder::new()
-            .with_package(PackageId::new("pkg-ephemeral").unwrap(), |ctx| {
-                ctx.register_phase(PhaseId::new("update"));
-                ctx.register_system(
-                    "noop",
-                    PhaseId::new("update"),
-                    |_: &mut SystemContext<'_>| Ok(()),
-                    AccessDescriptor::new(),
-                    vec![],
-                );
-            })
+            .register_package(inline_package(
+                PackageId::new("pkg-ephemeral").unwrap(),
+                |ctx| {
+                    ctx.register_phase(PhaseId::new("update"));
+                    ctx.register_system(
+                        "noop",
+                        PhaseId::new("update"),
+                        |_: &mut SystemContext<'_>| Ok(()),
+                        AccessDescriptor::new(),
+                        vec![],
+                    );
+                },
+            ))
             .build()
             .unwrap();
 
@@ -199,24 +211,31 @@ fn full_end_to_end_lifecycle_and_features() {
     // D. Build Engine Runtime
     let mut engine = EngineBuilder::new()
         .with_provider(MockDeviceProvider)
-        .with_package(PackageId::new("core-render").unwrap(), |ctx| {
-            ctx.register_phase(PhaseId::new("render"));
-            ctx.register_command(
-                CommandId("render.flush".into()),
-                Box::new(|_| Ok(b"flushed".to_vec())),
-            );
-        })
-        .with_package(PackageId::new("app-motion").unwrap(), |ctx| {
-            ctx.register_phase(PhaseId::new("motion"));
-            ctx.add_phase_edge(PhaseId::new("motion"), PhaseId::new("render"));
-            ctx.register_system(
-                "motion_system",
-                PhaseId::new("motion"),
-                |_: &mut SystemContext<'_>| Ok(()),
-                AccessDescriptor::new(),
-                vec![],
-            );
-        })
+        .register_package(inline_package(
+            PackageId::new("core-render").unwrap(),
+            |ctx| {
+                ctx.register_phase(PhaseId::new("render"));
+                ctx.register_command(
+                    CommandId("render.flush".into()),
+                    Box::new(|_| Ok(b"flushed".to_vec())),
+                );
+            },
+        ))
+        .register_package(inline_package_with_dependency(
+            PackageId::new("app-motion").unwrap(),
+            PackageId::new("core-render").unwrap(),
+            |ctx| {
+                ctx.register_phase(PhaseId::new("motion"));
+                ctx.add_phase_edge(PhaseId::new("motion"), PhaseId::new("render"));
+                ctx.register_system(
+                    "motion_system",
+                    PhaseId::new("motion"),
+                    |_: &mut SystemContext<'_>| Ok(()),
+                    AccessDescriptor::new(),
+                    vec![],
+                );
+            },
+        ))
         .build()
         .unwrap();
 

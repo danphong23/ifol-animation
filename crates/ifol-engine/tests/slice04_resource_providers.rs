@@ -12,8 +12,11 @@ use ifol_ecs::{AccessDescriptor, PhaseId, SystemContext};
 use ifol_engine::{
     EngineBuilder, EngineError, PackageId, ProviderError, ResourceId, ResourceProvider, StepInput,
 };
+
+mod support;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use support::inline_package;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct GpuContext {
@@ -272,12 +275,12 @@ fn provider_injects_world_singleton_usable_by_systems() {
 
     let mut engine = EngineBuilder::new()
         .with_provider(SingletonGpuProvider)
-        .with_package(pkg_id, move |ctx| {
+        .register_package(inline_package(pkg_id, move |ctx| {
             ctx.register_phase(phase.clone());
             let exec_inner = Arc::clone(&exec_clone);
             ctx.register_system(
                 "gpu_read_system",
-                phase,
+                phase.clone(),
                 move |ctx: &mut SystemContext<'_>| {
                     exec_inner.fetch_add(1, Ordering::SeqCst);
                     let _ = ctx.system_name();
@@ -286,7 +289,7 @@ fn provider_injects_world_singleton_usable_by_systems() {
                 AccessDescriptor::new(),
                 vec![],
             );
-        })
+        }))
         .build()
         .unwrap();
 

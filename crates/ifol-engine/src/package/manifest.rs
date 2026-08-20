@@ -3,6 +3,72 @@
 
 use super::PackageId;
 use super::version::{Version, VersionReq};
+use crate::registration::RegistrationContext;
+use std::sync::Mutex;
+use thiserror::Error;
+
+/// Error returned when a package cannot prepare its contribution.
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum PackageError {
+    #[error("package registration failed: {0}")]
+    Registration(String),
+
+    #[error("package registration was already consumed")]
+    AlreadyRegistered,
+}
+
+/// The package contract consumed by `ifol-engine`.
+///
+/// A package owns its semantics and contributes only through the controlled
+/// [`RegistrationContext`]. The engine uses the manifest for resolution and
+/// invokes `register` only after the complete package set is resolved.
+pub trait EnginePackage: Send + Sync {
+    /// Returns the stable manifest used for dependency resolution.
+    fn manifest(&self) -> &PackageManifest;
+
+    /// Stages this package's ECS/project contribution.
+    fn register(&self, context: &mut RegistrationContext) -> Result<(), PackageError>;
+}
+
+/// Programmatic package adapter for static registration and tests.
+///
+/// This is an explicit package object, not a hidden engine feature. Production
+/// packages may implement [`EnginePackage`] directly when they need richer
+/// ownership or lifecycle behavior.
+pub struct PackageRegistration<F> {
+    manifest: PackageManifest,
+    register_fn: Mutex<Option<F>>,
+}
+
+impl<F> PackageRegistration<F> {
+    /// Creates a package from a manifest and a registration function.
+    pub fn new(manifest: PackageManifest, register_fn: F) -> Self {
+        Self {
+            manifest,
+            register_fn: Mutex::new(Some(register_fn)),
+        }
+    }
+}
+
+impl<F> EnginePackage for PackageRegistration<F>
+where
+    F: FnOnce(&mut RegistrationContext) + Send,
+{
+    fn manifest(&self) -> &PackageManifest {
+        &self.manifest
+    }
+
+    fn register(&self, context: &mut RegistrationContext) -> Result<(), PackageError> {
+        let register_fn = self
+            .register_fn
+            .lock()
+            .map_err(|_| PackageError::Registration("registration lock poisoned".into()))?
+            .take()
+            .ok_or(PackageError::AlreadyRegistered)?;
+        register_fn(context);
+        Ok(())
+    }
+}
 
 /// A dependency constraint declared by a package.
 #[derive(Debug, Clone, PartialEq, Eq)]

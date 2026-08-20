@@ -11,10 +11,12 @@ project và `step()` hữu hạn trên `EcsRuntime`.
 Acceptance: build/step/reconfigure/shutdown hợp lệ; misuse trả typed error;
 runtime rỗng deterministic.
 
-## Slice 2 — Package identity và resolver
+## Slice 2 — Package identity, resolver và package contract
 
-Xây stable IDs, manifests, semantic constraints, package sources, deterministic
-dependency resolver và lock result.
+Xây stable IDs, manifests, semantic constraints, `EnginePackage`, programmatic
+package adapter, deterministic dependency resolver và lock result. Builder phải
+resolve toàn bộ manifest trước khi gọi bất kỳ package registration nào, sau đó
+đăng ký theo topological lock order.
 
 Acceptance: duplicate, missing, incompatible version, cycle, multiple candidates,
 input-order permutation và platform capability đều được test.

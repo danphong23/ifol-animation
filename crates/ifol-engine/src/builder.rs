@@ -1,5 +1,5 @@
 use crate::error::EngineError;
-use crate::package::PackageId;
+use crate::package::{EnginePackage, PackageId, PackageResolver};
 use crate::provider::{ProviderManager, ResourceProvider};
 use crate::registration::{CommandRegistry, RegistrationContext, RegistrationTransaction};
 use crate::runtime::EngineRuntime;
@@ -10,7 +10,7 @@ use crate::state::EngineState;
 /// # Contract
 ///
 /// - The builder starts in the `Building` state.
-/// - `with_package` allows packages to contribute components, systems, phases, etc.
+/// - `register_package` supplies a package manifest and its contribution callback.
 /// - `with_provider` registers root resource providers with topological initialization.
 /// - `build()` validates all accumulated configuration, executes the registration
 ///   transaction atomically, compiles the ECS schedule, and transitions to `Ready`.
@@ -19,18 +19,26 @@ use crate::state::EngineState;
 /// # Example
 ///
 /// ```rust
-/// use ifol_engine::{EngineBuilder, PackageId};
+/// use ifol_engine::{EngineBuilder, EnginePackage, PackageManifest, PackageId, RegistrationContext,
+///     Version};
+///
+/// struct DemoPackage(PackageManifest);
+/// impl EnginePackage for DemoPackage {
+///     fn manifest(&self) -> &PackageManifest { &self.0 }
+///     fn register(&self, _context: &mut RegistrationContext) -> Result<(), ifol_engine::PackageError> {
+///         Ok(())
+///     }
+/// }
 ///
 /// let engine = EngineBuilder::new()
-///     .with_package(PackageId::new("pkg-demo").unwrap(), |ctx| {
-///         // register components, systems, etc.
-///     })
+///     .register_package(DemoPackage(PackageManifest::new(
+///         PackageId::new("pkg-demo").unwrap(), Version::new(1, 0, 0))))
 ///     .build()
 ///     .unwrap();
 /// assert_eq!(engine.state(), ifol_engine::EngineState::Ready);
 /// ```
 pub struct EngineBuilder {
-    transaction: RegistrationTransaction,
+    packages: Vec<Box<dyn EnginePackage>>,
     command_registry: CommandRegistry,
     provider_manager: ProviderManager,
     _state: EngineState,
@@ -40,21 +48,23 @@ impl EngineBuilder {
     /// Creates a new builder in the `Building` state.
     pub fn new() -> Self {
         Self {
-            transaction: RegistrationTransaction::new(),
+            packages: Vec::new(),
             command_registry: CommandRegistry::new(),
             provider_manager: ProviderManager::new(),
             _state: EngineState::Building,
         }
     }
 
-    /// Registers a package and collects its contributions through a [`RegistrationContext`].
-    pub fn with_package<F>(mut self, package: PackageId, f: F) -> Self
+    /// Adds one package candidate to the builder.
+    ///
+    /// The package is not registered immediately. Its manifest is resolved
+    /// with all other candidates first; contribution registration happens in
+    /// deterministic dependency order during `build`.
+    pub fn register_package<P>(mut self, package: P) -> Self
     where
-        F: FnOnce(&mut RegistrationContext),
+        P: EnginePackage + 'static,
     {
-        let mut ctx = RegistrationContext::new(package.clone());
-        f(&mut ctx);
-        self.transaction.stage(package, ctx.into_staging());
+        self.packages.push(Box::new(package));
         self
     }
 
@@ -70,9 +80,42 @@ impl EngineBuilder {
     /// If registration or provider init fails, returns `EngineError` and tears down
     /// any partial state.
     pub fn build(mut self) -> Result<EngineRuntime, EngineError> {
+        let mut resolver = PackageResolver::new();
+        for package in &self.packages {
+            resolver.add(package.manifest().clone());
+        }
+        let package_lock = resolver.resolve()?;
+
+        let mut candidates: std::collections::BTreeMap<PackageId, Box<dyn EnginePackage>> = self
+            .packages
+            .into_iter()
+            .map(|package| (package.manifest().id.clone(), package))
+            .collect();
+
+        let mut transaction = RegistrationTransaction::new();
+        for resolved in &package_lock.packages {
+            let package =
+                candidates
+                    .remove(&resolved.id)
+                    .ok_or_else(|| EngineError::BuildFailed {
+                        reason: format!(
+                            "resolved package '{}' has no registered package candidate",
+                            resolved.id
+                        ),
+                    })?;
+            let package_id = resolved.id.clone();
+            let mut context = RegistrationContext::new(package_id.clone());
+            package
+                .register(&mut context)
+                .map_err(|error| EngineError::PackagePreparation {
+                    package: package_id.clone(),
+                    reason: error.to_string(),
+                })?;
+            transaction.stage(package_id, context.into_staging());
+        }
+
         let mut ecs = ifol_ecs::EcsRuntime::new();
-        self.transaction
-            .commit(&mut ecs, &mut self.command_registry)?;
+        transaction.commit(&mut ecs, &mut self.command_registry)?;
 
         // Initialize resource providers topologically with fail-closed rollback
         self.provider_manager.init_all(&mut ecs)?;
@@ -81,6 +124,7 @@ impl EngineBuilder {
             ecs,
             self.command_registry,
             self.provider_manager,
+            package_lock,
         ))
     }
 }

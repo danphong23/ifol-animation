@@ -3,10 +3,53 @@
 //! These fixtures intentionally live outside the library so test-only package
 //! behavior cannot become production API or a hidden built-in feature.
 
+#![allow(dead_code)]
+
 use ifol_ecs::{AccessDescriptor, PhaseId, SystemContext};
-use ifol_engine::{PackageId, RegistrationContext};
+use ifol_engine::{
+    PackageDependency, PackageId, PackageManifest, PackageRegistration, RegistrationContext,
+    Version, VersionReq,
+};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+pub fn inline_package<F>(id: PackageId, register: F) -> PackageRegistration<F>
+where
+    F: FnOnce(&mut RegistrationContext) + Send,
+{
+    inline_package_with_dependencies(id, Vec::new(), register)
+}
+
+pub fn inline_package_with_dependency<F>(
+    id: PackageId,
+    dependency: PackageId,
+    register: F,
+) -> PackageRegistration<F>
+where
+    F: FnOnce(&mut RegistrationContext) + Send,
+{
+    inline_package_with_dependencies(id, vec![dependency], register)
+}
+
+pub fn inline_package_with_dependencies<F>(
+    id: PackageId,
+    dependencies: Vec<PackageId>,
+    register: F,
+) -> PackageRegistration<F>
+where
+    F: FnOnce(&mut RegistrationContext) + Send,
+{
+    let manifest = dependencies.into_iter().fold(
+        PackageManifest::new(id, Version::new(1, 0, 0)),
+        |manifest, dependency| {
+            manifest.with_dependency(PackageDependency {
+                package_id: dependency,
+                version_req: VersionReq::caret(Version::new(1, 0, 0)),
+            })
+        },
+    );
+    PackageRegistration::new(manifest, register)
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ClockTime {

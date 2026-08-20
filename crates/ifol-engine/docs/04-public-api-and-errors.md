@@ -23,6 +23,10 @@ EngineRuntime
 └── shutdown() -> ShutdownReport
 ```
 
+`register_package` nhận một `EnginePackage`, không nhận domain enum hoặc path
+implementation. Runtime lưu `PackageLock` immutable của lần build để host và
+diagnostics có thể kiểm tra chính xác package set đã được resolve.
+
 API cụ thể có thể tách type theo borrow/async requirement, nhưng không mở raw
 mutable `EcsRuntime` cho adapter bình thường. Bootstrap/test có controlled access
 riêng; package chỉ dùng `RegistrationContext` và `SystemContext`.

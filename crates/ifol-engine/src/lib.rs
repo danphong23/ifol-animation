@@ -16,8 +16,8 @@ pub mod state;
 pub use builder::EngineBuilder;
 pub use error::EngineError;
 pub use package::{
-    PackageDependency, PackageId, PackageLock, PackageManifest, PackageResolver, ResolveError,
-    ResolvedPackage, Version, VersionReq,
+    EnginePackage, PackageDependency, PackageError, PackageId, PackageLock, PackageManifest,
+    PackageRegistration, PackageResolver, ResolveError, ResolvedPackage, Version, VersionReq,
 };
 pub use project::{
     CURRENT_FORMAT_VERSION, MemoryStorage, Namespace, NamespaceError, NamespaceRegistry,

@@ -8,7 +8,9 @@ mod manifest;
 mod resolver;
 mod version;
 
-pub use manifest::{PackageDependency, PackageManifest};
+pub use manifest::{
+    EnginePackage, PackageDependency, PackageError, PackageManifest, PackageRegistration,
+};
 pub use resolver::{PackageLock, PackageResolver, ResolveError, ResolvedPackage};
 pub use version::{Version, VersionReq};
 

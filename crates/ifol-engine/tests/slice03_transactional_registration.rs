@@ -12,6 +12,9 @@ use ifol_engine::{
     CommandId, EngineBuilder, EngineError, PackageId, QueryId, StepInput, TransactionError,
 };
 
+mod support;
+use support::inline_package;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Position {
     _x: i32,
@@ -46,7 +49,7 @@ fn single_package_registration() {
     let pkg_id = PackageId::new("pkg-motion").unwrap();
 
     let engine = EngineBuilder::new()
-        .with_package(pkg_id, |ctx| {
+        .register_package(inline_package(pkg_id, move |ctx| {
             ctx.register_component::<Position>();
             ctx.register_component::<Velocity>();
             ctx.register_world_singleton::<FrameCounter>();
@@ -58,7 +61,7 @@ fn single_package_registration() {
                 AccessDescriptor::new(),
                 vec![],
             );
-        })
+        }))
         .build();
 
     assert!(engine.is_ok(), "registration must succeed");
@@ -73,7 +76,7 @@ fn multi_package_registration() {
     let pkg_b = PackageId::new("pkg-b").unwrap();
 
     let engine = EngineBuilder::new()
-        .with_package(pkg_a, |ctx| {
+        .register_package(inline_package(pkg_a, |ctx| {
             ctx.register_component::<Position>();
             ctx.register_phase(phase_update());
             ctx.register_system(
@@ -83,8 +86,8 @@ fn multi_package_registration() {
                 AccessDescriptor::new(),
                 vec![],
             );
-        })
-        .with_package(pkg_b, |ctx| {
+        }))
+        .register_package(inline_package(pkg_b, |ctx| {
             ctx.register_component::<Velocity>();
             ctx.register_phase(phase_render());
             ctx.add_phase_edge(phase_update(), phase_render());
@@ -95,7 +98,7 @@ fn multi_package_registration() {
                 AccessDescriptor::new(),
                 vec![],
             );
-        })
+        }))
         .build();
 
     assert!(engine.is_ok());
@@ -114,7 +117,7 @@ fn command_query_event_registration() {
     let pkg_id = PackageId::new("pkg-commands").unwrap();
 
     let engine = EngineBuilder::new()
-        .with_package(pkg_id, |ctx| {
+        .register_package(inline_package(pkg_id, move |ctx| {
             ctx.register_command(
                 CommandId("math.add".into()),
                 Box::new(|payload| {
@@ -129,7 +132,7 @@ fn command_query_event_registration() {
                 QueryId("status.ping".into()),
                 Box::new(|_| Ok(b"pong".to_vec())),
             );
-        })
+        }))
         .build()
         .unwrap();
 
@@ -151,12 +154,12 @@ fn cycle_in_phase_graph_aborts_build() {
     let p2 = PhaseId::new("phase2");
 
     let result = EngineBuilder::new()
-        .with_package(pkg_id, |ctx| {
+        .register_package(inline_package(pkg_id, move |ctx| {
             ctx.register_phase(p1.clone());
             ctx.register_phase(p2.clone());
             ctx.add_phase_edge(p1.clone(), p2.clone());
-            ctx.add_phase_edge(p2, p1); // cycle!
-        })
+            ctx.add_phase_edge(p2.clone(), p1.clone()); // cycle!
+        }))
         .build();
 
     assert!(result.is_err(), "build with phase cycle must fail");
@@ -182,14 +185,16 @@ fn duplicate_command_aborts_build() {
     let pkg_a = PackageId::new("pkg-a").unwrap();
     let pkg_b = PackageId::new("pkg-b").unwrap();
     let cmd_id = CommandId("duplicate.cmd".into());
+    let cmd_id_a = cmd_id.clone();
+    let cmd_id_b = cmd_id.clone();
 
     let result = EngineBuilder::new()
-        .with_package(pkg_a, |ctx| {
-            ctx.register_command(cmd_id.clone(), Box::new(|_| Ok(vec![])));
-        })
-        .with_package(pkg_b, |ctx| {
-            ctx.register_command(cmd_id.clone(), Box::new(|_| Ok(vec![])));
-        })
+        .register_package(inline_package(pkg_a, move |ctx| {
+            ctx.register_command(cmd_id_a, Box::new(|_| Ok(vec![])));
+        }))
+        .register_package(inline_package(pkg_b, move |ctx| {
+            ctx.register_command(cmd_id_b, Box::new(|_| Ok(vec![])));
+        }))
         .build();
 
     assert!(result.is_err(), "build with duplicate command must fail");
@@ -211,7 +216,7 @@ fn multi_step_execution_with_state() {
     let pkg_id = PackageId::new("pkg-counter").unwrap();
 
     let mut engine = EngineBuilder::new()
-        .with_package(pkg_id, |ctx| {
+        .register_package(inline_package(pkg_id, |ctx| {
             ctx.register_phase(phase_update());
             ctx.register_system(
                 "tick",
@@ -220,7 +225,7 @@ fn multi_step_execution_with_state() {
                 AccessDescriptor::new(),
                 vec![],
             );
-        })
+        }))
         .build()
         .unwrap();
 

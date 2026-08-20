@@ -42,3 +42,7 @@ path = "tests/slice08_dev_test_packages.rs"
 [[test]]
 name = "slice09_hardening"
 path = "tests/slice09_hardening.rs"
+
+[[test]]
+name = "slice10_package_contract"
+path = "tests/slice10_package_contract.rs"

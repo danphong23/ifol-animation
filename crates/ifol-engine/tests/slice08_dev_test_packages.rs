@@ -11,7 +11,10 @@ mod support;
 use ifol_engine::{EngineBuilder, StepInput};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use support::{TestMotionPackage, TestRendererPackage, TestTimelinePackage};
+use support::{
+    TestMotionPackage, TestRendererPackage, TestTimelinePackage, inline_package,
+    inline_package_with_dependency,
+};
 
 #[test]
 fn multi_package_pipeline_ordering_and_execution() {
@@ -28,15 +31,23 @@ fn multi_package_pipeline_ordering_and_execution() {
     let pkg_renderer = TestRendererPackage::new();
 
     let mut engine = EngineBuilder::new()
-        .with_package(TestTimelinePackage::id(), move |ctx| {
+        .register_package(inline_package(TestTimelinePackage::id(), move |ctx| {
             pkg_timeline.register(ctx, tc_clone);
-        })
-        .with_package(TestMotionPackage::id(), move |ctx| {
-            pkg_motion.register(ctx, mc_clone);
-        })
-        .with_package(TestRendererPackage::id(), move |ctx| {
-            pkg_renderer.register(ctx, rc_clone);
-        })
+        }))
+        .register_package(inline_package_with_dependency(
+            TestMotionPackage::id(),
+            TestTimelinePackage::id(),
+            move |ctx| {
+                pkg_motion.register(ctx, mc_clone);
+            },
+        ))
+        .register_package(inline_package_with_dependency(
+            TestRendererPackage::id(),
+            TestMotionPackage::id(),
+            move |ctx| {
+                pkg_renderer.register(ctx, rc_clone);
+            },
+        ))
         .build()
         .unwrap();
 

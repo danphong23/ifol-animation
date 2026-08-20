@@ -12,6 +12,12 @@ Runtime không phân loại feature thành foundation/content/composition. Packa
 thể đăng ký bất kỳ tổ hợp contract hợp lệ nào; dependency và phase graph quyết
 định quan hệ.
 
+Package author surface là `EnginePackage`: package cung cấp immutable
+`PackageManifest` và một lần `register(&mut RegistrationContext)`. Builder thu
+thập toàn bộ manifest trước, resolve dependency graph, sau đó gọi registration
+theo `PackageLock` deterministic. Package không được đăng ký contribution trước
+khi graph resolve thành công.
+
 ## 2. Manifest
 
 Manifest generic tối thiểu:
