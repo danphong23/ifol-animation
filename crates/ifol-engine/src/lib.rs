@@ -5,6 +5,7 @@ pub mod error;
 pub mod package;
 pub mod project;
 pub mod provider;
+pub mod reconfiguration;
 pub mod registration;
 pub mod report;
 pub mod runtime;
@@ -24,6 +25,7 @@ pub use project::{
     StorageError,
 };
 pub use provider::{ProviderError, ProviderManager, ResourceId, ResourceProvider};
+pub use reconfiguration::{ReconfigurationError, ReconfigurationPlan, ReconfigurationReport};
 pub use registration::{
     CommandHandler, CommandId, CommandReceipt, CommandRegistry, EventDescriptor, EventId,
     QueryHandler, QueryId, RegistrationContext, RegistrationTransaction, TransactionError,

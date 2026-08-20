@@ -41,6 +41,16 @@ impl RegistrationTransaction {
         self.packages.push((package, staging));
     }
 
+    /// Stages package contributions collected via a `RegistrationContext`.
+    pub fn stage_package<F>(&mut self, package: PackageId, f: F)
+    where
+        F: FnOnce(&mut crate::registration::RegistrationContext),
+    {
+        let mut ctx = crate::registration::RegistrationContext::new(package.clone());
+        f(&mut ctx);
+        self.stage(package, ctx.into_staging());
+    }
+
     /// Applies all staged contributions to a target `EcsRuntime` and `CommandRegistry`,
     /// then compiles the ECS schedule.
     ///

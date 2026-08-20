@@ -30,3 +30,7 @@ path = "tests/slice05_project_and_namespace.rs"
 [[test]]
 name = "slice06_scene_and_migration"
 path = "tests/slice06_scene_and_migration.rs"
+
+[[test]]
+name = "slice07_reconfiguration"
+path = "tests/slice07_reconfiguration.rs"

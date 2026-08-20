@@ -83,6 +83,42 @@ impl EngineRuntime {
         self.revision
     }
 
+    // ── Dynamic Reconfiguration ─────────────────────────────────────
+
+    /// Dynamically reconfigures the active packages and schedule using an atomic stage-and-swap transaction.
+    ///
+    /// If registration or schedule compilation fails, the live runtime remains completely
+    /// untouched and in the `Ready` state.
+    pub fn reconfigure(
+        &mut self,
+        transaction: crate::registration::RegistrationTransaction,
+        command_registry: crate::registration::CommandRegistry,
+        new_lock: crate::package::PackageLock,
+        added_packages: Vec<crate::package::PackageId>,
+        removed_packages: Vec<crate::package::PackageId>,
+    ) -> Result<crate::reconfiguration::ReconfigurationReport, EngineError> {
+        self.require_state(EngineState::Ready, "reconfigure")?;
+
+        // 1. Build staging runtime
+        let mut staging_ecs = ifol_ecs::EcsRuntime::new();
+        let mut staging_cmd_reg = command_registry;
+
+        // 2. Commit transaction onto staging ECS
+        transaction.commit(&mut staging_ecs, &mut staging_cmd_reg)?;
+
+        // 3. Atomic swap
+        self.ecs = staging_ecs;
+        self.command_registry = staging_cmd_reg;
+        self.revision = self.revision.wrapping_add(1);
+
+        Ok(crate::reconfiguration::ReconfigurationReport {
+            added_packages,
+            removed_packages,
+            new_lock,
+            revision: self.revision,
+        })
+    }
+
     // ── Step ────────────────────────────────────────────────────────
 
     /// Executes one finite step on the ECS world.

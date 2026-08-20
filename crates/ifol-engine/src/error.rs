@@ -57,4 +57,8 @@ pub enum EngineError {
     /// Scene loading, codec, or migration error.
     #[error("scene error: {0}")]
     Scene(#[from] crate::scene::SceneError),
+
+    /// Dynamic reconfiguration error.
+    #[error("reconfiguration error: {0}")]
+    Reconfiguration(#[from] crate::reconfiguration::ReconfigurationError),
 }
