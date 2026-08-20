@@ -27,8 +27,20 @@ pub struct EngineRuntime {
     project: Option<crate::project::ProjectContainer>,
     schemas: crate::scene::SchemaRegistry,
     migrations: crate::scene::MigrationRegistry,
+    namespaces: crate::project::NamespaceRegistry,
     state: EngineState,
     revision: u64,
+}
+
+pub(crate) struct RuntimeParts {
+    pub ecs: ifol_ecs::EcsRuntime,
+    pub command_registry: crate::registration::CommandRegistry,
+    pub provider_manager: crate::provider::ProviderManager,
+    pub package_lock: crate::package::PackageLock,
+    pub project: Option<crate::project::ProjectContainer>,
+    pub schemas: crate::scene::SchemaRegistry,
+    pub migrations: crate::scene::MigrationRegistry,
+    pub namespaces: crate::project::NamespaceRegistry,
 }
 
 impl std::fmt::Debug for EngineRuntime {
@@ -41,6 +53,7 @@ impl std::fmt::Debug for EngineRuntime {
             .field("package_lock", &self.package_lock)
             .field("has_project", &self.project.is_some())
             .field("schema_count", &self.schemas.len())
+            .field("namespace_count", &self.namespaces.len())
             .finish()
     }
 }
@@ -50,23 +63,16 @@ impl EngineRuntime {
 
     /// Create a runtime from pre-validated parts.
     /// Only called by `EngineBuilder::build()`.
-    pub(crate) fn from_parts(
-        ecs: ifol_ecs::EcsRuntime,
-        command_registry: crate::registration::CommandRegistry,
-        provider_manager: crate::provider::ProviderManager,
-        package_lock: crate::package::PackageLock,
-        project: Option<crate::project::ProjectContainer>,
-        schemas: crate::scene::SchemaRegistry,
-        migrations: crate::scene::MigrationRegistry,
-    ) -> Self {
+    pub(crate) fn from_parts(parts: RuntimeParts) -> Self {
         Self {
-            ecs,
-            command_registry,
-            provider_manager,
-            package_lock,
-            project,
-            schemas,
-            migrations,
+            ecs: parts.ecs,
+            command_registry: parts.command_registry,
+            provider_manager: parts.provider_manager,
+            package_lock: parts.package_lock,
+            project: parts.project,
+            schemas: parts.schemas,
+            migrations: parts.migrations,
+            namespaces: parts.namespaces,
             state: EngineState::Ready,
             revision: 0,
         }
@@ -122,6 +128,12 @@ impl EngineRuntime {
         &self.migrations
     }
 
+    /// Returns the project namespace claims active in this runtime.
+    #[inline]
+    pub fn namespace_registry(&self) -> &crate::project::NamespaceRegistry {
+        &self.namespaces
+    }
+
     /// Loads one validated scene document into the ECS world atomically.
     pub fn load_scene(
         &mut self,
@@ -158,6 +170,7 @@ impl EngineRuntime {
             schemas,
             migrations,
             provider_manager,
+            namespaces,
             package_lock: new_lock,
             added_packages,
             removed_packages,
@@ -174,12 +187,14 @@ impl EngineRuntime {
             staging_schemas,
             staging_migrations,
             mut provider_manager,
+            staging_namespaces,
         ) = transaction.commit(
             staging_ecs,
             staging_cmd_reg,
             schemas,
             migrations,
             provider_manager,
+            namespaces,
         )?;
         provider_manager.init_all(&mut staging_ecs)?;
 
@@ -198,6 +213,7 @@ impl EngineRuntime {
         self.command_registry = staging_cmd_reg;
         self.schemas = staging_schemas;
         self.migrations = staging_migrations;
+        self.namespaces = staging_namespaces;
         self.provider_manager = provider_manager;
         self.package_lock = new_lock.clone();
         self.revision = self.revision.wrapping_add(1);

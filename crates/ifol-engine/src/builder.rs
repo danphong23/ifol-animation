@@ -3,7 +3,7 @@ use crate::package::{EnginePackage, PackageId, PackageResolver};
 use crate::project::{PackageLockFile, ProjectContainer, ProjectError};
 use crate::provider::{ProviderManager, ResourceProvider};
 use crate::registration::{CommandRegistry, RegistrationContext, RegistrationTransaction};
-use crate::runtime::EngineRuntime;
+use crate::runtime::{EngineRuntime, RuntimeParts};
 use crate::state::EngineState;
 
 /// Fluent builder for constructing an [`EngineRuntime`].
@@ -89,7 +89,7 @@ impl EngineBuilder {
     /// If registration or provider init fails, returns `EngineError` and tears down
     /// any partial state.
     pub fn build(self) -> Result<EngineRuntime, EngineError> {
-        let project = self.project;
+        let mut project = self.project;
         let mut resolver = PackageResolver::new();
         for package in &self.packages {
             resolver.add(package.manifest().clone());
@@ -143,19 +143,28 @@ impl EngineBuilder {
         let ecs = ifol_ecs::EcsRuntime::new();
         let schemas = crate::scene::SchemaRegistry::new();
         let migrations = crate::scene::MigrationRegistry::new();
-        let (mut ecs, command_registry, schemas, migrations, mut provider_manager) = transaction
-            .commit(
+        let namespaces = project
+            .as_ref()
+            .map(|project| project.namespaces.clone())
+            .unwrap_or_default();
+        let (mut ecs, command_registry, schemas, migrations, mut provider_manager, namespaces) =
+            transaction.commit(
                 ecs,
                 self.command_registry,
                 schemas,
                 migrations,
                 self.provider_manager,
+                namespaces,
             )?;
+
+        if let Some(project) = project.as_mut() {
+            project.namespaces = namespaces.clone();
+        }
 
         // Initialize resource providers topologically with fail-closed rollback
         provider_manager.init_all(&mut ecs)?;
 
-        Ok(EngineRuntime::from_parts(
+        Ok(EngineRuntime::from_parts(RuntimeParts {
             ecs,
             command_registry,
             provider_manager,
@@ -163,7 +172,8 @@ impl EngineBuilder {
             project,
             schemas,
             migrations,
-        ))
+            namespaces,
+        }))
     }
 }
 

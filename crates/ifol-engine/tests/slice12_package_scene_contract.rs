@@ -4,8 +4,9 @@ use ifol_ecs::entity::EntityId;
 use ifol_ecs::world::World;
 use ifol_engine::{
     CodecError, CommandRegistry, ComponentCodec, ComponentRecord, EngineBuilder, EntityKey,
-    MigrationRegistry, PackageId, PackageManifest, PackageRegistration, RegistrationContext,
-    RegistrationTransaction, SceneDocument, SchemaId, SchemaRegistry, Version,
+    MigrationRegistry, Namespace, PackageId, PackageManifest, PackageRegistration,
+    ProjectContainer, RegistrationContext, RegistrationTransaction, SceneDocument, SchemaId,
+    SchemaRegistry, Version, VersionReq,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -209,6 +210,7 @@ fn successful_reconfiguration_swaps_schema_registry_atomically() {
             schemas: SchemaRegistry::new(),
             migrations: MigrationRegistry::new(),
             provider_manager: ifol_engine::ProviderManager::new(),
+            namespaces: ifol_engine::NamespaceRegistry::new(),
             package_lock: ifol_engine::PackageLock { packages: vec![] },
             added_packages: vec![],
             removed_packages: vec![],
@@ -245,6 +247,7 @@ fn empty_reconfiguration_request() -> ifol_engine::ReconfigurationRequest {
         schemas: SchemaRegistry::new(),
         migrations: MigrationRegistry::new(),
         provider_manager: ifol_engine::ProviderManager::new(),
+        namespaces: ifol_engine::NamespaceRegistry::new(),
         package_lock: ifol_engine::PackageLock { packages: vec![] },
         added_packages: vec![],
         removed_packages: vec![],
@@ -300,4 +303,65 @@ fn provider_teardown_failure_faults_runtime_before_swap() {
     assert!(matches!(error, ifol_engine::EngineError::Provider(_)));
     assert_eq!(teardown_calls.load(Ordering::SeqCst), 1);
     assert_eq!(engine.state(), ifol_engine::EngineState::Faulted);
+}
+
+#[test]
+fn project_package_namespace_claim_is_committed_into_runtime_and_project() {
+    let package_id = PackageId::new("pkg-namespace").unwrap();
+    let namespace = Namespace::new("pkg.scene").unwrap();
+    let package_namespace = namespace.clone();
+    let package = PackageRegistration::new(
+        manifest("pkg-namespace"),
+        move |context: &mut RegistrationContext| {
+            context.claim_project_namespace(package_namespace);
+        },
+    );
+
+    let project = ProjectContainer::new_memory("namespace-project", "scenes/main");
+    let project = ProjectContainer {
+        manifest: project
+            .manifest
+            .with_package(package_id, VersionReq::caret(Version::new(1, 0, 0))),
+        ..project
+    };
+
+    let engine = EngineBuilder::new()
+        .register_package(package)
+        .with_project(project)
+        .build()
+        .unwrap();
+
+    assert_eq!(engine.namespace_registry().len(), 1);
+    assert_eq!(
+        engine
+            .namespace_registry()
+            .get_owner(&namespace)
+            .unwrap()
+            .as_str(),
+        "pkg-namespace"
+    );
+    assert_eq!(engine.project().unwrap().namespaces.len(), 1);
+}
+
+#[test]
+fn colliding_package_namespaces_abort_build_before_runtime_publish() {
+    let first = PackageRegistration::new(
+        manifest("pkg-namespace-a"),
+        |context: &mut RegistrationContext| {
+            context.claim_project_namespace(Namespace::new("shared").unwrap());
+        },
+    );
+    let second = PackageRegistration::new(
+        manifest("pkg-namespace-b"),
+        |context: &mut RegistrationContext| {
+            context.claim_project_namespace(Namespace::new("shared.child").unwrap());
+        },
+    );
+
+    let error = EngineBuilder::new()
+        .register_package(first)
+        .register_package(second)
+        .build()
+        .unwrap_err();
+    assert!(error.to_string().contains("namespace claim failed"));
 }

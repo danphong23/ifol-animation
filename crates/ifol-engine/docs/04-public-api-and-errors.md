@@ -22,6 +22,7 @@ EngineRuntime
 ├── project_info()
 ├── schema_registry()
 ├── migration_registry()
+├── namespace_registry()
 ├── load_scene(document)
 ├── submit(command) -> CommandReceipt
 ├── query(request) -> QueryResult
@@ -38,6 +39,8 @@ diagnostics có thể kiểm tra chính xác package set đã được resolve.
 `load_scene` là boundary để nạp `SceneDocument` vào ECS; document được validate,
 decode/migrate theo schema do package đăng ký, rollback khi lỗi, và chỉ tăng
 revision khi thành công.
+`namespace_registry` là snapshot các claim đã được package commit; khi có project,
+snapshot này đồng thời được ghi vào `ProjectContainer` đang chạy.
 Reconfigure cũng nhận các registry ứng viên đã được chuẩn bị đầy đủ; engine chỉ
 swap ECS, command, schema, migration và package lock sau khi compile thành công.
 

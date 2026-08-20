@@ -75,6 +75,7 @@ impl RegistrationTransaction {
         mut schemas: crate::scene::SchemaRegistry,
         mut migrations: crate::scene::MigrationRegistry,
         mut provider_manager: crate::provider::ProviderManager,
+        mut namespaces: crate::project::NamespaceRegistry,
     ) -> Result<
         (
             ifol_ecs::EcsRuntime,
@@ -82,6 +83,7 @@ impl RegistrationTransaction {
             crate::scene::SchemaRegistry,
             crate::scene::MigrationRegistry,
             crate::provider::ProviderManager,
+            crate::project::NamespaceRegistry,
         ),
         TransactionError,
     > {
@@ -196,12 +198,28 @@ impl RegistrationTransaction {
             for provider in staging.providers {
                 provider_manager.add(provider);
             }
+
+            for namespace in staging.namespaces {
+                namespaces
+                    .claim(pkg_id.clone(), namespace)
+                    .map_err(|error| TransactionError::ContributionFailed {
+                        package: pkg_id.clone(),
+                        reason: format!("namespace claim failed: {error}"),
+                    })?;
+            }
         }
 
         // 10. Compile schedule
         ecs.compile()?;
 
-        Ok((ecs, command_registry, schemas, migrations, provider_manager))
+        Ok((
+            ecs,
+            command_registry,
+            schemas,
+            migrations,
+            provider_manager,
+            namespaces,
+        ))
     }
 }
 

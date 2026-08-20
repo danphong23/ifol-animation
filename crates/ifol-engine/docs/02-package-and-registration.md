@@ -87,7 +87,8 @@ Validation bao gồm:
 
 `RegistrationTransaction` chỉ commit vào các staging candidates đã được caller
 chuyển quyền sở hữu. Nó trả ECS runtime, command registry, schema registry,
-migration registry và provider manager lại sau khi compile thành công; provider
+migration registry, provider manager và namespace registry lại sau khi compile
+thành công; provider
 chỉ được initialize sau khi ECS schedule compile thành công. Lỗi làm rơi toàn
 bộ candidates, nên live runtime không thể bị mutate một phần qua API transaction.
 

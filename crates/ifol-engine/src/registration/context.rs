@@ -134,6 +134,11 @@ impl RegistrationContext {
         self.staging.providers.push(provider);
     }
 
+    /// Claims one project namespace for this package.
+    pub fn claim_project_namespace(&mut self, namespace: crate::project::Namespace) {
+        self.staging.namespaces.push(namespace);
+    }
+
     /// Returns the owner package ID.
     pub fn owner(&self) -> &PackageId {
         &self.owner
