@@ -14,6 +14,7 @@ persistence project thuộc `ifol-project`.
 5. [05-implementation-plan.md](05-implementation-plan.md)
 6. [06-test-and-acceptance-plan.md](06-test-and-acceptance-plan.md)
 7. [07-current-status.md](07-current-status.md)
+8. [08-architecture-overview.md](08-architecture-overview.md)
 
 ## Tóm tắt bất biến
 

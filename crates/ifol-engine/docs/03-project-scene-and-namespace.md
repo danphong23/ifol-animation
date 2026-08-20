@@ -1,32 +1,32 @@
 # Project, scene và package namespace
 
-## 1. Phần engine quản lý
+## 1. Phân chia trách nhiệm
 
 ```text
-project/
+ifol-project (host/persistence)
 ├── project.toml
 ├── package.lock
-├── packages/
-├── scenes/
-└── runtime/
-    └── <package-id>/
+├── storage backend
+└── EngineConfig adapter
+
+ifol-engine (runtime composition)
+├── PackageLock
+├── NamespaceRegistry
+├── SchemaRegistry / MigrationRegistry
+└── EngineRuntime + one ECS runtime
 ```
 
-- `project.toml`: format version, required package constraints, entry scene và
-  generic engine settings;
-- `package.lock`: package identity/version/fingerprint đã resolve;
-- `packages/`: optional project-local package distribution;
-- `scenes/`: generic entity/component records;
-- `runtime/<package-id>`: opaque namespace do package claim.
+- `ifol-project` đọc/ghi manifest, lock và storage rồi tạo `EngineConfig`;
+- `ifol-engine` không biết filesystem, project path, save/load hay package
+  discovery;
+- package tự định nghĩa namespace và semantics; engine chỉ validate collision.
 
-Engine không mặc định tạo `assets`, `presets`, `render`, `animation`, `game` hoặc
-`artifacts`. Package owner tự định nghĩa dữ liệu, cache policy và migration trong
-namespace của nó.
+Không crate nào mặc định tạo `assets`, `presets`, `render`, `animation`, `game`
+hoặc `artifacts`. Package owner tự định nghĩa dữ liệu, cache policy và migration.
 
-Khi project được mở, `required_packages` là root selection. Package candidate
-không nằm trong transitive closure của các root không được activate. Nếu có
-`package.lock`, lock phải khớp chính xác với closure đã resolve; engine không tự
-thay package hoặc âm thầm cập nhật lock trong lúc build.
+Khi host mở project, `required_packages` và lock được chuyển thành
+`EngineConfig`. Package candidate ngoài transitive closure không được activate.
+Engine chỉ so sánh `PackageLock` in-memory; nó không tự ghi ngược lock file.
 
 ## 2. Scene document
 
@@ -65,7 +65,7 @@ semantic thiếu owner.
 
 ## 4. Save và snapshot
 
-Save không dump layout Rust/ECS. Package codec chuyển runtime component thành
+Engine không thực hiện save. Nếu host cần save, package codec chuyển runtime component thành
 versioned record. Unknown opaque record được giữ byte-for-byte trong
 `SceneLoadResult`; serialization ra storage vẫn là trách nhiệm codec/package.
 
