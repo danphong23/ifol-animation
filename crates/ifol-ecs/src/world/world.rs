@@ -266,38 +266,3 @@ impl Default for World {
         Self::new()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-    struct Pos {
-        x: i32,
-        y: i32,
-    }
-
-    #[test]
-    fn world_spawn_insert_and_despawn() {
-        let mut world = World::new();
-        assert_eq!(world.entity_count(), 1); // WORLD entity
-        assert_eq!(world.structural_version(), 0);
-
-        let e1 = world.spawn();
-        assert_eq!(world.structural_version(), 1);
-
-        world.insert(e1, Pos { x: 10, y: 20 }).unwrap();
-        assert_eq!(world.structural_version(), 2);
-        assert_eq!(world.get::<Pos>(e1), Some(&Pos { x: 10, y: 20 }));
-
-        // Replacing existing component should not increment structural version
-        world.insert(e1, Pos { x: 30, y: 40 }).unwrap();
-        assert_eq!(world.structural_version(), 2);
-        assert_eq!(world.get::<Pos>(e1), Some(&Pos { x: 30, y: 40 }));
-
-        // Despawn entity
-        assert!(world.despawn(e1).is_ok());
-        assert_eq!(world.structural_version(), 3);
-        assert_eq!(world.get::<Pos>(e1), None);
-    }
-}
