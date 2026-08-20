@@ -1,4 +1,4 @@
-use crate::scene::document::{EntityKey, OpaqueRecord, SceneDocument};
+use crate::scene::document::{EntityKey, OpaqueRecord, SceneDocument, SceneId};
 use crate::scene::migration::{MigrationError, MigrationRegistry};
 use crate::scene::schema::{CodecError, SchemaId, SchemaRegistry};
 use ifol_ecs::entity::EntityId;
@@ -31,6 +31,8 @@ pub enum SceneError {
 /// Result of loading a scene into the ECS World.
 #[derive(Debug, Clone)]
 pub struct SceneLoadResult {
+    /// Identity supplied by the runtime scene session.
+    pub scene_id: Option<SceneId>,
     /// Mapping from persistent `EntityKey` to runtime `EntityId`.
     pub key_to_entity: BTreeMap<EntityKey, EntityId>,
     /// Opaque records preserved for unrecognized schemas.
@@ -57,7 +59,7 @@ impl SceneLoader {
 
         let mut spawned_entities = Vec::new();
         let mut key_to_entity = BTreeMap::new();
-        let mut preserved_opaque = Vec::new();
+        let mut preserved_opaque = doc.opaque_records.clone();
 
         // Helper for cleanup on error
         let cleanup = |world: &mut World, spawned: &[EntityId]| {
@@ -124,6 +126,7 @@ impl SceneLoader {
         }
 
         Ok(SceneLoadResult {
+            scene_id: None,
             key_to_entity,
             preserved_opaque,
         })

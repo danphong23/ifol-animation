@@ -36,7 +36,7 @@ pub use report::{ShutdownReport, StepInput, StepReport};
 pub use runtime::EngineRuntime;
 pub use scene::{
     CodecError, ComponentCodec, ComponentRecord, EntityKey, MigrationError, MigrationFn,
-    MigrationRegistry, OpaqueRecord, SceneDocument, SceneError, SceneLoadResult, SceneLoader,
-    SchemaId, SchemaRegistry,
+    MigrationRegistry, OpaqueRecord, SceneDocument, SceneError, SceneId, SceneLoadResult,
+    SceneLoader, SchemaId, SchemaRegistry,
 };
 pub use state::EngineState;

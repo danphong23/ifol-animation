@@ -58,8 +58,11 @@ impl ProjectManifest {
     pub fn serialize(&self) -> String {
         let mut out = String::new();
         out.push_str(&format!("format_version = {}\n", self.format_version));
-        out.push_str(&format!("name = \"{}\"\n", self.name));
-        out.push_str(&format!("entry_scene = \"{}\"\n", self.entry_scene));
+        out.push_str(&format!("name = \"{}\"\n", quote_string(&self.name)));
+        out.push_str(&format!(
+            "entry_scene = \"{}\"\n",
+            quote_string(&self.entry_scene)
+        ));
         out.push_str("[packages]\n");
         for pkg in &self.required_packages {
             out.push_str(&format!("{} = \"{}\"\n", pkg.package_id, pkg.version_req));
@@ -88,9 +91,10 @@ impl ProjectManifest {
 
             if let Some((k, v)) = trimmed.split_once('=') {
                 let key = k.trim();
-                let val = v.trim().trim_matches('"');
+                let raw_value = v.trim();
 
                 if in_packages_section {
+                    let val = raw_value.trim_matches('"');
                     let pkg_id =
                         PackageId::new(key).ok_or_else(|| format!("invalid package id '{key}'"))?;
                     let req = VersionReq::parse(val).ok_or_else(|| {
@@ -103,13 +107,13 @@ impl ProjectManifest {
                 } else {
                     match key {
                         "format_version" => {
-                            let ver: u32 = val
+                            let ver: u32 = raw_value
                                 .parse()
                                 .map_err(|_| "invalid format_version integer".to_string())?;
                             format_version = Some(ver);
                         }
-                        "name" => name = Some(val.to_string()),
-                        "entry_scene" => entry_scene = Some(val.to_string()),
+                        "name" => name = Some(parse_string(raw_value)?),
+                        "entry_scene" => entry_scene = Some(parse_string(raw_value)?),
                         _ => {}
                     }
                 }
@@ -128,6 +132,41 @@ impl ProjectManifest {
         manifest.validate()?;
         Ok(manifest)
     }
+}
+
+fn quote_string(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
+}
+
+fn parse_string(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.len() < 2 || !value.starts_with('"') || !value.ends_with('"') {
+        return Err("expected quoted string".into());
+    }
+    let inner = &value[1..value.len() - 1];
+    let mut result = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            result.push(ch);
+            continue;
+        }
+        match chars.next() {
+            Some('\\') => result.push('\\'),
+            Some('"') => result.push('"'),
+            Some('n') => result.push('\n'),
+            Some('r') => result.push('\r'),
+            Some('t') => result.push('\t'),
+            Some(other) => return Err(format!("unsupported string escape '\\{other}'")),
+            None => return Err("unterminated string escape".into()),
+        }
+    }
+    Ok(result)
 }
 
 impl fmt::Display for ProjectManifest {

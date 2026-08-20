@@ -37,9 +37,8 @@ stateDiagram-v2
     Ready --> Stepping: step(input)
     Stepping --> Ready: StepReport
     Stepping --> Faulted: fail-fast invariant/service failure
-    Ready --> Reconfiguring: apply package/project change
-    Reconfiguring --> Ready: commit + compile
-    Reconfiguring --> Ready: rollback to previous valid runtime
+    Ready --> Ready: stage/reconfigure candidate
+    Ready --> Faulted: provider teardown failure
     Ready --> Shutdown
     Faulted --> Shutdown
     Shutdown --> [*]
@@ -62,12 +61,11 @@ while let Some(input) = host.next_input()? {
 
 Engine sở hữu semantics của một step:
 
-1. validate input envelope/revision;
-2. publish package-owned input resources nếu có provider;
-3. apply queued host changes tại safe boundary;
-4. gọi `EcsRuntime::run_once()` đúng một lần;
-5. thu diagnostics/service results đã publish;
-6. trả `StepReport`.
+1. kiểm tra runtime đang ở `Ready`;
+2. chuyển sang `Stepping` để chặn reentrancy;
+3. gọi `EcsRuntime::run_once()` đúng một lần;
+4. tăng engine revision khi pass thành công;
+5. chuyển lại `Ready` và trả `StepReport`.
 
 Không tự retry, sleep hoặc bắt đầu step thứ hai. Reentrancy và concurrent mutable
 step bị từ chối.
@@ -90,8 +88,9 @@ ngược; không dựa vào global mutable static.
 ## 5. Clear, unload và shutdown
 
 - `clear_scene`: xóa entity scene, giữ root resources/package registrations;
-- `unload_project`: đóng scene/project state và package-owned project resources
-  theo policy, không hủy platform service được host chia sẻ;
+- `clear_scene`: đóng active scene và giữ project/package/runtime resources;
+- project container lifecycle thuộc host/session boundary; engine không tự
+  unload filesystem hoặc platform service;
 - `reconfigure`: chuẩn bị runtime mới hoặc transactional delta rồi publish khi
   compile thành công; ECS, command/schema/migration registry và package lock
   được swap cùng một commit, lỗi staging giữ nguyên runtime cũ; lỗi teardown

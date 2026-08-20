@@ -31,16 +31,14 @@ thay package hoặc âm thầm cập nhật lock trong lúc build.
 ## 2. Scene document
 
 ```text
-SceneDocument
-├── stable SceneId
-├── scene format version
-├── entity records
-│   ├── stable serialized EntityKey
-│   └── component records
-│       ├── stable SchemaId
-│       ├── schema version
-│       └── payload
-└── opaque records chưa có owner package
+Scene session (`SceneId` supplied by runtime)
+└── SceneDocument
+    ├── stable serialized EntityKey
+    ├── component records
+    │   ├── stable SchemaId
+    │   ├── schema version
+    │   └── payload
+    └── opaque records chưa có owner package
 ```
 
 Serialized `EntityKey` không phải raw runtime `EntityId`; loader tạo mapping mới.
@@ -58,7 +56,7 @@ read manifest
   -> allocate entities
   -> attach components
   -> validate references/hierarchy theo owner package
-  -> publish ProjectSession
+  -> publish active scene session
 ```
 
 Load lỗi không để lại half-loaded world. Missing package có policy explicit:
@@ -68,8 +66,8 @@ semantic thiếu owner.
 ## 4. Save và snapshot
 
 Save không dump layout Rust/ECS. Package codec chuyển runtime component thành
-versioned record. Unknown opaque record phải round-trip byte-for-byte hoặc theo
-canonical representation đã định nghĩa.
+versioned record. Unknown opaque record được giữ byte-for-byte trong
+`SceneLoadResult`; serialization ra storage vẫn là trách nhiệm codec/package.
 
 Snapshot phải ghi revision nhất quán tại safe boundary; không trộn state từ hai
 step hoặc hai package configuration.

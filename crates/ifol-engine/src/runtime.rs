@@ -12,6 +12,7 @@
 use crate::error::EngineError;
 use crate::report::{ShutdownReport, StepInput, StepReport};
 use crate::state::EngineState;
+use std::collections::BTreeSet;
 
 /// Headless composition runtime.
 ///
@@ -28,6 +29,8 @@ pub struct EngineRuntime {
     schemas: crate::scene::SchemaRegistry,
     migrations: crate::scene::MigrationRegistry,
     namespaces: crate::project::NamespaceRegistry,
+    active_scene: Option<crate::scene::SceneId>,
+    active_scene_entities: BTreeSet<ifol_ecs::entity::EntityId>,
     state: EngineState,
     revision: u64,
 }
@@ -73,6 +76,8 @@ impl EngineRuntime {
             schemas: parts.schemas,
             migrations: parts.migrations,
             namespaces: parts.namespaces,
+            active_scene: None,
+            active_scene_entities: BTreeSet::new(),
             state: EngineState::Ready,
             revision: 0,
         }
@@ -134,9 +139,30 @@ impl EngineRuntime {
         &self.namespaces
     }
 
+    /// Returns the currently active scene identity, if a scene was loaded.
+    pub fn active_scene(&self) -> Option<&crate::scene::SceneId> {
+        self.active_scene.as_ref()
+    }
+
+    /// Returns the number of entities owned by the active scene.
+    pub fn active_scene_entity_count(&self) -> usize {
+        self.active_scene_entities.len()
+    }
+
     /// Loads one validated scene document into the ECS world atomically.
     pub fn load_scene(
         &mut self,
+        document: &crate::scene::SceneDocument,
+    ) -> Result<crate::scene::SceneLoadResult, EngineError> {
+        self.load_scene_as(crate::scene::SceneId::entry(), document)
+    }
+
+    /// Loads a scene and replaces the previous active scene after the new
+    /// document has loaded successfully. Persistent `WORLD_ENTITY` resources
+    /// remain untouched.
+    pub fn load_scene_as(
+        &mut self,
+        scene_id: crate::scene::SceneId,
         document: &crate::scene::SceneDocument,
     ) -> Result<crate::scene::SceneLoadResult, EngineError> {
         self.require_state(EngineState::Ready, "load_scene")?;
@@ -146,8 +172,37 @@ impl EngineRuntime {
             &self.schemas,
             &self.migrations,
         )?;
+
+        let new_entities: BTreeSet<_> = result.key_to_entity.values().copied().collect();
+        for entity in self.active_scene_entities.iter().copied() {
+            if let Err(error) = self.ecs.despawn(entity) {
+                self.state = EngineState::Faulted;
+                return Err(EngineError::Ecs(error));
+            }
+        }
+        self.active_scene = Some(scene_id.clone());
+        self.active_scene_entities = new_entities;
         self.revision = self.revision.wrapping_add(1);
-        Ok(result)
+        Ok(crate::scene::SceneLoadResult {
+            scene_id: Some(scene_id),
+            ..result
+        })
+    }
+
+    /// Removes the active scene while preserving packages, registrations and
+    /// world singleton resources.
+    pub fn clear_scene(&mut self) -> Result<bool, EngineError> {
+        self.require_state(EngineState::Ready, "clear_scene")?;
+        let had_scene = self.active_scene.is_some();
+        for entity in self.active_scene_entities.iter().copied() {
+            self.ecs.despawn(entity)?;
+        }
+        self.active_scene = None;
+        self.active_scene_entities.clear();
+        if had_scene {
+            self.revision = self.revision.wrapping_add(1);
+        }
+        Ok(had_scene)
     }
 
     // ── Dynamic Reconfiguration ─────────────────────────────────────
@@ -306,6 +361,8 @@ impl EngineRuntime {
 
         // 2. Tear down ECS
         self.ecs.shutdown();
+        self.active_scene = None;
+        self.active_scene_entities.clear();
 
         if let Err(e) = provider_res {
             return Err(EngineError::Provider(e));

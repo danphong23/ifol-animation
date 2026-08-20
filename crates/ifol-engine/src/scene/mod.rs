@@ -5,7 +5,7 @@ mod loader;
 mod migration;
 mod schema;
 
-pub use document::{ComponentRecord, EntityKey, OpaqueRecord, SceneDocument};
+pub use document::{ComponentRecord, EntityKey, OpaqueRecord, SceneDocument, SceneId};
 pub use loader::{SceneError, SceneLoadResult, SceneLoader};
 pub use migration::{MigrationError, MigrationFn, MigrationRegistry};
 pub use schema::{CodecError, ComponentCodec, SchemaId, SchemaRegistry};

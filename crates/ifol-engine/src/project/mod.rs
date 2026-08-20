@@ -66,21 +66,16 @@ impl ProjectContainer {
     pub fn save(&mut self) -> Result<(), ProjectError> {
         self.manifest.validate().map_err(ProjectError::Manifest)?;
 
-        // Write the canonical project manifest.
-        let manifest_bytes = self.manifest.serialize().into_bytes();
-        self.storage
-            .write_file(PROJECT_MANIFEST_PATH, &manifest_bytes)
-            .map_err(ProjectError::Storage)?;
-
-        // Write package.lock if present
+        let mut files = vec![(
+            PROJECT_MANIFEST_PATH,
+            self.manifest.serialize().into_bytes(),
+        )];
         if let Some(lock) = &self.lockfile {
-            let lock_bytes = lock.serialize().into_bytes();
-            self.storage
-                .write_file(PACKAGE_LOCK_PATH, &lock_bytes)
-                .map_err(ProjectError::Storage)?;
+            files.push((PACKAGE_LOCK_PATH, lock.serialize().into_bytes()));
         }
-
-        Ok(())
+        self.storage
+            .write_files(&files)
+            .map_err(ProjectError::Storage)
     }
 
     /// Loads a project container from a given storage backend.

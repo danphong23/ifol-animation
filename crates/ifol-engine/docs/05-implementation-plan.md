@@ -1,7 +1,11 @@
-# Kế hoạch triển khai production-complete
+# Kế hoạch triển khai và trạng thái hoàn tất
 
 Đây không phải MVP/prototype roadmap. Mỗi slice phải hoàn chỉnh contract, test
 xanh và không để API tạm. Không tạo abstraction chưa có acceptance case.
+
+Slice 1–8 đã hoàn thành và được chứng minh bởi integration tests. Slice 9 đã
+được mở rộng thành hardening cuối cùng ở Slice 13; các mục bên dưới là lịch sử
+implementation và boundary đã nghiệm thu, không phải danh sách code chưa có.
 
 ## Slice 1 — Runtime lifecycle
 
@@ -71,10 +75,21 @@ migration và namespace; không đưa domain production vào engine.
 Acceptance: engine source không đổi khi thêm package thứ hai độc lập; cả hai chạy
 deterministic và collision bị từ chối.
 
-## Slice 9 — Hardening và feature freeze
+## Slice 9 — Hardening nền tảng
 
 Audit public API, panic/unsafe, docs, examples, benchmarks có ý nghĩa, feature
 matrix native/WASM và dirty-worktree boundary.
 
 Chỉ đóng engine khi toàn bộ Definition of Done và test map xanh. Sau đó mới xây
 Name/Hierarchy/Transform/Render/Shape như package production.
+
+## Slice 10–13 — Contract hardening đã hoàn thành
+
+- package/project closure và lock validation trước registration;
+- package-owned scene schema/migration/namespace/provider contract;
+- scene replacement, `clear_scene`, explicit `SceneId` và opaque preservation;
+- project batch-write boundary và escaped manifest round-trip;
+- deterministic 256-package resolver chain và regression tests rollback.
+
+Sau Slice 13, không thêm semantic domain vào engine. Các thay đổi tiếp theo chỉ
+là bug fix contract, portability evidence hoặc package độc lập bên ngoài crate.

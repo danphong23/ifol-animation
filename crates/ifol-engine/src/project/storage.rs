@@ -88,6 +88,18 @@ pub trait ProjectStorage: Send + Sync {
     /// Writes raw bytes to a file.
     fn write_file(&mut self, path: &str, data: &[u8]) -> Result<(), StorageError>;
 
+    /// Writes a batch of files as one logical project update.
+    ///
+    /// Backends with transactional storage should override this method. The
+    /// default preserves the contract for simple backends but cannot undo a
+    /// failure after an earlier file has been written.
+    fn write_files(&mut self, files: &[(&str, Vec<u8>)]) -> Result<(), StorageError> {
+        for (path, data) in files {
+            self.write_file(path, data)?;
+        }
+        Ok(())
+    }
+
     /// Lists all relative paths of files in the project.
     fn list_files(&self) -> Result<Vec<String>, StorageError>;
 
@@ -121,6 +133,16 @@ impl ProjectStorage for MemoryStorage {
     fn write_file(&mut self, path: &str, data: &[u8]) -> Result<(), StorageError> {
         let clean = PathSecurity::sanitize(path)?;
         self.files.insert(clean, data.to_vec());
+        Ok(())
+    }
+
+    fn write_files(&mut self, files: &[(&str, Vec<u8>)]) -> Result<(), StorageError> {
+        let mut next = self.files.clone();
+        for (path, data) in files {
+            let clean = PathSecurity::sanitize(path)?;
+            next.insert(clean, data.clone());
+        }
+        self.files = next;
         Ok(())
     }
 

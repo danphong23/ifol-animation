@@ -4,6 +4,37 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Stable identity of a scene session inside a project.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SceneId(String);
+
+impl SceneId {
+    /// The default scene identity used by the legacy-free convenience loader.
+    pub fn entry() -> Self {
+        Self("entry".into())
+    }
+
+    /// Creates a non-empty scene identity.
+    pub fn new(id: impl Into<String>) -> Option<Self> {
+        let id = id.into();
+        if id.trim().is_empty() || id.contains('\0') {
+            return None;
+        }
+        Some(Self(id))
+    }
+
+    /// Returns the stable scene identity.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for SceneId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// Stable persistent entity identifier used in serialized scene documents.
 ///
 /// Distinct from runtime `EntityId` (which uses generational indexing in memory).

@@ -2,7 +2,7 @@
 
 ## 1. API surface
 
-Các mục bên dưới là contract đích của engine. Hiện tại đã có `state`, `revision`,
+Các mục dưới đây là contract đang được expose. Hiện tại đã có `state`, `revision`,
 `package_lock`, `project`, `schema_registry`, `migration_registry`,
 `load_scene`, `step`, `reconfigure` và `shutdown`; các mục còn lại là phần mở
 rộng tiếp theo, không được giả định là đã có trong crate.
@@ -10,10 +10,8 @@ rộng tiếp theo, không được giả định là đã có trong crate.
 ```text
 EngineBuilder
 ├── register_package(package)
-├── add_package_source(source)
-├── bind_host_resource<T>(provider)
+├── with_provider(provider)
 ├── with_project(project)
-├── open_project(source, policy)
 └── build() -> EngineRuntime
 
 EngineRuntime
@@ -24,27 +22,31 @@ EngineRuntime
 ├── migration_registry()
 ├── namespace_registry()
 ├── load_scene(document)
-├── submit(command) -> CommandReceipt
-├── query(request) -> QueryResult
+├── load_scene_as(scene_id, document)
+├── active_scene()
+├── clear_scene()
 ├── step(input) -> StepReport
-├── snapshot(request) -> Snapshot
-├── reconfigure(transaction, registries, lock) -> ReconfigureReport
-├── unload_project()
+├── reconfigure(candidate_request) -> ReconfigurationReport
 └── shutdown() -> ShutdownReport
 ```
 
 `register_package` nhận một `EnginePackage`, không nhận domain enum hoặc path
 implementation. Runtime lưu `PackageLock` immutable của lần build để host và
 diagnostics có thể kiểm tra chính xác package set đã được resolve.
-`load_scene` là boundary để nạp `SceneDocument` vào ECS; document được validate,
+`load_scene` và `load_scene_as` là boundary để nạp `SceneDocument` vào ECS;
+document được validate,
 decode/migrate theo schema do package đăng ký, rollback khi lỗi, và chỉ tăng
-revision khi thành công.
+revision khi thành công. `load_scene_as` thay active scene theo chính sách
+load-new-before-replace; `clear_scene` chỉ xóa entity của scene, giữ world
+singleton và package registration.
 `namespace_registry` là snapshot các claim đã được package commit; khi có project,
 snapshot này đồng thời được ghi vào `ProjectContainer` đang chạy.
 Reconfigure cũng nhận các registry ứng viên đã được chuẩn bị đầy đủ; engine chỉ
 swap ECS, command, schema, migration và package lock sau khi compile thành công.
 
-API cụ thể có thể tách type theo borrow/async requirement, nhưng không mở raw
+`ReconfigurationRequest` là candidate transaction boundary: caller chuẩn bị
+registry/package candidate, engine validate/commit/swap nguyên tử theo safe
+boundary. API không mở raw
 mutable `EcsRuntime` cho adapter bình thường. Bootstrap/test có controlled access
 riêng; package chỉ dùng `RegistrationContext` và `SystemContext`.
 
@@ -54,8 +56,9 @@ history stack mặc định. Command mutation chỉ commit tại transaction/saf
 
 ## 2. StepInput và StepReport
 
-`StepInput` chỉ chứa envelope generic: correlation/revision và typed package input
-đã đăng ký. Engine không hard-code keyboard, timeline hay render request.
+`StepInput` hiện chứa correlation envelope generic. Typed package input được đưa
+qua provider/component contract; engine không hard-code keyboard, timeline hay
+render request.
 
 `StepReport` tối thiểu chứa:
 

@@ -133,3 +133,9 @@ WASM gate chỉ được đánh dấu supported khi dependency set thực tế c
 - engine không có platform loop hoặc UI/editor logic;
 - test package mới được thêm mà không sửa production engine source;
 - docs khớp API và mọi lệnh verification xanh.
+- scene replacement phải load thành công trước khi xóa active scene;
+- explicit opaque records phải được giữ nguyên payload;
+- project save phải đi qua `ProjectStorage::write_files`;
+- deterministic resolver phải pass trên dependency graph lớn, không chỉ fixture nhỏ.
+
+Trạng thái pass mới nhất được ghi tại [07-current-status.md](07-current-status.md).

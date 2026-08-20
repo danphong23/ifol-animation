@@ -1,8 +1,8 @@
 # ifol-engine Architecture Manual
 
-Manual này là nguồn chuẩn để triển khai và nghiệm thu `ifol-engine` trước khi
-viết production code. Engine là headless composition runtime quanh `ifol-ecs`,
-không phải application shell và không chứa feature nghiệp vụ.
+Đây là architecture và acceptance manual hiện hành của `ifol-engine`. Engine là
+headless composition runtime quanh `ifol-ecs`, không phải application shell và
+không chứa feature nghiệp vụ.
 
 ## Thứ tự đọc
 
@@ -12,6 +12,7 @@ không phải application shell và không chứa feature nghiệp vụ.
 4. [04-public-api-and-errors.md](04-public-api-and-errors.md)
 5. [05-implementation-plan.md](05-implementation-plan.md)
 6. [06-test-and-acceptance-plan.md](06-test-and-acceptance-plan.md)
+7. [07-current-status.md](07-current-status.md)
 
 ## Tóm tắt bất biến
 
