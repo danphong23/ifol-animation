@@ -848,6 +848,7 @@ version = "0.1.0"
 name = "ifol-project"
 version = "0.1.0"
 dependencies = [
+ "ifol-ecs",
  "ifol-engine",
  "thiserror 2.0.20",
 ]

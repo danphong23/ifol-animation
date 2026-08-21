@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 ifol-engine = { path = "../ifol-engine" }
 thiserror = "2.0.20"
+
+[dev-dependencies]
+ifol-ecs = { path = "../ifol-ecs" }
