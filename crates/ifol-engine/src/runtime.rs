@@ -14,6 +14,11 @@ use crate::report::{ShutdownReport, StepInput, StepReport};
 use crate::state::EngineState;
 use std::collections::BTreeSet;
 
+#[path = "runtime/inspection.rs"]
+mod inspection;
+#[path = "runtime/scene.rs"]
+mod scene;
+
 /// Headless composition runtime.
 ///
 /// Created exclusively via [`EngineBuilder::build()`](crate::builder::EngineBuilder::build).
@@ -21,17 +26,17 @@ use std::collections::BTreeSet;
 /// [lifecycle docs](../docs/01-ownership-and-lifecycle.md) for the
 /// full diagram.
 pub struct EngineRuntime {
-    ecs: ifol_ecs::EcsRuntime,
-    command_registry: crate::registration::CommandRegistry,
-    provider_manager: crate::provider::ProviderManager,
-    package_lock: crate::package::PackageLock,
-    schemas: crate::scene::SchemaRegistry,
-    migrations: crate::scene::MigrationRegistry,
-    namespaces: crate::namespace::NamespaceRegistry,
-    active_scene: Option<crate::scene::SceneId>,
-    active_scene_entities: BTreeSet<ifol_ecs::entity::EntityId>,
-    state: EngineState,
-    revision: u64,
+    pub(crate) ecs: ifol_ecs::EcsRuntime,
+    pub(crate) command_registry: crate::registration::CommandRegistry,
+    pub(crate) provider_manager: crate::provider::ProviderManager,
+    pub(crate) package_lock: crate::package::PackageLock,
+    pub(crate) schemas: crate::scene::SchemaRegistry,
+    pub(crate) migrations: crate::scene::MigrationRegistry,
+    pub(crate) namespaces: crate::namespace::NamespaceRegistry,
+    pub(crate) active_scene: Option<crate::scene::SceneId>,
+    pub(crate) active_scene_entities: BTreeSet<ifol_ecs::entity::EntityId>,
+    pub(crate) state: EngineState,
+    pub(crate) revision: u64,
 }
 
 pub(crate) struct RuntimeParts {
@@ -79,125 +84,10 @@ impl EngineRuntime {
         }
     }
 
-    // ── Queries (always valid except ShuttingDown) ──────────────────
-
-    /// Returns a reference to the provider manager.
-    #[inline]
-    pub fn provider_manager(&self) -> &crate::provider::ProviderManager {
-        &self.provider_manager
-    }
-
-    /// Returns a reference to the command/query/event registry.
-    #[inline]
-    pub fn command_registry(&self) -> &crate::registration::CommandRegistry {
-        &self.command_registry
-    }
-
-    /// Returns the current lifecycle state.
-    #[inline]
-    pub fn state(&self) -> EngineState {
-        self.state
-    }
-
-    /// Returns the current engine revision counter.
-    #[inline]
-    pub fn revision(&self) -> u64 {
-        self.revision
-    }
-
-    /// Returns the resolved package lock used to construct this runtime.
-    #[inline]
-    pub fn package_lock(&self) -> &crate::package::PackageLock {
-        &self.package_lock
-    }
-
-    /// Returns the immutable registry of package-owned component schemas.
-    #[inline]
-    pub fn schema_registry(&self) -> &crate::scene::SchemaRegistry {
-        &self.schemas
-    }
-
-    /// Returns the immutable registry of package-owned scene migrations.
-    #[inline]
-    pub fn migration_registry(&self) -> &crate::scene::MigrationRegistry {
-        &self.migrations
-    }
-
-    /// Returns the package namespace claims active in this runtime.
-    #[inline]
-    pub fn namespace_registry(&self) -> &crate::namespace::NamespaceRegistry {
-        &self.namespaces
-    }
-
-    /// Returns the currently active scene identity, if a scene was loaded.
-    pub fn active_scene(&self) -> Option<&crate::scene::SceneId> {
-        self.active_scene.as_ref()
-    }
-
-    /// Returns the number of entities owned by the active scene.
-    pub fn active_scene_entity_count(&self) -> usize {
-        self.active_scene_entities.len()
-    }
-
-    /// Loads one validated scene document into the ECS world atomically.
-    pub fn load_scene(
-        &mut self,
-        document: &crate::scene::SceneDocument,
-    ) -> Result<crate::scene::SceneLoadResult, EngineError> {
-        self.load_scene_as(crate::scene::SceneId::entry(), document)
-    }
-
-    /// Loads a scene and replaces the previous active scene after the new
-    /// document has loaded successfully. Persistent `WORLD_ENTITY` resources
-    /// remain untouched.
-    pub fn load_scene_as(
-        &mut self,
-        scene_id: crate::scene::SceneId,
-        document: &crate::scene::SceneDocument,
-    ) -> Result<crate::scene::SceneLoadResult, EngineError> {
-        self.require_state(EngineState::Ready, "load_scene")?;
-        let result = crate::scene::SceneLoader::load_scene(
-            self.ecs.world_mut(),
-            document,
-            &self.schemas,
-            &self.migrations,
-        )?;
-
-        let new_entities: BTreeSet<_> = result.key_to_entity.values().copied().collect();
-        for entity in self.active_scene_entities.iter().copied() {
-            if let Err(error) = self.ecs.despawn(entity) {
-                self.state = EngineState::Faulted;
-                return Err(EngineError::Ecs(error));
-            }
-        }
-        self.active_scene = Some(scene_id.clone());
-        self.active_scene_entities = new_entities;
-        self.revision = self.revision.wrapping_add(1);
-        Ok(crate::scene::SceneLoadResult {
-            scene_id: Some(scene_id),
-            ..result
-        })
-    }
-
-    /// Removes the active scene while preserving packages, registrations and
-    /// world singleton resources.
-    pub fn clear_scene(&mut self) -> Result<bool, EngineError> {
-        self.require_state(EngineState::Ready, "clear_scene")?;
-        let had_scene = self.active_scene.is_some();
-        for entity in self.active_scene_entities.iter().copied() {
-            self.ecs.despawn(entity)?;
-        }
-        self.active_scene = None;
-        self.active_scene_entities.clear();
-        if had_scene {
-            self.revision = self.revision.wrapping_add(1);
-        }
-        Ok(had_scene)
-    }
-
     // ── Dynamic Reconfiguration ─────────────────────────────────────
 
-    /// Dynamically reconfigures the active packages and schedule using an atomic stage-and-swap transaction.
+    /// Dynamically replaces the active packages and schedule using an atomic
+    /// stage-and-swap transaction.
     ///
     /// Registration, schedule compilation, or candidate-provider initialization
     /// failures leave the live runtime untouched and in `Ready`. If an active
@@ -221,7 +111,9 @@ impl EngineRuntime {
             removed_packages,
         } = request;
 
-        // 1. Build staging runtime
+        // 1. Build a fresh staging runtime. ECS world state is deliberately
+        // not copied: reconfiguration is composition replacement, not a live
+        // entity migration operation.
         let staging_ecs = ifol_ecs::EcsRuntime::new();
         let staging_cmd_reg = command_registry;
 
