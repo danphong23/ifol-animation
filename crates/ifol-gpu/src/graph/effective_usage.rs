@@ -1,4 +1,4 @@
-use super::graph::RenderGraph;
+use super::render_graph::RenderGraph;
 use super::usage::{
     buffer_subresource_range, texture_aspect_subresource_range, texture_subresource_range,
 };

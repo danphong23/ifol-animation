@@ -13,6 +13,7 @@ pub(crate) fn format_has_stencil(format: wgpu::TextureFormat) -> bool {
     )
 }
 
+#[expect(clippy::too_many_arguments, reason = "validation mirrors the explicit texture-copy contract")]
 pub(crate) fn validate_texture_copy(
     registry: &ResourceRegistry,
     source: TextureHandle,

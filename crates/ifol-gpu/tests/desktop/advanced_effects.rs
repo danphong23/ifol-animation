@@ -227,7 +227,7 @@ pub fn run_tc50() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, scifi.bind_group.clone(), Vec::new()),
+                .with_bind_group(0, scifi.bind_group, Vec::new()),
                 DrawCommand::new(
                     chroma,
                     DrawAction::Procedural {
@@ -235,7 +235,7 @@ pub fn run_tc50() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, sprite, Vec::new()),
             ],
         );
@@ -336,7 +336,7 @@ pub fn run_tc51() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, scifi.bind_group.clone(), Vec::new()),
+                .with_bind_group(0, scifi.bind_group, Vec::new()),
                 DrawCommand::new(
                     atlas,
                     DrawAction::Procedural {
@@ -344,7 +344,7 @@ pub fn run_tc51() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, paladin, Vec::new()),
                 DrawCommand::new(
                     atlas,
@@ -353,7 +353,7 @@ pub fn run_tc51() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, mage, Vec::new()),
             ],
         );
@@ -435,7 +435,7 @@ pub fn run_tc52() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, scifi.bind_group.clone(), Vec::new())
+                .with_bind_group(0, scifi.bind_group, Vec::new())
                 .with_bind_group(1, bg, Vec::new()),
                 DrawCommand::new(
                     sprite,
@@ -444,7 +444,7 @@ pub fn run_tc52() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, paladin, Vec::new()),
                 DrawCommand::new(
                     particle,
@@ -453,7 +453,7 @@ pub fn run_tc52() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, particle_bg, Vec::new()),
             ],
         );

@@ -66,7 +66,7 @@ fn run_tc10_fallback() {
         );
         let validation_result = h
             .executor
-            .execute_checked(&h.engine, &h.registry, &mut h.pool, &mut bad_graph);
+                .execute_checked(&h.engine, &h.registry, &mut h.pool, &bad_graph);
         let validation_error = validation_result.expect_err("TC10 must reject the missing bind group");
         assert_eq!(
             validation_error,

@@ -43,6 +43,7 @@ fn execute_graphs(
     (elapsed, raw.bytes)
 }
 
+#[expect(clippy::too_many_arguments, reason = "test report helper keeps evidence fields explicit")]
 fn write_result(
     h: &DesktopTestHarness,
     output: &str,
@@ -236,7 +237,7 @@ pub fn run_tc63() {
         let initial: Vec<Particle> = (0..COUNT)
             .map(|i| {
                 let t = i as f32 / COUNT as f32;
-                let angle = t * 6.2831853 * 4.0 + (i % 3) as f32 * 2.094;
+                let angle = t * std::f32::consts::TAU * 4.0 + (i % 3) as f32 * 2.094;
                 let radius = 0.15 + (i as f32 % 1000.0) / 1000.0 * 0.65;
                 Particle {
                     pos: [angle.cos() * radius, angle.sin() * radius],

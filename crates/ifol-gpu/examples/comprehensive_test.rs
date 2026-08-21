@@ -1182,8 +1182,8 @@ fn create_target(engine: &ifol_gpu::backend::GpuEngine) -> (wgpu::TextureView, w
     let bg_real_img = make_bg(3, TextureHandle(5)); // Texture 5 (RealImageBG)
 
     let bind_group_descriptor = BindGroupResourceDescriptor { dynamic_offset_count: 0, dynamic_offset_alignment: 0, layout_signature: 1 };
-    registry.insert_bind_group_with_descriptor(BindGroupHandle(1), bg_char, bind_group_descriptor.clone()).unwrap();
-    registry.insert_bind_group_with_descriptor(BindGroupHandle(2), bg_effect, bind_group_descriptor.clone()).unwrap();
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(1), bg_char, bind_group_descriptor).unwrap();
+    registry.insert_bind_group_with_descriptor(BindGroupHandle(2), bg_effect, bind_group_descriptor).unwrap();
     registry.insert_bind_group_with_descriptor(BindGroupHandle(3), bg_real_img, bind_group_descriptor).unwrap();
 
     // DỰNG ĐỒ THỊ ĐỆ QUY 3 CẤP ĐỘ (3-LEVEL RECURSIVE RENDER GRAPH)

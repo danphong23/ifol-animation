@@ -16,12 +16,12 @@ fn test_tc94_parallel_reduction() {
 
         // 1. Generate 1,000,000 floats on CPU host, with 1 special MAX value at index 543,210
         let mut input_data = vec![0.0f32; ELEMENT_COUNT];
-        for i in 0..ELEMENT_COUNT {
-            input_data[i] = ((i % 1000) as f32) * 0.1;
+        for (i, value) in input_data.iter_mut().enumerate() {
+            *value = ((i % 1000) as f32) * 0.1;
         }
         input_data[543_210] = 9999.5; // Expected MAX value!
 
-        let workgroups = ((ELEMENT_COUNT as u32) + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE; // 3907 workgroups
+        let workgroups = (ELEMENT_COUNT as u32).div_ceil(WORKGROUP_SIZE); // 3907 workgroups
         let output_data = vec![0.0f32; workgroups as usize];
 
         // 2. Allocate Buffers

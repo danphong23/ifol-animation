@@ -126,7 +126,7 @@ pub fn run() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, mage_bg, Vec::new()),
             ],
         );
@@ -147,7 +147,7 @@ pub fn run() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, mage_texture_bg.clone(), Vec::new())
+                .with_bind_group(0, mage_texture_bg, Vec::new())
                 .with_bind_group(1, bloom_bg, Vec::new()),
             ],
         );
@@ -168,7 +168,7 @@ pub fn run() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, scifi.bind_group.clone(), Vec::new()),
+                .with_bind_group(0, scifi.bind_group, Vec::new()),
             ],
         );
         final_graph.add_batch(

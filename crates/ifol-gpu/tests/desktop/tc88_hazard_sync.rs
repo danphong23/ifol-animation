@@ -140,8 +140,8 @@ fn test_tc88_hazard_sync() {
         }).with_clear_color([0.01, 0.01, 0.02, 1.0]);
 
         // Compute Pass: Write Texture
-        let wg_x = (TEX_WIDTH + 15) / 16;
-        let wg_y = (TEX_HEIGHT + 15) / 16;
+        let wg_x = TEX_WIDTH.div_ceil(16);
+        let wg_y = TEX_HEIGHT.div_ceil(16);
         graph.add_compute_batch(&mut pool, vec![
             ComputeCommand::new(compute_pipe_h, [wg_x, wg_y, 1])
                 .with_bind_group(0, compute_bg_h, Vec::new()),

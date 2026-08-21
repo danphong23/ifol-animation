@@ -137,8 +137,8 @@ fn test_tc74_yuv() {
 
         let mut graph = RenderGraph::new(RenderTarget::Offscreen { color: target_handle, width: w, height: h_img });
 
-        let wg_x = (w + 15) / 16;
-        let wg_y = (h_img + 15) / 16;
+        let wg_x = w.div_ceil(16);
+        let wg_y = h_img.div_ceil(16);
 
         graph.add_compute_batch(&mut h.pool, vec![
             ComputeCommand::new(p_h, [wg_x, wg_y, 1]).with_bind_group(0, bg_h, vec![]),

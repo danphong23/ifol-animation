@@ -208,7 +208,7 @@ fn run_tc17_outline() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, paladin_uniform, Vec::new()),
                 DrawCommand::new(
                     chroma_pipeline,

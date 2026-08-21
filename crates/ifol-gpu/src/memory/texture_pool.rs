@@ -24,6 +24,7 @@ pub struct TextureDescriptorKey {
 }
 
 impl TextureDescriptorKey {
+    #[expect(clippy::too_many_arguments, reason = "texture allocation key mirrors independent GPU descriptor fields")]
     pub fn new(
         width: u32,
         height: u32,

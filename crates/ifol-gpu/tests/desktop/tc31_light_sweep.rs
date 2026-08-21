@@ -131,7 +131,7 @@ fn run_tc31_light_sweep() {
                     instance_range: 0..1,
                 },
             )
-            .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
             .with_bind_group(1, sprite_bg, Vec::new())],
         );
         let clear = &graph["passes"][1]["clear_color"];

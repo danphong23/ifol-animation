@@ -76,6 +76,7 @@ pub(crate) fn encode_copy_command(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments, reason = "texture-copy coordinates are an explicit command contract")]
 fn encode_texture_copy(
     encoder: &mut wgpu::CommandEncoder,
     registry: &ResourceRegistry,

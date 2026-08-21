@@ -17,9 +17,9 @@ fn test_tc75_fft() {
         let freq2 = 5000.0; // High pitch
         
         let mut waveform = vec![0.0f32; 256];
-        for i in 0..256 {
+        for (i, sample) in waveform.iter_mut().enumerate() {
             let t = i as f32 / sample_rate;
-            waveform[i] = (2.0 * PI * freq1 * t).sin() * 0.6 + (2.0 * PI * freq2 * t).sin() * 0.4;
+            *sample = (2.0 * PI * freq1 * t).sin() * 0.6 + (2.0 * PI * freq2 * t).sin() * 0.4;
         }
 
         let (_wave_buf_h, wave_buf) = h.create_storage_buffer(&waveform, "waveform_buf", wgpu::BufferUsages::empty());

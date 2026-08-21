@@ -33,9 +33,9 @@ fn test_tc89_1m_particles() {
             let vy = x * 0.5;
 
             let hue = (i % 360) as f32 / 360.0;
-            let r = (hue * 6.28).sin() * 0.5 + 0.5;
-            let g = (hue * 6.28 + 2.09).sin() * 0.5 + 0.5;
-            let b = (hue * 6.28 + 4.18).sin() * 0.5 + 0.5;
+            let r = (hue * std::f32::consts::TAU).sin() * 0.5 + 0.5;
+            let g = (hue * std::f32::consts::TAU + 2.09).sin() * 0.5 + 0.5;
+            let b = (hue * std::f32::consts::TAU + 4.18).sin() * 0.5 + 0.5;
 
             host_particles.push(Particle {
                 pos: [x, y],
@@ -156,7 +156,7 @@ fn test_tc89_1m_particles() {
         }).with_clear_color([0.01, 0.02, 0.04, 1.0]);
 
         // Compute Pass: 15,625 Workgroups (1,000,000 Threads)
-        let workgroups = ((PARTICLE_COUNT as u32) + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+        let workgroups = (PARTICLE_COUNT as u32).div_ceil(WORKGROUP_SIZE);
         graph.add_compute_batch(&mut pool, vec![
             ComputeCommand::new(compute_pipe_h, [workgroups, 1, 1])
                 .with_bind_group(0, compute_bg_h, Vec::new()),

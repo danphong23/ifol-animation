@@ -9,6 +9,7 @@ use super::extension::dispatch_extension;
 use super::render_pass::{encode_draw_commands, with_render_pass};
 use super::{RenderGraphExecutor, RenderGraphValidationError};
 
+#[expect(clippy::too_many_arguments, reason = "target execution composes explicit graph services")]
 pub(crate) fn execute_ordered_target_nodes(
     executor: &RenderGraphExecutor,
     encoder: &mut wgpu::CommandEncoder,

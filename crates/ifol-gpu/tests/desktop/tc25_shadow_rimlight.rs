@@ -60,7 +60,7 @@ fn matrix4(value: &Value) -> [[f32; 4]; 4] {
         .as_array()
         .expect("TC25 matrix must be an array")
         .iter()
-        .map(|column| value4(column))
+        .map(value4)
         .collect::<Vec<_>>()
         .try_into()
         .expect("TC25 matrix must have four columns")

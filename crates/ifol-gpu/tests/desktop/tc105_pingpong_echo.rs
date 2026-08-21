@@ -48,7 +48,7 @@ fn test_tc105_pingpong_echo() {
             view_formats: &[],
         });
         let feedback_ping_h = ifol_gpu::resources::TextureHandle(310);
-        h.registry.insert_owned_texture(feedback_ping_h, feedback_ping_tex, ping_desc.clone(), 8192).unwrap();
+        h.registry.insert_owned_texture(feedback_ping_h, feedback_ping_tex, ping_desc, 8192).unwrap();
 
         let feedback_pong_tex = h.engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("feedback_pong_tex"),

@@ -69,7 +69,7 @@ fn test_tc99_video_nv12_pipeline() {
 
         // 2. Upload Y and UV Textures to GPU
         let y_tex = h.engine.device().create_texture_with_data(
-            &h.engine.queue(),
+            h.engine.queue(),
             &wgpu::TextureDescriptor {
                 label: Some("video_y_plane"),
                 size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
@@ -85,7 +85,7 @@ fn test_tc99_video_nv12_pipeline() {
         );
 
         let uv_tex = h.engine.device().create_texture_with_data(
-            &h.engine.queue(),
+            h.engine.queue(),
             &wgpu::TextureDescriptor {
                 label: Some("video_uv_plane"),
                 size: wgpu::Extent3d { width: uv_width, height: uv_height, depth_or_array_layers: 1 },

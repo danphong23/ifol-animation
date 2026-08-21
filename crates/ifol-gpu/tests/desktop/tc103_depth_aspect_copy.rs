@@ -47,7 +47,7 @@ fn test_tc103_depth_aspect_copy() {
             view_formats: &[],
         });
         let depth_src_h = TextureHandle(301);
-        h.registry.insert_owned_texture(depth_src_h, depth_src_tex, depth_desc.clone(), 8192).unwrap();
+        h.registry.insert_owned_texture(depth_src_h, depth_src_tex, depth_desc, 8192).unwrap();
 
         let depth_dst_tex = h.engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("depth_dst_tex"),

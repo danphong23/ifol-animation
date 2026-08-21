@@ -16,7 +16,7 @@ fn main() {
     let height = 600;
 
     let create_target = || {
-        let tex = engine.device().create_texture(&wgpu::TextureDescriptor {
+        engine.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("Target"),
             size: wgpu::Extent3d {
                 width,
@@ -29,8 +29,7 @@ fn main() {
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
-        });
-        tex
+        })
     };
 
     let z_target_tex = create_target();

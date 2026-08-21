@@ -119,7 +119,7 @@ fn run_tc01_empty() {
         &engine,
         &target_tex,
         wgpu::TextureFormat::Rgba8Unorm,
-        &path,
+        path,
     )
     .expect("Failed to save image");
 

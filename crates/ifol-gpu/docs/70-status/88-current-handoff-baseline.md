@@ -8,6 +8,7 @@ Tài liệu này dùng để bắt đầu chat/task mới mà không mất ý đ
 
 ```text
 cargo check -p ifol-gpu              PASS
+cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test -p ifol-gpu --lib        114 passed, 0 failed
 cargo test -p ifol-gpu --no-default-features --lib 114 passed, 0 failed
 cargo check -p ifol-gpu --examples --benches PASS (default features)

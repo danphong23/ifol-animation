@@ -10,6 +10,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
+#[expect(clippy::too_many_arguments, reason = "test fixture keeps sprite fields explicit")]
 fn sprite_uniform(
     pos: [f32; 2],
     scale: [f32; 2],
@@ -415,6 +416,7 @@ fn execute_mrt_and_graph(
     (elapsed, raw.bytes)
 }
 
+#[expect(clippy::too_many_arguments, reason = "test report helper keeps MRT evidence explicit")]
 fn record_mrt(
     h: &mut DesktopTestHarness,
     mrt_pipeline: &wgpu::RenderPipeline,

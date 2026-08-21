@@ -110,7 +110,7 @@ fn test_tc86_compute_oob() {
         let compute_bg_h = h.insert_bind_group(compute_bg, 1);
 
         // 4. Dispatch Compute (16 Workgroups = 1024 threads > 1000 valid count)
-        let workgroups = ((TOTAL_SLOTS as u32) + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+        let workgroups = (TOTAL_SLOTS as u32).div_ceil(WORKGROUP_SIZE);
         let mut pool = RenderNodePool::new();
         let (target_h, target_tex) = h.create_target("tc86_target");
 
@@ -153,12 +153,12 @@ fn test_tc86_compute_oob() {
             if diff < 1e-4 { matched_valid += 1; }
         }
 
-        let mut untouched_padding = 0;
-        for i in VALID_COUNT..TOTAL_SLOTS {
-            if actual_dst[i] == 0.0 {
-                untouched_padding += 1;
-            }
-        }
+        let untouched_padding = actual_dst
+            .iter()
+            .take(TOTAL_SLOTS)
+            .skip(VALID_COUNT)
+            .filter(|&&value| value == 0.0)
+            .count();
 
         assert_eq!(matched_valid, VALID_COUNT, "All 1,000 valid elements must match calculation!");
         assert_eq!(untouched_padding, TOTAL_SLOTS - VALID_COUNT, "All 24 padding slots must remain untouched 0.0!");

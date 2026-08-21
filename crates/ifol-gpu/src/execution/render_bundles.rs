@@ -4,6 +4,7 @@ use crate::resources::ResourceRegistry;
 use super::bundle_key::bundle_cache_key;
 use super::validation::{bind_group_slot_index, RenderGraphValidationError};
 
+#[expect(clippy::too_many_arguments, reason = "render preparation receives independent execution services")]
 pub(crate) fn update_render_bundles(
     device: &wgpu::Device,
     pool: &mut RenderNodePool,
@@ -158,6 +159,7 @@ pub(crate) fn update_render_bundles(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments, reason = "render preparation receives independent execution services")]
 pub(crate) fn prepare_render_nodes(
     device: &wgpu::Device,
     pool: &mut RenderNodePool,

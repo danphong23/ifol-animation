@@ -71,7 +71,7 @@ fn test_tc98_ring_buffer_stress() {
                 _pad2: 0.0,
             };
 
-            let offset = ring.write(&h.engine.queue(), &sprite).expect("write to ring buffer");
+            let offset = ring.write(h.engine.queue(), &sprite).expect("write to ring buffer");
             dynamic_offsets.push(offset as u32);
         }
 

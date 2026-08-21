@@ -458,6 +458,7 @@ impl<'a> DesktopTestHarness<'a> {
         }
     }
 
+    #[expect(clippy::too_many_arguments, reason = "test helper mirrors explicit sprite fixture fields")]
     pub fn build_sprite_uniform(
         &self,
         tex_info: &LoadedTextureInfo,
@@ -1663,7 +1664,7 @@ impl<'a> DesktopTestHarness<'a> {
                 id,
                 buffer.clone(),
                 ifol_gpu::resources::BufferResourceDescriptor {
-                    size: (data.len() * std::mem::size_of::<T>()) as u64,
+                    size: std::mem::size_of_val(data) as u64,
                     usage: wgpu::BufferUsages::STORAGE
                         | wgpu::BufferUsages::COPY_SRC
                         | wgpu::BufferUsages::COPY_DST

@@ -44,6 +44,7 @@ struct KawaseUniform {
     _pad1: f32,
 }
 
+#[allow(dead_code, reason = "shared module is compiled by three separate test binaries")]
 pub fn run_tc53() {
     let _ = env_logger::builder().is_test(true).try_init();
     pollster::block_on(async {
@@ -100,6 +101,7 @@ pub fn run_tc53() {
     });
 }
 
+#[allow(dead_code, reason = "shared module is compiled by three separate test binaries")]
 pub fn run_tc54() {
     let _ = env_logger::builder().is_test(true).try_init();
     pollster::block_on(async {
@@ -261,7 +263,7 @@ pub fn run_tc54() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, scifi.bind_group.clone(), Vec::new())
+                .with_bind_group(0, scifi.bind_group, Vec::new())
                 .with_bind_group(1, uniform, Vec::new()),
             ],
         );
@@ -277,6 +279,7 @@ pub fn run_tc54() {
     });
 }
 
+#[allow(dead_code, reason = "shared module is compiled by three separate test binaries")]
 pub fn run_tc55() {
     let _ = env_logger::builder().is_test(true).try_init();
     pollster::block_on(async {
@@ -364,8 +367,8 @@ pub fn run_tc55() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
-                .with_bind_group(1, mage.clone(), Vec::new()),
+                .with_bind_group(0, heroes.bind_group, Vec::new())
+                .with_bind_group(1, mage, Vec::new()),
             ],
         );
         let mut down = RenderGraph::new(RenderTarget::Offscreen {
@@ -384,8 +387,8 @@ pub fn run_tc55() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, mage_bg.clone(), Vec::new())
-                .with_bind_group(1, kawase_uniform.clone(), Vec::new()),
+                .with_bind_group(0, mage_bg, Vec::new())
+                .with_bind_group(1, kawase_uniform, Vec::new()),
             ],
         );
         let mut composite = RenderGraph::new(RenderTarget::Offscreen {
@@ -404,7 +407,7 @@ pub fn run_tc55() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, scifi.bind_group.clone(), Vec::new()),
+                .with_bind_group(0, scifi.bind_group, Vec::new()),
             ],
         );
         composite.add_batch(

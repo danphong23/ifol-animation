@@ -8,6 +8,7 @@ use super::counts::execution_counts_for_graph;
 use super::flat_compile::compile_flat_graph;
 use super::{ExecutionReport, ProfiledExecution, RenderGraphExecutor, RenderGraphProfilingError};
 
+#[expect(clippy::too_many_arguments, reason = "profiling keeps execution and timestamp resources explicit")]
 pub(crate) fn execute_timestamped(
     executor: &RenderGraphExecutor,
     engine: &GpuEngine,
@@ -18,7 +19,7 @@ pub(crate) fn execute_timestamped(
     profiler: &mut TimestampQueryPool,
     resolve_buffer: &wgpu::Buffer,
     resolve_offset: u64,
-    mut tracker: Option<&mut SubmissionTracker>,
+    tracker: Option<&mut SubmissionTracker>,
 ) -> Result<ProfiledExecution, RenderGraphProfilingError> {
     executor.validate_with_device(engine, registry, pool, graph)?;
     let (
@@ -47,7 +48,7 @@ pub(crate) fn execute_timestamped(
     )?;
     profiler.write_span(&mut encoder, span)?;
     profiler.resolve_span(&mut encoder, span, resolve_buffer, resolve_offset)?;
-    let tracking_submission = if let Some(tracker) = tracker.as_deref_mut() {
+    let tracking_submission = if let Some(tracker) = tracker {
         let submission = tracker.begin();
         profiler.mark_submitted(submission)?;
         Some(submission)

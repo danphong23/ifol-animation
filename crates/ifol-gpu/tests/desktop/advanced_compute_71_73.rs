@@ -76,6 +76,7 @@ fn compare_warm_output(cold: &[u8], warm: &[u8]) -> WarmComparison {
     }
 }
 
+#[expect(clippy::too_many_arguments, reason = "test report helper keeps evidence fields explicit")]
 fn write_result(
     h: &DesktopTestHarness,
     output: &str,

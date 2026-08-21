@@ -47,7 +47,7 @@ fn test_tc81_separable_blur() {
         let bg_hpass = h.engine.device().create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bg_hpass"), layout: &compute_bgl,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&src_view) },
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(src_view) },
                 wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&inter_view) },
                 wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding { buffer: &h_buf, offset: 0, size: None }) },
             ],
@@ -120,8 +120,8 @@ fn test_tc81_separable_blur() {
 
         let mut graph = RenderGraph::new(RenderTarget::Offscreen { color: target_handle, width: 800, height: 600 });
         
-        let dispatch_x = (src_tex_info.width + 15) / 16;
-        let dispatch_y = (src_tex_info.height + 15) / 16;
+        let dispatch_x = src_tex_info.width.div_ceil(16);
+        let dispatch_y = src_tex_info.height.div_ceil(16);
 
         // Dispatch Compute H
         graph.add_compute_batch(&mut h.pool, vec![

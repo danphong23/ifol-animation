@@ -244,7 +244,7 @@ pub fn run(effect: Effect) {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, sprite_bg, Vec::new()),
             ],
         );

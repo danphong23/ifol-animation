@@ -1,4 +1,4 @@
-use super::graph::RenderGraph;
+use super::render_graph::RenderGraph;
 use super::usage::buffer_subresource_range;
 use super::{GraphResource, ResourceAccess, ResourceSubresource, ResourceUsage, TextureAspect};
 use crate::resources::handle::{BufferHandle, RenderNodeId, TextureHandle};
@@ -43,6 +43,7 @@ impl RenderGraph {
             });
     }
 
+    #[expect(clippy::too_many_arguments, reason = "public graph contract keeps subresource coordinates explicit")]
     pub fn declare_texture_subresource_range_usage(
         &mut self,
         node: RenderNodeId,
@@ -91,6 +92,7 @@ impl RenderGraph {
             });
     }
 
+    #[expect(clippy::too_many_arguments, reason = "public graph contract keeps aspect and subresource coordinates explicit")]
     pub fn declare_texture_aspect_range_usage(
         &mut self,
         node: RenderNodeId,

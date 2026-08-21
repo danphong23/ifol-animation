@@ -104,8 +104,8 @@ fn test_tc83_eulerian_fluid() {
 
         let mut graph = RenderGraph::new(RenderTarget::Offscreen { color: target_handle, width, height });
         
-        let dispatch_x = (width + 15) / 16;
-        let dispatch_y = (height + 15) / 16;
+        let dispatch_x = width.div_ceil(16);
+        let dispatch_y = height.div_ceil(16);
 
         graph.add_compute_batch(&mut h.pool, vec![
             ComputeCommand::new(compute_pipe_h, [dispatch_x, dispatch_y, 1]).with_bind_group(0, bg_compute_h, vec![]),

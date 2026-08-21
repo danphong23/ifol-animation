@@ -263,7 +263,7 @@ fn test_tc102_buffer_copy() {
 
         // Compute Node
         let node_compute = pool.alloc_compute_batch(vec![
-            ComputeCommand::new(compute_pipe_h, [(total_vertices as u32 + 63) / 64, 1, 1])
+            ComputeCommand::new(compute_pipe_h, [(total_vertices as u32).div_ceil(64), 1, 1])
                 .with_bind_group(0, compute_bg_h, Vec::new()),
         ]);
         graph.add_node_id(node_compute);

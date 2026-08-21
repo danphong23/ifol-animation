@@ -10,6 +10,7 @@ use super::{ProfiledExecution, RenderGraphExecutor, RenderGraphProfilingError};
 impl RenderGraphExecutor {
     /// Thực thi graph và ghi một span timestamp bao quanh toàn bộ flat/compile
     /// boundary. Đây là API opt-in; graph thông thường không chịu overhead này.
+    #[expect(clippy::too_many_arguments, reason = "public profiling API keeps timestamp resources explicit")]
     pub fn execute_checked_with_timestamp(
         &self,
         engine: &GpuEngine,
@@ -37,6 +38,7 @@ impl RenderGraphExecutor {
     /// Biên dịch và submit graph có profiling, đồng thời đăng ký query pool với
     /// `SubmissionTracker` trước khi submit. Host vẫn chịu trách nhiệm gọi
     /// `mark_completed` khi GPU hoàn tất submission.
+    #[expect(clippy::too_many_arguments, reason = "public profiling API keeps tracking resources explicit")]
     pub fn execute_checked_with_timestamp_tracked(
         &self,
         engine: &GpuEngine,
@@ -62,6 +64,7 @@ impl RenderGraphExecutor {
         )
     }
 
+    #[expect(clippy::too_many_arguments, reason = "surface profiling API keeps timestamp resources explicit")]
     pub fn execute_with_surface_checked_with_timestamp(
         &self,
         engine: &GpuEngine,
@@ -88,6 +91,7 @@ impl RenderGraphExecutor {
     }
 
     /// Bản profiling có surface và lifecycle submission được tracker quản lý.
+    #[expect(clippy::too_many_arguments, reason = "surface profiling API keeps tracking resources explicit")]
     pub fn execute_with_surface_checked_with_timestamp_tracked(
         &self,
         engine: &GpuEngine,

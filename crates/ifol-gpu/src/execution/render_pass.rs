@@ -7,6 +7,7 @@ use super::validation::{format_has_stencil, RenderGraphValidationError};
 mod draw;
 pub(crate) use draw::encode_draw_commands;
 
+#[expect(clippy::too_many_arguments, reason = "render-pass attachments and policy remain explicit")]
 pub(crate) fn with_render_pass<T>(
     encoder: &mut wgpu::CommandEncoder,
     color_view: &wgpu::TextureView,
@@ -50,6 +51,7 @@ pub(crate) fn with_render_pass<T>(
     encode(&mut render_pass)
 }
 
+#[expect(clippy::too_many_arguments, reason = "render encoding receives explicit graph execution context")]
 pub(crate) fn encode_graph_render_pass(
     encoder: &mut wgpu::CommandEncoder,
     pool: &RenderNodePool,

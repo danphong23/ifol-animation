@@ -127,7 +127,7 @@ fn test_tc90_atomic_histogram() {
         }).with_clear_color([0.02, 0.03, 0.05, 1.0]);
 
         // Compute Pass: 400 Workgroups (102,400 Threads)
-        let workgroups = ((THREAD_COUNT as u32) + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE; // 400
+        let workgroups = (THREAD_COUNT as u32).div_ceil(WORKGROUP_SIZE); // 400
         graph.add_compute_batch(&mut pool, vec![
             ComputeCommand::new(compute_pipe_h, [workgroups, 1, 1])
                 .with_bind_group(0, compute_bg_h, Vec::new()),

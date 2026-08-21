@@ -1,5 +1,5 @@
 use super::flatten::{FlatRenderNode, FlatRenderPlan, GraphDependency, GraphFlattenError};
-use super::graph::RenderGraph;
+use super::render_graph::RenderGraph;
 use super::usage::usages_conflict;
 use super::{RenderNode, RenderNodePool, ResourceUsage};
 use crate::resources::handle::RenderNodeId;

@@ -131,7 +131,7 @@ fn test_tc77_compute_skinning() {
 
         let mut graph = RenderGraph::new(RenderTarget::Offscreen { color: target_handle, width: 800, height: 600 });
         
-        let wg_x = (count + 63) / 64;
+        let wg_x = count.div_ceil(64);
         graph.add_compute_batch(&mut h.pool, vec![
             ComputeCommand::new(compute_pipe_h, [wg_x, 1, 1]).with_bind_group(0, compute_bg_h, vec![]),
         ]);

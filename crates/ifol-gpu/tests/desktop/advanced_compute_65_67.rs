@@ -39,6 +39,7 @@ fn execute_graph(
     (elapsed, bytes)
 }
 
+#[expect(clippy::too_many_arguments, reason = "test report helper keeps evidence fields explicit")]
 fn write_result(
     h: &DesktopTestHarness,
     output: &str,

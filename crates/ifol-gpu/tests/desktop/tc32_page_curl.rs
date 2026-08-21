@@ -186,7 +186,7 @@ fn run_tc32_page_curl() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, noise.bind_group.clone(), Vec::new())
+                .with_bind_group(0, noise.bind_group, Vec::new())
                 .with_bind_group(1, sky_a_bg, Vec::new()),
                 DrawCommand::new(
                     chroma_pipeline,
@@ -195,7 +195,7 @@ fn run_tc32_page_curl() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, paladin_bg, Vec::new()),
             ],
         );
@@ -215,7 +215,7 @@ fn run_tc32_page_curl() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, noise.bind_group.clone(), Vec::new())
+                .with_bind_group(0, noise.bind_group, Vec::new())
                 .with_bind_group(1, sky_b_bg, Vec::new()),
                 DrawCommand::new(
                     chroma_pipeline,
@@ -224,7 +224,7 @@ fn run_tc32_page_curl() {
                         instance_range: 0..1,
                     },
                 )
-                .with_bind_group(0, heroes.bind_group.clone(), Vec::new())
+                .with_bind_group(0, heroes.bind_group, Vec::new())
                 .with_bind_group(1, mage_bg, Vec::new()),
             ],
         );

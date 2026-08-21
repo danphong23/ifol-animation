@@ -18,8 +18,9 @@ mod node_pool;
 mod nodes;
 pub use node_pool::RenderNodePool;
 pub use nodes::RenderNode;
-mod graph;
-pub use graph::RenderGraph;
+#[path = "graph.rs"]
+mod render_graph;
+pub use render_graph::RenderGraph;
 
 /// ═══════════════════════════════════════════════════════════
 /// ĐÍCH ĐẾN (RenderTarget) — "Bức tranh sẽ in lên đâu?"

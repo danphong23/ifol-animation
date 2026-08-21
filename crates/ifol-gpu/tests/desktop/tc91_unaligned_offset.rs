@@ -176,7 +176,7 @@ fn test_tc91_unaligned_offset() {
         let render_pipe_h = h.insert_pipeline(render_pipeline, vec![Some(2)]);
 
         // 3. Build Graph
-        let workgroups = ((VALID_COUNT as u32) + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE; // 5 workgroups
+        let workgroups = (VALID_COUNT as u32).div_ceil(WORKGROUP_SIZE); // 5 workgroups
         let mut pool = RenderNodePool::new();
         let (target_h, target_tex) = h.create_target("tc91_target");
 
@@ -215,12 +215,12 @@ fn test_tc91_unaligned_offset() {
             }
         }
 
-        let mut untouched_padding = 0;
-        for i in VALID_COUNT..TOTAL_SLOTS {
-            if actual_dst[i] == 0.0 {
-                untouched_padding += 1;
-            }
-        }
+        let untouched_padding = actual_dst
+            .iter()
+            .take(TOTAL_SLOTS)
+            .skip(VALID_COUNT)
+            .filter(|&&value| value == 0.0)
+            .count();
 
         assert_eq!(matched_valid, VALID_COUNT, "All 301 unaligned valid items must match!");
         assert_eq!(untouched_padding, TOTAL_SLOTS - VALID_COUNT, "All 19 padding slots must remain untouched 0.0!");

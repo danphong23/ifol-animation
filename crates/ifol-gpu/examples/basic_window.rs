@@ -209,9 +209,10 @@ impl<'a> ApplicationHandler for App<'a> {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
-        if let Some(engine) = &self.engine {
-            if let Some(window) = &self.window {
-                if window_id == window.id() {
+        if let Some(engine) = &self.engine
+            && let Some(window) = &self.window
+            && window_id == window.id()
+        {
                     match event {
                         WindowEvent::CloseRequested => {
                             event_loop.exit();
@@ -253,8 +254,6 @@ impl<'a> ApplicationHandler for App<'a> {
                         }
                         _ => {}
                     }
-                }
-            }
         }
     }
 }

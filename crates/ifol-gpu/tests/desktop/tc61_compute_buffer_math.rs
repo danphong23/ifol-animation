@@ -160,7 +160,7 @@ fn test_tc61_compute_buffer_math() {
             h.register_compute_pipeline("compute_buffer_math.wgsl", &[&compute_bg_layout]);
 
         // 5. Build Compute Graph & Execute
-        let workgroups = ((ELEMENT_COUNT as u32) + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+        let workgroups = (ELEMENT_COUNT as u32).div_ceil(WORKGROUP_SIZE);
         let mut pool = RenderNodePool::new();
         let (target_handle, target_tex) = h.create_target("tc61_plot_target");
 
