@@ -1,8 +1,9 @@
 //! Dynamic Reconfiguration subsystem.
 //!
-//! Enables modifying the set of registered packages and recompiling the ECS
-//! schedule at runtime without losing active state or leaving the runtime
-//! in a partial faulted state if the new configuration is invalid.
+//! Enables replacing the active package composition and recompiling the ECS
+//! schedule at runtime. The replacement is staged before publication, but it
+//! currently creates a fresh ECS runtime; entity/component state is therefore
+//! not preserved unless a future explicit state-transfer contract is added.
 
 mod plan;
 mod transaction;

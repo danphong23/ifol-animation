@@ -90,10 +90,12 @@ ngược; không dựa vào global mutable static.
 - `clear_scene`: đóng active scene và giữ package/runtime resources;
 - project container lifecycle thuộc host/session boundary; engine không đọc,
   ghi hoặc unload filesystem;
-- `reconfigure`: chuẩn bị runtime mới hoặc transactional delta rồi publish khi
-  compile thành công; ECS, command/schema/migration registry và package lock
-  được swap cùng một commit, lỗi staging giữ nguyên runtime cũ; lỗi teardown
-  provider chuyển runtime sang `Faulted` vì external side effect không rollback;
+- `reconfigure`: chuẩn bị một runtime ECS mới và publish khi compile thành công;
+  ECS, command/schema/migration registry và package lock được swap cùng một
+  commit, lỗi staging giữ nguyên runtime cũ; lỗi teardown provider chuyển runtime
+  sang `Faulted` vì external side effect không rollback. Đây là composition
+  replacement, chưa phải state migration: entity/component state của ECS cũ
+  không được tự động giữ lại;
 - `shutdown`: ngăn step mới, drain/cancel job theo policy, drop root resources,
   shutdown ECS và trả report.
 

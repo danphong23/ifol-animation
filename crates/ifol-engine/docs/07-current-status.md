@@ -16,7 +16,8 @@
 - scene document generic, schema codec, migration và opaque preservation;
 - scene session với `SceneId`, load-new-before-replace và `clear_scene`;
 - atomic batch-write boundary cho project storage;
-- dynamic reconfiguration qua một candidate transaction đã được caller chuẩn bị;
+- dynamic reconfiguration qua một candidate transaction đã được caller chuẩn bị
+  (composition replacement trên ECS runtime mới, chưa có state migration);
 - một `step()` hữu hạn; host sở hữu loop, timing, window và platform events.
 
 Engine không biết asset, render, shader, animation, input, game hay editor.
@@ -48,8 +49,9 @@ cargo test -p ifol-engine --doc                            PASS
 cargo check -p ifol-engine --no-default-features --all-targets PASS
 ```
 
-Test suite bao gồm 34 unit tests, integration slice 01–04, 06–10, 12–14 và
-3 project integration tests; có rollback, deterministic resolver chain 256
+Test suite engine bao gồm 34 unit tests và 88 integration tests ở slice 01–04,
+06–10, 12–14. `ifol-project` có thêm 4 unit tests và 6 project acceptance
+tests chạy xuyên boundary project -> engine; có rollback, deterministic resolver chain 256
 package, scene replacement, malformed input, opaque record preservation và
 project-to-engine headless bootstrap.
 
@@ -60,3 +62,10 @@ khớp source hiện hành, và không còn package/feature production cụ th�
 vào engine core. Sau boundary này, mở rộng phải diễn ra bằng package độc lập như
 `ifol-name`, `ifol-hierarchy`, `ifol-transform`, `ifol-shape`, `ifol-gpu` hoặc
 provider tương ứng.
+
+Project acceptance command:
+
+```text
+cargo test -p ifol-project --test project_acceptance
+cargo doc -p ifol-engine -p ifol-project --no-deps
+```

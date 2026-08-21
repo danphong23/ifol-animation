@@ -139,3 +139,26 @@ WASM gate chỉ được đánh dấu supported khi dependency set thực tế c
 - deterministic resolver phải pass trên dependency graph lớn, không chỉ fixture nhỏ.
 
 Trạng thái pass mới nhất được ghi tại [07-current-status.md](07-current-status.md).
+
+## 6. Project acceptance suite
+
+Các test chạy qua `ifol-project` để mô phỏng đúng boundary của host: project
+đọc manifest/lock từ storage, chuyển thành `EngineConfig`, rồi tạo runtime.
+Phân bổ test và report:
+
+```text
+crates/ifol-project/tests/project_acceptance.rs
+crates/ifol-project/tests/reports/
+  README.md
+  tc01-bootstrap.md
+  tc02-lock-and-closure.md
+  tc03-package-registration-and-step.md
+  tc04-scene-lifecycle.md
+  tc05-reconfiguration-boundary.md
+  tc06-failure-and-shutdown.md
+```
+
+TC05 cố ý kiểm tra giới hạn hiện tại: reconfigure thay thế ECS runtime nên
+không bảo toàn entity/component state. Đây là contract phải giữ rõ ràng cho
+đến khi có state-transfer API riêng; không được giả định rằng unregister live
+đã tồn tại chỉ vì package composition có thể được thay thế.
