@@ -7,73 +7,8 @@
 
 use super::PackageId;
 use super::manifest::{PackageDependency, PackageManifest};
-use super::version::Version;
+use super::resolution::{PackageLock, ResolveError, ResolvedPackage};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use thiserror::Error;
-
-/// Errors produced by the package resolver.
-#[derive(Debug, Error, PartialEq, Eq, Clone)]
-pub enum ResolveError {
-    #[error("duplicate package ID: '{0}'")]
-    DuplicateId(String),
-
-    #[error("missing dependency: package '{from}' requires '{dep}' which is not available")]
-    MissingDependency { from: String, dep: String },
-
-    #[error("required root package '{0}' is not available")]
-    MissingRoot(String),
-
-    #[error(
-        "version conflict: package '{from}' requires '{dep}' {required}, but available is {available}"
-    )]
-    VersionConflict {
-        from: String,
-        dep: String,
-        required: String,
-        available: String,
-    },
-
-    #[error("dependency cycle detected involving: {0}")]
-    CycleDetected(String),
-}
-
-/// A successfully resolved package in the lock.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedPackage {
-    /// The package ID.
-    pub id: PackageId,
-    /// The resolved version.
-    pub version: Version,
-    /// Resolved dependency IDs (subset of the lock).
-    pub dependencies: Vec<PackageId>,
-}
-
-/// The lock result: an ordered list of resolved packages.
-///
-/// Packages are in topological dependency order (dependencies before
-/// dependants). The order is deterministic.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PackageLock {
-    /// Packages in topological order.
-    pub packages: Vec<ResolvedPackage>,
-}
-
-impl PackageLock {
-    /// Returns the number of resolved packages.
-    pub fn len(&self) -> usize {
-        self.packages.len()
-    }
-
-    /// Returns `true` if no packages were resolved.
-    pub fn is_empty(&self) -> bool {
-        self.packages.is_empty()
-    }
-
-    /// Finds a resolved package by ID.
-    pub fn find(&self, id: &PackageId) -> Option<&ResolvedPackage> {
-        self.packages.iter().find(|p| &p.id == id)
-    }
-}
 
 /// Deterministic dependency resolver.
 pub struct PackageResolver {
@@ -269,6 +204,7 @@ impl Default for PackageResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::package::Version;
     use crate::package::version::VersionReq;
 
     fn make_manifest(id: &str, ver: (u32, u32, u32)) -> PackageManifest {

@@ -5,13 +5,15 @@
 //! dependency resolution with cycle detection, and the lock result format.
 
 mod manifest;
+mod resolution;
 mod resolver;
 mod version;
 
 pub use manifest::{
     EnginePackage, PackageDependency, PackageError, PackageManifest, PackageRegistration,
 };
-pub use resolver::{PackageLock, PackageResolver, ResolveError, ResolvedPackage};
+pub use resolution::{PackageLock, ResolveError, ResolvedPackage};
+pub use resolver::PackageResolver;
 pub use version::{Version, VersionReq};
 
 use std::fmt;
