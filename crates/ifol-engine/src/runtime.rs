@@ -16,6 +16,8 @@ use std::collections::BTreeSet;
 
 #[path = "runtime/inspection.rs"]
 mod inspection;
+#[path = "runtime/reconfiguration.rs"]
+mod reconfiguration;
 #[path = "runtime/scene.rs"]
 mod scene;
 
@@ -82,85 +84,6 @@ impl EngineRuntime {
             state: EngineState::Ready,
             revision: 0,
         }
-    }
-
-    // ── Dynamic Reconfiguration ─────────────────────────────────────
-
-    /// Dynamically replaces the active packages and schedule using an atomic
-    /// stage-and-swap transaction.
-    ///
-    /// Registration, schedule compilation, or candidate-provider initialization
-    /// failures leave the live runtime untouched and in `Ready`. If an active
-    /// provider teardown fails, external side effects cannot be rolled back;
-    /// the runtime transitions to `Faulted` and refuses further stepping.
-    pub fn reconfigure(
-        &mut self,
-        request: crate::reconfiguration::ReconfigurationRequest,
-    ) -> Result<crate::reconfiguration::ReconfigurationReport, EngineError> {
-        self.require_state(EngineState::Ready, "reconfigure")?;
-
-        let crate::reconfiguration::ReconfigurationRequest {
-            transaction,
-            command_registry,
-            schemas,
-            migrations,
-            provider_manager,
-            namespaces,
-            package_lock: new_lock,
-            added_packages,
-            removed_packages,
-        } = request;
-
-        // 1. Build a fresh staging runtime. ECS world state is deliberately
-        // not copied: reconfiguration is composition replacement, not a live
-        // entity migration operation.
-        let staging_ecs = ifol_ecs::EcsRuntime::new();
-        let staging_cmd_reg = command_registry;
-
-        // 2. Commit transaction onto staging ECS
-        let (
-            mut staging_ecs,
-            staging_cmd_reg,
-            staging_schemas,
-            staging_migrations,
-            mut provider_manager,
-            staging_namespaces,
-        ) = transaction.commit(
-            staging_ecs,
-            staging_cmd_reg,
-            schemas,
-            migrations,
-            provider_manager,
-            namespaces,
-        )?;
-        provider_manager.init_all(&mut staging_ecs)?;
-
-        // Provider teardown is the external side-effect boundary. It cannot be
-        // rolled back if a provider itself reports failure, so fault the
-        // runtime and refuse further stepping instead of publishing a partial
-        // replacement.
-        if let Err(error) = self.provider_manager.teardown_all(&mut self.ecs) {
-            let _ = provider_manager.teardown_all(&mut staging_ecs);
-            self.state = EngineState::Faulted;
-            return Err(EngineError::Provider(error));
-        }
-
-        // 3. Swap only after all fallible staging and old-provider teardown.
-        self.ecs = staging_ecs;
-        self.command_registry = staging_cmd_reg;
-        self.schemas = staging_schemas;
-        self.migrations = staging_migrations;
-        self.namespaces = staging_namespaces;
-        self.provider_manager = provider_manager;
-        self.package_lock = new_lock.clone();
-        self.revision = self.revision.wrapping_add(1);
-
-        Ok(crate::reconfiguration::ReconfigurationReport {
-            added_packages,
-            removed_packages,
-            new_lock,
-            revision: self.revision,
-        })
     }
 
     // ── Step ────────────────────────────────────────────────────────
